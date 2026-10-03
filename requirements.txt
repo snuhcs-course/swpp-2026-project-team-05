@@ -1,2 +1,5 @@
 google-genai
 trafilatura
+Django>=5.2.8,<5.3
+gunicorn>=23,<24
+truststore>=0.10.4,<1
