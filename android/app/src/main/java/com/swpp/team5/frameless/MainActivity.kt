@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -41,9 +43,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val ScreenBackground = Color(0xFFF7F9FC)
 private val Navy = Color(0xFF172A46)
@@ -60,24 +66,6 @@ private enum class AppScreen {
     OVERVIEW,
     CLAIM_DETAIL
 }
-
-private enum class ClaimType {
-    SHARED,
-    DIFFERENT
-}
-
-private data class SourcePassage(
-    val outlet: String,
-    val excerpt: String,
-    val url: String? = null
-)
-
-private data class ClaimPreview(
-    val type: ClaimType,
-    val summary: String,
-    val explanation: String,
-    val passages: List<SourcePassage>
-)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,17 +90,29 @@ private fun FrameLESSApp() {
     var articleUrl by rememberSaveable { mutableStateOf("") }
     var urlError by rememberSaveable { mutableStateOf<String?>(null) }
     var loadingMessage by remember { mutableStateOf("") }
+    var analysis by remember { mutableStateOf<AnalysisResult?>(null) }
     var selectedClaim by remember { mutableStateOf<ClaimPreview?>(null) }
 
     LaunchedEffect(screen) {
         if (screen == AppScreen.LOADING) {
             loadingMessage = "기사에서 핵심 사건을 파악하고 있어요."
-            delay(900)
-
-            loadingMessage = "같은 사건을 다룬 보도를 비교하고 있어요."
-            delay(1100)
-
-            screen = AppScreen.OVERVIEW
+            val progress = launch {
+                delay(4_000)
+                loadingMessage = "같은 사건을 다룬 보도를 찾고 있어요."
+                delay(8_000)
+                loadingMessage = "원문 문장과 표현을 비교하고 있어요. 잠시만 기다려줘."
+            }
+            try {
+                analysis = AnalysisApi.analyze(articleUrl)
+                screen = AppScreen.OVERVIEW
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                urlError = error.message ?: "기사를 분석하지 못했어. 다시 시도해줘."
+                screen = AppScreen.INPUT
+            } finally {
+                progress.cancel()
+            }
         }
     }
 
@@ -132,6 +132,7 @@ private fun FrameLESSApp() {
                         urlError = "http:// 또는 https://로 시작하는 기사 주소를 입력해줘."
                     } else {
                         articleUrl = trimmedUrl
+                        analysis = null
                         selectedClaim = null
                         screen = AppScreen.LOADING
                     }
@@ -142,30 +143,31 @@ private fun FrameLESSApp() {
         AppScreen.LOADING -> LoadingScreen(loadingMessage)
 
         AppScreen.OVERVIEW -> {
-            ComparisonOverviewScreen(
-                articleUrl = articleUrl,
-                onClaimSelected = {
-                    selectedClaim = it
-                    screen = AppScreen.CLAIM_DETAIL
-                },
-                onStartOver = {
-                    articleUrl = ""
-                    urlError = null
-                    selectedClaim = null
-                    screen = AppScreen.INPUT
-                }
-            )
+            analysis?.let { result ->
+                ComparisonOverviewScreen(
+                    analysis = result,
+                    onClaimSelected = {
+                        selectedClaim = it
+                        screen = AppScreen.CLAIM_DETAIL
+                    },
+                    onStartOver = {
+                        articleUrl = ""
+                        urlError = null
+                        analysis = null
+                        selectedClaim = null
+                        screen = AppScreen.INPUT
+                    }
+                )
+            }
         }
 
         AppScreen.CLAIM_DETAIL -> {
-            val fallbackClaim = exampleClaims(articleUrl).first()
-
-            ClaimDetailScreen(
-                claim = selectedClaim ?: fallbackClaim,
-                onBack = {
-                    screen = AppScreen.OVERVIEW
-                }
-            )
+            selectedClaim?.let { claim ->
+                ClaimDetailScreen(
+                    claim = claim,
+                    onBack = { screen = AppScreen.OVERVIEW }
+                )
+            }
         }
     }
 }
@@ -236,6 +238,12 @@ private fun InputScreen(
                             Text("https://news.example.com/article")
                         },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Go
+                        ),
+                        keyboardActions = KeyboardActions(onGo = { onAnalyze() }),
                         isError = errorMessage != null,
                         supportingText = {
                             if (errorMessage != null) {
@@ -302,13 +310,12 @@ private fun LoadingScreen(message: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ComparisonOverviewScreen(
-    articleUrl: String,
+    analysis: AnalysisResult,
     onClaimSelected: (ClaimPreview) -> Unit,
     onStartOver: () -> Unit
 ) {
-    val claims = remember(articleUrl) { exampleClaims(articleUrl) }
-    val sharedClaims = claims.filter { it.type == ClaimType.SHARED }
-    val differentClaims = claims.filter { it.type == ClaimType.DIFFERENT }
+    val sharedClaims = analysis.claims.filter { it.type == ClaimType.SHARED }
+    val differentClaims = analysis.claims.filter { it.type == ClaimType.DIFFERENT }
 
     Scaffold(
         containerColor = ScreenBackground,
@@ -345,14 +352,14 @@ private fun ComparisonOverviewScreen(
             )
 
             Text(
-                text = "선택된 여러 출처의 보도를 바탕으로, 공통 보도와 서로 다른 강조점을 확인할 수 있습니다.",
+                text = "찾은 보도에서 실제로 대응하는 문장만 보여줍니다. 원문 링크에서 맥락을 확인해 주세요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF516072)
             )
 
-            InputArticleCard(articleUrl)
+            InputArticleCard(analysis)
 
-            MultiSourceBriefCard()
+            MultiSourceBriefCard(analysis)
 
             SectionTitle("여러 출처에 공통으로 나타난 보도")
 
@@ -362,8 +369,11 @@ private fun ComparisonOverviewScreen(
                     onClick = { onClaimSelected(claim) }
                 )
             }
+            if (sharedClaims.isEmpty()) {
+                Text("다른 출처에서 같은 주장에 대응하는 문장을 찾지 못했어요.")
+            }
 
-            SectionTitle("보도마다 다르게 강조된 내용")
+            SectionTitle("반박하거나 다르게 해석한 내용")
 
             differentClaims.forEach { claim ->
                 ClaimSummaryCard(
@@ -371,31 +381,9 @@ private fun ComparisonOverviewScreen(
                     onClick = { onClaimSelected(claim) }
                 )
             }
-
-            SectionTitle("다음 탐색")
-
-            ExplorePreviewCard(
-                title = "바로 비교하기",
-                description = "같은 사건을 다른 출처는 어떻게 표현했는지 더 확인합니다."
-            )
-
-            ExplorePreviewCard(
-                title = "다른 쟁점 보기",
-                description = "같은 이슈에서 아직 보지 않은 이해관계자나 쟁점을 찾아봅니다."
-            )
-
-            ExplorePreviewCard(
-                title = "이어서 보기",
-                description = "이 이슈를 읽은 사람들이 함께 살펴본 다음 주제를 제안합니다."
-            )
-
-            ArchivePreviewCard()
-
-            Text(
-                text = "현재 보이는 내용은 UI 검증용 예시입니다. 백엔드 연동 후 실제 기사·문장·출처 링크로 교체됩니다.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6D7885)
-            )
+            if (differentClaims.isEmpty()) {
+                Text("반박이나 해석 차이를 뒷받침하는 문장을 찾지 못했어요.")
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -411,7 +399,7 @@ private fun ClaimDetailScreen(
     val category = if (claim.type == ClaimType.SHARED) {
         "여러 출처에 공통으로 나타난 보도"
     } else {
-        "출처별 강조점 비교"
+        "반박 또는 해석 차이"
     }
 
     Scaffold(
@@ -518,7 +506,7 @@ private fun ClaimDetailScreen(
 }
 
 @Composable
-private fun InputArticleCard(articleUrl: String) {
+private fun InputArticleCard(analysis: AnalysisResult) {
     val uriHandler = LocalUriHandler.current
 
     Card(
@@ -537,7 +525,7 @@ private fun InputArticleCard(articleUrl: String) {
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = articleHost(articleUrl),
+                text = analysis.sourceTitle,
                 style = MaterialTheme.typography.titleMedium,
                 color = Navy,
                 fontWeight = FontWeight.Bold
@@ -546,7 +534,7 @@ private fun InputArticleCard(articleUrl: String) {
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = articleUrl,
+                text = analysis.sourceUrl,
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF667085),
                 maxLines = 2,
@@ -556,7 +544,7 @@ private fun InputArticleCard(articleUrl: String) {
             Spacer(modifier = Modifier.height(14.dp))
 
             OutlinedButton(
-                onClick = { uriHandler.openUri(articleUrl) },
+                onClick = { uriHandler.openUri(analysis.sourceUrl) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("입력 기사 원문 열기")
@@ -566,7 +554,7 @@ private fun InputArticleCard(articleUrl: String) {
 }
 
 @Composable
-private fun MultiSourceBriefCard() {
+private fun MultiSourceBriefCard(analysis: AnalysisResult) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -576,7 +564,7 @@ private fun MultiSourceBriefCard() {
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
-                text = "여러 출처 보도 요약",
+                text = "분석한 사건",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = Green
@@ -585,7 +573,7 @@ private fun MultiSourceBriefCard() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "예시: 선택된 출처들은 정책의 일정과 대상은 함께 언급하지만, 기대 효과·현장 부담·이해관계자 반응에는 서로 다른 비중을 둡니다.",
+                text = analysis.coreEvent.ifBlank { "핵심 사건을 요약하지 못했어요." },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Navy
             )
@@ -593,7 +581,11 @@ private fun MultiSourceBriefCard() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "이 요약은 하나의 기사에서 가져온 문장이 아니라, 아래의 공통 보도 항목을 기반으로 구성됩니다.",
+                text = if (analysis.relatedArticleCount == 0) {
+                    "같은 사건을 다룬 다른 기사를 찾지 못했어요. 다른 기사로 다시 시도해 주세요."
+                } else {
+                    "입력 기사 외에 같은 사건으로 분류된 기사 ${analysis.relatedArticleCount}개를 분석했습니다. 아래 항목을 눌러 원문을 확인하세요."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF516072)
             )
@@ -612,7 +604,7 @@ private fun ClaimSummaryCard(
     val label = if (isShared) {
         "공통 보도"
     } else {
-        "강조점 비교"
+        "반박·해석 차이"
     }
 
     Card(
@@ -704,86 +696,11 @@ private fun SourcePassageCard(
                 }
             } else {
                 Text(
-                    text = "MVP 예시 문장입니다. 백엔드 연동 후 실제 원문 링크가 표시됩니다.",
+                    text = "이 문장의 원문 링크는 제공되지 않았어요.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF6D7885)
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ExplorePreviewCard(
-    title: String,
-    description: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = Navy
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF516072)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "다음 Iteration에서 연결 예정",
-                style = MaterialTheme.typography.bodySmall,
-                color = Blue
-            )
-        }
-    }
-}
-
-@Composable
-private fun ArchivePreviewCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = LightBlue
-        )
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                text = "개인 아카이브",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = Blue
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "비교한 기사와 확인한 관점을 나중에 다시 볼 수 있도록 저장하는 화면입니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Navy
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "다음 Iteration에서 연결 예정",
-                style = MaterialTheme.typography.bodySmall,
-                color = Blue
-            )
         }
     }
 }
@@ -798,76 +715,9 @@ private fun SectionTitle(text: String) {
     )
 }
 
-private fun exampleClaims(articleUrl: String): List<ClaimPreview> {
-    val inputOutlet = articleHost(articleUrl)
-
-    return listOf(
-        ClaimPreview(
-            type = ClaimType.SHARED,
-            summary = "예시: 정책의 적용 시점과 대상이 여러 보도에서 함께 언급됩니다.",
-            explanation = "비슷한 대상·행동·시점을 다룬 문장이 여러 선택 출처에서 발견된 경우입니다.",
-            passages = listOf(
-                SourcePassage(
-                    outlet = inputOutlet,
-                    excerpt = "입력 기사의 관련 문장이 이 위치에 표시됩니다.",
-                    url = articleUrl
-                ),
-                SourcePassage(
-                    outlet = "다른 출처 A (예시)",
-                    excerpt = "같은 사건의 적용 대상과 시점을 언급한 문장이 표시됩니다."
-                ),
-                SourcePassage(
-                    outlet = "다른 출처 B (예시)",
-                    excerpt = "동일 내용을 다른 표현으로 다룬 문장이 표시됩니다."
-                )
-            )
-        ),
-        ClaimPreview(
-            type = ClaimType.SHARED,
-            summary = "예시: 관계 기관의 공식 발표과 이후 논의가 함께 보도됩니다.",
-            explanation = "표현은 달라도 같은 발표·발언·일정을 지칭하는지 비교하는 항목입니다.",
-            passages = listOf(
-                SourcePassage(
-                    outlet = inputOutlet,
-                    excerpt = "입력 기사의 공식 발표 또는 후속 논의 관련 문장이 표시됩니다.",
-                    url = articleUrl
-                ),
-                SourcePassage(
-                    outlet = "다른 출처 A (예시)",
-                    excerpt = "같은 발표의 세부 일정과 배경을 언급한 문장이 표시됩니다."
-                ),
-                SourcePassage(
-                    outlet = "다른 출처 C (예시)",
-                    excerpt = "후속 협의 과정을 언급한 문장이 표시됩니다."
-                )
-            )
-        ),
-        ClaimPreview(
-            type = ClaimType.DIFFERENT,
-            summary = "예시: 입력 기사는 정책의 기대 효과를 상대적으로 더 강조합니다.",
-            explanation = "이는 기사가 틀렸다는 판단이 아니라, 같은 사건을 다룬 출처 사이의 강조점 차이를 보여주는 라벨입니다.",
-            passages = listOf(
-                SourcePassage(
-                    outlet = inputOutlet,
-                    excerpt = "입력 기사가 기대 효과나 추진 배경을 설명하는 문장이 표시됩니다.",
-                    url = articleUrl
-                ),
-                SourcePassage(
-                    outlet = "다른 출처 A (예시)",
-                    excerpt = "다른 출처는 현장 부담 또는 이해관계자 반응을 더 비중 있게 다룬 문장이 표시됩니다."
-                )
-            )
-        )
-    )
-}
-
 private fun isValidArticleUrl(url: String): Boolean {
     val uri = Uri.parse(url)
 
     return (uri.scheme == "http" || uri.scheme == "https") &&
             !uri.host.isNullOrBlank()
-}
-
-private fun articleHost(url: String): String {
-    return Uri.parse(url).host ?: url
 }

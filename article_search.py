@@ -15,10 +15,6 @@ from llm_analysis import analyze_article, compare_issue_passages
 from model_client import GeminiJSONClient
 
 
-# Enter your Naver Search API credentials here, or set the matching environment variables.
-NAVER_CLIENT_ID = ""
-NAVER_CLIENT_SECRET = ""
-
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 
 
@@ -58,10 +54,10 @@ def build_search_query(core_event: str, title: str) -> str:
 
 def search_naver_news(query: str, display: int = 50) -> list[dict]:
     """Return candidate metadata from the Naver News Search API."""
-    client_id = NAVER_CLIENT_ID.strip() or os.getenv("NAVER_CLIENT_ID", "").strip()
-    client_secret = NAVER_CLIENT_SECRET.strip() or os.getenv("NAVER_CLIENT_SECRET", "").strip()
+    client_id = os.getenv("NAVER_CLIENT_ID", "").strip()
+    client_secret = os.getenv("NAVER_CLIENT_SECRET", "").strip()
     if not client_id or not client_secret:
-        raise RuntimeError("Enter NAVER_CLIENT_ID and NAVER_CLIENT_SECRET in article_search.py or the environment")
+        raise RuntimeError("Set NAVER_CLIENT_ID and NAVER_CLIENT_SECRET in the environment")
     if not query.strip():
         raise ValueError("Search query must not be empty")
     if not 1 <= display <= 100:
