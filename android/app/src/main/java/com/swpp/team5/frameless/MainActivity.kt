@@ -92,6 +92,7 @@ private fun FrameLESSApp() {
     var teamCode by remember { mutableStateOf("") }
     var teamCodeError by remember { mutableStateOf<String?>(null) }
     var urlError by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestError by remember { mutableStateOf<String?>(null) }
     var loadingMessage by remember { mutableStateOf("") }
     var analysis by remember { mutableStateOf<AnalysisResult?>(null) }
     var selectedClaim by remember { mutableStateOf<ClaimPreview?>(null) }
@@ -110,8 +111,11 @@ private fun FrameLESSApp() {
                 screen = AppScreen.OVERVIEW
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (error: TeamCodeException) {
+                teamCodeError = error.message
+                screen = AppScreen.INPUT
             } catch (error: Exception) {
-                urlError = error.message ?: "기사를 분석하지 못했어. 다시 시도해줘."
+                requestError = error.message ?: "기사를 분석하지 못했어. 다시 시도해줘."
                 screen = AppScreen.INPUT
             } finally {
                 progress.cancel()
@@ -125,17 +129,21 @@ private fun FrameLESSApp() {
                 articleUrl = articleUrl,
                 teamCode = teamCode,
                 teamCodeError = teamCodeError,
-                errorMessage = urlError,
+                urlError = urlError,
+                requestError = requestError,
                 onArticleUrlChange = {
                     articleUrl = it
                     urlError = null
+                    requestError = null
                 },
                 onTeamCodeChange = {
                     teamCode = it
                     teamCodeError = null
+                    requestError = null
                 },
                 onAnalyze = {
                     val trimmedUrl = articleUrl.trim()
+                    requestError = null
 
                     if (!isValidArticleUrl(trimmedUrl)) {
                         urlError = "http:// 또는 https://로 시작하는 기사 주소를 입력해줘."
@@ -164,6 +172,7 @@ private fun FrameLESSApp() {
                     onStartOver = {
                         articleUrl = ""
                         urlError = null
+                        requestError = null
                         analysis = null
                         selectedClaim = null
                         screen = AppScreen.INPUT
@@ -188,7 +197,8 @@ private fun InputScreen(
     articleUrl: String,
     teamCode: String,
     teamCodeError: String?,
-    errorMessage: String?,
+    urlError: String?,
+    requestError: String?,
     onArticleUrlChange: (String) -> Unit,
     onTeamCodeChange: (String) -> Unit,
     onAnalyze: () -> Unit
@@ -258,10 +268,10 @@ private fun InputScreen(
                             imeAction = ImeAction.Go
                         ),
                         keyboardActions = KeyboardActions(onGo = { onAnalyze() }),
-                        isError = errorMessage != null,
+                        isError = urlError != null,
                         supportingText = {
-                            if (errorMessage != null) {
-                                Text(errorMessage)
+                            if (urlError != null) {
+                                Text(urlError)
                             }
                         }
                     )
@@ -292,6 +302,15 @@ private fun InputScreen(
                         )
                     ) {
                         Text("이 기사 비교하기")
+                    }
+
+                    if (requestError != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = requestError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }

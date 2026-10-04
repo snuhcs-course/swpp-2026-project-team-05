@@ -32,6 +32,8 @@ internal data class AnalysisResult(
     val claims: List<ClaimPreview>
 )
 
+internal class TeamCodeException : IllegalStateException("팀 테스트 코드를 확인해줘.")
+
 internal object AnalysisApi {
     // The default URL reaches the host machine from the Android emulator.
     private val BASE_URL = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
@@ -62,6 +64,11 @@ internal object AnalysisApi {
                 throw IllegalStateException("서버 응답을 읽지 못했어요. (HTTP $status)")
             }
             if (status !in 200..299) {
+                if (status == HttpURLConnection.HTTP_UNAUTHORIZED &&
+                    json.optJSONObject("error")?.optString("code") == "unauthorized"
+                ) {
+                    throw TeamCodeException()
+                }
                 val message = json.optJSONObject("error")?.optString("message")
                 throw IllegalStateException(message?.takeIf { it.isNotBlank() }
                     ?: "분석 요청이 실패했어요. (HTTP $status)")
