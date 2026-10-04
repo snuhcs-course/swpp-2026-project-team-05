@@ -11,7 +11,7 @@ val localProperties = Properties().apply {
 }
 val backendBaseUrl = providers.gradleProperty("framelessBackendUrl").orNull
     ?: localProperties.getProperty("framelessBackendUrl")
-    ?: "http://10.0.2.2:8000"
+    ?: "https://frameless-team05-api.vercel.app"
 
 android {
     namespace = "com.swpp.team5.frameless"

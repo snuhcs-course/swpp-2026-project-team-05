@@ -76,17 +76,19 @@ Docker Compose를 설치하고, 도메인이 인스턴스의 공인 IP를 가리
 `https://도메인/api/health`의 `analysis_ready`가 `true`인지 확인하세요. 결과를
 저장하지 않으므로 현재는 RDS 등 별도 DB가 필요하지 않습니다.
 
-Android Studio에서 원격 서버를 쓰려면 Git이 무시하는 `android/local.properties`에
-실제 HTTPS 주소를 추가하세요. 기존 `sdk.dir` 줄은 유지합니다.
+Android 앱은 기본적으로 팀의 Vercel 서버
+(`https://frameless-team05-api.vercel.app`)를 사용합니다. 다른 서버를 쓰려면
+Git이 무시하는 `android/local.properties`에 주소를 추가하세요. 기존 `sdk.dir`
+줄은 유지합니다.
 
 ```properties
 framelessBackendUrl=https://실제-도메인
 ```
 
-다시 빌드하면 기사 입력 화면에 `팀 테스트 코드` 입력칸이 보입니다. 서버에 설정한
+앱을 빌드하면 기사 입력 화면에 `팀 테스트 코드` 입력칸이 보입니다. 서버에 설정한
 `ANALYZE_ACCESS_TOKEN`을 입력해 테스트하세요. 테스트 코드는 앱에 저장되지
-않아 앱을 다시 켜면 재입력해야 합니다. URL을 설정하지 않으면 기존 로컬
-에뮬레이터 주소(`http://10.0.2.2:8000`)를 사용합니다.
+않아 앱을 다시 켜면 재입력해야 합니다. 로컬 Django 서버를 쓰려면
+`framelessBackendUrl=http://10.0.2.2:8000`을 설정하고 다시 빌드하세요.
 
 팀 테스트 코드는 임의 호출을 줄이기 위한 간단한 보호 장치입니다. 사람별
 계정과 지속적인 호출량 제한은 없으므로 공개 출시 전에 별도로 구현해야 합니다.
@@ -110,22 +112,23 @@ Vercel 프로젝트의 환경변수에 다음을 설정한 뒤 배포하세요.
 비밀값을 `vercel.json`, Git, Android 앱에 넣지 마세요. `.vercelignore`가 로컬
 `.env`와 Android 빌드 파일을 업로드 대상에서 제외합니다. 배포 후
 `https://배포주소/api/health`에서 `analysis_ready: true`를 확인하고,
-Android의 `android/local.properties`에
-`framelessBackendUrl=https://배포주소`를 설정해 다시 빌드하세요.
+Android 앱의 기본 주소와 다른 프로젝트에 배포했다면
+`android/local.properties`에 `framelessBackendUrl=https://배포주소`를
+설정해 다시 빌드하세요.
 Vercel 무료 Hobby의 함수 실행 한도는 300초입니다. 이 시간을 넘긴 기사 분석은
 실패하므로 실제 기사로 끝까지 테스트해야 합니다.
 
 ## Android 에뮬레이터에서 확인
 
-위 명령으로 Django 서버를 켠 상태에서 `android/` 프로젝트를 Android Studio로
-열어 디버그 앱을 에뮬레이터에서 실행하세요. 앱은 에뮬레이터의 호스트 주소인
-`http://10.0.2.2:8000`에 분석을 요청합니다. 인터넷 권한을 사용하며 로컬 HTTP
-접속은 디버그 빌드에서만 허용합니다. Android 앱에는 API 키를 넣지 않습니다.
+위 명령으로 Django 서버를 켠 상태에서 `android/local.properties`에
+`framelessBackendUrl=http://10.0.2.2:8000`을 설정하세요. `android/` 프로젝트를
+Android Studio로 열어 디버그 앱을 에뮬레이터에서 실행하면 호스트의 로컬 서버에
+분석을 요청합니다. 인터넷 권한을 사용하며 로컬 HTTP 접속은 디버그 빌드에서만
+허용합니다. Android 앱에는 API 키를 넣지 않습니다.
 Android 빌드에는 JDK 21이 필요합니다.
 
 기사 URL을 입력해 비교를 시작하면 관련 기사를 최대 세 개 분석합니다(입력 기사
 포함 최대 네 개). 분석에는
 몇 분이 걸릴 수 있습니다. 결과 화면은 백엔드가 실제로 확인한 대응 문장만
 표시하며, 대응 문장이 없으면 빈 결과를 알려줍니다. 연결 오류는 입력 화면에
-표시됩니다. 현재 설정은 Android 에뮬레이터용이며 실제 기기에서는 서버 주소를
-기기에 맞게 바꿔야 합니다.
+표시됩니다. 로컬 서버를 실제 기기에서 쓰려면 서버 주소를 기기에 맞게 바꿔야 합니다.
