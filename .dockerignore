@@ -5,5 +5,8 @@ __pycache__
 *.pyc
 android
 tests
+docs
+examples
+.vercel
 work
 outputs

@@ -10,9 +10,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
-from article_fetch import fetch_article
-from llm_analysis import analyze_article, compare_issue_passages
-from model_client import GeminiJSONClient
+from .article_fetch import fetch_article
+from .llm_analysis import analyze_article, compare_issue_passages
+from .model_client import GeminiJSONClient
 
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"

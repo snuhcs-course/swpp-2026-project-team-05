@@ -2,7 +2,7 @@
 
 import re
 
-from article_search import analyze_related_articles
+from server.analysis.article_search import analyze_related_articles
 
 
 link = "https://n.news.naver.com/article/057/0001971678?cds=news_media_pc&type=editn"

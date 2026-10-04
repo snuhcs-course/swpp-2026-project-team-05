@@ -32,22 +32,16 @@ internal data class AnalysisResult(
     val claims: List<ClaimPreview>
 )
 
-internal class TeamCodeException : IllegalStateException("팀 테스트 코드를 확인해줘.")
-
 internal object AnalysisApi {
     // Gradle supplies the shared team backend URL or a developer's local override.
     private val BASE_URL = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
-    val requiresTeamCode: Boolean = BASE_URL.startsWith("https://")
     private const val MAX_RELATED_ARTICLES = 3
 
-    suspend fun analyze(articleUrl: String, teamCode: String = ""): AnalysisResult = withContext(Dispatchers.IO) {
+    suspend fun analyze(articleUrl: String): AnalysisResult = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyze").openConnection() as HttpURLConnection)
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            if (teamCode.isNotBlank()) {
-                connection.setRequestProperty("Authorization", "Bearer ${teamCode.trim()}")
-            }
             connection.connectTimeout = 10_000
             connection.readTimeout = 600_000
             connection.doOutput = true
@@ -64,11 +58,6 @@ internal object AnalysisApi {
                 throw IllegalStateException("서버 응답을 읽지 못했어요. (HTTP $status)")
             }
             if (status !in 200..299) {
-                if (status == HttpURLConnection.HTTP_UNAUTHORIZED &&
-                    json.optJSONObject("error")?.optString("code") == "unauthorized"
-                ) {
-                    throw TeamCodeException()
-                }
                 val message = json.optJSONObject("error")?.optString("message")
                 throw IllegalStateException(message?.takeIf { it.isNotBlank() }
                     ?: "분석 요청이 실패했어요. (HTTP $status)")

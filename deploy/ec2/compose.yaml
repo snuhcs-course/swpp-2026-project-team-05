@@ -1,8 +1,10 @@
 services:
   api:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/ec2/Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file: ../../.env
     environment:
       DJANGO_ENV: production
       DJANGO_ALLOWED_HOSTS: ${SERVER_DOMAIN:?Set SERVER_DOMAIN in .env}

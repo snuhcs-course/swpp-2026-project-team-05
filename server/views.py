@@ -1,6 +1,5 @@
 """Small JSON adapter around the existing article comparison pipeline."""
 
-import hmac
 import json
 import logging
 import os
@@ -11,9 +10,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from article_fetch import validate_article_url
-from article_search import analyze_related_articles
-from model_client import get_gemini_api_key
+from .analysis.article_fetch import validate_article_url
+from .analysis.article_search import analyze_related_articles
+from .analysis.model_client import get_gemini_api_key
 
 
 logger = logging.getLogger(__name__)
@@ -51,14 +50,6 @@ def health(request):
 @csrf_exempt  # The JSON API does not use cookie-based authentication.
 @require_POST
 def analyze(request):
-    access_token = os.getenv("ANALYZE_ACCESS_TOKEN", "").strip()
-    if access_token:
-        authorization = request.headers.get("Authorization", "")
-        scheme, _, supplied_token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not hmac.compare_digest(
-            supplied_token, access_token
-        ):
-            return _error("unauthorized", "팀 테스트 코드가 필요합니다.", 401)
     if request.content_type != "application/json":
         return _error("invalid_content_type", "Content-Type은 application/json이어야 합니다.", 415)
     try:
