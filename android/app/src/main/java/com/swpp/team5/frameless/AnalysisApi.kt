@@ -35,7 +35,7 @@ internal data class AnalysisResult(
 internal class TeamCodeException : IllegalStateException("팀 테스트 코드를 확인해줘.")
 
 internal object AnalysisApi {
-    // The default URL reaches the host machine from the Android emulator.
+    // Gradle supplies the shared team backend URL or a developer's local override.
     private val BASE_URL = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
     val requiresTeamCode: Boolean = BASE_URL.startsWith("https://")
     private const val MAX_RELATED_ARTICLES = 3

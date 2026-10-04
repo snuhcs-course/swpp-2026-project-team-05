@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -87,9 +88,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun FrameLESSApp() {
+    val context = LocalContext.current
+    val teamCodeStore = remember(context) { TeamCodeStore(context.applicationContext) }
     var screen by remember { mutableStateOf(AppScreen.INPUT) }
     var articleUrl by rememberSaveable { mutableStateOf("") }
-    var teamCode by remember { mutableStateOf("") }
+    var teamCode by remember { mutableStateOf(teamCodeStore.load()) }
     var teamCodeError by remember { mutableStateOf<String?>(null) }
     var urlError by rememberSaveable { mutableStateOf<String?>(null) }
     var requestError by remember { mutableStateOf<String?>(null) }
@@ -108,10 +111,13 @@ private fun FrameLESSApp() {
             }
             try {
                 analysis = AnalysisApi.analyze(articleUrl, teamCode)
+                if (AnalysisApi.requiresTeamCode) teamCodeStore.save(teamCode)
                 screen = AppScreen.OVERVIEW
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: TeamCodeException) {
+                teamCodeStore.clear()
+                teamCode = ""
                 teamCodeError = error.message
                 screen = AppScreen.INPUT
             } catch (error: Exception) {
@@ -138,6 +144,7 @@ private fun FrameLESSApp() {
                 },
                 onTeamCodeChange = {
                     teamCode = it
+                    if (it.isEmpty()) teamCodeStore.clear()
                     teamCodeError = null
                     requestError = null
                 },
@@ -287,7 +294,7 @@ private fun InputScreen(
                             visualTransformation = PasswordVisualTransformation(),
                             isError = teamCodeError != null,
                             supportingText = {
-                                if (teamCodeError != null) Text(teamCodeError)
+                                Text(teamCodeError ?: "인증에 성공한 코드는 이 기기에 저장돼요. 입력칸을 비우면 삭제됩니다.")
                             }
                         )
                     }
