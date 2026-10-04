@@ -1,0 +1,10 @@
+.env
+.env.*
+.venv/
+.git/
+android/
+tests/
+__pycache__/
+*.pyc
+work/
+outputs/

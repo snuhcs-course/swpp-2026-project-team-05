@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "django",
+  "fluid": true,
+  "regions": ["icn1"],
+  "functions": {
+    "server/wsgi.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{android/**,tests/**,.env*,.venv/**,**/__pycache__/**,**/*.pyc}"
+    }
+  }
+}

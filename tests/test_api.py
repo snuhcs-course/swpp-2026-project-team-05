@@ -100,6 +100,30 @@ class AnalyzeApiTests(SimpleTestCase):
     def test_wrong_method_is_rejected(self):
         self.assertEqual(self.client.get("/api/analyze").status_code, 405)
 
+    @patch.dict(os.environ, {"ANALYZE_ACCESS_TOKEN": "test-team-token"})
+    @patch("server.views.analyze_related_articles")
+    def test_team_token_is_required_before_analysis(self, analyze):
+        payload = json.dumps({"url": ARTICLE_URL})
+        for authorization in ("", "Bearer wrong-token"):
+            response = self.client.post(
+                "/api/analyze", data=payload, content_type="application/json",
+                HTTP_AUTHORIZATION=authorization,
+            )
+            self.assertEqual(response.status_code, 401)
+            self.assertEqual(response.json()["error"]["code"], "unauthorized")
+        analyze.assert_not_called()
+
+    @patch.dict(os.environ, {"ANALYZE_ACCESS_TOKEN": "test-team-token"})
+    @patch("server.views.analyze_related_articles")
+    def test_team_token_allows_analysis(self, analyze):
+        analyze.return_value = {"source_analysis": {}, "related_articles": [], "comparison": {}}
+        response = self.client.post(
+            "/api/analyze", data=json.dumps({"url": ARTICLE_URL}),
+            content_type="application/json", HTTP_AUTHORIZATION="Bearer test-team-token",
+        )
+        self.assertEqual(response.status_code, 200)
+        analyze.assert_called_once()
+
     @patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": "", "NAVER_CLIENT_ID": ""})
     def test_missing_credentials_are_reported_without_calling_pipeline(self):
         with patch("server.views.analyze_related_articles") as analyze:

@@ -1,5 +1,6 @@
 """Small JSON adapter around the existing article comparison pipeline."""
 
+import hmac
 import json
 import logging
 import os
@@ -47,9 +48,17 @@ def health(request):
     })
 
 
-@csrf_exempt  # The local JSON API has no cookie-based authentication.
+@csrf_exempt  # The JSON API does not use cookie-based authentication.
 @require_POST
 def analyze(request):
+    access_token = os.getenv("ANALYZE_ACCESS_TOKEN", "").strip()
+    if access_token:
+        authorization = request.headers.get("Authorization", "")
+        scheme, _, supplied_token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not hmac.compare_digest(
+            supplied_token, access_token
+        ):
+            return _error("unauthorized", "팀 테스트 코드가 필요합니다.", 401)
     if request.content_type != "application/json":
         return _error("invalid_content_type", "Content-Type은 application/json이어야 합니다.", 415)
     try:

@@ -10,6 +10,8 @@ DEBUG = not IS_PRODUCTION
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if IS_PRODUCTION and not SECRET_KEY:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production")
+if IS_PRODUCTION and not os.getenv("ANALYZE_ACCESS_TOKEN", "").strip():
+    raise ImproperlyConfigured("ANALYZE_ACCESS_TOKEN must be set in production")
 if not SECRET_KEY:
     SECRET_KEY = "unsafe-local-development-only"
 
