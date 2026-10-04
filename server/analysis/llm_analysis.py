@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from model_client import GeminiJSONClient
+from .model_client import GeminiJSONClient
 
 
 ROLES = {

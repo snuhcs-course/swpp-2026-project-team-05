@@ -4,6 +4,9 @@
 .git/
 android/
 tests/
+deploy/
+docs/
+examples/
 __pycache__/
 *.pyc
 work/

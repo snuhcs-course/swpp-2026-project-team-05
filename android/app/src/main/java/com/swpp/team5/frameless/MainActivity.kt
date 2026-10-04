@@ -41,12 +41,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -88,12 +86,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun FrameLESSApp() {
-    val context = LocalContext.current
-    val teamCodeStore = remember(context) { TeamCodeStore(context.applicationContext) }
     var screen by remember { mutableStateOf(AppScreen.INPUT) }
     var articleUrl by rememberSaveable { mutableStateOf("") }
-    var teamCode by remember { mutableStateOf(teamCodeStore.load()) }
-    var teamCodeError by remember { mutableStateOf<String?>(null) }
     var urlError by rememberSaveable { mutableStateOf<String?>(null) }
     var requestError by remember { mutableStateOf<String?>(null) }
     var loadingMessage by remember { mutableStateOf("") }
@@ -110,16 +104,10 @@ private fun FrameLESSApp() {
                 loadingMessage = "원문 문장과 표현을 비교하고 있어요. 잠시만 기다려줘."
             }
             try {
-                analysis = AnalysisApi.analyze(articleUrl, teamCode)
-                if (AnalysisApi.requiresTeamCode) teamCodeStore.save(teamCode)
+                analysis = AnalysisApi.analyze(articleUrl)
                 screen = AppScreen.OVERVIEW
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (error: TeamCodeException) {
-                teamCodeStore.clear()
-                teamCode = ""
-                teamCodeError = error.message
-                screen = AppScreen.INPUT
             } catch (error: Exception) {
                 requestError = error.message ?: "기사를 분석하지 못했어. 다시 시도해줘."
                 screen = AppScreen.INPUT
@@ -133,19 +121,11 @@ private fun FrameLESSApp() {
         AppScreen.INPUT -> {
             InputScreen(
                 articleUrl = articleUrl,
-                teamCode = teamCode,
-                teamCodeError = teamCodeError,
                 urlError = urlError,
                 requestError = requestError,
                 onArticleUrlChange = {
                     articleUrl = it
                     urlError = null
-                    requestError = null
-                },
-                onTeamCodeChange = {
-                    teamCode = it
-                    if (it.isEmpty()) teamCodeStore.clear()
-                    teamCodeError = null
                     requestError = null
                 },
                 onAnalyze = {
@@ -154,8 +134,6 @@ private fun FrameLESSApp() {
 
                     if (!isValidArticleUrl(trimmedUrl)) {
                         urlError = "http:// 또는 https://로 시작하는 기사 주소를 입력해줘."
-                    } else if (AnalysisApi.requiresTeamCode && teamCode.isBlank()) {
-                        teamCodeError = "팀 테스트 코드를 입력해줘."
                     } else {
                         articleUrl = trimmedUrl
                         analysis = null
@@ -202,12 +180,9 @@ private fun FrameLESSApp() {
 @Composable
 private fun InputScreen(
     articleUrl: String,
-    teamCode: String,
-    teamCodeError: String?,
     urlError: String?,
     requestError: String?,
     onArticleUrlChange: (String) -> Unit,
-    onTeamCodeChange: (String) -> Unit,
     onAnalyze: () -> Unit
 ) {
     Scaffold(containerColor = ScreenBackground) { paddingValues ->
@@ -282,22 +257,6 @@ private fun InputScreen(
                             }
                         }
                     )
-
-                    if (AnalysisApi.requiresTeamCode) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = teamCode,
-                            onValueChange = onTeamCodeChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("팀 테스트 코드") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            isError = teamCodeError != null,
-                            supportingText = {
-                                Text(teamCodeError ?: "인증에 성공한 코드는 이 기기에 저장돼요. 입력칸을 비우면 삭제됩니다.")
-                            }
-                        )
-                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 

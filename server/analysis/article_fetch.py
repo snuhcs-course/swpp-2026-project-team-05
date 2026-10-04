@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from network_tls import configure_tls
+from .network_tls import configure_tls
 
 
 configure_tls()

@@ -9,7 +9,7 @@ import json
 import os
 from typing import Any
 
-from network_tls import configure_tls
+from .network_tls import configure_tls
 
 
 configure_tls()

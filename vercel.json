@@ -6,7 +6,7 @@
   "functions": {
     "server/wsgi.py": {
       "maxDuration": 300,
-      "excludeFiles": "{android/**,tests/**,.env*,.venv/**,**/__pycache__/**,**/*.pyc}"
+      "excludeFiles": "{android/**,tests/**,deploy/**,docs/**,examples/**,.env*,.venv/**,**/__pycache__/**,**/*.pyc}"
     }
   }
 }

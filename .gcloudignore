@@ -1,9 +1,0 @@
-.git
-.env*
-.venv
-__pycache__
-*.pyc
-android
-tests
-work
-outputs
