@@ -37,3 +37,29 @@ SESSION_COOKIE_SECURE = IS_PRODUCTION
 CSRF_COOKIE_SECURE = IS_PRODUCTION
 if IS_PRODUCTION:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "analysis": {"format": "%(levelname)s %(name)s %(message)s"},
+    },
+    "handlers": {
+        "analysis_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "analysis",
+        },
+    },
+    "loggers": {
+        "server.analysis": {
+            "handlers": ["analysis_console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "server.views": {
+            "handlers": ["analysis_console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

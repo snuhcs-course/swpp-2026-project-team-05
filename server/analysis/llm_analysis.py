@@ -661,17 +661,6 @@ def _issue_match_schema() -> dict:
     }
 
 
-def _strong_issue_overlap(issue: dict, selected: list[dict]) -> bool:
-    terms = {
-        token[:2] for token in re.findall(
-            r"[가-힣A-Za-z0-9]{2,}", issue["issue"] + " " + issue["members"][0]["claim"]
-        )
-        if token not in {"기사", "주장", "사건", "대한", "대해", "어떻게", "무엇"}
-    }
-    passage = re.sub(r"[^가-힣A-Za-z0-9]", "", " ".join(row["text"] for row in selected)).lower()
-    return sum(term.lower() in passage for term in terms) >= 2
-
-
 def compare_issue_passages(source: dict, related_articles: list[dict]) -> dict:
     """Compare each source claim with retrieved passages from related articles."""
     issues = _source_claim_issues(source)
@@ -735,38 +724,6 @@ def compare_issue_passages(source: dict, related_articles: list[dict]) -> dict:
         for issue_index, issue in enumerate(issues):
             added = 0
             seen_quotes = set()
-            has_grounded_match = any(
-                type(match.get("evidence_sentence_index")) is int
-                and match["evidence_sentence_index"] in allowed_indices[issue_index]
-                and type(match.get("source_claim_index")) is int
-                and match["source_claim_index"] in issue["source_claim_indices"]
-                and isinstance(match.get("evidence_quote"), str)
-                and bool(match["evidence_quote"].strip())
-                and match["evidence_quote"].strip() in sentence_maps[issue_index][match["evidence_sentence_index"]]["text"]
-                for match in grouped[issue_index]
-            )
-            if not has_grounded_match and _strong_issue_overlap(issue, tasks[issue_index]["sentences"]):
-                retry = GeminiJSONClient().generate_json(
-                    name="retry_specific_issue_passage",
-                    instructions=(
-                        "하나의 원 기사 주장을 다시 확인하세요. 후보 문장에 같은 구체적 행위·발언·판단 또는 그 반박이 "
-                        "있으면 matches에 원문 그대로 인용한 근거를 넣으세요. 같은 인물이나 넓은 주제만으로 연결하지 마세요. "
-                        "대응하는 source_claim_index를 원 기사 주장 목록에서 선택하세요. "
-                        "발언자와 기자의 서술을 구분하고, 명시되지 않은 이유는 비워 두세요. "
-                        "정말 찾을 수 없을 때만 matches를 빈 배열로 반환하세요."
-                    ),
-                    input_data={"article_title": article["title"], "tasks": [tasks[issue_index]]},
-                    schema=_issue_match_schema(),
-                    max_output_tokens=1024,
-                )
-                for row in retry.get("results", []):
-                    if (
-                        isinstance(row, dict) and row.get("issue_index") == issue_index
-                        and isinstance(row.get("matches"), list)
-                    ):
-                        grouped[issue_index].extend(
-                            match for match in row["matches"][:2] if isinstance(match, dict)
-                        )
             for match in grouped[issue_index]:
                 evidence_index = match.get("evidence_sentence_index")
                 source_claim_index = match.get("source_claim_index")

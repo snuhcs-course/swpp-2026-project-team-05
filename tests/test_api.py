@@ -7,6 +7,7 @@ from unittest.mock import patch
 from django.test import Client, SimpleTestCase
 
 from server.analysis.article_fetch import _PublicRedirectHandler, validate_article_url
+from server.analysis.model_client import ModelUnavailableError
 
 
 ARTICLE_URL = "https://n.news.naver.com/article/057/0001971678"
@@ -55,6 +56,7 @@ class AnalyzeApiTests(SimpleTestCase):
         }
         response = self.post({"url": ARTICLE_URL, "max_related": 2})
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.headers["X-Analysis-ID"]), 12)
         self.assertEqual(response.json(), analyze.return_value)
         analyze.assert_called_once_with(ARTICLE_URL, max_related=2)
 
@@ -89,6 +91,14 @@ class AnalyzeApiTests(SimpleTestCase):
             response = self.post({"url": ARTICLE_URL})
         self.assertEqual(response.status_code, 502)
         self.assertNotIn("private upstream detail", response.content.decode())
+
+    @patch("server.views.analyze_related_articles", side_effect=ModelUnavailableError("unavailable"))
+    def test_model_service_unavailable_is_retryable(self, analyze):
+        with self.assertLogs("server.views", level="WARNING"):
+            response = self.post({"url": ARTICLE_URL})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "analysis_unavailable")
+        self.assertEqual(response.headers["Retry-After"], "30")
 
     def test_invalid_json_is_rejected(self):
         response = self.client.post(

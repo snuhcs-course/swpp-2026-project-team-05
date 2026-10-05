@@ -4,6 +4,9 @@ import json
 import logging
 import os
 import threading
+from time import perf_counter
+from urllib.parse import urlsplit
+from uuid import uuid4
 
 from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
@@ -12,7 +15,8 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .analysis.article_fetch import validate_article_url
 from .analysis.article_search import analyze_related_articles
-from .analysis.model_client import get_gemini_api_key
+from .analysis.diagnostics import analysis_id, log_event
+from .analysis.model_client import ModelUnavailableError, get_gemini_api_key
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +34,7 @@ def _missing_api_keys() -> list[str]:
 
 
 def _error(code: str, message: str, status: int) -> JsonResponse:
+    log_event(logger, "request_error", level=logging.WARNING, error_code=code, status_code=status)
     return JsonResponse(
         {"error": {"code": code, "message": message}},
         status=status,
@@ -50,6 +55,28 @@ def health(request):
 @csrf_exempt  # The JSON API does not use cookie-based authentication.
 @require_POST
 def analyze(request):
+    request_id = uuid4().hex[:12]
+    token = analysis_id.set(request_id)
+    started = perf_counter()
+    log_event(logger, "request_started")
+    try:
+        response = _analyze_request(request)
+        response["X-Analysis-ID"] = request_id
+        log_event(
+            logger,
+            "request_completed",
+            status_code=response.status_code,
+            duration_ms=round((perf_counter() - started) * 1000),
+        )
+        return response
+    except Exception:
+        logger.exception("Unhandled analysis request error: analysis_id=%s", request_id)
+        raise
+    finally:
+        analysis_id.reset(token)
+
+
+def _analyze_request(request):
     if request.content_type != "application/json":
         return _error("invalid_content_type", "Content-Type은 application/json이어야 합니다.", 415)
     try:
@@ -85,6 +112,7 @@ def analyze(request):
             503,
         )
 
+    log_event(logger, "request_validated", article_host=urlsplit(url).hostname, max_related=max_related)
     if not _analysis_slot.acquire(blocking=False):
         response = _error("busy", "다른 기사를 분석 중입니다. 잠시 후 다시 시도해 주세요.", 429)
         response["Retry-After"] = "30"
@@ -92,6 +120,14 @@ def analyze(request):
     try:
         try:
             result = analyze_related_articles(url.strip(), max_related=max_related)
+        except ModelUnavailableError:
+            response = _error(
+                "analysis_unavailable",
+                "분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.",
+                503,
+            )
+            response["Retry-After"] = "30"
+            return response
         except Exception:
             logger.exception("Article analysis failed")
             return _error("analysis_failed", "기사를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)

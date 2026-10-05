@@ -1,5 +1,6 @@
 package com.swpp.team5.frameless
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -36,6 +37,7 @@ internal object AnalysisApi {
     // Gradle supplies the shared team backend URL or a developer's local override.
     private val BASE_URL = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
     private const val MAX_RELATED_ARTICLES = 3
+    private const val LOG_TAG = "FrameLESS.Analysis"
 
     suspend fun analyze(articleUrl: String): AnalysisResult = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyze").openConnection() as HttpURLConnection)
@@ -50,6 +52,7 @@ internal object AnalysisApi {
             connection.outputStream.use { it.write(request.toString().toByteArray(Charsets.UTF_8)) }
 
             val status = connection.responseCode
+            val analysisId = connection.getHeaderField("X-Analysis-ID").orEmpty()
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             val json = try {
@@ -58,10 +61,13 @@ internal object AnalysisApi {
                 throw IllegalStateException("서버 응답을 읽지 못했어요. (HTTP $status)")
             }
             if (status !in 200..299) {
-                val message = json.optJSONObject("error")?.optString("message")
+                val error = json.optJSONObject("error")
+                Log.w(LOG_TAG, "Backend status=$status analysis_id=$analysisId error_code=${error?.optString("code")}")
+                val message = error?.optString("message")
                 throw IllegalStateException(message?.takeIf { it.isNotBlank() }
                     ?: "분석 요청이 실패했어요. (HTTP $status)")
             }
+            Log.i(LOG_TAG, "Backend status=$status analysis_id=$analysisId")
             parseAnalysis(json, articleUrl)
         } catch (_: ConnectException) {
             throw IllegalStateException("서버에 연결할 수 없어요. 서버 주소와 상태를 확인해줘.")

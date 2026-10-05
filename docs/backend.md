@@ -32,6 +32,8 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 
 `POST /api/analyze`는 JSON 객체의 `url`을 받습니다. `max_related`는 생략 가능하며 범위는 1~3입니다. 성공 응답에는 `source_analysis`, `related_articles`, `comparison` 등이 들어갑니다. 오류는 `{"error":{"code":"...","message":"..."}}` 형식입니다. 분석 중에는 동일 프로세스의 다른 요청에 429와 `Retry-After`를 반환합니다. 기사 URL은 공개 HTTP(S) 도메인이어야 하며 localhost, IP 주소, 별도 포트는 허용하지 않습니다.
 
+분석 응답의 `X-Analysis-ID` 헤더를 [Vercel Logs](https://vercel.com/kim-seungmins-projects/frameless-team05-api/logs)의 `analysis_id`로 검색하면 한 요청의 단계별 소요 시간과 모델 호출 이름·HTTP 오류 코드·응답 종료 사유·토큰 사용량을 확인할 수 있습니다. Android Logcat의 `FrameLESS.Analysis` 태그에도 응답 상태와 같은 ID가 기록됩니다. 로그에는 기사 본문, 프롬프트, API 키를 기록하지 않습니다. 모델 서비스의 일시적인 5xx 오류는 제한적으로 재시도하며, 끝내 실패하면 `503 analysis_unavailable`과 `Retry-After`를 반환합니다.
+
 분석 결과를 저장하지 않으므로 현재 데이터베이스는 사용하지 않습니다. API에는 사용자 인증과 지속적인 호출량 제한이 없습니다.
 
 ## Vercel 운영 배포

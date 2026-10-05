@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from html import unescape
@@ -11,11 +12,13 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from .article_fetch import fetch_article
+from .diagnostics import analysis_stage, log_event
 from .llm_analysis import analyze_article, compare_issue_passages
 from .model_client import GeminiJSONClient
 
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+logger = logging.getLogger(__name__)
 
 
 def _plain_text(value: str) -> str:
@@ -162,9 +165,14 @@ def analyze_related_articles(source_url: str, max_related: int = 3) -> dict:
     """Fully analyze the source; compare only retrieved passages from related news."""
     if max_related < 1:
         raise ValueError("max_related must be positive")
-    source = fetch_article(source_url)
-    first = analyze_article(source["body"], title=source["title"], url=source["url"])
-    related = find_related_articles(first["core_event"], first["title"], source_url=source["url"])
+    with analysis_stage(logger, "fetch_source", host=urlsplit(source_url).hostname):
+        source = fetch_article(source_url)
+    with analysis_stage(logger, "analyze_source", body_chars=len(source["body"])):
+        first = analyze_article(source["body"], title=source["title"], url=source["url"])
+    log_event(logger, "source_analyzed", claim_count=len(first["claims"]), sentence_count=len(first["sentences"]))
+    with analysis_stage(logger, "search_related"):
+        related = find_related_articles(first["core_event"], first["title"], source_url=source["url"])
+    log_event(logger, "related_candidates", candidate_count=len(related))
     matched_articles = []
     screened = []
     batch_size = max(5, max_related * 2)
@@ -172,31 +180,44 @@ def analyze_related_articles(source_url: str, max_related: int = 3) -> dict:
         if len(matched_articles) >= max_related:
             break
         fetched = []
-        for candidate in related[start:start + batch_size]:
-            article = None
-            for url in (candidate["url"], candidate["fallback_url"]):
-                if not url:
+        batch = related[start:start + batch_size]
+        with analysis_stage(logger, "fetch_related", batch_start=start, candidate_count=len(batch)):
+            for candidate in batch:
+                article = None
+                for url in (candidate["url"], candidate["fallback_url"]):
+                    if not url:
+                        continue
+                    try:
+                        article = fetch_article(url)
+                        break
+                    except (RuntimeError, ValueError) as exc:
+                        log_event(
+                            logger,
+                            "candidate_fetch_failed",
+                            level=logging.WARNING,
+                            candidate_host=urlsplit(url).hostname,
+                            error_type=type(exc).__name__,
+                        )
+                if article is None:
+                    screened.append({"url": candidate["url"], "status": "fetch_failed"})
                     continue
-                try:
-                    article = fetch_article(url)
-                    break
-                except (RuntimeError, ValueError):
-                    continue
-            if article is None:
-                screened.append({"url": candidate["url"], "status": "fetch_failed"})
-                continue
-            article["title"] = article["title"] or candidate["title"]
-            fetched.append(article)
+                article["title"] = article["title"] or candidate["title"]
+                fetched.append(article)
+        log_event(logger, "related_fetched", batch_start=start, fetched_count=len(fetched))
         if not fetched:
             continue
-        matched = _same_event_indices(first, fetched)
+        with analysis_stage(logger, "classify_related", batch_start=start, fetched_count=len(fetched)):
+            matched = _same_event_indices(first, fetched)
         for index, article in enumerate(fetched):
             is_match = index in matched
             screened.append({"url": article["url"], "status": "same_event" if is_match else "different_or_uncertain"})
             if not is_match or len(matched_articles) >= max_related:
                 continue
             matched_articles.append(article)
-    comparison = compare_issue_passages(first, matched_articles)
+    log_event(logger, "related_matched", matched_count=len(matched_articles), screened_count=len(screened))
+    with analysis_stage(logger, "compare", related_count=len(matched_articles)):
+        comparison = compare_issue_passages(first, matched_articles)
+    log_event(logger, "comparison_completed", issue_count=len(comparison["issues"]))
     return {
         "source_analysis": first,
         "related_articles": matched_articles,
