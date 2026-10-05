@@ -27,7 +27,7 @@ FrameLESS finds related reporting and compares passages that address the same cl
 
 ### Short demo video
 
-A short emulator recording of the key flow will be added here before submission.
+[Watch the emulator demo](docs/demo/iteration-1-demo.mp4) (about two minutes). It shows article URL submission, analysis, the result overview, and a source-linked passage comparison.
 
 ## Technology
 
