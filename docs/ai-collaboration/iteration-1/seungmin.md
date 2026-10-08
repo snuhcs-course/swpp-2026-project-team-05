@@ -13,17 +13,17 @@ I used Codex (GPT-6 Sol, extra-high reasoning) as my primary development assista
 
 ### 3. Prompts and Results
 
-These prompts summarize related instructions I gave Codex during development.
+I gave Codex high-level directions and reviewed the implementation as it progressed.
 
-**Android UI and analysis integration.** Teammates had implemented the Android UI and LLM article-comparison functions separately. I directed Codex to connect them into one user flow.
+**Android UI and analysis integration.**
 
-> Use the team's existing Jetpack Compose screens and LLM analysis functions. Add a Django endpoint that accepts an article URL through `POST /api/analyze`, runs the analysis on the server, and returns `source_analysis` and `comparison` as JSON. In Android, map `same` matches to shared cards and `opposes` or `different_interpretation` matches to different cards. Show the cited sentences and original-article links, handle loading and API errors, and keep Gemini and NAVER credentials on the server.
+> The Android UI and LLM analysis functions are already implemented separately. Connect them through a backend so the app can send an article URL, the server can run the analysis, and the result can appear in the existing comparison screens. Keep the roles of the app and server clear, including how loading and failures are handled.
 
 Codex added the [Django API](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/f62b037) and [Android adapter](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/3ba9096) that connect those components. I reviewed the data flow and checked that the existing UI could display the analysis result.
 
-**Shared deployment and diagnostics.** The team needed to test the app without running a local backend. An earlier AI-assisted Render configuration was abandoned because its sleep behavior did not meet that requirement.
+**Shared deployment and diagnostics.** An earlier AI-assisted Render configuration was abandoned because its sleep behavior did not meet the team's testing needs.
 
-> Deploy the Django API to Vercel's Seoul region (`icn1`) with Fluid Compute and a 300-second function limit. Keep Gemini and NAVER credentials in server environment variables, set the Android app's default backend URL to the deployed HTTPS endpoint, and verify `/api/health`. Add an `X-Analysis-ID` response header and the same ID to Android Logcat. Record timing and failures for article fetching, related-article search, model calls, and comparison without logging article text, prompts, or keys; return a distinct retryable error for temporary Gemini failures.
+> Move the Django backend to Vercel so teammates can use the app without running a local server. Connect the Android app to the shared backend, keep API credentials on the server, and make it possible to trace an analysis failure from the app to the server logs.
 
 Codex produced the [Vercel configuration](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/47670a8), [long-running function setting](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/bb812a6), and [request diagnostics](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/fc0de10). I reviewed the configuration and logs. On 2026-10-08, `/api/health` returned HTTP 200 with `analysis_ready: true`; this confirms reachability and configuration, not comparison accuracy.
 
