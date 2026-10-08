@@ -13,9 +13,19 @@ I used Codex (GPT-6 Sol, extra-high reasoning) as my primary development assista
 
 ### 3. Representative Prompts and Outputs
 
-**Example 1 — Connect the UI to the analysis API.** The goal was an end-to-end flow from article URL input to source-linked comparison results. A representative prompt (verbatim) was: “ui연결도 해줘 너가 이것저것 실험해보면서”. Codex connected the Android app to `POST /api/analyze` and mapped the JSON response into UI models. I reviewed the request flow and error handling before integrating the [Android connection code](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/3ba9096).
+The prompts below consolidate related instructions given during development and are edited for clarity.
 
-**Example 2 — Deploy a shared backend.** The backend needed to be accessible to teammates without a local server. An earlier AI-assisted Render setup was unsuitable because its sleep behavior conflicted with that requirement, so I redirected the work with this prompt (verbatim): “vercel쓰는거능 어떄/”. Codex prepared the [Vercel configuration](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/47670a8) and updated the [Android default backend URL](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/07d6a24). I reviewed the configuration; on 2026-10-08, the deployed `/api/health` endpoint returned HTTP 200 with `analysis_ready: true`. This verifies reachability and configuration, not comparison accuracy.
+**Example 1 — Android–API integration.** The project already had Compose screens and a Django analysis pipeline, but they needed to form one user flow.
+
+> Integrate the Android UI with the existing `POST /api/analyze` endpoint. Send the article URL and `max_related: 3` as JSON, map the returned source analysis and claim comparisons into shared/different claim cards with links to the original passages, and handle loading and server errors in the UI. Keep NAVER and Gemini calls and credentials on the backend, and allow the backend URL to be overridden for local testing.
+
+Codex implemented the Android network adapter and response mapping in [the integration commit](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/3ba9096), with the [configurable backend URL](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/07d6a24) added for team use. I reviewed the request/response mapping and error handling against the API contract.
+
+**Example 2 — Shared deployment and diagnostics.** The team needed to test the app without running a local backend. An earlier AI-assisted Render configuration was abandoned because its sleep behavior did not meet that requirement.
+
+> Prepare the Django API for a shared Vercel deployment in the Seoul region. Configure a function duration suitable for long analyses, store Gemini and NAVER credentials only as server environment variables, and point the Android app at the deployed HTTPS API. Add request IDs and stage-level timing and error logs that can be correlated with Android Logcat, without logging article text, prompts, or API keys. Verify the deployment through `/api/health` and make transient model failures distinguishable from other errors.
+
+Codex produced the [Vercel configuration](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/47670a8), [long-running function setting](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/bb812a6), and [request diagnostics](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/fc0de10). I reviewed the configuration and logs. On 2026-10-08, `/api/health` returned HTTP 200 with `analysis_ready: true`; this confirms reachability and configuration, not comparison accuracy.
 
 ### 4. What Worked Well and What Required Human Verification
 
