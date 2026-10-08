@@ -8,18 +8,18 @@ I used Codex (GPT-6 Sol, extra-high reasoning) as my primary development assista
 
 | Task | AI contribution | My role |
 | --- | --- | --- |
-| Backend–Android integration | Implemented API requests, response mapping, and error handling | Specified the request flow and reviewed the implementation |
+| Connect teammates' Android UI and LLM analysis code | Implemented the Django API, Android request, response mapping, and error handling | Specified the request flow and reviewed the integration |
 | Vercel deployment and diagnostics | Provided deployment guidance and implemented configuration and structured logs | Selected the deployment approach and verified the configuration and diagnostics |
 
 ### 3. Representative Prompts and Outputs
 
 The prompts below consolidate related instructions given during development and are edited for clarity.
 
-**Example 1 — Android–API integration.** The project already had Compose screens and a Django analysis pipeline, but they needed to form one user flow.
+**Example 1 — Integrating teammates' UI and analysis code.** Teammates had implemented the Android UI and LLM article-comparison functions separately. My task was to connect them into one user flow.
 
-> Integrate the Android UI with the existing `POST /api/analyze` endpoint. Send the article URL and `max_related: 3` as JSON, map the returned source analysis and claim comparisons into shared/different claim cards with links to the original passages, and handle loading and server errors in the UI. Keep NAVER and Gemini calls and credentials on the backend, and allow the backend URL to be overridden for local testing.
+> Connect the existing Android UI and LLM analysis functions through a Django backend. Have the app send an article URL to `/api/analyze`, run the existing analysis on the server, and map the response to the UI's shared/different comparison cards and original-article links. Reuse the team's UI and analysis logic, and handle loading and errors in the app.
 
-Codex implemented the Android network adapter and response mapping in [the integration commit](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/3ba9096), with the [configurable backend URL](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/07d6a24) added for team use. I reviewed the request/response mapping and error handling against the API contract.
+Codex added the [Django API](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/f62b037) and [Android adapter](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/3ba9096) that connect those components. I reviewed the data flow and checked that the existing UI could display the analysis result.
 
 **Example 2 — Shared deployment and diagnostics.** The team needed to test the app without running a local backend. An earlier AI-assisted Render configuration was abandoned because its sleep behavior did not meet that requirement.
 
