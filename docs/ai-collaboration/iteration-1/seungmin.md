@@ -11,19 +11,19 @@ I used Codex (GPT-6 Sol, extra-high reasoning) as my primary development assista
 | Connect teammates' Android UI and LLM analysis code | Implemented the Django API, Android request, response mapping, and error handling | Specified the request flow and reviewed the integration |
 | Vercel deployment and diagnostics | Provided deployment guidance and implemented configuration and structured logs | Selected the deployment approach and verified the configuration and diagnostics |
 
-### 3. Representative Prompts and Outputs
+### 3. Prompts and Results
 
-The prompts below consolidate related instructions given during development and are edited for clarity.
+These prompts summarize related instructions I gave Codex during development.
 
-**Example 1 — Integrating teammates' UI and analysis code.** Teammates had implemented the Android UI and LLM article-comparison functions separately. My task was to connect them into one user flow.
+**Android UI and analysis integration.** Teammates had implemented the Android UI and LLM article-comparison functions separately. I directed Codex to connect them into one user flow.
 
-> Connect the existing Android UI and LLM analysis functions through a Django backend. Have the app send an article URL to `/api/analyze`, run the existing analysis on the server, and map the response to the UI's shared/different comparison cards and original-article links. Reuse the team's UI and analysis logic, and handle loading and errors in the app.
+> Use the team's existing Jetpack Compose screens and LLM analysis functions. Add a Django endpoint that accepts an article URL through `POST /api/analyze`, runs the analysis on the server, and returns `source_analysis` and `comparison` as JSON. In Android, map `same` matches to shared cards and `opposes` or `different_interpretation` matches to different cards. Show the cited sentences and original-article links, handle loading and API errors, and keep Gemini and NAVER credentials on the server.
 
 Codex added the [Django API](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/f62b037) and [Android adapter](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/3ba9096) that connect those components. I reviewed the data flow and checked that the existing UI could display the analysis result.
 
-**Example 2 — Shared deployment and diagnostics.** The team needed to test the app without running a local backend. An earlier AI-assisted Render configuration was abandoned because its sleep behavior did not meet that requirement.
+**Shared deployment and diagnostics.** The team needed to test the app without running a local backend. An earlier AI-assisted Render configuration was abandoned because its sleep behavior did not meet that requirement.
 
-> Prepare the Django API for a shared Vercel deployment in the Seoul region. Configure a function duration suitable for long analyses, store Gemini and NAVER credentials only as server environment variables, and point the Android app at the deployed HTTPS API. Add request IDs and stage-level timing and error logs that can be correlated with Android Logcat, without logging article text, prompts, or API keys. Verify the deployment through `/api/health` and make transient model failures distinguishable from other errors.
+> Deploy the Django API to Vercel's Seoul region (`icn1`) with Fluid Compute and a 300-second function limit. Keep Gemini and NAVER credentials in server environment variables, set the Android app's default backend URL to the deployed HTTPS endpoint, and verify `/api/health`. Add an `X-Analysis-ID` response header and the same ID to Android Logcat. Record timing and failures for article fetching, related-article search, model calls, and comparison without logging article text, prompts, or keys; return a distinct retryable error for temporary Gemini failures.
 
 Codex produced the [Vercel configuration](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/47670a8), [long-running function setting](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/bb812a6), and [request diagnostics](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/fc0de10). I reviewed the configuration and logs. On 2026-10-08, `/api/health` returned HTTP 200 with `analysis_ready: true`; this confirms reachability and configuration, not comparison accuracy.
 
