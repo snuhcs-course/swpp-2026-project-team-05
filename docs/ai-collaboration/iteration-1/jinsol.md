@@ -1,29 +1,20 @@
-## AI Collaboration Contribution — Lee Jinsol
+## AI Collaboration Contribution — Jinsol Lee
 
-### 1. Summary of AI Usage
+> Individual contribution note for the team-level **AI Collaboration Report – Iteration 1**.
 
-I used ChatGPT/Codex to refine FrameLESS’s article-first user flow, draft the Android comparison UI, and prepare the Functional Requirements, Non-Functional Requirements, and UI Requirements sections. AI outputs were used as drafts and were checked against the running emulator, TA feedback, and the final Wiki preview before integration.
+### 1. Where AI Was Used
+
+I used ChatGPT/Codex to refine FrameLESS’s article-first user flow, draft the Android source-linked comparison UI, and prepare the Functional Requirements, Non-Functional Requirements, and UI Requirements sections. AI outputs were treated as drafts and were checked against the running emulator, TA feedback, and the final Wiki preview before integration.
 
 | Tool | Model / version | Used by | Main purpose |
 |---|---|---|---|
-| ChatGPT / Codex | Not recorded | Lee Jinsol | UI and requirements drafting, prototype troubleshooting |
+| ChatGPT / Codex | Not recorded | Lee Jinsol | UI and requirements drafting; prototype troubleshooting |
 
-### 2. Major Tasks Where AI Contributed
+**Deliberately not used.** I did not use AI to decide whether a claim was factually true, politically neutral, or sufficiently supported by evidence. I made those scope and wording decisions manually using TA feedback, the project scope, and the running prototype.
 
-| # | Task | Related deliverable | AI role | Contribution level | Human owner |
-|---|---|---|---|---|---|
-| T1 | Refine the article-first flow and draft user stories, acceptance criteria, NFRs, and UI documentation | Requirements & Specifications Wiki | Drafted and reviewed | Medium | Lee Jinsol |
-| T2 | Build and refine the Android source-linked comparison UI | UI prototype; commit `77a769e` | Assisted UI/code drafting | Medium | Lee Jinsol |
+### 2. Prompt History
 
-### 3. Representative Prompt and Output
-
-#### Example — Requirements and UI specification (T1)
-
-**Define** — We needed requirements that matched the Iteration 1 MVP: article URL input → same-event coverage retrieval → source-linked comparison.
-
-**Context provided** — TA feedback, the revised proposal, required user-story formats, and screenshots of the running prototype.
-
-**Prompt**
+The following is the retained Iteration 1 prompt that I can verify. I did not reconstruct deleted or unrecorded prompts retrospectively.
 
 ```text
 내가 해야할건 다음 이부분만:
@@ -33,18 +24,28 @@ I used ChatGPT/Codex to refine FrameLESS’s article-first user flow, draft the 
 현재 코드랑 ui 등 같이 봐가면서 해
 ```
 
-**Output (excerpt)** — AI drafted six user stories, Given-When-Then acceptance criteria, measurable NFRs, a UI flow diagram, and screen captions.
+The prompt provided TA feedback, the revised proposal, required user-story formats, and screenshots of the running prototype as context.
 
-**Verify and integrate** — I compared the draft with the emulator screens and GitHub Wiki Preview. I kept the article-first flow and source-linked comparison, but changed wording that could imply the system decides factual truth or political neutrality. The final result was integrated into the Requirements & Specifications Wiki page.
+### 3. What AI Did Well
 
-### 4. What Worked Well and What Required Human Verification
+AI produced a useful first draft of six user stories, Given-When-Then acceptance criteria, measurable NFRs, a UI flow diagram, and screen captions. These drafts were used to prepare the Requirements & Specifications Wiki page. It also assisted the initial source-linked comparison UI draft in `android/app/src/main/java/com/swpp/team5/frameless/MainActivity.kt`, which I reviewed and revised before commit `77a769e`.
 
-AI quickly converted broad TA feedback into concrete UI states and testable requirements. However, human review was necessary because terms such as “consensus facts” could overstate what the system can determine. I revised these into evidence-oriented phrases such as “reported by multiple sources” and checked that the final documentation matched the actual input, loading, comparison, no-related-coverage, and sentence-comparison screens.
+### 4. Overclaim / Correction
+
+AI-generated drafts used terms such as “consensus facts” and “what actually happened.” This wording could incorrectly imply that the system can determine factual truth or political neutrality merely because multiple outlets report a similar claim. I identified this issue during TA-feedback and requirements review. I manually changed the terminology to evidence-oriented phrases such as “reported by multiple sources” and “outlet-specific claims/framing candidates.” The correction required revising the UI and documentation wording; no unsupported truth or neutrality judgment was integrated.
+
+### 5. Prompt Revisions
+
+I did not retain a reliable before-and-after prompt pair during Iteration 1, so I will not create one retrospectively. From Iteration 2, I will record the original prompt, revised prompt, and reason for revision when AI is used.
+
+### 6. Manual Fixes and Verification
+
+I manually revised the terminology and UI/documentation copy rather than asking AI to decide neutrality, because this required an evidence-based product decision rather than a wording-only change. I also manually tested the Android prototype on the emulator and verified that the final documentation matched the input, loading, comparison, no-related-coverage, and sentence-comparison screens.
 
 - [x] Ran and manually tested the Android prototype on the emulator
 - [x] Checked the output against TA feedback and project scope
 - [x] Verified the Wiki table, Mermaid flow, and screenshots in Preview
 
-### 5. Reflection
+### 7. Takeaway
 
-AI sped up the first drafts of the UI and documentation, but it did not replace product judgment or testing. The most important lesson was that plausible UI and requirement text must be verified with real article inputs and the running prototype. In the next iteration, I will provide the current API contract and concrete test cases as prompt context before integrating AI-assisted changes.
+AI accelerated first drafts, but it did not replace product judgment or testing. In the next iteration, I will record prompts at the time of use and provide the current API contract and concrete test cases as context before integrating AI-assisted changes.
