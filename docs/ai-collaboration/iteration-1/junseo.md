@@ -18,7 +18,7 @@ I used Codex as my main development assistant to build the article analysis pipe
 
 | Tool | Model / version | Used by | Main purpose |
 | ----- | ----- | ----- | ----- |
-| Codex | GPT-based Codex model (exact version not recorded) | Junseo Heo | Implementing the article analysis pipeline (5 Python files) and the README section |
+| Codex | GPT-based Codex model | Junseo Heo | Implementing the article analysis pipeline (5 Python files) and the README section |
 
 ---
 
@@ -31,7 +31,6 @@ I used Codex as my main development assistant to build the article analysis pipe
 | T3 | Single-article analysis: core event, sentence roles, grounded claims, wording markers (`llm_analysis.py`) | Prototype | Generated code | High | Junseo Heo |
 | T4 | Related-article search, same-event screening, and claim comparison (`article_search.py`, `llm_analysis.py`) | Prototype | Generated code | High | Junseo Heo |
 | T5 | Command-line demo and README description of the pipeline (`related_example.py`, [5a978da](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/5a978da), [5052a7e](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/5052a7e)) | Prototype, README | Generated code, Drafted | Medium | Junseo Heo |
-| T6 | Check that the wiki Design Documentation matches the deployed code | Design Documentation | Reviewed | Medium | Junseo Heo |
 
 ---
 
@@ -164,7 +163,6 @@ The same first version also left empty variables in `model_client.py` and `artic
 | T1 | `fetch_article()` downloaded any http(s) URL with no timeout or size limit | Review before deployment | URL validation, redirect checks, 15 s timeout, 4 MB limit ([44320eb](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/44320eb)) |
 | T2, T4 | Empty variables for pasting API keys into the source code | Review during backend integration | Keys read only from environment variables ([f62b037](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/f62b037)) |
 | T4 | An extra Gemini retry call for unmatched claims slowed down every request | Stage timing logs on the shared backend | Retry call removed ([fc0de10](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/fc0de10)) |
-| T6 | The wiki sequence diagram shows quote verification after the comparison loop, but the code checks quotes for each related article right away | Comparing the wiki with the code | Minor; the result is the same |
 
 ### **Verification practices we used**
 
