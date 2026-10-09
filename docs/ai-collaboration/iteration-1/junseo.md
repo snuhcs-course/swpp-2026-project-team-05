@@ -39,9 +39,7 @@ Codex was most useful for well-defined parts: HTML title parsing, JSON schemas, 
 | `model_client.py` and `article_search.py` had empty variables meant for pasting API keys into the source, which risked committing keys | Review during backend integration | Keys are read only from environment variables ([f62b037](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/f62b037)) |
 | `fetch_article()` downloaded any http(s) URL with no timeout or size limit, which is unsafe once the URL comes from users | Review before deployment | URL validation (no localhost, IP addresses, or custom ports), redirect checks, 15 s timeout, 4 MB limit ([44320eb](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/44320eb)) |
 | An extra Gemini retry call for unmatched claims slowed down every request | Stage timing logs on the shared backend | Removed the retry call ([fc0de10](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/fc0de10)) |
-| Earlier functions that compared all articles at once (`compare_articles`, `_source_issues`) stayed in the code after the approach changed | Code reading while writing the design document | Recorded as cleanup for Iteration 2 |
 
-I measured `fetch_article()` on 2026-10-07 with eight articles from the NAVER News ranking page. All eight succeeded, taking 0.8–1.3 s each after the first call (the first call took 6.0 s, including library loading). This confirms that extraction works on NAVER News pages, not on every publisher's site. It also does not measure comparison quality, which still needs to be evaluated with human-labelled events.
 
 ### 5. Reflection on the Development Process
 
