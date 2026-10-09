@@ -19,7 +19,6 @@ I used Codex as my main development assistant to build the article analysis pipe
 | Tool | Model / version | Used by | Main purpose |
 | ----- | ----- | ----- | ----- |
 | Codex | GPT-based Codex model (exact version not recorded) | Junseo Heo | Implementing the article analysis pipeline (5 Python files) and the README section |
-| Claude Code | Claude Opus 5.5 | Junseo Heo | Checking the wiki design document against the code, drafting this report |
 
 ---
 
