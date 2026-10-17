@@ -1,6 +1,7 @@
-package com.swpp.team5.frameless
+package com.swpp.team5.frameless.data
 
 import android.util.Log
+import com.swpp.team5.frameless.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -10,171 +11,7 @@ import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 
-/* ------------------------------------------------------------------
- * 1. 현재 서버가 실제로 주는 데이터
- *    (source_analysis / comparison.issues / related_articles)
- * ------------------------------------------------------------------ */
-
-internal enum class ClaimType { SHARED, DIFFERENT }
-
-/** 서버 relation_to_source 값을 그대로 보존한다. 알 수 없는 값도 버리지 않는다. */
-internal enum class Relation(val wire: String, val label: String) {
-    SAME("same", "같은 내용"),
-    OPPOSES("opposes", "반대되는 내용"),
-    DIFFERENT_INTERPRETATION("different_interpretation", "다른 해석"),
-    OTHER("", "기타");
-
-    companion object {
-        fun from(raw: String): Relation = values().firstOrNull { it.wire == raw && it != OTHER } ?: OTHER
-    }
-}
-
-internal data class SourcePassage(
-    val outlet: String,
-    val excerpt: String,
-    val url: String?,
-    /** 입력 기사 문장이면 null. 다른 기사 문장이면 서버 relation_to_source 원문 값. */
-    val relationRaw: String? = null
-)
-
-internal data class ClaimPreview(
-    val type: ClaimType,
-    val summary: String,
-    val explanation: String,
-    val passages: List<SourcePassage>
-)
-
-/** 입력 기사(article_index 0)를 포함해, 응답에 등장한 기사 하나. */
-internal data class ArticleRef(
-    val articleIndex: Int,
-    val title: String,
-    val url: String?
-)
-
-internal data class SourceClaim(
-    val index: Int,
-    val text: String,
-    val quote: String
-)
-
-/** comparison.issues[].members[] 한 개. */
-internal data class IssueMember(
-    val articleIndex: Int,
-    val title: String,
-    val url: String?,
-    val sourceClaimIndex: Int?,
-    val relationRaw: String,
-    val quote: String
-) {
-    val relation: Relation get() = Relation.from(relationRaw)
-}
-
-/** comparison.issues[] 한 개. label은 서버 issue 문자열 그대로. */
-internal data class IssueGroup(
-    val label: String,
-    val members: List<IssueMember>
-)
-
-/* ------------------------------------------------------------------
- * 2. 판정 기준 v0.2.1 데이터 (서버가 아직 보내지 않음)
- *    응답 최상위에 "rubric" 객체가 있을 때만 채워진다. 없으면 null.
- *    앱은 이 값을 만들거나 추정하지 않는다. 스키마는 FrameLESS_rubric_api_contract.md [제안].
- * ------------------------------------------------------------------ */
-
-internal data class RubricResult(
-    val version: String,
-    val questions: List<RubricQuestion>,
-    val expressions: List<ExpressionDifference>,
-    val informations: List<InformationDifference>,
-    /** 형식 검사에서 버린 항목 수. 0이 아니면 서버 출력 점검이 필요하다. */
-    val droppedCount: Int
-)
-
-internal data class RubricQuestion(
-    val id: String,
-    val question: String,
-    val answers: List<QuestionAnswer>
-)
-
-internal data class QuestionAnswer(
-    val articleIndex: Int,
-    val answered: Boolean,
-    val summary: String,
-    val evidenceQuotes: List<String>,
-    /** P4 [제안]: timing_impossible | format | editorial | unknown. 없으면 null. */
-    val absenceReason: String?,
-    /** P4 [제안]: issue_relevant | peripheral. 없으면 null. */
-    val relevance: String?
-)
-
-internal data class CategoryMark(
-    /** A~G, H(P5 제안) */
-    val code: String,
-    /** 유표성 0~2 */
-    val markedness: Int
-)
-
-internal data class ExpressionDifference(
-    val articleIndex: Int,
-    val questionId: String?,
-    val sentence: String,
-    val span: String,
-    val categories: List<CategoryMark>,
-    val baselineText: String,
-    /** outlet | neutral_paraphrase (P1) */
-    val baselineSource: String,
-    val baselineArticleIndex: Int?,
-    val target: String?,
-    /** negative | positive | none */
-    val polarity: String,
-    /** direct | indirect, 없으면 null */
-    val aim: String?,
-    val held: Boolean,
-    val note: String
-) {
-    val maxMarkedness: Int get() = categories.maxOfOrNull { it.markedness } ?: 0
-}
-
-internal data class InformationDifference(
-    /** I1~I5 */
-    val code: String,
-    val articleIndex: Int,
-    val questionId: String?,
-    val sentence: String?,
-    val value: String,
-    val target: String?,
-    val polarity: String?
-)
-
-/* ------------------------------------------------------------------
- * 3. 화면이 받는 결과
- * ------------------------------------------------------------------ */
-
-internal data class AnalysisResult(
-    val sourceTitle: String,
-    val sourceUrl: String,
-    val coreEvent: String,
-    val relatedArticleCount: Int,
-    /** 기존 화면용: 입력 기사 클레임별 공통/차이 카드 */
-    val claims: List<ClaimPreview>,
-    /** article_index 0 = 입력 기사, 1 이상 = 응답 members에 등장한 다른 기사 */
-    val articles: List<ArticleRef>,
-    /** related_articles에는 있지만 어떤 issue member에도 등장하지 않은 기사 제목 */
-    val relatedWithoutMatches: List<String>,
-    val sourceClaims: List<SourceClaim>,
-    val issues: List<IssueGroup>,
-    /** 다른 기사 어디에서도 대응 문장을 찾지 못한 입력 기사 클레임 */
-    val sourceOnlyClaims: List<SourceClaim>,
-    /** 입력 기사 클레임과 연결되지 않은 다른 기사 문장 (source_claim_index 없음) */
-    val relatedOnlyMembers: List<IssueMember>,
-    /** 판정 기준 v0.2.1 데이터. 서버가 rubric을 보내지 않으면 null */
-    val rubric: RubricResult?
-) {
-    fun articleTitle(index: Int): String =
-        articles.firstOrNull { it.articleIndex == index }?.title
-            ?: if (index == 0) sourceTitle else "다른 출처 $index"
-}
-
+/** 서버 요청과 응답 파싱만 담당한다. 화면 코드는 여기에 두지 않는다. */
 internal object AnalysisApi {
     // Gradle supplies the shared team backend URL or a developer's local override.
     private val BASE_URL = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
@@ -308,7 +145,7 @@ internal object AnalysisApi {
         // 입력 기사 클레임과 연결되지 않은 다른 기사 문장
         val relatedOnlyMembers = allMembers.filter { m ->
             m.articleIndex > 0 && m.quote.isNotBlank() &&
-                    (m.sourceClaimIndex == null || sourceClaims.none { it.index == m.sourceClaimIndex })
+                (m.sourceClaimIndex == null || sourceClaims.none { it.index == m.sourceClaimIndex })
         }
 
         return AnalysisResult(
@@ -410,8 +247,8 @@ internal object AnalysisApi {
             val polarity = e.optString("polarity")
             // 원문 추적 원칙: 표현은 반드시 같은 문장 안에 그대로 있어야 한다.
             val valid = e.has("article_index") && sentence.isNotBlank() && span.isNotBlank() &&
-                    sentence.contains(span) && categories.isNotEmpty() &&
-                    baselineSource in BASELINE_SOURCES && polarity in POLARITIES
+                sentence.contains(span) && categories.isNotEmpty() &&
+                baselineSource in BASELINE_SOURCES && polarity in POLARITIES
             if (!valid) { dropped++; return@mapNotNull null }
             ExpressionDifference(
                 articleIndex = e.optInt("article_index"),
