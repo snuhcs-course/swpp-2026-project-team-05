@@ -10,12 +10,31 @@ import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 
+/* ------------------------------------------------------------------
+ * 1. 현재 서버가 실제로 주는 데이터
+ *    (source_analysis / comparison.issues / related_articles)
+ * ------------------------------------------------------------------ */
+
 internal enum class ClaimType { SHARED, DIFFERENT }
+
+/** 서버 relation_to_source 값을 그대로 보존한다. 알 수 없는 값도 버리지 않는다. */
+internal enum class Relation(val wire: String, val label: String) {
+    SAME("same", "같은 내용"),
+    OPPOSES("opposes", "반대되는 내용"),
+    DIFFERENT_INTERPRETATION("different_interpretation", "다른 해석"),
+    OTHER("", "기타");
+
+    companion object {
+        fun from(raw: String): Relation = values().firstOrNull { it.wire == raw && it != OTHER } ?: OTHER
+    }
+}
 
 internal data class SourcePassage(
     val outlet: String,
     val excerpt: String,
-    val url: String?
+    val url: String?,
+    /** 입력 기사 문장이면 null. 다른 기사 문장이면 서버 relation_to_source 원문 값. */
+    val relationRaw: String? = null
 )
 
 internal data class ClaimPreview(
@@ -25,19 +44,150 @@ internal data class ClaimPreview(
     val passages: List<SourcePassage>
 )
 
+/** 입력 기사(article_index 0)를 포함해, 응답에 등장한 기사 하나. */
+internal data class ArticleRef(
+    val articleIndex: Int,
+    val title: String,
+    val url: String?
+)
+
+internal data class SourceClaim(
+    val index: Int,
+    val text: String,
+    val quote: String
+)
+
+/** comparison.issues[].members[] 한 개. */
+internal data class IssueMember(
+    val articleIndex: Int,
+    val title: String,
+    val url: String?,
+    val sourceClaimIndex: Int?,
+    val relationRaw: String,
+    val quote: String
+) {
+    val relation: Relation get() = Relation.from(relationRaw)
+}
+
+/** comparison.issues[] 한 개. label은 서버 issue 문자열 그대로. */
+internal data class IssueGroup(
+    val label: String,
+    val members: List<IssueMember>
+)
+
+/* ------------------------------------------------------------------
+ * 2. 판정 기준 v0.2.1 데이터 (서버가 아직 보내지 않음)
+ *    응답 최상위에 "rubric" 객체가 있을 때만 채워진다. 없으면 null.
+ *    앱은 이 값을 만들거나 추정하지 않는다. 스키마는 FrameLESS_rubric_api_contract.md [제안].
+ * ------------------------------------------------------------------ */
+
+internal data class RubricResult(
+    val version: String,
+    val questions: List<RubricQuestion>,
+    val expressions: List<ExpressionDifference>,
+    val informations: List<InformationDifference>,
+    /** 형식 검사에서 버린 항목 수. 0이 아니면 서버 출력 점검이 필요하다. */
+    val droppedCount: Int
+)
+
+internal data class RubricQuestion(
+    val id: String,
+    val question: String,
+    val answers: List<QuestionAnswer>
+)
+
+internal data class QuestionAnswer(
+    val articleIndex: Int,
+    val answered: Boolean,
+    val summary: String,
+    val evidenceQuotes: List<String>,
+    /** P4 [제안]: timing_impossible | format | editorial | unknown. 없으면 null. */
+    val absenceReason: String?,
+    /** P4 [제안]: issue_relevant | peripheral. 없으면 null. */
+    val relevance: String?
+)
+
+internal data class CategoryMark(
+    /** A~G, H(P5 제안) */
+    val code: String,
+    /** 유표성 0~2 */
+    val markedness: Int
+)
+
+internal data class ExpressionDifference(
+    val articleIndex: Int,
+    val questionId: String?,
+    val sentence: String,
+    val span: String,
+    val categories: List<CategoryMark>,
+    val baselineText: String,
+    /** outlet | neutral_paraphrase (P1) */
+    val baselineSource: String,
+    val baselineArticleIndex: Int?,
+    val target: String?,
+    /** negative | positive | none */
+    val polarity: String,
+    /** direct | indirect, 없으면 null */
+    val aim: String?,
+    val held: Boolean,
+    val note: String
+) {
+    val maxMarkedness: Int get() = categories.maxOfOrNull { it.markedness } ?: 0
+}
+
+internal data class InformationDifference(
+    /** I1~I5 */
+    val code: String,
+    val articleIndex: Int,
+    val questionId: String?,
+    val sentence: String?,
+    val value: String,
+    val target: String?,
+    val polarity: String?
+)
+
+/* ------------------------------------------------------------------
+ * 3. 화면이 받는 결과
+ * ------------------------------------------------------------------ */
+
 internal data class AnalysisResult(
     val sourceTitle: String,
     val sourceUrl: String,
     val coreEvent: String,
     val relatedArticleCount: Int,
-    val claims: List<ClaimPreview>
-)
+    /** 기존 화면용: 입력 기사 클레임별 공통/차이 카드 */
+    val claims: List<ClaimPreview>,
+    /** article_index 0 = 입력 기사, 1 이상 = 응답 members에 등장한 다른 기사 */
+    val articles: List<ArticleRef>,
+    /** related_articles에는 있지만 어떤 issue member에도 등장하지 않은 기사 제목 */
+    val relatedWithoutMatches: List<String>,
+    val sourceClaims: List<SourceClaim>,
+    val issues: List<IssueGroup>,
+    /** 다른 기사 어디에서도 대응 문장을 찾지 못한 입력 기사 클레임 */
+    val sourceOnlyClaims: List<SourceClaim>,
+    /** 입력 기사 클레임과 연결되지 않은 다른 기사 문장 (source_claim_index 없음) */
+    val relatedOnlyMembers: List<IssueMember>,
+    /** 판정 기준 v0.2.1 데이터. 서버가 rubric을 보내지 않으면 null */
+    val rubric: RubricResult?
+) {
+    fun articleTitle(index: Int): String =
+        articles.firstOrNull { it.articleIndex == index }?.title
+            ?: if (index == 0) sourceTitle else "다른 출처 $index"
+}
 
 internal object AnalysisApi {
     // Gradle supplies the shared team backend URL or a developer's local override.
     private val BASE_URL = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
     private const val MAX_RELATED_ARTICLES = 3
     private const val LOG_TAG = "FrameLESS.Analysis"
+
+    private val EXPRESSION_CODES = setOf("A", "B", "C", "D", "E", "F", "G", "H")
+    private val INFORMATION_CODES = setOf("I1", "I2", "I3", "I4", "I5")
+    private val BASELINE_SOURCES = setOf("outlet", "neutral_paraphrase")
+    private val POLARITIES = setOf("negative", "positive", "none")
+    private val AIMS = setOf("direct", "indirect")
+    private val ABSENCE_REASONS = setOf("timing_impossible", "format", "editorial", "unknown")
+    private val RELEVANCES = setOf("issue_relevant", "peripheral")
 
     suspend fun analyze(articleUrl: String): AnalysisResult = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyze").openConnection() as HttpURLConnection)
@@ -63,11 +213,17 @@ internal object AnalysisApi {
             if (status !in 200..299) {
                 val error = json.optJSONObject("error")
                 Log.w(LOG_TAG, "Backend status=$status analysis_id=$analysisId error_code=${error?.optString("code")}")
-                val message = error?.optString("message")
-                throw IllegalStateException(message?.takeIf { it.isNotBlank() }
-                    ?: "분석 요청이 실패했어요. (HTTP $status)")
+                val message = error?.optString("message")?.takeIf { it.isNotBlank() }
+                val code = error?.optString("code")?.takeIf { it.isNotBlank() }
+                // 서버 메시지인지 앱 메시지인지 구분되도록 상태 코드와 분석 ID를 붙인다.
+                val detail = listOfNotNull("HTTP $status", code, analysisId.takeIf { it.isNotBlank() }?.let { "ID $it" })
+                    .joinToString(" · ")
+                throw IllegalStateException(
+                    (message?.let { "서버: $it" } ?: "분석 요청이 실패했어요.") + "\n($detail)"
+                )
             }
             Log.i(LOG_TAG, "Backend status=$status analysis_id=$analysisId")
+            if (BuildConfig.DEBUG) logResponseShape(json)
             parseAnalysis(json, articleUrl)
         } catch (_: ConnectException) {
             throw IllegalStateException("서버에 연결할 수 없어요. 서버 주소와 상태를 확인해줘.")
@@ -85,35 +241,119 @@ internal object AnalysisApi {
             ?: throw IllegalStateException("분석 결과에 비교 정보가 없어요.")
         val sourceUrl = source.optString("url").ifBlank { requestedUrl }
         val sourceTitle = source.optString("title").ifBlank { sourceUrl }
-        val sourceClaims = source.optJSONArray("claims") ?: JSONArray()
-        val claims = mutableListOf<ClaimPreview>()
 
-        for (issue in (comparison.optJSONArray("issues") ?: JSONArray()).objects()) {
-            val members = (issue.optJSONArray("members") ?: JSONArray()).objects()
-            val related = members.filter { it.optInt("article_index") > 0 }
-            for ((sourceClaimIndex, matchesForClaim) in related.groupBy {
-                it.optInt("source_claim_index", -1)
-            }) {
-                val sourceClaim = sourceClaims.optJSONObject(sourceClaimIndex) ?: continue
-                val sourceQuote = sourceClaim.optJSONObject("evidence")?.optString("quote").orEmpty()
-                if (sourceQuote.isBlank()) continue
-                val sourcePassage = SourcePassage(sourceTitle, sourceQuote, sourceUrl)
-                val title = issue.optString("issue").ifBlank { sourceClaim.optString("claim") }
+        // 입력 기사 클레임
+        val sourceClaimsJson = source.optJSONArray("claims") ?: JSONArray()
+        val sourceClaims = (0 until sourceClaimsJson.length()).mapNotNull { i ->
+            val c = sourceClaimsJson.optJSONObject(i) ?: return@mapNotNull null
+            SourceClaim(
+                index = i,
+                text = c.optString("claim"),
+                quote = c.optJSONObject("evidence")?.optString("quote").orEmpty()
+            )
+        }
+
+        // 쟁점과 구성원 (서버 값 그대로)
+        val issues = (comparison.optJSONArray("issues") ?: JSONArray()).objects().map { issue ->
+            IssueGroup(
+                label = issue.optString("issue"),
+                members = (issue.optJSONArray("members") ?: JSONArray()).objects().map { m ->
+                    IssueMember(
+                        articleIndex = m.optInt("article_index", -1),
+                        title = m.optString("title"),
+                        url = m.optString("url").takeIf { it.isHttpUrl() },
+                        sourceClaimIndex = if (m.has("source_claim_index") && !m.isNull("source_claim_index"))
+                            m.optInt("source_claim_index", -1).takeIf { it >= 0 } else null,
+                        relationRaw = m.optString("relation_to_source"),
+                        quote = m.optJSONObject("evidence")?.optString("quote").orEmpty()
+                    )
+                }
+            )
+        }
+        val allMembers = issues.flatMap { it.members }
+
+        // 기사 목록: 입력 기사 + members에 실제 등장한 기사
+        val articles = buildList {
+            add(ArticleRef(0, sourceTitle, sourceUrl))
+            allMembers.filter { it.articleIndex > 0 }
+                .groupBy { it.articleIndex }
+                .toSortedMap()
+                .forEach { (index, ms) ->
+                    add(ArticleRef(
+                        articleIndex = index,
+                        title = ms.firstOrNull { it.title.isNotBlank() }?.title ?: "다른 출처 $index",
+                        url = ms.firstOrNull { it.url != null }?.url
+                    ))
+                }
+        }
+
+        // related_articles 중 members에 한 번도 등장하지 않은 기사 (url로만 대조, 순서로 추정하지 않음)
+        val memberUrls = articles.mapNotNull { it.url }.toSet()
+        val relatedJson = root.optJSONArray("related_articles") ?: JSONArray()
+        val relatedWithoutMatches = relatedJson.objects().mapNotNull { r ->
+            val url = r.optString("url")
+            if (url.isNotBlank() && url !in memberUrls) r.optString("title").ifBlank { url } else null
+        }
+
+        // 기존 화면용 카드 (기존 로직 유지, relation 값만 보존)
+        val claims = buildLegacyClaims(issues, sourceClaims, sourceTitle, sourceUrl)
+
+        // 다른 기사에서 대응 문장을 찾지 못한 입력 기사 클레임
+        val matchedSourceIndexes = allMembers
+            .filter { it.articleIndex > 0 && it.quote.isNotBlank() }
+            .mapNotNull { it.sourceClaimIndex }
+            .toSet()
+        val sourceOnlyClaims = sourceClaims.filter { it.index !in matchedSourceIndexes && it.quote.isNotBlank() }
+
+        // 입력 기사 클레임과 연결되지 않은 다른 기사 문장
+        val relatedOnlyMembers = allMembers.filter { m ->
+            m.articleIndex > 0 && m.quote.isNotBlank() &&
+                    (m.sourceClaimIndex == null || sourceClaims.none { it.index == m.sourceClaimIndex })
+        }
+
+        return AnalysisResult(
+            sourceTitle = sourceTitle,
+            sourceUrl = sourceUrl,
+            coreEvent = source.optString("core_event"),
+            relatedArticleCount = relatedJson.length(),
+            claims = claims,
+            articles = articles,
+            relatedWithoutMatches = relatedWithoutMatches,
+            sourceClaims = sourceClaims,
+            issues = issues,
+            sourceOnlyClaims = sourceOnlyClaims,
+            relatedOnlyMembers = relatedOnlyMembers,
+            rubric = root.optJSONObject("rubric")?.let { parseRubric(it) }
+        )
+    }
+
+    private fun buildLegacyClaims(
+        issues: List<IssueGroup>,
+        sourceClaims: List<SourceClaim>,
+        sourceTitle: String,
+        sourceUrl: String
+    ): List<ClaimPreview> {
+        val claims = mutableListOf<ClaimPreview>()
+        for (issue in issues) {
+            val related = issue.members.filter { it.articleIndex > 0 }
+            for ((sourceClaimIndex, matchesForClaim) in related.groupBy { it.sourceClaimIndex }) {
+                val sourceClaim = sourceClaims.firstOrNull { it.index == sourceClaimIndex } ?: continue
+                if (sourceClaim.quote.isBlank()) continue
+                val sourcePassage = SourcePassage(sourceTitle, sourceClaim.quote, sourceUrl)
+                val title = issue.label.ifBlank { sourceClaim.text }
                 if (title.isBlank()) continue
 
-                val same = matchesForClaim.filter { it.optString("relation_to_source") == "same" }
+                val same = matchesForClaim.filter { it.relation == Relation.SAME }
                 val different = matchesForClaim.filter {
-                    it.optString("relation_to_source") in setOf("opposes", "different_interpretation")
+                    it.relation == Relation.OPPOSES || it.relation == Relation.DIFFERENT_INTERPRETATION
                 }
                 for ((type, matches) in listOf(ClaimType.SHARED to same, ClaimType.DIFFERENT to different)) {
                     val passages = matches.mapNotNull { member ->
-                        val quote = member.optJSONObject("evidence")?.optString("quote").orEmpty()
-                        if (quote.isBlank()) null else SourcePassage(
-                            outlet = member.optString("title").ifBlank { "다른 출처" },
-                            excerpt = quote,
-                            url = member.optString("url").takeIf {
-                                it.startsWith("https://") || it.startsWith("http://")
-                            }
+                        if (member.quote.isBlank()) null else SourcePassage(
+                            outlet = member.title.ifBlank { "다른 출처" },
+                            excerpt = member.quote,
+                            url = member.url,
+                            relationRaw = member.relationRaw
                         )
                     }.distinctBy { it.url to it.excerpt }
                     if (passages.isEmpty()) continue
@@ -123,23 +363,122 @@ internal object AnalysisApi {
                         explanation = if (type == ClaimType.SHARED) {
                             "입력 기사와 다른 출처에서 같은 주장에 대응하는 문장을 찾았어요."
                         } else {
-                            "같은 주장에 대한 반박 또는 다른 해석이 있는 문장을 찾았어요."
+                            "같은 주장에 대해 서버가 '반대되는 내용' 또는 '다른 해석'으로 분류한 문장을 찾았어요."
                         },
                         passages = listOf(sourcePassage) + passages
                     )
                 }
             }
         }
+        return claims
+    }
 
-        return AnalysisResult(
-            sourceTitle = sourceTitle,
-            sourceUrl = sourceUrl,
-            coreEvent = source.optString("core_event"),
-            relatedArticleCount = root.optJSONArray("related_articles")?.length() ?: 0,
-            claims = claims
+    /* ---------------- rubric (v0.2.1) 파싱: 형식이 맞지 않으면 버린다 ---------------- */
+
+    private fun parseRubric(r: JSONObject): RubricResult {
+        var dropped = 0
+
+        val questions = (r.optJSONArray("questions") ?: JSONArray()).objects().mapNotNull { q ->
+            val id = q.optString("id")
+            val text = q.optString("question")
+            if (id.isBlank() || text.isBlank()) { dropped++; return@mapNotNull null }
+            val answers = (q.optJSONArray("answers") ?: JSONArray()).objects().mapNotNull { a ->
+                val status = a.optString("status")
+                if (!a.has("article_index") || status !in setOf("answered", "absent")) { dropped++; return@mapNotNull null }
+                QuestionAnswer(
+                    articleIndex = a.optInt("article_index"),
+                    answered = status == "answered",
+                    summary = a.optString("summary"),
+                    evidenceQuotes = (a.optJSONArray("evidence_quotes") ?: JSONArray()).strings(),
+                    absenceReason = a.optString("absence_reason").takeIf { it in ABSENCE_REASONS },
+                    relevance = a.optString("relevance").takeIf { it in RELEVANCES }
+                )
+            }
+            RubricQuestion(id, text, answers)
+        }
+
+        val expressions = (r.optJSONArray("expression_differences") ?: JSONArray()).objects().mapNotNull { e ->
+            val sentence = e.optString("sentence")
+            val span = e.optString("span")
+            val categories = (e.optJSONArray("categories") ?: JSONArray()).objects().mapNotNull { c ->
+                val code = c.optString("code")
+                val m = if (c.has("markedness")) c.optInt("markedness", -1) else -1
+                if (code in EXPRESSION_CODES && m in 0..2) CategoryMark(code, m) else null
+            }
+            val baseline = e.optJSONObject("baseline")
+            val baselineSource = baseline?.optString("source").orEmpty()
+            val polarity = e.optString("polarity")
+            // 원문 추적 원칙: 표현은 반드시 같은 문장 안에 그대로 있어야 한다.
+            val valid = e.has("article_index") && sentence.isNotBlank() && span.isNotBlank() &&
+                    sentence.contains(span) && categories.isNotEmpty() &&
+                    baselineSource in BASELINE_SOURCES && polarity in POLARITIES
+            if (!valid) { dropped++; return@mapNotNull null }
+            ExpressionDifference(
+                articleIndex = e.optInt("article_index"),
+                questionId = e.optString("question_id").ifBlank { null },
+                sentence = sentence,
+                span = span,
+                categories = categories,
+                baselineText = baseline?.optString("text").orEmpty(),
+                baselineSource = baselineSource,
+                baselineArticleIndex = baseline?.takeIf { it.has("article_index") }?.optInt("article_index"),
+                target = e.optString("target").ifBlank { null },
+                polarity = polarity,
+                aim = e.optString("aim").takeIf { it in AIMS },
+                held = e.optString("status") == "held",
+                note = e.optString("note")
+            )
+        }
+
+        val informations = (r.optJSONArray("information_differences") ?: JSONArray()).objects().mapNotNull { i ->
+            val code = i.optString("code")
+            val value = i.optString("value")
+            if (code !in INFORMATION_CODES || value.isBlank() || !i.has("article_index")) { dropped++; return@mapNotNull null }
+            InformationDifference(
+                code = code,
+                articleIndex = i.optInt("article_index"),
+                questionId = i.optString("question_id").ifBlank { null },
+                sentence = i.optString("sentence").ifBlank { null },
+                value = value,
+                target = i.optString("target").ifBlank { null },
+                polarity = i.optString("polarity").takeIf { it in POLARITIES }
+            )
+        }
+
+        if (dropped > 0) Log.w(LOG_TAG, "rubric: dropped $dropped malformed item(s)")
+        return RubricResult(
+            version = r.optString("version"),
+            questions = questions,
+            expressions = expressions,
+            informations = informations,
+            droppedCount = dropped
         )
+    }
+
+    /** 디버그 빌드에서만: 서버가 실제로 보내는 키 목록을 남겨 파서가 놓치는 필드를 찾는다. */
+    private fun logResponseShape(root: JSONObject) {
+        fun keys(o: JSONObject?) = o?.keys()?.asSequence()?.toList()?.sorted().orEmpty()
+        val source = root.optJSONObject("source_analysis")
+        val comparison = root.optJSONObject("comparison")
+        val firstIssue = comparison?.optJSONArray("issues")?.optJSONObject(0)
+        Log.d(LOG_TAG, "keys root=${keys(root)}")
+        Log.d(LOG_TAG, "keys source_analysis=${keys(source)}")
+        Log.d(LOG_TAG, "keys source_analysis.claims[0]=${keys(source?.optJSONArray("claims")?.optJSONObject(0))}")
+        Log.d(LOG_TAG, "keys comparison=${keys(comparison)}")
+        Log.d(LOG_TAG, "keys comparison.issues[0]=${keys(firstIssue)}")
+        Log.d(LOG_TAG, "keys comparison.issues[0].members[0]=${keys(firstIssue?.optJSONArray("members")?.optJSONObject(0))}")
+        Log.d(LOG_TAG, "keys related_articles[0]=${keys(root.optJSONArray("related_articles")?.optJSONObject(0))}")
+        val relations = comparison?.optJSONArray("issues")?.objects().orEmpty()
+            .flatMap { (it.optJSONArray("members") ?: JSONArray()).objects() }
+            .map { it.optString("relation_to_source") }.distinct()
+        Log.d(LOG_TAG, "relation_to_source values=$relations")
     }
 
     private fun JSONArray.objects(): List<JSONObject> =
         (0 until length()).mapNotNull { optJSONObject(it) }
+
+    private fun JSONArray.strings(): List<String> =
+        (0 until length()).mapNotNull { optString(it).takeIf { s -> s.isNotBlank() } }
+
+    private fun String.isHttpUrl(): Boolean = startsWith("https://") || startsWith("http://")
 }
