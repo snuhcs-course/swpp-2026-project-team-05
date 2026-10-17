@@ -1,2 +1,3 @@
-google-genai
 trafilatura
+google-genai
+jsonschema>=4,<5

@@ -1,62 +1,69 @@
-"""Change the URL, then read how other articles phrase each source sentence."""
+﻿"""Change link or pass a URL to run discovery and FrameLESS rubric analysis."""
 
-import re
+import argparse
+import json
+from pathlib import Path
+import sys
 
-from article_search import analyze_related_articles
-
-
-link = "https://n.news.naver.com/article/057/0001971678?cds=news_media_pc&type=editn"
-show_details = False  # True: also print explicit reasons and wording markers.
-
-result = analyze_related_articles(link, max_related=3)
-source = result["source_analysis"]
-rows = result["comparison"]["sentence_comparisons"]
-display_rows = rows if show_details else [row for row in rows if row["related"]]
-
-print(f"원 기사: {source['title']}")
-print(f"비교 기사: {len(result['related_articles'])}개 | 대응 표현이 있는 원문 문장: {len(display_rows)}개")
-for index, article in enumerate(result["related_articles"], 1):
-    print(f"  {index}. {article['title']}")
-
-relation_names = {
-    "same": "같은 취지",
-    "opposes": "반대",
-    "different_interpretation": "다른 해석",
-}
+from pipeline import complete_rubric_analysis, run_analysis_pipeline, run_discovery_pipeline
+from result_output import (format_analysis_result, make_error_record, make_failure_result,
+                           load_discovery_result, save_analysis_result, OperationError)
 
 
-def short_quote(text: str) -> str:
-    spoken_parts = re.findall(r'[“"]([^”"]{8,})[”"]', text)
-    return max(spoken_parts, key=len) if spoken_parts else text
+link = "https://www.ksw-news.com/news/articleView.html?idxno=3048396"
 
 
-for number, row in enumerate(display_rows, 1):
-    print(f"\n{number}. 원문: {row['source_sentence']}")
-    if not row["related"]:
-        print("   관련 기사에서 대응 표현을 찾지 못함")
-        continue
-    seen = set()
-    for member in row["related"]:
-        key = (member["article_index"], member["evidence"]["quote"])
-        if key in seen:
-            continue
-        seen.add(key)
-        relation = relation_names.get(member["relation_to_source"], "관련 표현")
-        voice = f"{member['speaker']} 발언" if member["speaker"] else "기사 서술"
-        quote = short_quote(member["evidence"]["quote"])
-        print(f"   [{member['article_index']}] {relation} / {voice}: \"{quote}\"")
-        if show_details:
-            if quote != member["evidence"]["quote"]:
-                print(f"     발췌 전 문장: {member['evidence']['quote']}")
-            reason = member["reason"]
-            if reason and reason["quote"] not in member["evidence"]["quote"]:
-                print(f"     이유: {reason['quote']}")
-            if member["markers"]:
-                markers = ", ".join(
-                    f"{marker['text']}({marker['dimension']}/{marker['label']})"
-                    for marker in member["markers"]
-                )
-                print(f"     표현 표지: {markers}")
+def main() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description="핵심 주장·관련 기사·FrameLESS I1~I5/A~G 분석")
+    parser.add_argument("url", nargs="?", default=link)
+    parser.add_argument("--max-claims", type=int, default=5)
+    parser.add_argument("--max-candidates", type=int, default=20)
+    parser.add_argument("--max-per-claim", type=int, default=3)
+    parser.add_argument("--display", type=int, default=10, help="검색어별 검색 결과 수")
+    parser.add_argument("--event-baseline-limit", type=int, default=5, help="포함·누락 비교용 사건 기사 수 0~20")
+    parser.add_argument("--verification-batch-size", type=int, default=3, help="본문 검증 요청당 기사 수 1~5")
+    parser.add_argument("--discovery-only", action="store_true", help="기존 1~4단계만 실행")
+    parser.add_argument("--input", type=Path, help="저장한 4단계 결과 JSON으로 5단계만 실행")
+    parser.add_argument("--details", action="store_true", help="배경·전망·발언자 근거도 출력")
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--output", type=Path, help="전체 결과를 저장할 JSON 파일")
+    parser.add_argument("--refresh", action="store_true", help="저장 결과를 재사용하지 않고 새로 분석")
+    parser.add_argument("--no-cache", action="store_true", help="분석 캐시·스냅샷 저장 비활성화")
+    parser.add_argument("--cache-dir", type=Path, help="분석 스냅샷 저장 폴더")
+    args = parser.parse_args()
+    progress = lambda message: print(message, file=sys.stderr)
+    try:
+        if args.input and args.discovery_only:
+            raise OperationError("--input과 --discovery-only는 함께 사용할 수 없습니다.", code="INVALID_OPTIONS")
+        if (args.input or args.discovery_only) and (args.refresh or args.no_cache or args.cache_dir):
+            raise OperationError("캐시 옵션은 URL로 전체 실행할 때 사용합니다.", code="INVALID_OPTIONS")
+        if args.input:
+            discovery = load_discovery_result(args.input)
+            result = complete_rubric_analysis(discovery, progress=progress)
+        else:
+            run = run_discovery_pipeline if args.discovery_only else run_analysis_pipeline
+            cache_options = {} if args.discovery_only else {
+                "use_cache": not args.no_cache, "force_refresh": args.refresh, "cache_dir": args.cache_dir}
+            result = run(args.url, max_claims=args.max_claims, max_candidates=args.max_candidates,
+                         max_per_claim=args.max_per_claim, display_per_query=args.display,
+                         event_baseline_limit=args.event_baseline_limit,
+                         verification_batch_size=args.verification_batch_size, progress=progress, **cache_options)
+    except Exception as exc:
+        result = make_failure_result(make_error_record(exc, stage="input_validation"), url=args.url)
+    if args.output:
+        result = save_analysis_result(result, args.output)
+        if not any(e["stage"] == "output_save" for e in result["errors"]):
+            print(f"전체 결과 저장: {args.output}", file=sys.stderr)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(format_analysis_result(result, show_details=args.details))
+    if result.get("execution_status") == "failed":
+        raise SystemExit(1)
 
-if not show_details and len(rows) > len(display_rows):
-    print(f"\n대응 표현을 찾지 못한 원문 문장 {len(rows) - len(display_rows)}개는 생략했습니다.")
+
+if __name__ == "__main__":
+    main()

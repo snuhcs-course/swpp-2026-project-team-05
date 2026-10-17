@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+
+# Local reference projects and documents
+iteration1/
+진행자료/
+
+# Generated analysis results and debug records
+debug_*/
+analysis_result.json
+discovery_result.json
+output.txt
+.analysis_cache/
