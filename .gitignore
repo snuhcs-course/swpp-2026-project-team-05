@@ -6,3 +6,4 @@ __pycache__/
 !.env.example
 db.sqlite3
 .vercel/
+.DS_Store
