@@ -17,17 +17,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.swpp.team5.frameless.ui.state.IssueView
-import com.swpp.team5.frameless.ui.state.OTHERS_ISSUE
+import com.swpp.team5.frameless.ui.state.OTHERS_GROUP
 import com.swpp.team5.frameless.ui.state.two
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.PillShape
 
-/** 쟁점 선택 칩 줄: 01 02 03 … 그 밖 */
+/**
+ * 묶음 선택 칩 줄: [쟁점|주장] 01 02 03 … 그 밖
+ * noun은 서버가 질문 단위 데이터를 주면 "쟁점", 주장만 주면 "주장".
+ */
 @Composable
 internal fun IssueChipRow(
-    issues: List<IssueView>,
+    noun: String,
+    count: Int,
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -40,11 +43,11 @@ internal fun IssueChipRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Caption("쟁점", modifier = Modifier.padding(end = 4.dp))
-        issues.forEach { issue ->
-            IssueChip(label = two(issue.index + 1), selected = issue.index == selected) { onSelect(issue.index) }
+        Caption(noun, modifier = Modifier.padding(end = 4.dp))
+        repeat(count) { i ->
+            IssueChip(label = two(i + 1), selected = i == selected) { onSelect(i) }
         }
-        IssueChip(label = "그 밖의 문장", selected = selected == OTHERS_ISSUE) { onSelect(OTHERS_ISSUE) }
+        IssueChip(label = "그 밖", selected = selected == OTHERS_GROUP) { onSelect(OTHERS_GROUP) }
     }
 }
 

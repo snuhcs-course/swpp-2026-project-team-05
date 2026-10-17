@@ -13,7 +13,7 @@ import com.swpp.team5.frameless.ui.state.ComparisonModel
 import com.swpp.team5.frameless.ui.state.ComparisonSelection
 import com.swpp.team5.frameless.ui.state.InputSentence
 import com.swpp.team5.frameless.ui.state.NarrowTab
-import com.swpp.team5.frameless.ui.state.OTHERS_ISSUE
+import com.swpp.team5.frameless.ui.state.OTHERS_GROUP
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -43,6 +43,8 @@ internal class AnalysisViewModel(
 
     private var job: Job? = null
 
+    private val model: ComparisonModel? get() = (uiState as? AnalysisUiState.Success)?.model
+
     /* ---------------- 입력 ---------------- */
 
     fun onUrlChange(value: String) {
@@ -67,7 +69,7 @@ internal class AnalysisViewModel(
             }
             try {
                 val model = ComparisonModel(analyzeArticle(trimmed))
-                selection = ComparisonSelection(issue = if (model.issues.isNotEmpty()) 0 else OTHERS_ISSUE)
+                selection = ComparisonSelection(group = if (model.groupCount > 0) 0 else OTHERS_GROUP)
                 uiState = AnalysisUiState.Success(model)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -95,15 +97,23 @@ internal class AnalysisViewModel(
 
     /* ---------------- 비교 화면 선택 ---------------- */
 
-    fun selectIssue(index: Int) {
-        selection = selection.copy(issue = index, focusedQuote = null)
+    fun selectGroup(index: Int) {
+        selection = selection.copy(group = index, focusedQuote = null)
     }
 
-    /** 넓은 화면: 왼쪽 문장을 누르면 오른쪽에 그 문장의 쟁점을 띄운다 */
+    /** 넓은 화면: 왼쪽 문장을 누르면 오른쪽에 그 문장의 쟁점(또는 주장)을 띄운다 */
     fun focusSentence(sentence: InputSentence) {
+        val groups = model?.groupsFor(sentence).orEmpty()
+        selection = selection.copy(group = groups.firstOrNull() ?: OTHERS_GROUP, focusedQuote = sentence.quote)
+    }
+
+    /** 좁은 화면: 문장을 누르면 그 문장의 상세를 연다 */
+    fun openSentenceDetail(sentence: InputSentence) {
+        val groups = model?.groupsFor(sentence).orEmpty()
         selection = selection.copy(
-            issue = sentence.issueIndexes.firstOrNull() ?: OTHERS_ISSUE,
-            focusedQuote = sentence.quote
+            group = groups.firstOrNull() ?: OTHERS_GROUP,
+            focusedQuote = sentence.quote,
+            narrowDetailOpen = true
         )
     }
 
@@ -111,13 +121,18 @@ internal class AnalysisViewModel(
         selection = selection.copy(narrowTab = tab)
     }
 
-    /** 좁은 화면: 쟁점 상세를 전체 화면으로 연다 */
+    /** 좁은 화면: 상세를 전체 화면으로 연다 */
     fun openNarrowDetail(index: Int) {
-        selection = selection.copy(issue = index, narrowDetailOpen = true)
+        selection = selection.copy(group = index, narrowDetailOpen = true)
     }
 
     fun closeNarrowDetail() {
         selection = selection.copy(narrowDetailOpen = false)
+    }
+
+    /** 대응 문장이 하나도 없을 때 안내 화면 대신 입력 기사 문장을 펼쳐 본다 */
+    fun showDespiteNoMatch() {
+        selection = selection.copy(showDespiteNoMatch = true)
     }
 }
 

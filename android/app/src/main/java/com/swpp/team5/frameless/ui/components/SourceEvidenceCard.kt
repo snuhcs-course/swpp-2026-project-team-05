@@ -22,11 +22,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.ArticleRef
+import com.swpp.team5.frameless.ui.state.AnswerView
+import com.swpp.team5.frameless.ui.state.ExpressionItem
+import com.swpp.team5.frameless.ui.state.InformationItem
+import com.swpp.team5.frameless.ui.state.cleanQuote
 import com.swpp.team5.frameless.ui.state.Clip
 import com.swpp.team5.frameless.ui.state.MatchKind
 import com.swpp.team5.frameless.ui.state.kindOf
@@ -83,7 +91,7 @@ internal fun SourceEvidenceCard(number: Int, clip: Clip) {
         }
         QuoteText(clip.quote, tint)
         if (clip.alsoIn.isNotEmpty()) {
-            Caption("같은 문장이 쟁점 " + clip.alsoIn.joinToString(", ") { two(it + 1) } + "에도 연결돼 있어요")
+            Caption("같은 문장이 주장 " + clip.alsoIn.joinToString(", ") { two(it + 1) } + "에도 연결돼 있어요")
         }
     }
 }
@@ -130,5 +138,173 @@ internal fun EmptyState(text: String) {
             .padding(14.dp)
     ) {
         Text(text, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Muted)
+    }
+}
+
+/* ==================================================================
+ * 판정 기준 v0.2.1 카드 — 서버가 rubric을 보낸 경우에만 쓰인다.
+ * 값은 서버가 보낸 그대로 옮기고, 앱이 새 범주나 유표성을 만들지 않는다.
+ * ================================================================== */
+
+internal object RubricLabels {
+    /** 표현 범주 짧은 이름 (스펙 §3) */
+    val expression = mapOf(
+        "A" to "보도 동사",
+        "B" to "발언 명명",
+        "C" to "행위 서술어",
+        "D" to "정도 수식어",
+        "E" to "평가 수식어",
+        "F" to "명명",
+        "G" to "양태·확신",
+        "H" to "행위자 범위 확대"
+    )
+
+    /** 정보 구성 차이 설명 */
+    val information = mapOf(
+        "I1" to "다른 기사에 대응 문장이 없음",
+        "I2" to "제목/리드/본문 등 배치 차이",
+        "I3" to "다른 기사가 추가한 배경",
+        "I4" to "추측·전망 표현",
+        "I5" to "직접/간접 인용 및 인용 주체"
+    )
+
+    /** 질문에 대한 문장이 없을 때 서버가 붙인 사유. 의도를 암시하지 않는 말로만 옮긴다. */
+    fun absence(reason: String?): String? = when (reason) {
+        "timing_impossible" -> "보도 시점상 다룰 수 없었던 내용이에요."
+        "format" -> "기사 형식상 다루지 않는 범위예요."
+        "editorial" -> "서버 사유 분류: editorial (의도 판정 아님)"
+        else -> null
+    }
+
+    /** "표현 차이: 명명(F) · 유표성 보류" */
+    fun expressionTitle(item: ExpressionItem): String {
+        val e = item.e
+        val cats = e.categories.joinToString(" · ") { "${expression[it.code] ?: it.code}(${it.code})" }
+        val mark = if (e.held) "유표성 보류" else "유표성 ${e.maxMarkedness}"
+        return "표현 차이: $cats · $mark"
+    }
+}
+
+/** 카드 머리: 기사 제목 + 원문 링크 */
+@Composable
+private fun ArticleLine(article: ArticleRef?, fallbackTitle: String) {
+    val uriHandler = LocalUriHandler.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = article?.title ?: fallbackTitle,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Fl.Ink2,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        val url = article?.url
+        if (url != null) SourceLink(onClick = { uriHandler.openUri(url) }) else Caption("링크 없음")
+    }
+}
+
+/** 문장 안의 span만 밑줄로 강조해 보여준다 */
+@Composable
+private fun SentenceWithSpan(sentence: String, span: String) {
+    val text = buildAnnotatedString {
+        val start = sentence.indexOf(span)
+        if (start < 0 || span.isBlank()) {
+            append(sentence)
+        } else {
+            append(sentence.substring(0, start))
+            withStyle(SpanStyle(textDecoration = TextDecoration.Underline, fontWeight = FontWeight.Bold)) {
+                append(span)
+            }
+            append(sentence.substring(start + span.length))
+        }
+    }
+    Text(text = text, fontFamily = Fl.Serif, fontSize = 15.sp, lineHeight = 27.sp, color = Fl.Ink)
+}
+
+@Composable
+private fun RubricCardBox(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Fl.Inset, RoundedCornerShape(10.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) { content() }
+}
+
+/**
+ * 표현 차이 카드. 반드시 원문 표현(span)·문장·출처 기사·원문 링크를 함께 보여준다.
+ * baselineTitle: 기준 표현이 다른 기사에서 왔을 때 그 기사 제목
+ */
+@Composable
+internal fun ExpressionEvidenceCard(item: ExpressionItem, baselineTitle: String?) {
+    val e = item.e
+    RubricCardBox {
+        TagPill(RubricLabels.expressionTitle(item), Fl.TintDiff, Fl.InkDiff)
+        ArticleLine(item.article, "기사 ${e.articleIndex}")
+        SentenceWithSpan(cleanQuote(e.sentence), e.span)
+        Text(
+            text = "원문 표현 “${e.span}”",
+            fontSize = 12.sp,
+            color = Fl.Ink2
+        )
+        if (e.baselineText.isNotBlank()) {
+            val from = if (e.baselineSource == "outlet") {
+                "비교 기사" + (baselineTitle?.let { " · $it" } ?: "")
+            } else {
+                "중립 대체 표현 · 모델 생성"
+            }
+            Text("비교 기준 “${e.baselineText}” ($from)", fontSize = 12.sp, color = Fl.Ink2)
+        }
+        e.target?.let { Caption("대상: $it") }
+        if (e.held) Caption("판단 근거가 부족해 유표성을 정하지 않았어요.")
+        if (e.note.isNotBlank()) Caption("설명(모델 정리): ${e.note}")
+    }
+}
+
+/** 정보 구성 차이 카드 (I1~I5) */
+@Composable
+internal fun InformationEvidenceCard(item: InformationItem) {
+    val i = item.i
+    RubricCardBox {
+        TagPill("${i.code} · ${RubricLabels.information[i.code] ?: ""}", Fl.TintNone, Fl.Ink2)
+        ArticleLine(item.article, "기사 ${i.articleIndex}")
+        i.sentence?.let { QuoteText(cleanQuote(it), tint = null) }
+        Text(i.value, fontSize = 12.sp, lineHeight = 18.sp, color = Fl.Ink2)
+        i.target?.let { Caption("대상: $it") }
+    }
+}
+
+/**
+ * 직접 인용 안의 표현 (D1). 인용된 사람의 말이라 매체의 표현 차이로 세지 않고
+ * I5 인용 정보로만 보여준다. 범주·유표성은 표시하지 않는다.
+ */
+@Composable
+internal fun QuotedExpressionCard(item: ExpressionItem) {
+    val e = item.e
+    RubricCardBox {
+        TagPill("I5 · 직접 인용 안의 표현", Fl.TintNone, Fl.Ink2)
+        ArticleLine(item.article, "기사 ${e.articleIndex}")
+        SentenceWithSpan(cleanQuote(e.sentence), e.span)
+        Caption("인용된 발언 속 표현이라 매체의 표현 차이로 표시하지 않았어요.")
+    }
+}
+
+/** 질문 단위 쟁점에서 기사 하나의 답 */
+@Composable
+internal fun AnswerCard(answer: AnswerView) {
+    val a = answer.answer
+    RubricCardBox {
+        ArticleLine(answer.article, "기사 ${answer.articleIndex}")
+        if (a.answered) {
+            if (a.summary.isNotBlank()) Text(a.summary, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink)
+            a.evidenceQuotes.forEach { QuoteText(cleanQuote(it), tint = null) }
+            if (a.evidenceQuotes.isEmpty()) Caption("근거 인용문이 응답에 없어요.", color = Fl.Danger)
+        } else {
+            Text("이 기사에서 이 질문에 해당하는 문장을 찾지 못했어요.", fontSize = 13.sp, color = Fl.Muted)
+            RubricLabels.absence(a.absenceReason)?.let { Caption(it) }
+            if (a.relevance == "peripheral") Caption("쟁점과 거리가 있는 내용으로 분류됐어요.")
+        }
     }
 }

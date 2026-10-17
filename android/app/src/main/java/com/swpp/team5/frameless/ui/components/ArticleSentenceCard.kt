@@ -28,6 +28,7 @@ import com.swpp.team5.frameless.data.ExpressionDifference
 import com.swpp.team5.frameless.ui.state.Clip
 import com.swpp.team5.frameless.ui.state.InputSentence
 import com.swpp.team5.frameless.ui.state.MatchKind
+import com.swpp.team5.frameless.ui.state.NO_MATCH_TEXT
 import com.swpp.team5.frameless.ui.state.kindOf
 import com.swpp.team5.frameless.ui.state.two
 import com.swpp.team5.frameless.ui.theme.Fl
@@ -42,8 +43,12 @@ internal fun ArticleSentenceCard(
     number: Int,
     sentence: InputSentence,
     matches: List<Clip>,
+    /** 이 문장이 속한 묶음 번호 (0부터) */
+    groups: List<Int>,
+    /** "쟁점" 또는 "주장" */
+    noun: String,
     selected: Boolean,
-    inSelectedIssue: Boolean,
+    inSelectedGroup: Boolean,
     expressions: List<ExpressionDifference>,
     onClick: () -> Unit
 ) {
@@ -63,7 +68,7 @@ internal fun ArticleSentenceCard(
             .then(
                 when {
                     selected -> Modifier.border(2.dp, Fl.Accent, shape)
-                    inSelectedIssue -> Modifier.border(1.dp, Fl.Line, shape)
+                    inSelectedGroup -> Modifier.border(1.dp, Fl.Line, shape)
                     else -> Modifier
                 }
             )
@@ -97,16 +102,19 @@ internal fun ArticleSentenceCard(
             if (sameCount > 0) TagPill("같은 내용 · ${sameCount}곳", Fl.TintSame, Fl.InkSame)
             if (diffCount > 0) TagPill("다른 해석/표현 · ${diffCount}곳", Fl.TintDiff, Fl.InkDiff)
             if (sameCount == 0 && diffCount == 0) {
-                Text("다른 기사에서 대응 문장을 찾지 못했어요", fontSize = 11.sp, color = Fl.Muted)
+                Text(NO_MATCH_TEXT, fontSize = 11.sp, color = Fl.Muted)
             }
-            if (sentence.issueIndexes.isNotEmpty()) {
-                Text("쟁점 " + sentence.issueIndexes.joinToString(", ") { two(it + 1) }, fontSize = 11.sp, color = Fl.Muted)
+            if (groups.isNotEmpty()) {
+                Text("$noun " + groups.joinToString(", ") { two(it + 1) }, fontSize = 11.sp, color = Fl.Muted)
             }
         }
     }
 }
 
-/** 문장 전체에 배경색을 칠하고, 서버가 보낸 rubric 표현이 있으면 그 부분에 밑줄을 긋는다 */
+/**
+ * 문장 전체에 배경색을 칠하고, 서버가 보낸 rubric 표현이 있으면 그 부분에 밑줄을 긋는다.
+ * 직접 인용 안의 표현은 호출하는 쪽에서 미리 뺀다 (D1).
+ */
 internal fun tinted(text: String, tint: Color?, expressions: List<ExpressionDifference>): AnnotatedString {
     val ranges = expressions.mapNotNull { e ->
         val start = text.indexOf(e.span)

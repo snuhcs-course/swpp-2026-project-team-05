@@ -41,11 +41,13 @@ internal fun FrameLESSApp(vm: AnalysisViewModel) {
                         model = state.model,
                         selection = vm.selection,
                         onNewArticle = vm::startOver,
-                        onSelectIssue = vm::selectIssue,
+                        onSelectGroup = vm::selectGroup,
                         onFocusSentence = vm::focusSentence,
+                        onOpenSentenceDetail = vm::openSentenceDetail,
                         onNarrowTab = vm::setNarrowTab,
                         onOpenNarrowDetail = vm::openNarrowDetail,
-                        onCloseNarrowDetail = vm::closeNarrowDetail
+                        onCloseNarrowDetail = vm::closeNarrowDetail,
+                        onShowDespiteNoMatch = vm::showDespiteNoMatch
                     )
                 }
             }
