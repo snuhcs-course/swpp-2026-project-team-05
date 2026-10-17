@@ -30,6 +30,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.swpp.team5.frameless.BuildConfig
 import com.swpp.team5.frameless.data.ArticleRef
 import com.swpp.team5.frameless.ui.state.AnswerView
 import com.swpp.team5.frameless.ui.state.ExpressionItem
@@ -84,7 +85,8 @@ internal fun SourceEvidenceCard(number: Int, clip: Clip) {
         when (kind) {
             MatchKind.DIFF -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 TagPill("다른 해석/표현", Fl.TintDiff, Fl.InkDiff)
-                Caption(clip.relationRaw)
+                // 서버 원래 값(opposes 등)은 개발 빌드에서만 작게 남긴다
+                if (BuildConfig.DEBUG) Text(clip.relationRaw, fontSize = 10.sp, color = Fl.Line)
             }
             MatchKind.OTHER -> if (clip.relationRaw.isNotBlank()) Caption("관계: ${clip.relationRaw}")
             MatchKind.SAME -> Unit

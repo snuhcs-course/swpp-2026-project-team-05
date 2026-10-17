@@ -131,7 +131,7 @@ internal fun ComparisonScreen(
                                     onSelect = onSelectGroup
                                 )
                                 HRule()
-                                DetailPane(model = model, selected = selection.group, compact = compact)
+                                DetailPane(model = model, selected = selection.group, compact = compact, showInput = false)
                             }
                         }
                     }
@@ -254,7 +254,7 @@ private fun NoMatchState(model: ComparisonModel, onRetry: () -> Unit, onShowAnyw
                 Caption("비교 결과 없음")
                 Text(
                     text = if (analysis.relatedArticleCount == 0) {
-                        "같은 사건을 다룬 다른 기사를\n찾지 못했어요"
+                        "같은 사건을 보도한 다른 기사를\n찾지 못했어요"
                     } else {
                         "비교 기사 ${analysis.relatedArticleCount}건을 찾았지만\n대응 문장은 없었어요"
                     },
@@ -264,7 +264,12 @@ private fun NoMatchState(model: ComparisonModel, onRetry: () -> Unit, onShowAnyw
                     lineHeight = 29.sp,
                     color = Fl.Ink
                 )
-                Text(NO_MATCH_TEXT, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2)
+                Text(
+                    text = if (analysis.relatedArticleCount == 0) "현재 수집된 비교 기사가 없어요." else NO_MATCH_TEXT,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = Fl.Ink2
+                )
                 Caption("수집 범위나 문장 짝짓기 결과에 따른 것이에요. 입력 기사나 비교 기사에 대한 평가는 아니에요.")
 
                 HRule()
@@ -435,7 +440,7 @@ private fun NarrowDetail(model: ComparisonModel, selected: Int, onBack: () -> Un
             }
         }
         FlCard(modifier = Modifier.fillMaxSize()) {
-            DetailPane(model = model, selected = selected, compact = false)
+            DetailPane(model = model, selected = selected, compact = false, showInput = true)
         }
     }
 }
@@ -455,7 +460,8 @@ private fun NavArrow(symbol: String, enabled: Boolean, onClick: () -> Unit) {
  * ================================================================== */
 
 @Composable
-private fun DetailPane(model: ComparisonModel, selected: Int, compact: Boolean) {
+/** showInput: 좁은 화면 상세에서만 입력 기사 문장을 다시 보여준다. 넓은 화면은 왼쪽에 이미 있다. */
+private fun DetailPane(model: ComparisonModel, selected: Int, compact: Boolean, showInput: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -467,7 +473,7 @@ private fun DetailPane(model: ComparisonModel, selected: Int, compact: Boolean) 
         val issue = if (!model.questionMode) model.issues.getOrNull(selected) else null
         when {
             question != null -> QuestionDetail(model, question)
-            issue != null -> IssueDetail(model, issue)
+            issue != null -> IssueDetail(model, issue, showInput)
             else -> OthersDetail(model)
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -496,7 +502,7 @@ private fun QuestionDetail(model: ComparisonModel, q: QuestionView) {
 
 /** 주장 단위 묶음 (서버 comparison.issues) */
 @Composable
-private fun IssueDetail(model: ComparisonModel, issue: IssueView) {
+private fun IssueDetail(model: ComparisonModel, issue: IssueView, showInput: Boolean) {
     val uriHandler = LocalUriHandler.current
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -505,8 +511,8 @@ private fun IssueDetail(model: ComparisonModel, issue: IssueView) {
         Tally(issue.sameOutlets, issue.diffOutlets)
     }
 
-    // 입력 기사 문장
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // 입력 기사 문장 (좁은 화면 상세에서만)
+    if (showInput) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             WeightedTitle("입력 기사")
             model.input.url?.let { SourceLink(onClick = { uriHandler.openUri(it) }) }
