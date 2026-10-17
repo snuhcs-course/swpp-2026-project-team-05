@@ -43,17 +43,6 @@
 | `result_output.py` | `save_analysis_result(result, path)` | 결과 dict·저장 경로 | 기존 결과 또는 저장 오류가 추가된 dict | 폴더 생성·UTF-8 JSON 저장. 저장 실패해도 결과 반환 |
 | `result_output.py` | `write_json_atomic(path, value, indent=None)` | JSON 경로·dict·들여쓰기 | 성공 시 `None`, 실패 시 예외 | 짧은 임시 파일명으로 저장 후 교체. 출력·캐시 저장에서 사용 |
 
-### 표현 누락 수정과 검증 범위
-
-- 본문 검증에서 찾은 대응 원문을 정보 분석에 전달합니다. 일부만 대응하는 복합 주장도 근거를 유지하며, 단계 간 판정이 충돌하면 미보도로 확정하지 않습니다.
-- 직접 인용 안의 내용은 I5로 분리합니다. 인용 밖의 보도 동사는 A 후보로 유지하며, 인용과 기자 서술이 섞인 판정 구간은 분리하거나 보류합니다.
-- 기사 전체의 관계가 `same_issue`여도 같은 하위 명제의 실제 표현은 비교할 수 있습니다. 다른 시점·대상·수치 범위를 같은 명제로 간주하지 않습니다.
-- 기존 주장별 표현 LLM 호출에 Python이 만든 원문 문장 쌍과 문구 차이 후보를 함께 전달합니다. 평가 대상 `marker`와 `baseline_marker`가 각 근거 안에 실제로 있는지 검증합니다. 채택된 A~G 판정 질문·예시도 전달하고, `markedness_reason`에 상대 점수 설명을 요구합니다.
-- `expression.findings`는 원문 검증을 통과한 잠정 A~G 판정입니다. `evidence`는 판정 단어·구, `context_evidence`는 그 근거 문맥입니다. 의미·상대값이 불확실하면 `markedness=None`과 사유를 유지합니다. I4의 전망 표지와 관측 사실을 짝지은 경우에는 같은 명제인지 재확인하도록 점수를 보류합니다.
-- `expression.surface_differences`는 실제 문구가 다른 비교 후보입니다. 의미 일치나 A~G 점수를 확정하지 않습니다. `invalid_findings`는 판정에 쓰지 않은 검증 실패 응답이며, `diagnostics`는 비교·발견·제외 수를 기록합니다.
-- 2026-10-17 점검: 실제 기사 URL 16개(6개 호스트)에서 본문 수집 성공, 오류 방지 검사 17개 통과. 저장한 본문·후보를 고정해 문제가 난 정보 분석과 표현 비교를 실제 Gemini 호출로 재검증했습니다. 다른 정보 분석 응답은 재사용했으므로 모든 분석을 새로 호출한 검증은 아닙니다.
-- 이 결과는 모든 URL의 지원이나 의미 판정 정확도를 보장하지 않습니다. 로그인·동적 페이지·서버 차단 등은 별도 실패할 수 있습니다. A~G 정밀도·재현율은 사람이 정답을 붙인 별도 기사 묶음으로 평가해야 합니다.
-
 ### 실행 오류 output
 
 기존 분석 필드와 LLM 판정은 유지하고, 실행 상태와 오류 정보만 추가합니다. UI는 분석 필드 접근 전에 `execution_status`를 확인해야 합니다. 실패 단계에서 아직 만들어지지 않은 `source_analysis`, `selection`, `rubric_analysis`는 `None`일 수 있습니다.
@@ -65,7 +54,6 @@
 | `comparison_status` | `available` / `unavailable` / `no_matches` / `not_requested` | 비교 기사 확보 / 실행 실패로 비교 불가 / 정상 처리했으나 대응 기사 없음 / 주장 없음으로 비교 미실행 |
 | `resolved_errors` | 선택적 오류 dict 목록 | 재시도가 성공한 단계의 과거 오류 |
 
-오류에는 `stage`, `code`, 사용자용 `message`, `retryable`이 있습니다. 대상에 따라 `candidate_id`, `url`, `query`, `path`, `http_status`도 포함합니다. `error_type`은 예외 종류이며, 키 값·인증 헤더·원시 예외 문구는 반환하지 않습니다.
 
 ```json
 {
@@ -95,20 +83,7 @@
 | 입력 JSON 파일 없음·인코딩 오류·파손 | 파일 처리를 중단 | `INPUT_FILE_NOT_FOUND`, `INPUT_ENCODING_INVALID`, `INPUT_JSON_INVALID` 등 |
 | 파일·캐시 저장 실패 | 메모리의 분석 결과를 그대로 반환 | `partial`과 `OUTPUT_WRITE_FAILED` / `CACHE_WRITE_FAILED` |
 
-`retryable=true`는 재시도를 제안하는 표시이며 무한 재시도를 수행하지 않습니다. URL로 재시도할 때 새 검색을 원하면 `force_refresh=True` 또는 CLI의 `--refresh`를 사용합니다. 미해결 오류가 있는 결과는 정상 결과 캐시로 등록하지 않습니다.
 
-```python
-from pipeline import run_analysis_pipeline
-from result_output import format_analysis_result, save_analysis_result
-
-result = run_analysis_pipeline("기사 URL")
-result = save_analysis_result(result, "outputs/result.json")
-print(format_analysis_result(result))
-```
-
-`python related_example.py "기사 URL" --json`은 런타임 실패 시에도 stdout에 JSON을 출력합니다. `failed`의 종료 코드는 1, `success`와 `partial`은 0입니다. argparse 자체의 잘못된 명령어 문법은 일반 사용법 오류로 처리합니다.
-
-검증: 모델·네트워크 호출 없이 오류 상황을 주입한 검사 28개 통과. 기존 분석 회귀 검사 17개도 통과했습니다. 임시 검증 자료는 Git에 올리지 않는 `.analysis_cache/error_handling/`에 저장했습니다.
 
 ## 작동 파이프라인 과정
 
