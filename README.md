@@ -2,13 +2,13 @@
 
 **하나의 기사에서 시작해, 같은 사건을 다룬 다른 보도를 함께 읽는 Android 앱**
 
-FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를 찾고, 각 기사에서 실제로 대응하는 문장을 비교합니다. 여러 출처가 공통으로 언급한 내용과 반박하거나 다르게 해석한 내용을 원문 링크와 함께 보여줍니다. 어느 보도가 옳은지 대신 판정하기보다, 사용자가 근거와 맥락을 직접 확인하도록 돕는 것이 목표입니다.
+FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를 찾고, 추출한 기사 본문에서 실제로 대응하는 문장을 연결합니다. 검증된 표현 차이(A–G)는 본문에 표시하고, 원문에만 두드러지는 내용(I1)은 비교 범위를 명시한 별표로 보여줍니다. 사용자는 관련 기사의 대응 구절과 원문 링크를 확인할 수 있습니다. 어느 보도가 옳은지 대신 판정하지 않습니다.
 
 ## 주요 기능
 
-- **기사 비교:** 입력한 기사의 핵심 사건을 파악하고 관련 보도를 찾습니다.
-- **주장별 비교:** 출처들이 공통으로 말하는 내용과 반박·해석 차이를 구분해 보여줍니다.
-- **원문 확인:** 비교에 사용된 문장과 기사 링크를 제공해 전체 맥락을 확인할 수 있습니다.
+- **기사 비교:** 입력 기사의 중심 사건을 파악하고 같은 사건의 다른 보도를 찾습니다.
+- **전문 읽기:** 광고와 사진 등을 제외한 추출 텍스트 본문에서 A–G 표현 차이와 I1 별표를 살펴봅니다.
+- **근거 확인:** 표시된 문장을 누르면 관련 기사의 대응 구절과 차이 설명을 보고, 원문 링크를 열 수 있습니다.
 
 ## 앱 실행
 
@@ -20,13 +20,13 @@ FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를
 
 ### Iteration 2 통합 버전 확인
 
-`main`은 Android UI v2와 주장별 비교·루브릭 v2를 연결합니다. 앱의 기본 주소인 `https://frameless-team05-api.vercel.app`에도 2026년 10월 18일 v2를 배포했습니다. 실제 분석은 기사와 모델 응답에 따라 부분 결과가 될 수 있으므로, 데모에 쓸 URL은 앱에서 직접 확인해야 합니다. 로컬에서 확인할 때는 루트의 `.env.example`을 `.env`로 복사하고 개인에게 허용된 Gemini 및 NAVER API HUB 키를 설정한 다음 서버를 실행합니다. 키는 저장소나 APK에 넣지 않습니다.
+`main`은 Android Reader와 Django 분석 API를 연결합니다. 앱은 기본으로 `https://frameless-team05-api.vercel.app`을 사용합니다. 운영 백엔드는 수동 배포하므로 Git 커밋만으로 배포를 확인할 수 없습니다. 실제 분석은 기사와 모델 응답에 따라 몇 분 걸리거나 부분 결과가 될 수 있습니다. 데모에 쓸 URL·APK·백엔드 리비전은 함께 확인하세요. 로컬 백엔드에는 팀에서 허용한 OpenRouter 키와 NAVER API HUB 키가 필요합니다. 직접 Gemini 키는 대체 모델 경로로 쓸 수 있습니다. 키는 저장소나 APK에 넣지 않습니다.
 
 ```sh
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
-# .env에 Gemini·NAVER API HUB 키 설정
+# .env에 OPENROUTER_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET 설정
 set -a; source .env; set +a
 .venv/bin/python manage.py runserver
 ```
@@ -38,7 +38,7 @@ cd android
 ./gradlew :app:installDebug -PframelessBackendUrl=http://10.0.2.2:8000
 ```
 
-`GET /api/health`의 `analysis_ready`와 실제 기사에 대한 `POST /api/analyze` 응답을 모두 확인해야 분석 서비스 검증이 끝납니다. 오프라인 계약 테스트는 `./gradlew :app:jacocoDebugUnitTestReport :app:assembleDebug`와 `.venv/bin/python manage.py test`로 실행할 수 있습니다. 현재 루브릭은 채택된 I1–I5/A–G를 주장별로 표시하며, 질문별 묶음은 아직 포함하지 않습니다. API 상세와 오류 처리는 [백엔드 개발·배포 안내](docs/backend.md)를 참고하세요.
+`GET /api/health`는 설정 여부만 알려 줍니다. 실제 분석은 `POST /api/analyze`와 Android 화면에서 확인해야 합니다. Reader는 I1과 A–G를 다루며 I2–I5는 이전 루브릭 경로에만 남아 있습니다. 오프라인 계약 검사는 `./gradlew :app:jacocoDebugUnitTestReport :app:assembleDebug`와 `.venv/bin/python manage.py test`로 실행할 수 있습니다. API 상세는 [백엔드 개발·배포 안내](docs/backend.md)를 참고하세요.
 
 ## 기술 구성
 
@@ -46,10 +46,12 @@ cd android
 | --- | --- |
 | Android 앱 | Kotlin, Jetpack Compose |
 | 분석 API | Python, Django |
-| 관련 기사 검색·분석 | NAVER API HUB, Gemini |
+| 관련 기사 검색·분석 | NAVER API HUB, OpenRouter/Gemini |
 
 ## 문서
 
 - [Requirements and Specifications](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Requirements-and-Specifications)
 - [Design Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Design-Documentation)
+- [Iteration 2 제출 준비 체크리스트](docs/iteration-2-submission-checklist.md)
+- [Iteration 2 통합 상태](docs/iteration-2-integration-status.md)
 - [백엔드 개발·배포 안내](docs/backend.md)
