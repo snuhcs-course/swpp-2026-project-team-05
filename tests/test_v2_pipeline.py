@@ -770,6 +770,44 @@ class GroundingTests(SimpleTestCase):
                                      "relation_evidence": []}},
         }}}
 
+    def test_verifier_input_size_log_contains_only_numeric_body_metrics(self):
+        body = "시청은 새 계획을 발표했다.\n시청은 새 계획을 발표했다.\nPRIVATE_BODY_MARKER"
+        candidate = {**article("A1", body), **structure_article_body(body),
+                     "title": "PRIVATE_TITLE_MARKER", "url": "https://news.example.com/PRIVATE_URL_MARKER"}
+        source = {**article(), "title": "PRIVATE_SOURCE_TITLE_MARKER"}
+        analysis = {**source_analysis(), "core_event": "PRIVATE_PROMPT_MARKER"}
+        client = StubClient(self._response(event_quote="시청은 새 계획을 발표했다",
+                                           claim_quote="새 계획"))
+
+        with self.assertLogs("server.analysis.v2.llm_analysis", level="INFO") as captured:
+            verify_candidate_articles(source, analysis, [candidate], client=client)
+
+        events = [json.loads(record.getMessage().split("analysis ", 1)[1])
+                  for record in captured.records if record.getMessage().startswith("analysis ")]
+        metric = next(event for event in events if event["event"] == "verifier_input_size")
+        self.assertEqual(metric["source_body_chars"], len(source["body"]))
+        self.assertEqual(metric["source_sentence_count"], 1)
+        self.assertEqual(metric["candidates"], [{
+            "candidate_id": "A1", "body_chars": len(body), "sentence_count": 3,
+            "paragraph_count": 3, "duplicate_paragraph_count": 1,
+            "duplicate_paragraph_ratio": 0.3333,
+        }])
+        joined_log = "\n".join(captured.output)
+        for private_value in (body, "PRIVATE_BODY_MARKER", "PRIVATE_TITLE_MARKER",
+                              "PRIVATE_URL_MARKER", "PRIVATE_SOURCE_TITLE_MARKER",
+                              "PRIVATE_PROMPT_MARKER"):
+            self.assertNotIn(private_value, joined_log)
+
+    def test_verifier_input_size_log_sanitizes_unexpected_candidate_id(self):
+        candidate = article("A1_PRIVATE_ID_MARKER")
+        with self.assertLogs("server.analysis.v2.llm_analysis", level="INFO") as captured:
+            with self.assertRaisesRegex(RuntimeError, "synthetic stop"):
+                verify_candidate_articles(article(), source_analysis(), [candidate],
+                                          client=SequenceClient([RuntimeError("synthetic stop")]))
+        metric = json.loads(captured.records[0].getMessage().split("analysis ", 1)[1])
+        self.assertIsNone(metric["candidates"][0]["candidate_id"])
+        self.assertNotIn("PRIVATE_ID_MARKER", "\n".join(captured.output))
+
     def test_fabricated_event_evidence_withholds_positive_match(self):
         client = StubClient(self._response(event_quote="존재하지 않는 사건", claim_quote="새 계획"))
         result = verify_candidate_articles(article(), source_analysis(), [article("A1")], client=client)
