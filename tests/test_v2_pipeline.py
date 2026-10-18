@@ -634,6 +634,23 @@ class GroundingTests(SimpleTestCase):
                          ["source_event_claims_queries", "review_source_event_scope",
                           "repair_review_source_event_scope"])
 
+    def test_scope_repair_raises_only_its_output_cap_and_keeps_grounding_validation(self):
+        invalid = self._valid_scope_review()
+        invalid["primary_anchor"]["quote"] = "기사에 없는 제목"
+        client = SequenceClient([
+            self._valid_source_response(), invalid, self._valid_scope_review()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["source_scope_review"]["primary_anchor"]["quote"], "새 계획 발표")
+        self.assertEqual([request["max_output_tokens"] for request in client.requests],
+                         [4096, 3072, 8192])
+        self.assertEqual(client.requests[1]["input_data"], client.requests[2]["input_data"])
+        self.assertEqual(client.requests[1]["schema"], client.requests[2]["schema"])
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "review_source_event_scope",
+                          "repair_review_source_event_scope"])
+
     def test_invalid_optional_query_anchor_does_not_erase_verified_source_claim(self):
         review = self._valid_scope_review()
         review["event_queries"] = [{
