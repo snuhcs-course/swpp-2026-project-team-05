@@ -45,6 +45,10 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 
 2026년 10월 19일 **이전 백엔드 `53a5118`**의 요청 `1f354ba5774b`에 대해 Vercel 로그는 전체 **244.599초**, `discovery` **220.732초**, 그 안의 `candidate_collection` **184.874초**, Reader 분석 **23.389초**를 기록했습니다. 앱의 첫 로딩 화면 캡처부터 HTTP 200까지는 약 239초였지만 측정 시작점이 달라 전체 서버 시간과 같은 수치로 취급하지 않습니다. `SEARCH_HTTP_ERROR`와 `GOOGLE_SEARCH_HTTP_ERROR`가 부분 결과의 확인된 원인입니다. 후보 검증 호출 두 건은 97.655초/84.758초, 추론 토큰 13,196/13,850개였으나 서로 다른 검증 wave에 있어 4-worker 변경의 실제 속도 개선을 입증하지 않습니다. 이 기록은 안전한 시간·코드·사용량만 요약하며 기사나 모델 내용을 포함하지 않습니다. PR #43의 새 완료 요약은 **이전 요청에는 적용되지 않았습니다**.
 
+같은 날 **현재 운영 백엔드 `c8cb5ae`**의 요청 `7cd3876ac7f7`은 Android `402ce46` debug APK에 HTTP 200으로 돌아왔습니다. 서버 완료 요약의 전체 시간은 **118.6초**, `discovery` **87.8초**(그 안의 `candidate_collection` **57.2초**), Reader 분석 **30.3초**였습니다. 후보 검증 8건, 연기 0건이었고 실행 상태는 `partial`입니다. `SEARCH_HTTP_ERROR`와 `GOOGLE_SEARCH_HTTP_ERROR`가 확인됐습니다. 앱 화면이 나중에 다른 URL의 오류로 바뀌어 이 요청의 Reader 시트는 확인하지 못했습니다. 한 번의 118.6초 결과는 NFR-02의 10회 측정 기준을 충족하지 않으며, 앞선 244.599초 요청과 후보·실행 조건이 달라 병렬화에 따른 속도 개선 근거로 쓰지 않습니다.
+
+이어 같은 기사 재시도 `43635d9499e5`는 Android logcat에 08:49:52 KST HTTP 200으로 기록됐고, Reader가 원시 문장 쌍 15/15개를 파싱했습니다. 원시 하이라이트는 0개였습니다. 앱의 관련 기사 시트 이동·확장·스크롤은 실제 화면에서 확인됐지만 이 요청의 서버 소요 시간과 실행 상태는 아직 확인하지 않았습니다. 따라서 앞 요청의 118.6초를 재시도의 시간으로 사용하지 않습니다.
+
 ## Vercel 운영 배포
 
 기존 프로젝트는 [frameless-team05-api](https://vercel.com/kim-seungmins-projects/frameless-team05-api)이고, `vercel.json`이 서울 리전의 Django 함수를 설정합니다. 함수 실행 시간은 최대 300초로 설정했습니다.
@@ -65,7 +69,7 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 | `ENABLE_GOOGLE_GROUNDED_SEARCH` | 선택적 Google Search 후보 발견. 기본 꺼짐 |
 | `GOOGLE_GROUNDED_SEARCH_MODEL` | 선택적 검색 모델. 기본 `gemini-3.8-flash` |
 
-2026년 10월 18일 `main`의 Iteration 2 통합 코드를 이 프로젝트에 수동 배포했습니다. 이후 `c8cb5ae`(PR #43 진단 추가)를 운영 배포 `dpl_DXs23uScGDwNdJ7wy2QrwUaHLVHH`로 갱신했고 `/api/health`는 HTTP 200, `analysis_ready=true`였습니다. **이 배포에서 새 전체 분석 요청은 아직 검증하지 않았습니다.** 앞 절의 244.599초 기록은 이전 `53a5118` 배포의 것입니다. Git 자동 연결은 확인되지 않았으므로 **`main`에 푸시한 것만으로 운영 백엔드가 갱신됐다고 가정하지 마세요.** Vercel 프로젝트 관리 권한이 있는 계정으로 로그인한 뒤 저장소 루트에서 연결하고 수동 배포합니다.
+2026년 10월 18일 `main`의 Iteration 2 통합 코드를 이 프로젝트에 수동 배포했습니다. 이후 `c8cb5ae`(PR #43 진단 추가)를 운영 배포 `dpl_DXs23uScGDwNdJ7wy2QrwUaHLVHH`로 갱신했고 `/api/health`는 HTTP 200, `analysis_ready=true`였습니다. 이 배포의 분석 요청 `7cd3876ac7f7`은 위와 같이 응답했지만 부분 결과였고 새 Android 시트의 동작은 확인하지 못했습니다. 앞 절의 244.599초 기록은 이전 `53a5118` 배포의 것입니다. Git 자동 연결은 확인되지 않았으므로 **`main`에 푸시한 것만으로 운영 백엔드가 갱신됐다고 가정하지 마세요.** Vercel 프로젝트 관리 권한이 있는 계정으로 로그인한 뒤 저장소 루트에서 연결하고 수동 배포합니다.
 
 ```sh
 npx vercel link --project frameless-team05-api --scope kim-seungmins-projects
