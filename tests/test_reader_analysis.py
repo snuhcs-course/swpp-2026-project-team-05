@@ -154,6 +154,18 @@ class ReaderClient:
 
 
 class ReaderAnalysisTests(unittest.TestCase):
+    def test_prefetched_source_units_preserve_reader_result_without_repeating_call(self):
+        baseline = analyze_reader_content(fixture(), ["A", "B"], client=ReaderClient())
+        discovery = fixture()
+        client = ReaderClient()
+        precomputed = _extract_source_units(
+            discovery["source_article"], discovery["source_analysis"], client)
+        with patch("server.analysis.reader_analysis._extract_source_units",
+                   side_effect=AssertionError("source extraction must not run twice")):
+            result = analyze_reader_content(
+                discovery, ["A", "B"], client=client, precomputed_source_units=precomputed)
+        self.assertEqual(result, baseline)
+
     @staticmethod
     def _source_unit_case(sentence_count: int) -> tuple[dict, dict]:
         source = article("S0", "\n".join(
@@ -270,6 +282,73 @@ class ReaderAnalysisTests(unittest.TestCase):
                 self.assertEqual(len(requests), expected_calls)
                 self.assertTrue(all(len(request["input_data"]["article"]["sentences"]) == 4
                                     for request in requests))
+
+    def test_live_source_chunks_overlap_and_merge_in_sentence_order(self):
+        class ConcurrentSourceClient(OpenRouterJSONClient):
+            def __init__(self):
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self._usage_lock = Lock()
+                self._usage_totals = Counter()
+                self._metered_responses = self._cost_reported_responses = 0
+                self._barrier = Barrier(2)
+                self._lock = Lock()
+                self.active = self.max_active = 0
+                self.completed = []
+
+            def generate_json(self, **request):
+                first = request["input_data"]["article"]["sentences"][0]["sentence_index"]
+                with self._lock:
+                    self.active += 1
+                    self.max_active = max(self.max_active, self.active)
+                try:
+                    if first < 16:
+                        self._barrier.wait(timeout=5)
+                    if first == 0:
+                        sleep(0.05)
+                    with self._lock:
+                        self.completed.append(first)
+                    return ReaderAnalysisTests._source_unit_response(request)
+                finally:
+                    with self._lock:
+                        self.active -= 1
+
+        source, analysis = self._source_unit_case(17)
+        provider = ConcurrentSourceClient()
+        recorder = MetricsJSONClient(provider)
+        ledger, units, calls = _extract_source_units(source, analysis, recorder)
+        self.assertEqual(provider.max_active, 2)
+        self.assertEqual(provider.completed[:2], [8, 0])
+        self.assertEqual([row["sentence_index"] for row in ledger], list(range(17)))
+        self.assertEqual([row["source_evidence"]["sentence_index"] for row in units], list(range(17)))
+        self.assertEqual((calls, recorder.execution_summary()["model_calls"]), (3, 3))
+
+    def test_failed_source_wave_never_starts_later_chunks(self):
+        class FailingSourceClient(OpenRouterJSONClient):
+            def __init__(self):
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self._barrier = Barrier(2)
+                self._lock = Lock()
+                self.started = []
+
+            def generate_json(self, **request):
+                first = request["input_data"]["article"]["sentences"][0]["sentence_index"]
+                with self._lock:
+                    self.started.append(first)
+                if first < 16:
+                    self._barrier.wait(timeout=5)
+                if first == 0:
+                    raise ModelHTTPError(429)
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        source, analysis = self._source_unit_case(17)
+        provider = FailingSourceClient()
+        with self.assertRaises(ModelHTTPError):
+            _extract_source_units(source, analysis, MetricsJSONClient(provider))
+        self.assertCountEqual(provider.started, [0, 8])
 
     def test_uncached_openrouter_alignments_run_together_with_ordered_results_and_usage(self):
         class ConcurrentReaderClient(ReaderClient, OpenRouterJSONClient):

@@ -17,6 +17,10 @@ from .result_output import make_error_record
 # A bounded later pool can improve body quality and reporting diversity when
 # time remains, without making the serverless run unbounded.
 MAX_EXTRA_VERIFIED_CANDIDATES = 6
+# Candidate verdicts are independent once their bodies are fetched. Three
+# concurrent live calls shorten the long-tail wait without changing which
+# candidates are checked or how their grounded verdicts are applied.
+MAX_PARALLEL_VERIFICATIONS = 3
 
 
 def _body_signature(article: dict) -> tuple[int, frozenset[str]] | None:
@@ -189,15 +193,16 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
         apply_verification(ids, outcome)
 
     def verify_singletons(ids: list[str], round_number: int, *, quality_pool: bool = False) -> bool:
-        """Run at most two live calls together and preserve ordered decisions."""
+        """Bound independent live calls and preserve ordered decisions."""
         nonlocal verification_calls
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            for start in range(0, len(ids), 2):
+        with ThreadPoolExecutor(max_workers=MAX_PARALLEL_VERIFICATIONS) as executor:
+            for start in range(0, len(ids), MAX_PARALLEL_VERIFICATIONS):
                 if rate_limited or (should_stop and should_stop()):
                     mark_unverified(ids[start:], "verification_deferred", rate_limit_error or TimeoutError())
                     return True
                 launched = []
-                for key in ids[start:start + 2]:
+                wave = ids[start:start + MAX_PARALLEL_VERIFICATIONS]
+                for key in wave:
                     if should_stop and should_stop():
                         break
                     label = "추가 사건·주장 검증" if quality_pool else "사건·주장 검증"
@@ -211,7 +216,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                     except Exception as exc:
                         outcome = exc
                     apply_verification([key], outcome)
-                if len(launched) < len(ids[start:start + 2]):
+                if len(launched) < len(wave):
                     mark_unverified(ids[start + len(launched):], "verification_deferred", TimeoutError())
                     return True
                 if rate_limited:
@@ -388,7 +393,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
         extra_ids = extra_ids[:MAX_EXTRA_VERIFIED_CANDIDATES]
     if rate_limited:
         extra_ids = []
-    quality_pool_batch_size = 2 if parallel_singletons else verification_batch_size
+    quality_pool_batch_size = MAX_PARALLEL_VERIFICATIONS if parallel_singletons else verification_batch_size
     for start in range(0, len(extra_ids), quality_pool_batch_size):
         if rate_limited:
             break

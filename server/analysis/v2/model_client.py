@@ -12,12 +12,13 @@ import math
 import os
 import re
 from collections import Counter
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from random import uniform
-from threading import Lock, local
+from threading import BoundedSemaphore, Lock, local
 from time import monotonic, perf_counter, sleep
 from typing import Any
 
@@ -138,13 +139,40 @@ class MetricsJSONClient:
     """Count model operations without retaining article text, prompts, or responses."""
 
     def __init__(self, client: Any, *, deadline_at: float | None = None) -> None:
-        self.client, self.deadline_at = client, deadline_at
+        self.client, self._base_deadline_at = client, deadline_at
+        self._deadline_scope = local()
         self._metrics_lock = Lock()
+        # Source parsing, candidate verification and Reader alignment may
+        # overlap. Keep provider fan-out bounded even when their own pools do
+        # not know about one another.
+        self._model_slots = BoundedSemaphore(4) if isinstance(client, OpenRouterJSONClient) else None
         self.attempts: Counter[str] = Counter()
         self.successes: Counter[str] = Counter()
         self.failures: Counter[str] = Counter()
         self.task_duration_ms: Counter[str] = Counter()
         self.duration_ms = 0
+
+    @property
+    def deadline_at(self) -> float | None:
+        return getattr(self._deadline_scope, "value", self._base_deadline_at)
+
+    @deadline_at.setter
+    def deadline_at(self, value: float | None) -> None:
+        self._base_deadline_at = value
+
+    @contextmanager
+    def scoped_deadline(self, deadline_at: float):
+        """Limit this worker without shortening concurrent Reader model calls."""
+        previous = getattr(self._deadline_scope, "value", _UNSET)
+        current = self.deadline_at
+        self._deadline_scope.value = min(current, deadline_at) if current is not None else deadline_at
+        try:
+            yield
+        finally:
+            if previous is _UNSET:
+                del self._deadline_scope.value
+            else:
+                self._deadline_scope.value = previous
 
     def check_budget(self) -> None:
         if self.deadline_at is not None and monotonic() >= self.deadline_at:
@@ -165,13 +193,16 @@ class MetricsJSONClient:
         started = perf_counter()
         error_type = None
         try:
-            if self.deadline_at is not None and isinstance(self.client, (GeminiJSONClient, OpenRouterJSONClient)):
-                remaining_ms = int((self.deadline_at - monotonic()) * 1000)
-                if remaining_ms < 1000:
-                    raise TimeoutError("분석 실행의 소프트 마감시간을 초과했습니다.")
-                response = self.client.generate_json(**request, timeout_budget_ms=remaining_ms)
-            else:
-                response = self.client.generate_json(**request)
+            with self._model_slots if self._model_slots is not None else nullcontext():
+                self.check_budget()
+                deadline_at = self.deadline_at
+                if deadline_at is not None and isinstance(self.client, (GeminiJSONClient, OpenRouterJSONClient)):
+                    remaining_ms = int((deadline_at - monotonic()) * 1000)
+                    if remaining_ms < 1000:
+                        raise TimeoutError("분석 실행의 소프트 마감시간을 초과했습니다.")
+                    response = self.client.generate_json(**request, timeout_budget_ms=remaining_ms)
+                else:
+                    response = self.client.generate_json(**request)
         except Exception as exc:
             error_type = type(exc).__name__
             with self._metrics_lock:

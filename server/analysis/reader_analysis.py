@@ -149,12 +149,33 @@ def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any,
 def _extract_source_units(source: dict, analysis: dict, client: Any) -> tuple[list[dict], list[dict], int]:
     _article_for_model(source)
     ledger, units, calls = [], [], 0
-    for start in range(0, len(source["sentences"]), SOURCE_SENTENCE_BATCH):
-        indexes = list(range(start, min(start + SOURCE_SENTENCE_BATCH, len(source["sentences"]))))
-        rows, found, count = _source_chunk(source, analysis, indexes, client)
+    chunks = [list(range(start, min(start + SOURCE_SENTENCE_BATCH, len(source["sentences"]))))
+              for start in range(0, len(source["sentences"]), SOURCE_SENTENCE_BATCH)]
+
+    def append(result: tuple[list[dict], list[dict], int]) -> None:
+        nonlocal calls
+        rows, found, count = result
         ledger.extend(rows)
         units.extend(found)
         calls += count
+
+    # Sentence chunks share only immutable source/planning inputs. Live
+    # OpenRouter calls can overlap, while replay and injected clients retain
+    # their exact recorded request order. Resolve each pair in source order;
+    # a failed wave never starts later paid calls or fabricates missing units.
+    parallel = (len(chunks) > 1 and isinstance(client, MetricsJSONClient)
+                and not isinstance(client, SnapshotJSONClient)
+                and isinstance(client.client, OpenRouterJSONClient))
+    if parallel:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            for start in range(0, len(chunks), 2):
+                futures = [executor.submit(_source_chunk, source, analysis, indexes, client)
+                           for indexes in chunks[start:start + 2]]
+                for future in futures:
+                    append(future.result())
+    else:
+        for indexes in chunks:
+            append(_source_chunk(source, analysis, indexes, client))
     if not units or len({u["unit_id"] for u in units}) != len(units):
         raise ModelResponseError("원본 전체에서 검증된 중심 사건 내용 단위를 만들지 못했습니다.")
     # Source-planning claims are important anchors. A completely missed source
@@ -620,7 +641,8 @@ def _review_absence(source: dict, related: dict[str, dict], units: list[dict],
 
 
 def analyze_reader_content(discovery: dict, selected_ids: list[str], *, client: Any = None,
-                           progress: Callable[[str], None] | None = None) -> dict:
+                           progress: Callable[[str], None] | None = None,
+                           precomputed_source_units: tuple[list[dict], list[dict], int] | None = None) -> dict:
     """Build source-wide content alignment and conservative source-only I1 stars.
 
     The caller owns the client. A failed related article is reported and never
@@ -635,7 +657,8 @@ def analyze_reader_content(discovery: dict, selected_ids: list[str], *, client: 
         raise ValueError("Reader 비교 기사는 검증된 동일 사건 후보여야 합니다.")
     notify = progress or (lambda _: None)
     notify("5단계 Reader: 원본 전문 내용 단위 추출")
-    ledger, units, calls = _extract_source_units(source, analysis, client)
+    ledger, units, calls = (precomputed_source_units if precomputed_source_units is not None
+                            else _extract_source_units(source, analysis, client))
     alignments, failures = {}, []
     # Each comparison reads the same finished source ledger but never another
     # comparison's result. Bound concurrent OpenRouter requests to two; the
