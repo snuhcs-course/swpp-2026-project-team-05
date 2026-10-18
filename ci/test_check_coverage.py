@@ -19,6 +19,21 @@ class CoverageGateTests(TestCase):
             with self.assertRaisesRegex(ValueError, "missing v2 source"):
                 python_groups(report)
 
+    def test_backend_report_must_include_active_reader_modules(self):
+        root = Path(__file__).resolve().parents[1]
+        paths = ["server/views.py", "server/analysis/v2_adapter.py"]
+        paths += [path.relative_to(root).as_posix()
+                  for path in (root / "server/analysis/v2").glob("*.py")
+                  if path.name != "__init__.py"]
+        with TemporaryDirectory() as directory:
+            report = Path(directory) / "coverage.json"
+            report.write_text(json.dumps({"files": {
+                path: {"summary": {"covered_lines": 1, "num_statements": 1}}
+                for path in paths
+            }}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing Reader source"):
+                python_groups(report)
+
     def test_coverage_gate_fails_at_just_below_target(self):
         self.assertFalse(render([("backend", 84, 100, 85)]))
         self.assertTrue(render([("backend", 85, 100, 85)]))

@@ -44,11 +44,17 @@ def python_groups(report: Path) -> list[tuple[str, int, int, int | None]]:
     missing = [path for path in v2_paths if path not in lines]
     if missing:
         raise ValueError(f"Coverage report is missing v2 source: {', '.join(missing)}")
+    reader_paths = ["server/analysis/reader_analysis.py", "server/analysis/reader_contract.py"]
+    missing = [path for path in reader_paths if path not in lines]
+    if missing:
+        raise ValueError(f"Coverage report is missing Reader source: {', '.join(missing)}")
     endpoint = totals(endpoint_paths)
     pipeline = totals(v2_paths)
+    reader = totals(reader_paths)
     return [
         ("Django endpoint + v2 adapter", *endpoint, 85),
         ("v2 analysis package", *pipeline, 65),
+        ("Reader analysis + response contract", *reader, 65),
     ]
 
 
