@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.swpp.team5.frameless.ui.screens.ComparisonScreen
 import com.swpp.team5.frameless.ui.screens.ImportScreen
 import com.swpp.team5.frameless.ui.screens.LoadingScreen
+import com.swpp.team5.frameless.ui.screens.ReaderScreen
 import com.swpp.team5.frameless.ui.state.AnalysisUiState
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.viewmodel.AnalysisViewModel
@@ -37,18 +38,29 @@ internal fun FrameLESSApp(vm: AnalysisViewModel) {
                         LoadingScreen(url = state.url, step = state.step)
                     }
 
-                    is AnalysisUiState.Success -> ComparisonScreen(
-                        model = state.model,
-                        selection = vm.selection,
-                        onNewArticle = vm::startOver,
-                        onSelectGroup = vm::selectGroup,
-                        onFocusSentence = vm::focusSentence,
-                        onOpenSentenceDetail = vm::openSentenceDetail,
-                        onNarrowTab = vm::setNarrowTab,
-                        onOpenNarrowDetail = vm::openNarrowDetail,
-                        onCloseNarrowDetail = vm::closeNarrowDetail,
-                        onShowDespiteNoMatch = vm::showDespiteNoMatch
-                    )
+                    is AnalysisUiState.Success -> {
+                        val reader = state.model.analysis.reader
+                        if (reader != null) {
+                            ReaderScreen(
+                                reader = reader,
+                                analysisStatus = state.model.analysis.analysisStatus,
+                                onNewArticle = vm::startOver
+                            )
+                        } else {
+                            ComparisonScreen(
+                                model = state.model,
+                                selection = vm.selection,
+                                onNewArticle = vm::startOver,
+                                onSelectGroup = vm::selectGroup,
+                                onFocusSentence = vm::focusSentence,
+                                onOpenSentenceDetail = vm::openSentenceDetail,
+                                onNarrowTab = vm::setNarrowTab,
+                                onOpenNarrowDetail = vm::openNarrowDetail,
+                                onCloseNarrowDetail = vm::closeNarrowDetail,
+                                onShowDespiteNoMatch = vm::showDespiteNoMatch
+                            )
+                        }
+                    }
                 }
             }
         }

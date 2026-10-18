@@ -136,15 +136,17 @@ class ArticleEgressTests(TestCase):
 
 class SearchCredentialTests(TestCase):
     def test_naver_success_uses_fixed_origin_and_keeps_credentials_on_initial_request(self):
-        payload = BytesIO(b'{"items": [{"title": "Example", "link": "https://news.example.com/a"}]}')
+        payload = b'{"items": [{"title": "Example", "link": "https://news.example.com/a"}]}'
         with (patch("server.analysis.v2.article_search.get_naver_credentials",
                     return_value=("synthetic-id", "synthetic-secret")),
               patch("server.analysis.v2.article_search.build_opener") as build):
-            build.return_value.open.return_value = payload
+            build.return_value.open.side_effect = lambda *_args, **_kwargs: BytesIO(payload)
             rows = search_naver_news("가상 검색어")
-        request = build.return_value.open.call_args.args[0]
-        self.assertEqual(request.full_url.split("?", 1)[0], _NEWS_SEARCH_URL)
-        self.assertEqual(request.get_header("X-ncp-apigw-api-key"), "synthetic-secret")
+        self.assertEqual(build.return_value.open.call_count, 2)
+        for call in build.return_value.open.call_args_list:
+            request = call.args[0]
+            self.assertEqual(request.full_url.split("?", 1)[0], _NEWS_SEARCH_URL)
+            self.assertEqual(request.get_header("X-ncp-apigw-api-key"), "synthetic-secret")
         self.assertEqual(rows[0]["title"], "Example")
 
     def test_naver_redirect_is_not_followed_with_api_headers(self):

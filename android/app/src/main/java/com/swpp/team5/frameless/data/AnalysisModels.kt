@@ -166,6 +166,81 @@ internal data class AnalysisStatus(
     val warnings: List<String>
 )
 
+/** Reader의 위치는 각 기사 body 문자열의 UTF-16 인덱스, 끝은 포함하지 않는다. */
+internal data class ReaderSpan(val start: Int, val end: Int) {
+    fun isWithin(body: String): Boolean = start >= 0 && end > start && end <= body.length
+    fun isWithin(outer: ReaderSpan): Boolean = start >= outer.start && end <= outer.end && end > start
+}
+
+internal data class ReaderSentence(
+    val id: String,
+    val span: ReaderSpan,
+    val text: String,
+    val paragraphIndex: Int
+)
+
+internal data class ReaderArticle(
+    val id: String,
+    val articleIndex: Int,
+    val title: String,
+    val url: String?,
+    val body: String,
+    val sentences: List<ReaderSentence>
+)
+
+internal data class ReaderExpressionDifference(
+    val code: String,
+    val note: String,
+    val sourceMarkerSpan: ReaderSpan,
+    val relatedMarkerSpan: ReaderSpan,
+    val status: String
+)
+
+internal data class ReaderPair(
+    val id: String,
+    val articleId: String,
+    val articleIndex: Int,
+    val relatedSentenceId: String,
+    val relatedSpan: ReaderSpan,
+    val relatedEvidenceSpan: ReaderSpan?,
+    val relation: String,
+    val differenceSummary: String,
+    val expressionDifferences: List<ReaderExpressionDifference>
+)
+
+internal data class ReaderHighlight(
+    val claimId: String?,
+    val sourceSentenceId: String,
+    val sourceSpan: ReaderSpan,
+    val sourceEvidenceSpan: ReaderSpan?,
+    val pairs: List<ReaderPair>
+) {
+    val expressionCodes: List<String> get() = pairs.flatMap { pair ->
+        pair.expressionDifferences.map { it.code }
+    }.distinct().sorted()
+}
+
+/** 별표는 검증된 서버 항목이 있을 때만 표시한다. */
+internal data class ReaderI1Star(
+    val sourceSentenceId: String,
+    val sourceSpan: ReaderSpan,
+    val label: String,
+    val checkedArticleCount: Int
+)
+
+internal data class ReaderResult(
+    val version: String,
+    val coverage: String,
+    val sourceArticle: ReaderArticle,
+    val relatedArticles: List<ReaderArticle>,
+    val highlights: List<ReaderHighlight>,
+    val i1Stars: List<ReaderI1Star>,
+    val i1Status: String,
+    val articleFailureCount: Int
+) {
+    fun article(id: String): ReaderArticle? = relatedArticles.firstOrNull { it.id == id }
+}
+
 /* ------------------------------------------------------------------
  * 3. 화면이 받는 결과
  * ------------------------------------------------------------------ */
@@ -189,7 +264,9 @@ internal data class AnalysisResult(
     val relatedOnlyMembers: List<IssueMember>,
     /** 판정 기준 v0.2.1 데이터. 이번 분석에 없으면 null. */
     val rubric: RubricResult?,
-    val analysisStatus: AnalysisStatus? = null
+    val analysisStatus: AnalysisStatus? = null,
+    /** Optional additive Reader contract; null keeps the legacy comparison screen. */
+    val reader: ReaderResult? = null
 ) {
     fun articleTitle(index: Int): String =
         articles.firstOrNull { it.articleIndex == index }?.title

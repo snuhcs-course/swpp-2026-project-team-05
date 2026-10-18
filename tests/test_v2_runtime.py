@@ -1,6 +1,7 @@
 """Offline checks for bounded and privacy-conscious v2 execution."""
 
 import json
+import os
 from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,9 +11,11 @@ from unittest.mock import Mock, patch
 
 import httpx
 from django.test import SimpleTestCase
+from google.genai.errors import APIError
 
 from server.analysis.diagnostics import analysis_id
-from server.analysis.v2.model_client import GeminiJSONClient, MetricsJSONClient, ModelUnavailableError
+from server.analysis.v2.model_client import (GeminiJSONClient, OpenRouterJSONClient,
+                                             MetricsJSONClient, ModelHTTPError, ModelUnavailableError)
 from server.analysis.v2.pipeline import (_initial_result, _record_failure,
                                          complete_rubric_analysis, run_analysis_pipeline)
 from server.analysis.v2.result_output import OperationError, make_error_record
@@ -37,6 +40,69 @@ class _FakeClient:
 
 
 class RuntimeTests(SimpleTestCase):
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-team-key"}, clear=True)
+    def test_pipeline_selects_team_provider_and_separates_cache_settings(self):
+        client = _FakeClient()
+        client.close = Mock()
+        discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",
+                     "errors": [], "warnings": [], "source_article": deepcopy(SOURCE),
+                     "source_analysis": {"claims": [], "core_event": "가상 사건"},
+                     "search": {"candidates": []}, "selection": {"claim_comparisons": []},
+                     "comparison_status": "no_matches"}
+        with (patch("server.analysis.v2.pipeline.prepare_article", return_value=deepcopy(SOURCE)),
+              patch("server.analysis.v2.pipeline._create_model_client", return_value=client) as factory,
+              patch("server.analysis.v2.pipeline.run_discovery_pipeline", return_value=discovery),
+              patch("server.analysis.v2.pipeline.complete_rubric_analysis",
+                    side_effect=lambda value, **kwargs: {**value, "completed_stage": 5,
+                                                          "rubric_analysis": {}})):
+            result = run_analysis_pipeline(URL, use_cache=False)
+        self.assertEqual(result["completed_stage"], 5)
+        self.assertEqual(factory.call_args.args[0]["provider"], "openrouter")
+        self.assertEqual(result["reproducibility"]["settings"]["provider"], "openrouter")
+        self.assertNotIn("synthetic-team-key", json.dumps(result))
+        client.close.assert_called_once()
+
+    def test_openrouter_metrics_limits_request_to_remaining_budget(self):
+        client = object.__new__(OpenRouterJSONClient)
+        client.model = "google/gemini-3.8-flash"
+        client.seed, client.temperature, client.task_models = 42, 1.0, {}
+        client._client = SimpleNamespace(post=Mock(return_value=SimpleNamespace(
+            status_code=200, content=b'{"ok":true}',
+            json=lambda: {"choices": [{"message": {"content": '{"ok":true}'},
+                                         "finish_reason": "stop"}]},
+        )))
+        recorder = MetricsJSONClient(client, deadline_at=monotonic() + 10.0)
+        self.assertEqual(recorder.generate_json(name="source_event_claims_queries",
+                       instructions="synthetic", input_data={}, schema={"type": "object"}),
+                       {"ok": True})
+        self.assertLessEqual(client._client.post.call_args.kwargs["timeout"], 10.0)
+
+    def test_openrouter_429_retry_after_and_credit_error_are_safe(self):
+        client = object.__new__(OpenRouterJSONClient)
+        client.model = "google/gemini-3.8-flash"
+        client.seed, client.temperature, client.task_models = 42, 1.0, {}
+        success = SimpleNamespace(status_code=200, content=b'{"ok":true}',
+                                  json=lambda: {"choices": [{"message": {"content": '{"ok":true}'},
+                                                               "finish_reason": "stop"}]})
+        limited = SimpleNamespace(status_code=429, headers={"Retry-After": "2"},
+                                  content=b'MODEL_SECRET')
+        client._client = SimpleNamespace(post=Mock(side_effect=[limited, success]))
+        with patch("server.analysis.v2.model_client.sleep") as sleeper:
+            self.assertEqual(client.generate_json(name="source_analysis", instructions="synthetic",
+                             input_data={}, schema={"type": "object"}), {"ok": True})
+        sleeper.assert_called_once_with(2.0)
+        self.assertEqual(client._client.post.call_count, 2)
+        client._client.post = Mock(return_value=SimpleNamespace(
+            status_code=402, headers={}, content=b'MODEL_SECRET'))
+        with self.assertRaises(ModelHTTPError) as raised:
+            client.generate_json(name="source_analysis", instructions="synthetic",
+                                 input_data={}, schema={"type": "object"})
+        error = make_error_record(raised.exception, stage="source_analysis")
+        self.assertEqual(error["code"], "MODEL_HTTP_ERROR")
+        self.assertEqual(error["http_status"], 402)
+        self.assertFalse(error["retryable"])
+        self.assertNotIn("MODEL_SECRET", str(error))
+
     def test_metrics_client_does_not_copy_model_transcripts(self):
         # AI-assisted synthetic test: the wrapper keeps counters, never prompt/body/response copies.
         client = _FakeClient()
@@ -180,6 +246,64 @@ class RuntimeTests(SimpleTestCase):
                 self.assertEqual(error["code"], expected_code)
                 self.assertTrue(error["retryable"])
                 self.assertNotIn("MODEL_SECRET", str(error))
+
+    def test_gemini_retries_429_after_provider_retry_delay(self):
+        error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
+                                          "details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo",
+                                                       "retryDelay": "17s"}]}})
+        client = object.__new__(GeminiJSONClient)
+        client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+        response = SimpleNamespace(text='{"ok":true}')
+        generate = Mock(side_effect=[error, response])
+        client._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+        with patch("server.analysis.v2.model_client.sleep") as sleeper:
+            result = client.generate_json(name="source_analysis", instructions="synthetic",
+                                          input_data={}, schema={"type": "object"},
+                                          timeout_budget_ms=90000)
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(generate.call_count, 2)
+        sleeper.assert_called_once_with(17.0)
+
+    def test_gemini_429_fallback_backoff_is_bounded(self):
+        error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}})
+        client = object.__new__(GeminiJSONClient)
+        client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+        generate = Mock(side_effect=error)
+        client._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+        with (patch("server.analysis.v2.model_client.sleep") as sleeper,
+              patch("server.analysis.v2.model_client.uniform", return_value=0.0)):
+            with self.assertRaises(RuntimeError) as raised:
+                client.generate_json(name="source_analysis", instructions="synthetic",
+                                     input_data={}, schema={"type": "object"})
+        self.assertEqual(generate.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleeper.call_args_list], [12.0, 24.0])
+        self.assertEqual(make_error_record(raised.exception, stage="source_analysis")["code"],
+                         "MODEL_RATE_LIMITED")
+
+    def test_gemini_does_not_retry_daily_quota_or_sleep_past_budget(self):
+        quota_error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
+                                                "details": [{"violations": [{
+                                                    "quotaId": "GenerateRequestsPerDayPerProjectPerModel"}]}]}})
+        delayed_error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}},
+                                 response=SimpleNamespace(headers={"Retry-After": "50"}))
+        long_delay_error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}},
+                                    response=SimpleNamespace(headers={"Retry-After": "120"}))
+        for error, budget_ms in ((quota_error, 90000), (delayed_error, 45000),
+                                 (long_delay_error, 240000)):
+            with self.subTest(budget_ms=budget_ms):
+                client = object.__new__(GeminiJSONClient)
+                client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+                generate = Mock(side_effect=error)
+                client._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+                with patch("server.analysis.v2.model_client.sleep") as sleeper:
+                    with self.assertRaises(RuntimeError) as raised:
+                        client.generate_json(name="source_analysis", instructions="synthetic",
+                                             input_data={}, schema={"type": "object"},
+                                             timeout_budget_ms=budget_ms)
+                self.assertEqual(generate.call_count, 1)
+                sleeper.assert_not_called()
+                self.assertEqual(make_error_record(raised.exception, stage="source_analysis")["code"],
+                                 "MODEL_RATE_LIMITED")
 
     def test_related_article_unverified_retryability_is_preserved(self):
         discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",

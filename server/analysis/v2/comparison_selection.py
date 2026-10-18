@@ -2,12 +2,82 @@
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Any, Callable
 
 from .article_search import fetch_candidate_articles
 from .llm_analysis import COMPARABLE_RELATIONS, prioritize_diverse_candidates, verify_candidate_articles
 from .model_client import ModelResponseError
 from .result_output import make_error_record
+
+
+# The first three metadata hits are a starting point, not the final quality
+# ranking. Two more verifier batches can inspect later articles when budget
+# remains, without making the serverless run unbounded.
+MAX_EXTRA_VERIFIED_CANDIDATES = 6
+
+
+def _body_signature(article: dict) -> tuple[int, frozenset[str]] | None:
+    body = article.get("body")
+    if not isinstance(body, str):
+        return None
+    compact = "".join(char for char in unicodedata.normalize("NFKC", body).casefold() if char.isalnum())
+    # A short excerpt is not enough evidence that two full reports are copies.
+    if len(compact) < 200:
+        return None
+    return len(compact), frozenset(compact[index:index + 7] for index in range(len(compact) - 6))
+
+
+def _same_reporting_text(first: tuple[int, frozenset[str]] | None,
+                         second: tuple[int, frozenset[str]] | None) -> bool:
+    if first is None or second is None:
+        return False
+    first_len, first_grams = first
+    second_len, second_grams = second
+    if min(first_len, second_len) / max(first_len, second_len) < 0.9:
+        return False
+    intersection = len(first_grams & second_grams)
+    return bool(intersection and intersection / (len(first_grams) + len(second_grams) - intersection) >= 0.92)
+
+
+def _grounded_matches(assessment: dict, claim_ids: set[str]) -> dict[str, dict]:
+    if assessment.get("event_relation") != "same_event":
+        return {}
+    return {match["claim_id"]: match for match in assessment.get("claim_matches", [])
+            if match.get("claim_id") in claim_ids
+            and match.get("relation") in COMPARABLE_RELATIONS
+            and match.get("evidence") is not None}
+
+
+def _comparison_article(candidate_id: str, article: dict, match: dict) -> dict:
+    return {"candidate_id": candidate_id, "title": article["title"], "url": article["url"],
+            "relation": match["relation"], "evidence": match["evidence"],
+            **{field: match.get(field, [] if field == "relation_evidence" else
+                               False if field == "has_multiple_voices" else
+                               "" if field == "speaker" else "uncertain")
+               for field in ("relation_evidence", "relation_owner", "speaker", "speech_kind", "has_multiple_voices")}}
+
+
+def _independent_same_event_ids(source: dict, metadata: list[dict], articles: dict[str, dict],
+                                assessed: dict[str, dict], claim_ids: set[str]) -> tuple[list[str], list[list[str]], list[str]]:
+    """Keep one evidence-bearing representative per near-identical full body."""
+    ids = [row["candidate_id"] for row in metadata
+           if row["candidate_id"] in articles and assessed.get(row["candidate_id"], {}).get("event_relation") == "same_event"]
+    signatures = {key: _body_signature(articles[key]) for key in ids}
+    source_signature = _body_signature(source)
+    source_duplicates = [key for key in ids if _same_reporting_text(signatures[key], source_signature)]
+    ids = [key for key in ids if key not in source_duplicates]
+    groups: list[list[str]] = []
+    for key in ids:
+        group = next((group for group in groups if _same_reporting_text(signatures[key], signatures[group[0]])), None)
+        if group is None:
+            groups.append([key])
+        else:
+            group.append(key)
+    def representative(group: list[str]) -> str:
+        return max(group, key=lambda key: (len(_grounded_matches(assessed[key], claim_ids)),
+                                           assessed[key].get("event_focus") == "primary", -ids.index(key)))
+    return [representative(group) for group in groups], groups, source_duplicates
 
 
 def select_verified_comparisons(source: dict, analysis: dict, metadata_search: dict, ranking: dict, *,
@@ -49,6 +119,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
     attempted_ids, claim_attempts, baseline_attempts, rounds = [], [], [], []
     notify = progress or (lambda _: None)
     verification_calls = 0
+    rate_limited = False
 
     def mark_unverified(ids: list[str], reason: str, exc: Exception) -> None:
         for key in ids:
@@ -158,6 +229,13 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                 # A later failed batch must not erase already grounded comparisons.
                 # Placeholders are explicitly unverified and cannot enter matches.
                 mark_unverified(batch_ids, "verification_failed", exc)
+                if make_error_record(exc, stage="candidate_verification")["code"] == "MODEL_RATE_LIMITED":
+                    # A persistent quota failure is shared across candidates.
+                    # Preserve already grounded articles and leave time for the
+                    # rubric instead of spending every remaining batch on 429s.
+                    rate_limited = stop_after_round = True
+                    mark_unverified(unchecked[start + len(batch_ids):], "verification_deferred", exc)
+                    break
                 continue
             assessed.update(batch_assessments)
         for claim_id, ids in targets.items():
@@ -209,16 +287,154 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                        "diversity_selection_notes": diversity_notes})
         if stop_after_round:
             break
+    # Verify a bounded later pool even when the initial per-claim slots filled.
+    # Otherwise metadata ordering becomes the final answer regardless of body
+    # quality, claim coverage, or syndicated copies.
+    extra_ids = []
+    queue_depth = max((len(queue) for queue in queues.values()), default=0)
+    for position in range(queue_depth):
+        for queue in queues.values():
+            if position >= len(queue):
+                continue
+            key = queue[position]
+            if key not in attempted_ids and key not in assessed and key not in failed and key not in extra_ids:
+                extra_ids.append(key)
+                if len(extra_ids) >= MAX_EXTRA_VERIFIED_CANDIDATES:
+                    break
+        if len(extra_ids) >= MAX_EXTRA_VERIFIED_CANDIDATES:
+            break
+    if len(extra_ids) < MAX_EXTRA_VERIFIED_CANDIDATES:
+        extra_ids.extend(key for key in baseline_queue if key not in attempted_ids and key not in assessed
+                         and key not in failed and key not in extra_ids)
+        extra_ids = extra_ids[:MAX_EXTRA_VERIFIED_CANDIDATES]
+    if rate_limited:
+        extra_ids = []
+    for start in range(0, len(extra_ids), verification_batch_size):
+        if rate_limited:
+            break
+        if should_stop and should_stop():
+            break
+        round_number = len(rounds) + 1
+        batch_ids = extra_ids[start:start + verification_batch_size]
+        notify(f"4단계 {round_number}차: 품질 검토 후보 {len(batch_ids)}개 본문 수집")
+        fetched = fetch_candidate_articles([metadata_map[key] for key in batch_ids])
+        attempted_ids.extend(batch_ids)
+        articles.update({a["candidate_id"]: a for a in fetched["candidates"]})
+        failed.update({f["candidate_id"]: f for f in fetched["fetch_failures"]})
+        if set(batch_ids) != {a["candidate_id"] for a in fetched["candidates"]} | {
+            f["candidate_id"] for f in fetched["fetch_failures"]
+        }:
+            raise RuntimeError("일부 후보의 본문 수집 결과 또는 실패 기록이 빠졌습니다.")
+        unchecked = [key for key in batch_ids if key in articles]
+        if unchecked and should_stop and should_stop():
+            mark_unverified(unchecked, "verification_deferred", TimeoutError())
+        elif unchecked:
+            notify(f"4단계 {round_number}차: 추가 사건·주장 검증 [{', '.join(unchecked)}]")
+            verification_calls += 1
+            try:
+                result = verify_candidate_articles(source, analysis, [articles[key] for key in unchecked], client=client)
+                batch_assessments = {a["candidate_id"]: a for a in result["assessments"]}
+                if set(batch_assessments) != set(unchecked) or len(batch_assessments) != len(result["assessments"]):
+                    raise ModelResponseError("추가 후보의 검증 결과가 누락되었거나 중복되었습니다.")
+            except (RuntimeError, TimeoutError) as exc:
+                mark_unverified(unchecked, "verification_failed", exc)
+                if make_error_record(exc, stage="candidate_verification")["code"] == "MODEL_RATE_LIMITED":
+                    rate_limited = True
+            else:
+                assessed.update(batch_assessments)
+        targets = {claim_id: [key for key in batch_ids if key in queue]
+                   for claim_id, queue in queues.items()}
+        for claim_id, ids in targets.items():
+            for key in ids:
+                assessment = assessed.get(key, {})
+                match = _grounded_matches(assessment, set(claim_map)).get(claim_id)
+                reason = ("fetch_failed" if key in failed else
+                          "verification_failed" if key in verification_failed else
+                          "verification_deferred" if key in verification_deferred else
+                          "different_event" if assessment.get("event_relation") == "different_event" else
+                          "uncertain_event" if assessment.get("event_relation") == "uncertain" else
+                          "verified" if match else "no_claim_match")
+                claim_attempts.append({"round": round_number, "claim_id": claim_id, "candidate_id": key,
+                                       "status": "accepted" if match else "rejected", "reason": reason,
+                                       "selection_basis": "quality_pool"})
+        for key in batch_ids:
+            if key in baseline_queue:
+                baseline_attempts.append({"round": round_number, "candidate_id": key,
+                                          "status": "accepted" if assessed.get(key, {}).get("event_relation") == "same_event" else "rejected",
+                                          "reason": assessed.get(key, {}).get("event_relation", "unverified")})
+        rounds.append({"round": round_number, "claim_targets": targets,
+                       "event_baseline_targets": [key for key in batch_ids if key in baseline_queue],
+                       "fetched_ids": batch_ids,
+                       "verified_ids": [key for key in unchecked if key not in verification_failed
+                                        and key not in verification_deferred],
+                       "unverified_ids": [key for key in unchecked if key in verification_failed
+                                          or key in verification_deferred],
+                       "deferred_ids": [key for key in unchecked if key in verification_deferred],
+                       "reused_verified_candidates": {}, "diversity_selection_notes": {},
+                       "quality_pool": True})
+    independent_ids, body_groups, source_duplicates = _independent_same_event_ids(
+        source, metadata, articles, assessed, set(claim_map))
+    duplicate_groups = [group for group in body_groups if len(group) > 1]
+    duplicate_to_group = {key: group for group in body_groups for key in group}
+    event_baseline_ids = [key for key in independent_ids if
+                          any(metadata_map[member].get("discovered_by_event")
+                              for member in duplicate_to_group.get(key, [key]))][:event_baseline_limit]
+    final_comparisons = []
+    for claim_id, claim in claim_map.items():
+        queue_order = {key: position for position, key in enumerate(queues[claim_id])}
+        # A copied body can receive inconsistent verifier labels. Keep the
+        # member that actually has this claim's grounded evidence rather than
+        # transferring another member's evidence or dropping the claim.
+        candidates = []
+        for group in body_groups:
+            evidenced = [key for key in group if claim_id in _grounded_matches(assessed[key], set(claim_map))]
+            if evidenced:
+                candidates.append(max(evidenced, key=lambda key: (
+                    len(_grounded_matches(assessed[key], set(claim_map))),
+                    assessed[key].get("event_focus") == "primary",
+                    -queue_order.get(key, len(metadata)))))
+        selected, covered_claims, publishers = [], set(), set()
+        while candidates and len(selected) < max_per_claim:
+            def quality(key: str) -> tuple[int, int, int, int, int, int]:
+                matches = _grounded_matches(assessed[key], set(claim_map))
+                publisher = str(articles[key].get("publisher") or metadata_map[key].get("publisher") or "").casefold().strip()
+                relation = matches[claim_id]["relation"]
+                relation_weight = 2 if relation in {"same", "opposes"} else 1 if relation == "different_interpretation" else 0
+                return (len(set(matches) - covered_claims), int(publisher not in publishers),
+                        int(assessed[key].get("event_focus") == "primary"), relation_weight,
+                        -queue_order.get(key, len(metadata)), -next(index for index, row in enumerate(metadata)
+                                                               if row["candidate_id"] == key))
+            key = max(candidates, key=quality)
+            candidates.remove(key)
+            selected.append(key)
+            covered_claims.update(_grounded_matches(assessed[key], set(claim_map)))
+            publishers.add(str(articles[key].get("publisher") or metadata_map[key].get("publisher") or "").casefold().strip())
+        final_comparisons.append({"claim_id": claim_id, "claim": claim["claim"],
+                                  "articles": [_comparison_article(key, articles[key],
+                                               _grounded_matches(assessed[key], set(claim_map))[claim_id])
+                                               for key in selected]})
+    selected_ids = {row["candidate_id"] for comparison in final_comparisons
+                    for row in comparison["articles"]}
+    same_event_ids = [row["candidate_id"] for row in metadata
+                      if row["candidate_id"] in set(independent_ids) | selected_ids]
     ordered_assessments = [assessed[m["candidate_id"]] for m in metadata if m["candidate_id"] in assessed]
     selection = {
         "assessments": ordered_assessments,
-        "same_event_ids": [a["candidate_id"] for a in ordered_assessments if a["event_relation"] == "same_event"],
-        "event_baseline_ids": baseline_ids,
-        "claim_comparisons": [{"claim_id": key, "claim": claim["claim"], "articles": accepted[key]}
-                              for key, claim in claim_map.items()],
+        "same_event_ids": same_event_ids,
+        "event_baseline_ids": event_baseline_ids,
+        "independent_same_event_ids": independent_ids,
+        "claim_comparisons": final_comparisons,
+        "duplicate_article_groups": duplicate_groups,
+        "source_duplicate_article_ids": source_duplicates,
+        "warnings": (["같은 본문을 재전재한 기사는 I1 비교 기준에서 한 건으로 취급합니다. "
+                      "주장별 근거가 서로 다른 재전재 기사에만 확인된 경우 해당 원문 근거를 보존하며, "
+                      "기사별 I1 행 수를 독립 보도 비율로 해석하지 마세요."] if duplicate_groups else [])
+                    + (["입력 기사와 본문이 거의 같은 재전재 후보는 독립 비교 기사에서 제외했습니다."]
+                       if source_duplicates else []),
         "claim_attempts": claim_attempts, "event_baseline_attempts": baseline_attempts,
         "verification_rounds": rounds, "verification_llm_calls": verification_calls,
-        "exhausted_claim_ids": [key for key in claim_map if len(accepted[key]) < max_per_claim],
+        "exhausted_claim_ids": [row["claim_id"] for row in final_comparisons
+                                if len(row["articles"]) < max_per_claim],
     }
     search = {**metadata_search, "errors": list(metadata_search.get("errors", [])) + verification_errors,
               "candidates": [articles[key] for key in attempted_ids if key in articles],

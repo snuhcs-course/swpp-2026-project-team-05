@@ -37,15 +37,18 @@ class PipelineResultError(RuntimeError):
 
 
 def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
-    """Run the integrated rubric pipeline and preserve the Android API contract."""
+    """Run the full-text Reader pipeline and preserve the Android API contract."""
     # AI-assisted Iteration 2 integration; the v2 output is checked by adapter tests.
     from .analysis.v2.pipeline import run_analysis_pipeline
 
     raw = run_analysis_pipeline(
         source_url,
-        max_per_claim=max_related,
-        event_baseline_limit=max_related,
+        max_claims=3,
+        max_candidates=8,
+        max_per_claim=min(max_related, 2),
+        event_baseline_limit=2,
         max_rubric_articles=max_related,
+        analysis_profile="reader",
         use_cache=False,  # Serverless function files are not persistent storage.
     )
     if not isinstance(raw, dict):
@@ -80,8 +83,12 @@ def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
 
 def _missing_api_keys() -> list[str]:
     missing = []
-    if not get_gemini_api_key():
-        missing.append("GOOGLE_API_KEY or GEMINI_API_KEY")
+    pipeline_name = os.getenv("FRAMELESS_PIPELINE", "v2").strip().lower()
+    direct_gemini = bool(get_gemini_api_key())
+    openrouter = bool(os.getenv("OPENROUTER_API_KEY", "").strip())
+    if not direct_gemini and (pipeline_name == "v1" or not openrouter):
+        missing.append("GOOGLE_API_KEY or GEMINI_API_KEY" if pipeline_name == "v1" else
+                       "OPENROUTER_API_KEY or GOOGLE_API_KEY or GEMINI_API_KEY")
     missing.extend(key for key in REQUIRED_NAVER_KEYS if not os.getenv(key, "").strip())
     return missing
 

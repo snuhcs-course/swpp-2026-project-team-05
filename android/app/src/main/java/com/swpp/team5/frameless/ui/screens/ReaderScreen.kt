@@ -1,0 +1,440 @@
+package com.swpp.team5.frameless.ui.screens
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.swpp.team5.frameless.data.ReaderArticle
+import com.swpp.team5.frameless.data.AnalysisStatus
+import com.swpp.team5.frameless.data.ReaderHighlight
+import com.swpp.team5.frameless.data.ReaderPair
+import com.swpp.team5.frameless.data.ReaderResult
+import com.swpp.team5.frameless.data.ReaderSpan
+import com.swpp.team5.frameless.ui.theme.Caption
+import com.swpp.team5.frameless.ui.theme.Fl
+import com.swpp.team5.frameless.ui.theme.HRule
+import com.swpp.team5.frameless.ui.theme.OutlinedPill
+import com.swpp.team5.frameless.ui.theme.SourceLink
+import kotlinx.coroutines.android.awaitFrame
+import kotlin.math.roundToInt
+
+/** The source article remains intact. Badges are UI annotations outside its quoted sentences. */
+private val ReaderMatch = Color(0xFFDBECEB)
+private val ReaderExpression = Color(0xFFE9E1F5)
+private val ReaderMarker = Color(0xFFE5D0F2)
+
+internal data class ReaderTarget(
+    val sentenceId: String,
+    val span: ReaderSpan,
+    val highlights: List<ReaderHighlight>
+) {
+    val key: String get() = "$sentenceId:${span.start}:${span.end}"
+    val pairs: List<ReaderPair> get() = highlights.flatMap { it.pairs }.distinctBy { it.id }
+    val codes: List<String> get() = pairs.flatMap { it.expressionDifferences.map { difference -> difference.code } }
+        .distinct().sorted()
+}
+
+/** A sentence may carry several claims. Keep one tappable span and show all verified pairs. */
+internal fun ReaderResult.targets(): List<ReaderTarget> = highlights
+    .groupBy { it.sourceSentenceId to it.sourceSpan }
+    .map { (identity, items) -> ReaderTarget(identity.first, identity.second, items) }
+    .sortedWith(compareBy({ it.span.start }, { it.span.end }))
+
+/** Overlapping positions cannot have an unambiguous tap target; keep the first exact sentence. */
+internal fun List<ReaderTarget>.nonOverlapping(): List<ReaderTarget> {
+    var end = 0
+    return sortedWith(compareBy({ it.span.start }, { it.span.end })).filter { target ->
+        if (target.span.start < end) false else {
+            end = target.span.end
+            true
+        }
+    }
+}
+
+/** Build one native text layout so body line breaks and paragraph spacing follow the extraction. */
+internal fun sourceReaderText(
+    reader: ReaderResult,
+    targets: List<ReaderTarget>,
+    showExpressions: Boolean = true
+): AnnotatedString {
+    val byStart = targets.associateBy { it.span.start }
+    val starsByEnd = reader.i1Stars.groupBy { it.sourceSpan.end }
+    val body = reader.sourceArticle.body
+    return buildAnnotatedString {
+        var active: ReaderTarget? = null
+        for (offset in 0..body.length) {
+            val ending = active?.takeIf { it.span.end == offset }
+            if (ending != null) {
+                pop() // style
+                pop() // click annotation
+                active = null
+                if (showExpressions && ending.codes.isNotEmpty()) {
+                    pushStringAnnotation("reader_target", ending.key)
+                    pushStyle(SpanStyle(color = Fl.InkDiff, fontWeight = FontWeight.Bold))
+                    append(" 〔${ending.codes.joinToString("·")}〕")
+                    pop()
+                    pop()
+                }
+            }
+            starsByEnd[offset]?.forEach {
+                pushStyle(SpanStyle(color = Fl.Danger, fontWeight = FontWeight.Bold))
+                append(" ★")
+                pop()
+            }
+            val starting = byStart[offset]
+            if (starting != null) {
+                active = starting
+                pushStringAnnotation("reader_target", starting.key)
+                pushStyle(SpanStyle(
+                    background = if (showExpressions && starting.codes.isNotEmpty()) ReaderExpression else ReaderMatch,
+                    textDecoration = TextDecoration.Underline
+                ))
+            }
+            if (offset < body.length) append(body[offset])
+        }
+    }
+}
+
+@Composable
+internal fun ReaderScreen(
+    reader: ReaderResult,
+    analysisStatus: AnalysisStatus?,
+    onNewArticle: () -> Unit
+) {
+    val uriHandler = LocalUriHandler.current
+    val targets = remember(reader) { reader.targets().nonOverlapping() }
+    val showExpressions = analysisStatus?.executionStatus != "failed"
+    val fullReview = reader.version == "0.2" && reader.coverage == "all_source_sentences_reviewed"
+    val partial = analysisStatus?.executionStatus in setOf("partial", "failed") ||
+        reader.articleFailureCount > 0 || reader.i1Status == "partial"
+    val body = remember(reader, targets, showExpressions) {
+        sourceReaderText(reader, targets, showExpressions)
+    }
+    var selected by remember(reader) { mutableStateOf<ReaderTarget?>(null) }
+    var bodyLayout by remember(reader) { mutableStateOf<TextLayoutResult?>(null) }
+    val currentBodyLayout = rememberUpdatedState(bodyLayout)
+    val bodyScroll = rememberScrollState()
+
+    BackHandler(enabled = selected == null, onBack = onNewArticle)
+
+    Column(modifier = Modifier.fillMaxSize().background(Fl.Card)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Caption("FrameLESS  /  기사 읽기")
+                Text("원문에서 비교하기", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+            }
+            OutlinedPill("새 기사", onClick = onNewArticle)
+        }
+        HRule()
+        if (!fullReview || partial) {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(Fl.Inset).padding(horizontal = 18.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Caption(
+                    when {
+                        !fullReview -> "전문 표현 분석을 완료하지 못했어요."
+                        reader.articleFailureCount > 0 -> "일부 기사 분석을 완료하지 못했어요."
+                        reader.i1Status == "partial" -> "I1 단독 정보 판정을 일부 완료하지 못했어요."
+                        else -> "분석을 일부 완료하지 못했어요."
+                    },
+                    color = Fl.Danger
+                )
+                Caption("아래에는 확인된 문장과 표현만 표시해요. 표시가 없다고 차이가 없다는 뜻은 아니에요.")
+            }
+        }
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(bodyScroll).padding(horizontal = 22.dp, vertical = 24.dp)) {
+            Caption("입력 기사")
+            Spacer(Modifier.height(7.dp))
+            Text(
+                reader.sourceArticle.title,
+                fontSize = 25.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Fl.Ink,
+                fontFamily = Fl.Serif
+            )
+            reader.sourceArticle.url?.let { url ->
+                Spacer(Modifier.height(6.dp))
+                SourceLink(onClick = { uriHandler.openUri(url) }, label = "기사 원문 열기")
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
+                Caption("대응 문장")
+                Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
+                Caption("표현 차이 A–G")
+            }
+            if (reader.i1Stars.isNotEmpty()) {
+                Caption("★ 이번 비교 기사에서 확인되지 않은 내용", color = Fl.Danger)
+            } else if (reader.i1Status == "not_computed") {
+                Caption("I1 단독 정보는 이번 분석에서 아직 판정하지 않았어요.")
+            } else if (reader.i1Status == "withheld") {
+                Caption("I1 단독 정보 판정은 근거가 부족해 보류했어요.")
+            }
+            if (targets.isEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Caption("이번 분석에서 양쪽 원문을 확인한 대응 문장은 없어요.")
+            } else {
+                Spacer(Modifier.height(8.dp))
+                Caption("표시된 문장을 누르면 다른 기사의 해당 부분으로 이동해요.")
+            }
+            Spacer(Modifier.height(22.dp))
+            HorizontalDivider(color = Fl.Line)
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = body,
+                modifier = Modifier.fillMaxWidth().pointerInput(body, targets) {
+                    detectTapGestures { position: Offset ->
+                        val offset = currentBodyLayout.value?.getOffsetForPosition(position) ?: return@detectTapGestures
+                        val key = body.getStringAnnotations("reader_target", offset, (offset + 1).coerceAtMost(body.length))
+                            .firstOrNull()?.item ?: return@detectTapGestures
+                        selected = targets.firstOrNull { it.key == key }
+                    }
+                },
+                fontSize = 16.sp,
+                lineHeight = 28.sp,
+                color = Fl.Ink,
+                fontFamily = Fl.Serif,
+                onTextLayout = { bodyLayout = it }
+            )
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+
+    selected?.let { target ->
+        key(target.key) {
+            ReaderComparisonSheet(reader, target, showExpressions, onDismiss = { selected = null })
+        }
+    }
+}
+
+private data class RelatedPage(val article: ReaderArticle, val pairs: List<ReaderPair>)
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun ReaderComparisonSheet(
+    reader: ReaderResult,
+    target: ReaderTarget,
+    showExpressions: Boolean,
+    onDismiss: () -> Unit
+) {
+    val pages = remember(reader, target) {
+        target.pairs.groupBy { it.articleId }.mapNotNull { (id, pairs) ->
+            reader.article(id)?.let { RelatedPage(it, pairs) }
+        }.sortedBy { it.article.articleIndex }
+    }
+    if (pages.isEmpty()) return
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val pagerState = rememberPagerState(pageCount = { pages.size })
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Fl.Card,
+        contentColor = Fl.Ink
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.93f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("다른 기사의 대응 부분", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Caption("${pagerState.currentPage + 1} / ${pages.size}")
+            }
+            if (pages.size > 1) {
+                Caption("좌우로 넘겨 다른 기사를 보고, 위로 끌어 전문을 읽어보세요.",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+            } else {
+                Caption("위로 끌어 기사 전문을 읽어보세요.", modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = Fl.Line)
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { pageIndex ->
+                RelatedArticlePage(pages[pageIndex], sheetState, showExpressions)
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showExpressions: Boolean) {
+    val uriHandler = LocalUriHandler.current
+    val density = LocalDensity.current
+    val article = page.article
+    val scroll = rememberScrollState()
+    var layout by remember(article.id, page.pairs) { mutableStateOf<TextLayoutResult?>(null) }
+    var viewportHeight by remember(article.id) { mutableIntStateOf(0) }
+    val highlightText = remember(article, page.pairs, showExpressions) {
+        relatedReaderText(article, page.pairs, showExpressions)
+    }
+    val firstOffset = page.pairs.minOfOrNull { it.relatedSpan.start }
+
+    LaunchedEffect(article.id, firstOffset, layout, viewportHeight, scroll.maxValue, sheetState.currentValue) {
+        val offset = firstOffset ?: return@LaunchedEffect
+        val textLayout = layout ?: return@LaunchedEffect
+        if (sheetState.currentValue != SheetValue.Expanded || viewportHeight <= 0 ||
+            scroll.maxValue <= 0 || offset !in article.body.indices) return@LaunchedEffect
+        awaitFrame()
+        val box = textLayout.getBoundingBox(offset)
+        val textTopPadding = with(density) { 14.dp.toPx() }
+        val target = (textTopPadding + box.top + box.height / 2f - viewportHeight / 2f).roundToInt()
+        scroll.scrollTo(target.coerceIn(0, scroll.maxValue))
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 14.dp)) {
+        Text(article.title, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+        article.url?.let { url -> SourceLink(onClick = { uriHandler.openUri(url) }, label = "원문 링크") }
+        val relation = page.pairs.map { it.relation }.distinct().joinToString(" · ") { relationLabel(it) }
+        if (relation.isNotBlank()) Caption(relation, modifier = Modifier.padding(vertical = 5.dp))
+        val differences = if (showExpressions) page.pairs.flatMap { it.expressionDifferences }.distinctBy {
+            listOf(it.code, it.note, it.sourceMarkerSpan.start, it.relatedMarkerSpan.start)
+        } else emptyList()
+        if (differences.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Caption("표현 차이 후보 · 원문에서 확인한 부분", color = Fl.InkDiff)
+                differences.forEach { difference ->
+                    Text(
+                        text = "${difference.code} · ${difference.note}".trimEnd(' ', '·'),
+                        color = Fl.InkDiff,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider(color = Fl.Line)
+        if (sheetState.currentValue == SheetValue.Expanded) {
+            Box(modifier = Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }) {
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(scroll)) {
+                    Text(
+                        text = highlightText,
+                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                        color = Fl.Ink,
+                        fontFamily = Fl.Serif,
+                        fontSize = 15.sp,
+                        lineHeight = 27.sp,
+                        onTextLayout = { layout = it }
+                    )
+                    Spacer(Modifier.height(with(density) { (viewportHeight / 2f).toDp() }))
+                }
+            }
+        } else {
+            Text("기사 속 대응 문장", fontSize = 12.sp, color = Fl.Muted,
+                modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+            Text(
+                text = relatedSentencePreview(article, page.pairs, showExpressions),
+                color = Fl.Ink,
+                fontFamily = Fl.Serif,
+                fontSize = 15.sp,
+                lineHeight = 26.sp,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp)
+            )
+        }
+    }
+}
+
+/** Put the verified sentence first, so a short bottom sheet does not clip it. */
+internal fun relatedSentencePreview(
+    article: ReaderArticle,
+    pairs: List<ReaderPair>,
+    showExpressions: Boolean = true
+): AnnotatedString = buildAnnotatedString {
+    val pair = pairs.minByOrNull { it.relatedSpan.start } ?: return@buildAnnotatedString
+    val index = article.sentences.indexOfFirst { it.id == pair.relatedSentenceId }
+    if (index < 0) return@buildAnnotatedString
+    val sentence = article.sentences[index]
+    val start = length
+    append(sentence.text)
+    addStyle(SpanStyle(background = ReaderMatch, textDecoration = TextDecoration.Underline), start, length)
+    if (showExpressions) pair.expressionDifferences.forEach { difference ->
+        val markerStart = start + difference.relatedMarkerSpan.start - sentence.span.start
+        val markerEnd = start + difference.relatedMarkerSpan.end - sentence.span.start
+        if (markerStart >= start && markerEnd <= length && markerEnd > markerStart) {
+            addStyle(SpanStyle(background = ReaderMarker, fontWeight = FontWeight.Bold), markerStart, markerEnd)
+        }
+    }
+    article.sentences.getOrNull(index + 1)?.let { append("\n\n"); append(it.text) }
+}
+
+internal fun relatedReaderText(
+    article: ReaderArticle,
+    pairs: List<ReaderPair>,
+    showExpressions: Boolean = true
+): AnnotatedString = buildAnnotatedString {
+    append(article.body)
+    pairs.forEach { pair ->
+        addStyle(SpanStyle(background = ReaderMatch, textDecoration = TextDecoration.Underline),
+            pair.relatedSpan.start, pair.relatedSpan.end)
+        pair.expressionDifferences.takeIf { showExpressions }.orEmpty().forEach { difference ->
+            addStyle(SpanStyle(background = ReaderMarker, fontWeight = FontWeight.Bold),
+                difference.relatedMarkerSpan.start, difference.relatedMarkerSpan.end)
+        }
+    }
+}
+
+private fun relationLabel(raw: String): String = when (raw) {
+    "same" -> "같은 내용"
+    "opposes" -> "반대되는 주장"
+    "refutes" -> "반박한 내용"
+    "reframes" -> "다르게 구성한 내용"
+    "different_interpretation" -> "다른 해석"
+    "same_issue" -> "같은 쟁점"
+    "uncertain" -> "관계 판정 불확실"
+    else -> ""
+}

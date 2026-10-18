@@ -10,6 +10,7 @@ from unittest.mock import patch
 from django.test import Client, SimpleTestCase
 
 from server.analysis.v2_adapter import PipelineContractError, adapt_v2_result
+from server.analysis.v2.article_input import structure_article_body
 from server.analysis.v2.display_selection import select_display_article_ids
 from server.analysis.v2.pipeline import (_finish_discovery, _limit_discovery_for_display,
                                          complete_rubric_analysis, run_analysis_pipeline)
@@ -96,7 +97,125 @@ def pipeline_result():
     }
 
 
+def reader_pipeline_result():
+    """Synthetic, fully grounded article bodies including one astral character."""
+    raw = deepcopy(pipeline_result())
+    raw["source_analysis"]["claims"] = raw["source_analysis"]["claims"][:1]
+    raw["selection"]["claim_comparisons"] = raw["selection"]["claim_comparisons"][:1]
+    raw["selection"]["event_baseline_ids"] = []
+    raw["rubric_analysis"] = None
+    bodies = {
+        "S0": "😀 관객 수가 늘었다. 새로운 계획도 발표됐다.",
+        "A": "관객이 급증했다. 다른 사안도 설명했다.",
+        "B": "관객 수에는 변화가 없었다.",
+        "C": "표시되지 않을 기사 본문이다.",
+    }
+    raw["source_article"].update(body=bodies["S0"], **structure_article_body(bodies["S0"]))
+    for candidate in raw["search"]["candidates"]:
+        body = bodies[candidate["candidate_id"]]
+        candidate.update(body=body, **structure_article_body(body))
+
+    def evidence(article, quote):
+        start = article["body"].index(quote)
+        sentence = next(row for row in article["sentences"]
+                        if row["start"] <= start < start + len(quote) <= row["end"])
+        return {"sentence_index": sentence["sentence_index"],
+                "paragraph_index": sentence["paragraph_index"],
+                "start": start, "end": start + len(quote), "quote": quote}
+
+    raw["source_analysis"]["claims"][0]["evidence"] = evidence(raw["source_article"], "관객 수가 늘었다")
+    for match in raw["selection"]["claim_comparisons"][0]["articles"]:
+        candidate = next(row for row in raw["search"]["candidates"]
+                         if row["candidate_id"] == match["candidate_id"])
+        quote = "관객이 급증했다" if match["candidate_id"] == "A" else "관객 수에는 변화가 없었다"
+        match["evidence"] = evidence(candidate, quote)
+    return raw, evidence
+
+
 class AdapterTests(SimpleTestCase):
+    def test_reader_exposes_displayed_full_bodies_and_utf16_sentence_pairs(self):
+        raw, _ = reader_pipeline_result()
+        reader = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        self.assertEqual(reader["scope"], "extracted_article_text")
+        self.assertEqual(reader["coverage"], "verified_displayed_claims_only")
+        self.assertEqual(reader["offset_unit"], "utf16")
+        self.assertEqual(reader["i1_status"], "not_computed")
+        self.assertEqual(reader["i1_stars"], [])
+        self.assertEqual(reader["source_article"]["body"], raw["source_article"]["body"])
+        self.assertEqual([row["article_id"] for row in reader["related_articles"]], ["A", "B"])
+        self.assertNotIn("표시되지 않을", json.dumps(reader, ensure_ascii=False))
+        self.assertEqual(len(reader["highlights"]), 1)
+        highlight = reader["highlights"][0]
+        source_sentence = raw["source_article"]["sentences"][0]["text"]
+        self.assertEqual(highlight["source_span"], {
+            "start": 0, "end": len(source_sentence.encode("utf-16-le")) // 2})
+        self.assertEqual(len(highlight["pairs"]), 2)
+        first = next(pair for pair in highlight["pairs"] if pair["article_id"] == "A")
+        self.assertEqual(first["source_evidence_span"]["text"], "관객 수가 늘었다")
+        self.assertEqual(first["source_evidence_span"]["start"], 3)  # 😀 takes two UTF-16 units.
+        self.assertEqual(first["related_evidence_span"]["text"], "관객이 급증했다")
+        self.assertEqual(first["alignment_scope"], "verified_claim_relation")
+        self.assertEqual(first["expression_differences"], [])
+
+    def test_reader_pair_ids_do_not_depend_on_candidate_display_ids(self):
+        raw, _ = reader_pipeline_result()
+        original = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        original_pair = next(pair for pair in original["highlights"][0]["pairs"] if pair["article_id"] == "A")
+        raw["search"]["candidates"][0]["candidate_id"] = "A_changed"
+        raw["selection"]["same_event_ids"][0] = "A_changed"
+        raw["selection"]["claim_comparisons"][0]["articles"][0]["candidate_id"] = "A_changed"
+        renamed = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        changed_pair = next(pair for pair in renamed["highlights"][0]["pairs"]
+                            if pair["article_id"] == "A_changed")
+        self.assertEqual(original_pair["pair_id"], changed_pair["pair_id"])
+        self.assertEqual(original_pair["related_sentence_id"], changed_pair["related_sentence_id"])
+
+    def test_reader_skips_unvalidated_quote_and_withheld_relation(self):
+        raw, _ = reader_pipeline_result()
+        raw["selection"]["claim_comparisons"][0]["articles"][0]["evidence"]["start"] += 1
+        reader = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        self.assertEqual([pair["article_id"] for pair in reader["highlights"][0]["pairs"]], ["B"])
+
+        raw, _ = reader_pipeline_result()
+        raw["rubric_analysis"] = {"claim_analyses": [{"claim_id": "C1", "information": {
+            "I1": [{"article_id": "A", "presence": "found", "relation": "opposes", "evidence": []}]},
+            "expression": {"status": "analyzed", "findings": []}}]}
+        reader = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        self.assertEqual([pair["article_id"] for pair in reader["highlights"][0]["pairs"]], ["B"])
+
+    def test_reader_attaches_only_grounded_equivalent_expression_differences(self):
+        raw, evidence = reader_pipeline_result()
+        source = raw["source_article"]
+        related = raw["search"]["candidates"][0]
+        finding = {
+            "article_id": "A", "baseline_article_id": "S0", "category": "D",
+            "semantic_relation": "equivalent", "status": "provisional", "marker": "급증했다",
+            "evidence": {"scope": "body", **evidence(related, "급증했다")},
+            "baseline_evidence": {"scope": "body", **evidence(source, "늘었다")},
+            "context_evidence": evidence(related, "관객이 급증했다"),
+            "markedness": 2, "markedness_reason": "급증했다는 늘었다보다 강한 표현",
+        }
+        raw["rubric_analysis"] = {"claim_analyses": [{"claim_id": "C1", "information": {},
+            "expression": {"status": "analyzed", "findings": [finding]}}]}
+        reader = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        pair = next(pair for pair in reader["highlights"][0]["pairs"] if pair["article_id"] == "A")
+        self.assertEqual(pair["alignment_scope"], "equivalent_expression")
+        self.assertEqual(pair["expression_differences"][0]["code"], "D")
+        self.assertEqual(pair["expression_differences"][0]["source_marker_span"]["text"], "늘었다")
+        self.assertEqual(pair["expression_differences"][0]["related_marker_span"]["text"], "급증했다")
+
+        finding["semantic_relation"] = "uncertain"
+        reader = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        pair = next(pair for pair in reader["highlights"][0]["pairs"] if pair["article_id"] == "A")
+        self.assertEqual(pair["expression_differences"], [])
+        self.assertEqual(pair["alignment_scope"], "verified_claim_relation")
+
+        finding["semantic_relation"] = "equivalent"
+        finding["evidence"]["start"] += 1
+        reader = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)["reader"]
+        pair = next(pair for pair in reader["highlights"][0]["pairs"] if pair["article_id"] == "A")
+        self.assertEqual(pair["expression_differences"], [])
+
     def test_display_selection_covers_distinct_claims_before_repeated_matches(self):
         selection = {"event_baseline_ids": ["E"], "claim_comparisons": [
             {"claim_id": "C1", "articles": [{"candidate_id": "A"}, {"candidate_id": "D"}]},
@@ -106,6 +225,20 @@ class AdapterTests(SimpleTestCase):
         ]}
         # A and D have more repeated matches, but C is the only C4 evidence.
         self.assertEqual(select_display_article_ids(selection, 2), ["D", "C"])
+
+    def test_display_selection_avoids_syndicated_copies_when_coverage_ties(self):
+        selection = {"event_baseline_ids": [], "claim_comparisons": [
+            {"claim_id": "C1", "articles": [{"candidate_id": key} for key in ("A", "B", "C")]},
+        ]}
+        candidates = [
+            {"candidate_id": "A", "publisher": "첫 언론사", "body": "시청은 오늘 새 교통 계획을 발표했다. 다음 달부터 시행한다."},
+            {"candidate_id": "B", "publisher": "둘째 언론사", "body": "시청은 오늘 새 교통 계획을 발표했다. 다음 달부터 시행한다."},
+            {"candidate_id": "C", "publisher": "셋째 언론사", "body": "주민은 새 교통 계획이 생활에 미칠 영향을 설명하며 보완책을 요구했다."},
+        ]
+        selected = select_display_article_ids(selection, 2, candidates)
+        self.assertEqual(len(selected), 2)
+        self.assertIn("C", selected)
+        self.assertNotEqual(set(selected), {"A", "B"})
 
     def test_limited_rubric_scope_and_partial_status_are_explicit(self):
         raw = deepcopy(pipeline_result())
@@ -137,6 +270,21 @@ class AdapterTests(SimpleTestCase):
                           for article in row["articles"]], ["A", "A"])
         self.assertEqual(seen["selection"]["event_baseline_ids"], [])
         self.assertTrue(result["display_selection"]["truncated"])
+
+    @patch("server.analysis.v2.pipeline.prepare_article")
+    @patch("server.analysis.v2.pipeline.run_discovery_pipeline")
+    @patch("server.analysis.v2.pipeline.complete_rubric_analysis")
+    @patch("server.analysis.v2.pipeline.complete_reader_analysis")
+    def test_reader_profile_skips_legacy_rubric(self, reader, rubric, discovery, prepare):
+        raw = pipeline_result()
+        raw["completed_stage"] = 4
+        discovery.return_value = raw
+        prepare.return_value = raw["source_article"]
+        reader.side_effect = lambda stage_four, **_kwargs: stage_four
+        run_analysis_pipeline(SOURCE_URL, client=object(), use_cache=False,
+                              max_rubric_articles=1, analysis_profile="reader")
+        rubric.assert_not_called()
+        self.assertEqual(reader.call_args.args[0]["display_selection"]["selected_article_ids"], ["A"])
 
     def test_android_golden_fixture_matches_python_adapter(self):
         fixture = Path(__file__).resolve().parents[1] / "android/app/src/test/resources/v2_android_response.json"

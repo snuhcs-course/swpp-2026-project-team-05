@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from itertools import zip_longest
 import json
+import os
 import re
 from html import unescape
 from http.client import HTTPException
@@ -11,17 +13,26 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from .model_client import get_naver_credentials
+from .model_client import _checked_model_name, get_gemini_api_key, get_naver_credentials
 from .article_fetch import validate_article_url
 from .article_input import prepare_article
 from .result_output import OperationError, make_error_record
 
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+_GOOGLE_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+
+
+class _SearchRows(list):
+    """A normal result list with nonfatal per-sort retrieval errors."""
+
+    def __init__(self, rows: list[dict], sort_errors: list[tuple[str, OperationError]]) -> None:
+        super().__init__(rows)
+        self.sort_errors = sort_errors
 
 
 class _NoCredentialRedirects(HTTPRedirectHandler):
-    """Do not forward NAVER API credentials to a redirected origin."""
+    """Do not forward search API credentials to a redirected origin."""
 
     def redirect_request(self, request, response, code, message, headers, new_url):
         return None
@@ -50,17 +61,19 @@ def normalize_news_url(url: str) -> str:
     return hostname + parsed.path.rstrip("/") + suffix
 
 
-def search_naver_news(query: str, display: int = 10) -> list[dict]:
-    """Call NAVER API HUB; return metadata, not article bodies."""
+def _search_naver_news_sorted(query: str, display: int, sort: str) -> list[dict]:
+    """Retrieve one ordered NAVER result page without following credentialed redirects."""
     if not isinstance(query, str) or not query.strip():
         raise ValueError("검색어가 비어 있습니다.")
     if type(display) is not int or not 1 <= display <= 100:
         raise ValueError("display는 1~100의 정수여야 합니다.")
+    if sort not in ("sim", "date"):
+        raise ValueError("sort는 sim 또는 date여야 합니다.")
     client_id, client_secret = get_naver_credentials()
     if not client_id or not client_secret:
         raise OperationError("NAVER API HUB의 Client ID·Secret을 설정해 주세요.", code="NAVER_CONFIGURATION_MISSING")
     request = Request(_NEWS_SEARCH_URL + "?" + urlencode({
-        "query": query.strip(), "display": display, "start": 1, "sort": "sim", "format": "json",
+        "query": query.strip(), "display": display, "start": 1, "sort": sort, "format": "json",
     }), headers={"X-NCP-APIGW-API-KEY-ID": client_id,
                  "X-NCP-APIGW-API-KEY": client_secret, "Accept": "application/json"})
     try:
@@ -91,20 +104,160 @@ def search_naver_news(query: str, display: int = 10) -> list[dict]:
              "description": _plain_text(item.get("description", "")),
              "link": unescape(item.get("link") or ""),
              "originallink": unescape(item.get("originallink") or ""),
-             "search_provided_at": item.get("pubDate") or ""}
+             "search_provided_at": item.get("pubDate") or "", "search_sort": sort}
             for item in payload["items"] if isinstance(item, dict)]
+
+
+def search_naver_news(query: str, display: int = 10) -> list[dict]:
+    """Combine relevance and recency results so a recent event can be found by either."""
+    pages, errors = [], []
+    sorts = ("sim", "date")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(_search_naver_news_sorted, query, display, sort) for sort in sorts]
+        for sort, future in zip(sorts, futures):
+            try:
+                pages.append(future.result())
+            except OperationError as exc:
+                errors.append((sort, exc))
+                pages.append([])
+    if len(errors) == 2:
+        raise errors[0][1]
+    # Interleave instead of appending: metadata selection reserves the first event
+    # candidates, and a long relevance page should not crowd out recent reporting.
+    return _SearchRows([item for pair in zip_longest(*pages) for item in pair if item is not None], errors)
+
+
+def _google_grounding_enabled() -> bool:
+    return os.getenv("ENABLE_GOOGLE_GROUNDED_SEARCH", "").strip().lower() in ("1", "true", "yes")
+
+
+def _reviewed_event_queries(analysis: dict) -> list[str]:
+    """Prefer grounded review queries; the planner's original may target a side topic."""
+    reviewed = analysis.get("event_queries")
+    if isinstance(reviewed, list):
+        queries = []
+        for value in reviewed:
+            if not isinstance(value, str):
+                continue
+            query = " ".join(value.split())
+            if 2 <= len(query) <= 80 and query not in queries:
+                queries.append(query)
+        if queries:
+            return queries[:3]
+    return [" ".join(analysis["event_query"].split())]
+
+
+def search_google_grounded_news(source: dict, analysis: dict, *, max_urls: int = 10) -> list[dict]:
+    """Discover candidate URLs from actual Google Search citation annotations.
+
+    The model's prose and URL-looking strings are never used as article URLs.
+    Google Search citations only nominate candidates; the regular article fetch
+    and same-event verification stages must still inspect their complete bodies.
+    """
+    if type(max_urls) is not int or not 1 <= max_urls <= 20:
+        raise ValueError("max_urls는 1~20의 정수여야 합니다.")
+    api_key = get_gemini_api_key()
+    if not api_key:
+        raise OperationError("Google 검색용 Gemini API 설정이 없습니다.", code="GOOGLE_SEARCH_CONFIGURATION_MISSING")
+    try:
+        model = _checked_model_name(os.getenv("GOOGLE_GROUNDED_SEARCH_MODEL", "").strip()
+                                    or "gemini-3.8-flash")
+    except ValueError as exc:
+        raise OperationError("Google 검색 모델 설정이 올바르지 않습니다.",
+                             code="GOOGLE_SEARCH_CONFIGURATION_INVALID") from exc
+    query_text = " / ".join(_reviewed_event_queries(analysis))
+    review = analysis.get("source_scope_review")
+    reviewed_event = review.get("primary_event") if isinstance(review, dict) else None
+    event = reviewed_event or analysis.get("core_event") or ""
+    prompt = (
+        "다음 한국어 뉴스 기사의 제목·사건·검색어를 참고해 같은 구체적인 사건을 실질적으로 "
+        "보도한 다른 언론사 기사들을 웹에서 검색하세요. 같은 인물이나 넓은 주제만 같은 "
+        "별개 사건은 제외하세요. 한국어 검색어를 달리해 여러 언론사의 개별 기사 URL을 "
+        "찾고, 찾은 기사마다 한 줄씩 출처 인용을 붙여 설명하세요. 검색 결과에 없는 "
+        "URL이나 기사를 만들지 마세요. 이 단계의 답변은 후보 발견에만 사용됩니다.\n"
+        f"원본 제목: {str(source.get('title') or '')[:200]}\n"
+        f"중심 사건: {str(event)[:300]}\n"
+        f"검색어: {query_text[:400]}\n"
+        f"원본 URL(후보에서 제외): {source['url']}"
+    )
+    request = Request(_GOOGLE_INTERACTIONS_URL,
+                      data=json.dumps({"model": model, "input": prompt, "store": False,
+                                       "tools": [{"type": "google_search"}]}, ensure_ascii=False).encode("utf-8"),
+                      headers={"x-goog-api-key": api_key, "Content-Type": "application/json",
+                               "Accept": "application/json"}, method="POST")
+    try:
+        with build_opener(_NoCredentialRedirects()).open(request, timeout=30) as response:
+            raw = response.read(2_000_001)
+        if len(raw) > 2_000_000:
+            raise OperationError("Google 검색 응답이 너무 큽니다.", code="GOOGLE_SEARCH_RESPONSE_INVALID")
+        payload = json.loads(raw)
+    except HTTPError as exc:
+        if 300 <= exc.code < 400:
+            raise OperationError("Google 검색 API의 리다이렉트를 허용하지 않습니다.",
+                                 code="GOOGLE_SEARCH_REDIRECT_BLOCKED", http_status=exc.code) from exc
+        raise OperationError(f"Google 검색이 실패했습니다 (HTTP {exc.code}).",
+                             code="GOOGLE_SEARCH_HTTP_ERROR", http_status=exc.code,
+                             retryable=exc.code in (408, 429) or exc.code >= 500) from exc
+    except (json.JSONDecodeError, UnicodeError) as exc:
+        raise OperationError("Google 검색 API가 올바른 JSON 응답을 반환하지 않았습니다.",
+                             code="GOOGLE_SEARCH_RESPONSE_INVALID", retryable=True) from exc
+    except (URLError, OSError, HTTPException) as exc:
+        timeout = isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError)
+        raise OperationError("Google 검색 시간이 초과됐습니다." if timeout else
+                             "Google 검색 API에 연결하지 못했거나 응답이 끊어졌습니다.",
+                             code="GOOGLE_SEARCH_TIMEOUT" if timeout else "GOOGLE_SEARCH_CONNECTION_FAILED",
+                             retryable=True) from exc
+    interaction = payload.get("interaction", payload) if isinstance(payload, dict) else None
+    steps = interaction.get("steps") if isinstance(interaction, dict) else None
+    if not isinstance(steps, list):
+        raise OperationError("Google 검색 응답에 검증 가능한 단계 정보가 없습니다.",
+                             code="GOOGLE_SEARCH_RESPONSE_INVALID")
+    if not any(isinstance(step, dict) and step.get("type") == "google_search_call" for step in steps):
+        return []
+    rows, seen = [], set()
+    source_key = normalize_news_url(source["url"])
+    for step in steps:
+        if not isinstance(step, dict) or step.get("type") != "model_output":
+            continue
+        for block in step.get("content") or []:
+            if not isinstance(block, dict) or block.get("type") != "text":
+                continue
+            for annotation in block.get("annotations") or []:
+                if not isinstance(annotation, dict) or annotation.get("type") != "url_citation":
+                    continue
+                try:
+                    url = validate_article_url(annotation.get("url"))
+                except ValueError:
+                    continue
+                host = (urlsplit(url).hostname or "").lower()
+                # Legacy grounding redirects and search result pages are not
+                # directly extractable news articles.
+                if host == "google.com" or host.endswith(".google.com"):
+                    continue
+                key = normalize_news_url(url)
+                if key == source_key or key in seen:
+                    continue
+                seen.add(key)
+                title = _plain_text(annotation.get("title", "")) or host
+                rows.append({"title": title[:200], "description": "", "link": url,
+                             "originallink": "", "search_provided_at": "",
+                             "search_provider": "google_grounding"})
+                if len(rows) >= max_urls:
+                    return rows
+    return rows
 
 
 def _query_plan(analysis: dict) -> list[dict]:
     queries = {}
-    entries = [(analysis["event_query"], {"scope": "event", "claim_id": None})]
+    entries = [(query, {"scope": "event", "claim_id": None})
+               for query in _reviewed_event_queries(analysis)]
     entries += [(claim["search_query"], {"scope": "claim", "claim_id": claim["claim_id"]})
                 for claim in analysis["claims"]]
     for query, source in entries:
         query = " ".join(query.split())
         if not query:
             raise ValueError("LLM 검색어가 비어 있습니다.")
-        record = queries.setdefault(query, {"query": query, "sources": []})
+        record = queries.setdefault(query, {"query": query, "sources": [], "provider": "naver"})
         if source not in record["sources"]:
             record["sources"].append(source)
     return list(queries.values())
@@ -122,9 +275,40 @@ def _valid_urls(item: dict) -> list[str]:
     return urls
 
 
-def _select_candidate_metadata(pool: list[dict], claim_ids: list[str], limit: int, reserve: int) -> list[dict]:
-    """Keep event-search coverage, then allocate slots across claim queries."""
-    selected = [item for item in pool if item["discovered_by_event"]][:min(reserve, limit)]
+def _select_candidate_metadata(pool: list[dict], claim_ids: list[str], limit: int, reserve: int,
+                               *, event_queries: list[str]) -> list[dict]:
+    """Share event slots across query variants before claim and web allocations."""
+    event_queues = [[item for item in pool if any(
+        match.get("scope") == "event" and match.get("query") == query
+        and match.get("provider") == "naver" for match in item["search_matches"])]
+        for query in event_queries]
+    event_order, event_seen = [], set()
+    event_positions = [0] * len(event_queues)
+    while True:
+        added = False
+        for index, queue in enumerate(event_queues):
+            while event_positions[index] < len(queue) and id(queue[event_positions[index]]) in event_seen:
+                event_positions[index] += 1
+            if event_positions[index] < len(queue):
+                item = queue[event_positions[index]]
+                event_positions[index] += 1
+                event_order.append(item)
+                event_seen.add(id(item))
+                added = True
+        if not added:
+            break
+    selected = event_order[:min(reserve, limit)]
+    # When enabled, preserve a small quota for independently found web results.
+    # Full-body verification will decide whether these are actually same-event.
+    grounded = [item for item in pool if any(match.get("provider") == "google_grounding"
+                                             for match in item["search_matches"])]
+    grounded_added = 0
+    for item in grounded:
+        if len(selected) >= limit or grounded_added >= 2:
+            break
+        if item not in selected:
+            selected.append(item)
+            grounded_added += 1
     queues = [[item for item in pool if any(source["claim_id"] == claim_id
                                           for source in item["search_matches"])]
               for claim_id in claim_ids]
@@ -140,7 +324,9 @@ def _select_candidate_metadata(pool: list[dict], claim_ids: list[str], limit: in
                 added = True
         if not added:
             break
-    for item in pool:
+    # After the per-claim allocation, fill remaining slots from all event
+    # variants in the same deterministic order, then from the full pool.
+    for item in event_order + pool:
         if len(selected) >= limit:
             break
         if item not in selected:
@@ -170,7 +356,11 @@ def _fetch_candidate(item: dict) -> tuple[dict | None, dict | None]:
 
 def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: int = 20,
                               display_per_query: int = 10, event_reserve: int = 5) -> dict:
-    """Search and deduplicate metadata; do not download any candidate bodies."""
+    """Search metadata without bodies; provider-tagged queries expose external search status.
+
+    The optional Google Interactions call is not part of the JSON client's
+    model execution_summary, so callers must not treat that count as complete.
+    """
     if type(max_candidates) is not int or not 1 <= max_candidates <= 100:
         raise ValueError("max_candidates는 1~100의 정수여야 합니다.")
     if type(event_reserve) is not int or event_reserve < 1:
@@ -178,20 +368,43 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     if type(display_per_query) is not int or not 1 <= display_per_query <= 100:
         raise ValueError("display_per_query는 1~100의 정수여야 합니다.")
     queries, pool = _query_plan(analysis), []
+    if _google_grounding_enabled():
+        queries.append({"query": _reviewed_event_queries(analysis)[0],
+                        "sources": [{"scope": "event", "claim_id": None}],
+                        "provider": "google_grounding"})
     source_keys = {normalize_news_url(source["url"])}
-    errors, succeeded, index = [], 0, 0
-    while index < len(queries):
-        record = queries[index]
-        index += 1
+    def run_query(record: dict) -> tuple[list[dict] | None, RuntimeError | None]:
+        provider = record.get("provider", "naver")
         try:
-            items = search_naver_news(record["query"], display_per_query)
+            items = (search_google_grounded_news(source, analysis, max_urls=min(10, max_candidates))
+                     if provider == "google_grounding" else
+                     search_naver_news(record["query"], display_per_query))
         except RuntimeError as exc:
-            error = make_error_record(exc, stage="search", query=record["query"])
+            return None, exc
+        return items, None
+
+    # Each query is independent. Keep a bounded number of concurrent requests,
+    # then consume responses in query-plan order for stable candidate IDs/ranks.
+    with ThreadPoolExecutor(max_workers=min(4, len(queries))) as executor:
+        query_results = list(executor.map(run_query, queries))
+    errors, succeeded = [], 0
+    for record, (items, failure) in zip(queries, query_results):
+        provider = record.get("provider", "naver")
+        if failure is not None:
+            exc = failure
+            error = make_error_record(exc, stage="search", query=record["query"], provider=provider)
             errors.append(error)
             record.update({"status": "search_failed", "result_count": 0, "error": error})
             continue
+        assert items is not None
         succeeded += 1
-        record.update({"status": "searched", "result_count": len(items)})
+        sort_errors = [make_error_record(exc, stage="search", query=record["query"],
+                                         provider="naver", sort=sort)
+                       for sort, exc in getattr(items, "sort_errors", [])]
+        errors.extend(sort_errors)
+        record.update({"status": "partial" if sort_errors else "searched", "result_count": len(items)})
+        if sort_errors:
+            record["sort_errors"] = sort_errors
         for item in items:
             urls = _valid_urls(item)
             keys = {normalize_news_url(url) for url in urls}
@@ -218,22 +431,17 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
             target["keys"].update(keys)
             target["urls"] = list(dict.fromkeys(target["urls"] + urls))
             for provenance in record["sources"]:
-                match = {"query": record["query"], **provenance}
+                match = {"query": record["query"], **provenance,
+                         "provider": item.get("search_provider", provider)}
+                if provider == "naver":
+                    match["sort"] = item.get("search_sort", "sim")
                 if match not in target["search_matches"]:
                     target["search_matches"].append(match)
             target["discovered_by_event"] |= any(provenance["scope"] == "event" for provenance in record["sources"])
-        if index == 1 and len([item for item in pool if item["discovered_by_event"]]) < min(3, max_candidates):
-            words = record["query"].split()
-            if len(words) > 2:
-                shorter = " ".join(words[:2])
-                existing = next((query for query in queries if query["query"] == shorter), None)
-                if existing is None:
-                    queries.insert(1, {"query": shorter, "sources": [{"scope": "event", "claim_id": None}]})
-                elif {"scope": "event", "claim_id": None} not in existing["sources"]:
-                    existing["sources"].append({"scope": "event", "claim_id": None})
     pool = [item for item in pool if not item["keys"] & source_keys]
     selected = _select_candidate_metadata(pool, [claim["claim_id"] for claim in analysis["claims"]],
-                                          max_candidates, event_reserve)
+                                          max_candidates, event_reserve,
+                                          event_queries=_reviewed_event_queries(analysis))
     for position, item in enumerate(selected, 1):
         item["candidate_id"] = f"A{position}"
     return {"queries": queries, "metadata_candidates": [

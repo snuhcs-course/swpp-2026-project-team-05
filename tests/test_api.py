@@ -24,15 +24,17 @@ class AnalyzeApiTests(SimpleTestCase):
             "NAVER_CLIENT_SECRET": "test-secret",
             "FRAMELESS_PIPELINE": "v1",
             "FRAMELESS_ALLOW_LEGACY_V1": "1",
+            "OPENROUTER_API_KEY": "",
         })
         credentials.start()
         self.addCleanup(credentials.stop)
 
-    def post(self, payload, *, content_type="application/json"):
+    def post(self, payload, *, content_type="application/json", **headers):
         return self.client.post(
             "/api/analyze",
             data=json.dumps(payload),
             content_type=content_type,
+            **headers,
         )
 
     def test_health(self):
@@ -48,6 +50,37 @@ class AnalyzeApiTests(SimpleTestCase):
     def test_google_api_key_is_accepted_for_gemini(self):
         response = self.client.get("/api/health")
         self.assertTrue(response.json()["analysis_ready"])
+
+    @patch.dict(os.environ, {"FRAMELESS_PIPELINE": "v2", "GEMINI_API_KEY": "",
+                                 "GOOGLE_API_KEY": "", "OPENROUTER_API_KEY": "test-router-key"})
+    def test_openrouter_key_alone_is_ready_for_v2(self):
+        response = self.client.get("/api/health")
+        self.assertTrue(response.json()["analysis_ready"])
+        self.assertEqual(response.json()["missing_configuration"], [])
+
+    @patch.dict(os.environ, {"FRAMELESS_PIPELINE": "v1", "GEMINI_API_KEY": "",
+                                 "GOOGLE_API_KEY": "", "OPENROUTER_API_KEY": "test-router-key"})
+    def test_legacy_v1_still_requires_direct_gemini_key(self):
+        response = self.client.get("/api/health")
+        self.assertFalse(response.json()["analysis_ready"])
+
+    @override_settings(IS_PRODUCTION=True)
+    @patch.dict(os.environ, {"FRAMELESS_PIPELINE": "v2", "OPENROUTER_API_KEY": "test-router-key"})
+    @patch("server.views.analyze_related_articles_v2", return_value={"ok": True})
+    def test_production_openrouter_uses_existing_analysis_request(self, analyze):
+        self.assertTrue(self.client.get("/api/health").json()["analysis_ready"])
+        response = self.post({"url": ARTICLE_URL})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
+        analyze.assert_called_once_with(ARTICLE_URL, max_related=3)
+
+    @override_settings(IS_PRODUCTION=True)
+    @patch.dict(os.environ, {"FRAMELESS_PIPELINE": "v2", "OPENROUTER_API_KEY": ""})
+    @patch("server.views.analyze_related_articles_v2", return_value={"ok": True})
+    def test_production_direct_gemini_path_does_not_require_demo_token(self, analyze):
+        response = self.post({"url": ARTICLE_URL})
+        self.assertEqual(response.status_code, 200)
+        analyze.assert_called_once_with(ARTICLE_URL, max_related=3)
 
     @patch("server.views.analyze_related_articles")
     def test_analyze_returns_existing_pipeline_result(self, analyze):
@@ -133,7 +166,8 @@ class AnalyzeApiTests(SimpleTestCase):
         self.assertEqual(response.json()["error"]["code"], "invalid_pipeline_config")
         analyze.assert_not_called()
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": "", "NAVER_CLIENT_ID": ""})
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": "", "OPENROUTER_API_KEY": "",
+                                 "NAVER_CLIENT_ID": ""})
     def test_missing_credentials_are_reported_without_calling_pipeline(self):
         with patch("server.views.analyze_related_articles") as analyze:
             health = self.client.get("/api/health")
