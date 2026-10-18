@@ -9,7 +9,8 @@ from time import sleep
 from unittest.mock import patch
 
 from server.analysis.reader_analysis import (
-    analyze_reader_content, _review_absence, _review_expression_pairs, _safe_expression_marker,
+    analyze_reader_content, _extract_source_units, _review_absence,
+    _review_expression_pairs, _safe_expression_marker,
 )
 from server.analysis.reader_contract import build_reader
 from server.analysis.v2.article_input import structure_article_body
@@ -153,6 +154,123 @@ class ReaderClient:
 
 
 class ReaderAnalysisTests(unittest.TestCase):
+    @staticmethod
+    def _source_unit_case(sentence_count: int) -> tuple[dict, dict]:
+        source = article("S0", "\n".join(
+            f"시청은 {i}번 다리의 공사를 시작했다." for i in range(sentence_count)))
+        analysis = {"core_event": "다리 공사", "claims": [{
+            "claim": "시청은 0번 다리의 공사를 시작했다",
+            "evidence": {"sentence_index": 0, "quote": source["sentences"][0]["text"]},
+        }]}
+        return source, analysis
+
+    @staticmethod
+    def _source_unit_response(request: dict) -> dict:
+        return {"sentences": [{
+            "sentence_index": sentence["sentence_index"], "scope": "central",
+            "units": [{"content": sentence["text"], "kind": "reported_fact",
+                       "evidence": {"sentence_index": sentence["sentence_index"],
+                                    "quote": sentence["text"]}}],
+        } for sentence in request["input_data"]["article"]["sentences"]]}
+
+    def test_source_truncation_splits_and_preserves_every_grounded_sentence(self):
+        source, analysis = self._source_unit_case(4)
+        analysis["claims"][0]["evidence"] = {"sentence_index": 3,
+                                            "quote": source["sentences"][3]["text"]}
+
+        class TruncatingClient:
+            def __init__(self):
+                self.requests = []
+
+            def generate_json(self, **request):
+                self.requests.append(request)
+                indexes = [row["sentence_index"] for row in request["input_data"]["article"]["sentences"]]
+                if len(indexes) == 4:
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        client = TruncatingClient()
+        ledger, units, calls = _extract_source_units(source, analysis, client)
+        self.assertEqual(calls, 3)
+        self.assertEqual([[row["sentence_index"] for row in request["input_data"]["article"]["sentences"]]
+                          for request in client.requests], [[0, 1, 2, 3], [0, 1], [2, 3]])
+        self.assertEqual([request["schema"]["properties"]["sentences"]["items"]
+                          ["properties"]["sentence_index"]["enum"] for request in client.requests],
+                         [[0, 1, 2, 3], [0, 1], [2, 3]])
+        self.assertEqual([(request["schema"]["properties"]["sentences"]["minItems"],
+                           request["schema"]["properties"]["sentences"]["maxItems"])
+                          for request in client.requests], [(4, 4), (2, 2), (2, 2)])
+        self.assertEqual([row["sentence_index"] for row in ledger], [0, 1, 2, 3])
+        self.assertEqual([row["source_evidence"]["sentence_index"] for row in units], [0, 1, 2, 3])
+        self.assertTrue(all(row["unit_ids"] for row in ledger))
+
+    def test_single_source_sentence_truncation_has_one_larger_bounded_retry(self):
+        source, analysis = self._source_unit_case(1)
+
+        class SingletonClient:
+            def __init__(self, *, always_truncated=False):
+                self.always_truncated = always_truncated
+                self.requests = []
+
+            def generate_json(self, **request):
+                self.requests.append(request)
+                if self.always_truncated or request["max_output_tokens"] == 8192:
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        client = SingletonClient()
+        ledger, units, calls = _extract_source_units(source, analysis, client)
+        self.assertEqual((len(ledger), len(units), calls), (1, 1, 2))
+        self.assertEqual([request["max_output_tokens"] for request in client.requests], [8192, 16384])
+        failed = SingletonClient(always_truncated=True)
+        with self.assertRaises(ModelResponseTruncatedError):
+            _extract_source_units(source, analysis, failed)
+        self.assertEqual([request["max_output_tokens"] for request in failed.requests], [8192, 16384])
+
+    def test_source_repair_truncation_splits_and_counts_both_failed_calls(self):
+        source, analysis = self._source_unit_case(2)
+
+        class RepairTruncatingClient:
+            def __init__(self):
+                self.requests = []
+
+            def generate_json(self, **request):
+                self.requests.append(request)
+                sentences = request["input_data"]["article"]["sentences"]
+                if len(sentences) == 2 and request["name"] == "source_content_units":
+                    return {"sentences": [{"sentence_index": row["sentence_index"],
+                                            "scope": "central", "units": []} for row in sentences]}
+                if len(sentences) == 2:
+                    raise ModelResponseTruncatedError("synthetic repair output limit")
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        client = RepairTruncatingClient()
+        ledger, units, calls = _extract_source_units(source, analysis, client)
+        self.assertEqual((len(ledger), len(units), calls), (2, 2, 4))
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_content_units", "repair_source_content_units",
+                          "source_content_units", "source_content_units"])
+        self.assertEqual([len(request["input_data"]["article"]["sentences"])
+                          for request in client.requests], [2, 2, 1, 1])
+
+    def test_non_truncation_source_errors_never_split_the_chunk(self):
+        source, analysis = self._source_unit_case(4)
+        for error, expected_calls in ((ModelHTTPError(429), 1), (TimeoutError("synthetic"), 1),
+                                      (ModelResponseError("synthetic invalid output"), 2)):
+            with self.subTest(error=type(error).__name__):
+                requests = []
+
+                class FailingClient:
+                    def generate_json(self, **request):
+                        requests.append(request)
+                        raise error
+
+                with self.assertRaises(type(error)):
+                    _extract_source_units(source, analysis, FailingClient())
+                self.assertEqual(len(requests), expected_calls)
+                self.assertTrue(all(len(request["input_data"]["article"]["sentences"]) == 4
+                                    for request in requests))
+
     def test_uncached_openrouter_alignments_run_together_with_ordered_results_and_usage(self):
         class ConcurrentReaderClient(ReaderClient, OpenRouterJSONClient):
             def __init__(self):

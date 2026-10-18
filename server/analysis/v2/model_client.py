@@ -589,9 +589,11 @@ class OpenRouterJSONClient:
         # compatible gateway; mirror the direct Gemini adapter's behavior.
         if not re.match(r"^google/gemini-3\.(?:[6-9]|[1-9][0-9])(?:-|$)", routed_model):
             request["temperature"] = self.temperature
-        # Full-body verification may need more than 60 seconds when the model
-        # uses reasoning tokens. Other tasks keep their existing timeout.
-        call_timeout = 90.0 if task_name == "verify_selected_candidate_bodies" else 60.0
+        # Full-body verification and source sentence extraction can use a
+        # larger output budget when reasoning tokens crowd out structured JSON.
+        call_timeout = 90.0 if task_name in {
+            "verify_selected_candidate_bodies", "source_content_units",
+        } else 60.0
         started = monotonic()
         for retry in range(3):
             remaining = (None if timeout_budget_ms is None

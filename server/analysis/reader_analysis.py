@@ -21,12 +21,15 @@ from .v2.llm_analysis import (
 )
 from .v2.comparison_selection import _body_signature, _same_reporting_text
 from .v2.model_client import (
-    MetricsJSONClient, ModelHTTPError, ModelResponseError, OpenRouterJSONClient,
+    MetricsJSONClient, ModelHTTPError, ModelResponseError, ModelResponseTruncatedError, OpenRouterJSONClient,
     SnapshotJSONClient,
 )
 
 
-SOURCE_SENTENCE_BATCH = 36
+# Keep the first structured response small enough that reasoning tokens do not
+# crowd out the complete per-sentence JSON ledger on normal articles.
+SOURCE_SENTENCE_BATCH = 8
+SOURCE_SINGLE_SENTENCE_OUTPUT_TOKENS = 16384
 ALIGNMENT_UNIT_BATCH = 18
 EXPRESSION_PAIR_LIMIT = 18
 EXPRESSION_PAIR_CHUNK = 4
@@ -50,7 +53,8 @@ def _unit_id(index: int, content: str, quote: str) -> str:
     return f"u_{digest}"
 
 
-def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any) -> tuple[list[dict], list[dict], int]:
+def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any, *,
+                  max_output_tokens: int = 8192) -> tuple[list[dict], list[dict], int]:
     index_set = set(indexes)
     sentence_schema = _object_schema({
         "sentence_index": {"type": "integer", "enum": indexes},
@@ -62,7 +66,7 @@ def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any)
         })},
     })
     request = dict(
-        name="source_content_units", max_output_tokens=8192,
+        name="source_content_units", max_output_tokens=max_output_tokens,
         schema=_object_schema({"sentences": {"type": "array", "minItems": len(indexes),
                                               "maxItems": len(indexes), "items": sentence_schema}}),
         instructions=(
@@ -85,7 +89,6 @@ def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any)
                                                "text": source["sentences"][i]["text"]} for i in indexes]}},
     )
     budget = _RepairBudget()
-    response = _generate_json(client, repair_budget=budget, **request)
 
     def checked(value: dict) -> tuple[list[dict], list[dict]]:
         rows = value["sentences"]
@@ -111,16 +114,35 @@ def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any)
         return ledger, units
 
     try:
-        ledger, units = checked(response)
-    except ModelResponseError as exc:
-        if not budget.consume():
-            raise
-        repaired = _generate_json(client, repair_budget=budget, **{
-            **request, "name": "repair_source_content_units",
-            "instructions": request["instructions"] +
-            " 앞선 응답은 문장 누락·중복 또는 원문 인용 검증에서 실패했습니다. 모든 입력 문장을 다시 확인하세요.",
-        })
-        ledger, units = checked(repaired)
+        response = _generate_json(client, repair_budget=budget, **request)
+        try:
+            ledger, units = checked(response)
+        except ModelResponseError:
+            if not budget.consume():
+                raise
+            repaired = _generate_json(client, repair_budget=budget, **{
+                **request, "name": "repair_source_content_units",
+                "instructions": request["instructions"] +
+                " 앞선 응답은 문장 누락·중복 또는 원문 인용 검증에서 실패했습니다. 모든 입력 문장을 다시 확인하세요.",
+            })
+            ledger, units = checked(repaired)
+    except ModelResponseTruncatedError:
+        # A larger JSON schema can exhaust the output budget on reasoning
+        # tokens before returning any sentence rows. Retry only smaller input;
+        # never infer a missing sentence or treat it as absent for I1.
+        spent = 1 + budget.used
+        if len(indexes) == 1:
+            if max_output_tokens >= SOURCE_SINGLE_SENTENCE_OUTPUT_TOKENS:
+                raise
+            rows, found, count = _source_chunk(
+                source, analysis, indexes, client,
+                max_output_tokens=SOURCE_SINGLE_SENTENCE_OUTPUT_TOKENS)
+            return rows, found, spent + count
+        midpoint = len(indexes) // 2
+        left_rows, left_units, left_calls = _source_chunk(source, analysis, indexes[:midpoint], client)
+        right_rows, right_units, right_calls = _source_chunk(source, analysis, indexes[midpoint:], client)
+        return (left_rows + right_rows, left_units + right_units,
+                spent + left_calls + right_calls)
     return ledger, units, 1 + budget.used
 
 
