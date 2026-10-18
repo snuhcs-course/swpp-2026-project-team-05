@@ -232,6 +232,7 @@ def _alignment_chunk(source: dict, related: dict, units: list[dict], article_id:
             "A~G 차이가 실제로 확인된 문장쌍에만 expression_differences를 쓰세요. "
             "A 보도동사, B 발언명명, C 사건·행위동사, D 정도·수량 수식, E 평가·감정, F 일방적 명칭, "
             "G 확신·불확실성·범주화입니다. 숫자 자체가 달라졌다는 이유만으로 A~G를 만들지 마세요. "
+            "말했다/설명했다/밝혔다처럼 태도 차이가 없는 보도 동사끼리는 A로 표시하지 마세요. "
             "source_marker와 related_marker는 양쪽의 실제 차이 구절이며 그 unit에 연결된 문장 안에 있어야 합니다. "
             "직접 인용 안의 단어를 기자의 표현으로 분류하지 말고, 귀속이 불명확하면 차이를 보류하세요. "
             "표현 차이는 same/reframes에서만 분류하고 refutes/related_only에는 빈 배열을 쓰세요. "
@@ -276,6 +277,8 @@ def _alignment_chunk(source: dict, related: dict, units: list[dict], article_id:
                     raise ModelResponseError("A~G 근거가 대응 문장 밖에 있습니다.")
                 if _inside_direct_quote(source, left) or _inside_direct_quote(related, right):
                     continue
+                if _neutral_a_pair(item["code"], left["quote"], right["quote"]):
+                    continue
                 differences.append({"code": item["code"], "source_marker": left,
                                     "related_marker": right, "note": item["note"],
                                     "status": "provisional"})
@@ -316,6 +319,24 @@ def _align_article(source: dict, related: dict, units: list[dict], article_id: s
 def _expression_surface(text: str) -> str:
     """Ignore spacing, punctuation and digits when seeking wording changes."""
     return re.sub(r"[^가-힣A-Za-z]+", "", unicodedata.normalize("NFKC", text)).casefold()
+
+
+_NEUTRAL_REPORTING_VERBS = frozenset({
+    "말했다", "말했습니다", "설명했다", "설명했습니다", "밝혔다", "밝혔습니다",
+    "전했다", "전했습니다", "답했다", "답했습니다",
+})
+
+
+def _neutral_a_pair(code: str, source_marker: str, related_marker: str) -> bool:
+    """Withhold A when both exact markers are ordinary reporting verbs.
+
+    A is about a reporter's attitude toward a statement, not every synonym
+    used to attribute it. Keep stronger verbs such as ``강조했다`` available for
+    model review. The narrow whole-marker rule avoids discarding a larger phrase
+    whose context may carry a real contrast.
+    """
+    return (code == "A" and _expression_surface(source_marker) in _NEUTRAL_REPORTING_VERBS
+            and _expression_surface(related_marker) in _NEUTRAL_REPORTING_VERBS)
 
 
 def _expression_context(article: dict, sentence_index: int) -> list[dict]:
@@ -416,6 +437,7 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
         "(처리/밀어붙임/강행), D는 정도·수량 수식(증가/급증), E는 평가·감정(대응/졸속), "
         "F는 논쟁 한쪽의 명칭(개정안/개악), G는 확신·양태·범주화(전망/확실시)입니다. "
         "숫자 사실 차이, 띄어쓰기, 어미·문장 순서만 다른 것은 포함하지 마세요. "
+        "말했다/설명했다/밝혔다처럼 태도 차이가 없는 보도 동사끼리는 A로 표시하지 마세요. "
         "semantic_relation=equivalent는 이 표현쌍이 같은 하위 내용을 말할 때만 사용하세요. "
         "직접 인용의 단어는 기자 표현으로 분류하지 말고 voice=attributed_speaker 또는 uncertain으로 두세요. "
         "짧은 명칭의 따옴표는 scare_quote/name을 구분하되 발언의 긴 따옴표와 혼동하지 마세요. "
@@ -566,6 +588,7 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
             if (left["sentence_index"] != pair["source_sentence_index"]
                     or right["sentence_index"] != pair["related_sentence_index"]
                     or _expression_surface(left["quote"]) == _expression_surface(right["quote"])
+                    or _neutral_a_pair(finding["code"], left["quote"], right["quote"])
                     or not _safe_expression_marker(source, left, finding["code"], finding["quoted_use"])
                     or not _safe_expression_marker(catalog[article_id], right, finding["code"], finding["quoted_use"])):
                 withheld += 1
