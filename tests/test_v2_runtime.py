@@ -153,7 +153,8 @@ class RuntimeTests(SimpleTestCase):
         discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",
                      "errors": [], "warnings": [], "source_article": source,
                      "source_analysis": {"claims": [], "core_event": "가상 사건"},
-                     "search": {"candidates": []}, "selection": {"claim_comparisons": []},
+                     "search": {"candidates": []},
+                     "selection": {"claim_comparisons": [], "verification_detached_calls_at_cutoff": 2},
                      "comparison_status": "no_matches"}
 
         def fake_discovery(*args, **kwargs):
@@ -181,6 +182,7 @@ class RuntimeTests(SimpleTestCase):
         self.assertEqual(result["completed_stage"], 5)
         self.assertEqual(result["reproducibility"]["execution"]["model_calls"], 1)
         self.assertEqual(result["reproducibility"]["execution"]["attempted_calls"], 1)
+        self.assertEqual(result["reproducibility"]["execution"]["verification_detached_calls_at_cutoff"], 2)
         self.assertIsNone(result["reproducibility"]["snapshot_path"])
         self.assertEqual(result["reproducibility"]["snapshot_id_basis"], "result_without_model_transcript")
         self.assertNotIn("PROMPT_SECRET", json.dumps(result))
@@ -190,6 +192,7 @@ class RuntimeTests(SimpleTestCase):
         self.assertIn('"duration_ms":', logs)
         self.assertIn('"event":"model_execution"', logs)
         self.assertIn('"attempted_calls":1', logs)
+        self.assertIn('"verification_detached_calls_at_cutoff":2', logs)
         self.assertNotIn("PROMPT_SECRET", logs)
         self.assertNotIn("ARTICLE_SECRET", logs)
 

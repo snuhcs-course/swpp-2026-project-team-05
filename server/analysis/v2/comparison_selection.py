@@ -163,6 +163,7 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
     attempted_ids, claim_attempts, baseline_attempts, rounds = [], [], [], []
     notify = progress or (lambda _: None)
     verification_calls = 0
+    detached_verification_calls = 0
     rate_limited = False
     rate_limit_error: Exception | None = None
     # A singleton verdict depends only on the source and that candidate body.
@@ -276,13 +277,18 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
         stopped_early = False
 
         def defer_rest() -> bool:
-            nonlocal verification_calls, stopped_early
+            nonlocal verification_calls, detached_verification_calls, stopped_early
             # A future that never started made no model call. Count running or
             # completed speculative calls, including ones whose verdict is
             # discarded after a later 429/deadline.
             for index, future in running.items():
-                if index > stop_after_index and future.cancel():
-                    verification_calls -= 1
+                if index > stop_after_index:
+                    if future.cancel():
+                        verification_calls -= 1
+                    elif not future.done():
+                        # Their usage may arrive after execution_summary is
+                        # captured, so expose this count with the selection.
+                        detached_verification_calls += 1
             mark_unverified(ids[next_apply:], "verification_deferred", stop_error or TimeoutError())
             stopped_early = True
             return True
@@ -307,21 +313,17 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                         stop_after_index = min(next_launch - 1, (next_apply // width + 1) * width - 1)
                 if stop_after_index is not None and next_apply > stop_after_index:
                     return defer_rest()
-                if next_apply in completed:
-                    index = next_apply
-                    apply_verification([ids[index]], completed.pop(index))
-                    next_apply += 1
-                    if rate_limited and stop_after_index is None:
-                        # Preserve results from the failure's original wave,
-                        # but ignore newer speculative calls and never launch
-                        # another one after the 429 is known.
-                        stop_after_index = min(next_launch - 1, (index // width + 1) * width - 1)
-                        stop_error = rate_limit_error or TimeoutError()
-                    continue
+                wave_end = (next_apply // width + 1) * width
+                # Complete the original wave before applying any verdict in
+                # it. A finished A4 may be a 429 while A6 is still queued;
+                # the former three-wide batch would have launched A6 too.
+                # When a verdict is already ready, do not launch speculative
+                # calls from the following wave before applying it.
+                launch_limit = wave_end + (0 if next_apply in completed
+                                           else MAX_VERIFICATION_SPECULATIVE_CALLS)
                 while (stop_after_index is None and next_launch < len(ids)
                        and len(running) < width
-                       and next_launch < (next_apply // width + 1) * width
-                       + MAX_VERIFICATION_SPECULATIVE_CALLS):
+                       and next_launch < launch_limit):
                     if should_stop and should_stop():
                         stop_error = TimeoutError()
                         if next_apply and next_apply % width == 0:
@@ -337,6 +339,17 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                     next_launch += 1
                 if stop_after_index is not None and next_apply > stop_after_index:
                     return defer_rest()
+                if next_apply in completed:
+                    index = next_apply
+                    apply_verification([ids[index]], completed.pop(index))
+                    next_apply += 1
+                    if rate_limited and stop_after_index is None:
+                        # Preserve results from the failure's original wave,
+                        # but ignore newer speculative calls and never launch
+                        # another one after the 429 is known.
+                        stop_after_index = min(next_launch - 1, (index // width + 1) * width - 1)
+                        stop_error = rate_limit_error or TimeoutError()
+                    continue
                 relevant = [future for index, future in running.items()
                             if stop_after_index is None or index <= stop_after_index]
                 if not relevant:
@@ -679,6 +692,7 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                        if source_duplicates else []),
         "claim_attempts": claim_attempts, "event_baseline_attempts": baseline_attempts,
         "verification_rounds": rounds, "verification_llm_calls": verification_calls,
+        "verification_detached_calls_at_cutoff": detached_verification_calls,
         "exhausted_claim_ids": [row["claim_id"] for row in final_comparisons
                                 if len(row["articles"]) < max_per_claim],
     }
