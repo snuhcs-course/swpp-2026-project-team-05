@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from itertools import zip_longest
 import json
+import logging
 import os
+from random import uniform
 import re
 from html import unescape
 from http.client import HTTPException
+from time import sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -21,6 +26,9 @@ from .result_output import OperationError, make_error_record
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 _GOOGLE_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+_RETRYABLE_NEWS_HTTP_STATUSES = frozenset({408, 500, 502, 503, 504})
+_MAX_NEWS_RETRY_AFTER_SECONDS = 1.0
+logger = logging.getLogger(__name__)
 
 
 class _SearchRows(list):
@@ -61,6 +69,23 @@ def normalize_news_url(url: str) -> str:
     return hostname + parsed.path.rstrip("/") + suffix
 
 
+def _news_retry_delay(error: HTTPError) -> float | None:
+    """Allow one prompt retry, but never precede an upstream cooldown."""
+    if error.code not in _RETRYABLE_NEWS_HTTP_STATUSES:
+        return None
+    raw = error.headers.get("Retry-After") if error.headers is not None else None
+    if raw:
+        try:
+            delay = float(raw) if re.fullmatch(r"\d+(?:\.\d+)?", raw.strip()) else max(
+                0.0, (parsedate_to_datetime(raw) - datetime.now(timezone.utc)).total_seconds())
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not 0 <= delay <= _MAX_NEWS_RETRY_AFTER_SECONDS:
+            return None
+        return delay
+    return 0.2 + uniform(0.0, 0.15)
+
+
 def _search_naver_news_sorted(query: str, display: int, sort: str) -> list[dict]:
     """Retrieve one ordered NAVER result page without following credentialed redirects."""
     if not isinstance(query, str) or not query.strip():
@@ -76,16 +101,28 @@ def _search_naver_news_sorted(query: str, display: int, sort: str) -> list[dict]
         "query": query.strip(), "display": display, "start": 1, "sort": sort, "format": "json",
     }), headers={"X-NCP-APIGW-API-KEY-ID": client_id,
                  "X-NCP-APIGW-API-KEY": client_secret, "Accept": "application/json"})
+    opener = build_opener(_NoCredentialRedirects())
     try:
-        with build_opener(_NoCredentialRedirects()).open(request, timeout=10) as response:
-            payload = json.load(response)
+        for attempt in range(2):
+            try:
+                with opener.open(request, timeout=10) as response:
+                    payload = json.load(response)
+                break
+            except HTTPError as exc:
+                delay = _news_retry_delay(exc) if attempt == 0 else None
+                if delay is None:
+                    raise
+                sleep(delay)
     except HTTPError as exc:
+        # Numeric status is enough to distinguish quota, auth, and transient
+        # upstream failure without logging the query, URL, or credential headers.
+        logger.warning("naver_search_http_error upstream_status=%d", exc.code)
         if 300 <= exc.code < 400:
             raise OperationError("네이버 검색 API의 리다이렉트를 허용하지 않습니다.",
                                  code="SEARCH_REDIRECT_BLOCKED", http_status=exc.code) from exc
         raise OperationError(f"네이버 뉴스 검색이 실패했습니다 (HTTP {exc.code}).",
                              code="SEARCH_HTTP_ERROR", http_status=exc.code,
-                             retryable=exc.code in (408, 429) or exc.code >= 500) from exc
+                             retryable=exc.code == 408 or exc.code >= 500) from exc
     except (json.JSONDecodeError, UnicodeError) as exc:
         raise OperationError("네이버 검색 API가 올바른 JSON 응답을 반환하지 않았습니다.",
                              code="SEARCH_RESPONSE_INVALID", retryable=True) from exc
