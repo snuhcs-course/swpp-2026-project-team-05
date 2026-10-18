@@ -2,7 +2,7 @@
 
 import json
 from threading import Barrier, Event, Lock
-from time import sleep
+from time import monotonic, sleep
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
@@ -121,6 +121,157 @@ class VerificationResilienceTests(SimpleTestCase):
 
         self.assertEqual(result["selection"]["claim_comparisons"][0]["articles"][0]["candidate_id"], "A3")
         self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+
+    def test_next_quality_batch_fetch_overlaps_current_verification(self):
+        next_fetch_started = Event()
+        fetched_batches = []
+
+        def fetch(rows):
+            ids = [row["candidate_id"] for row in rows]
+            fetched_batches.append(ids)
+            if ids == ["A5"]:
+                next_fetch_started.set()
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            ids = [row["candidate_id"] for row in rows]
+            if ids[0] in {"A2", "A3", "A4"}:
+                self.assertTrue(next_fetch_started.wait(timeout=3))
+            return {"assessments": [_verified(key) for key in ids]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2", "A3", "A4", "A5")),
+                _ranking(("A1",), ("A2", "A3", "A4", "A5")), max_per_claim=1,
+                event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+
+        self.assertEqual(fetched_batches, [["A1"], ["A2", "A3", "A4"], ["A5"]])
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]],
+                         ["A1", "A2", "A3", "A4", "A5"])
+        self.assertEqual(result["search"]["fetch_attempt_count"], 5)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], [])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 5)
+
+    def test_rate_limit_discards_prefetch_without_launching_later_batch(self):
+        fetched_batches = []
+        next_fetch_started, release_fetch = Event(), Event()
+
+        def fetch(rows):
+            ids = [row["candidate_id"] for row in rows]
+            fetched_batches.append(ids)
+            if ids == ["A4", "A5"]:
+                next_fetch_started.set()
+                release_fetch.wait(timeout=5)
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            if key == "A2":
+                self.assertTrue(next_fetch_started.wait(timeout=3))
+                raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True,
+                                     http_status=429)
+            return {"assessments": [_verified(key)]}
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 2),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                started = monotonic()
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2", "A3", "A4", "A5", "A6", "A7")),
+                    _ranking(("A1",), ("A2", "A3", "A4", "A5", "A6", "A7")), max_per_claim=1,
+                    event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+                elapsed = monotonic() - started
+        finally:
+            release_fetch.set()
+
+        # A4/A5 started before the 429 was known. They never become attempted
+        # candidates, and the later A6/A7 batch is not fetched.
+        self.assertLess(elapsed, 2.0)
+        self.assertEqual(fetched_batches, [["A1"], ["A2", "A3"], ["A4", "A5"]])
+        self.assertEqual(result["search"]["fetch_attempt_count"], 3)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A4", "A5"])
+        self.assertEqual(result["search"]["unused_candidate_ids"], ["A4", "A5", "A6", "A7"])
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]],
+                         ["A1", "A2", "A3"])
+        self.assertEqual(result["selection"]["assessments"][1]["verification_status"], "unverified")
+
+    def test_deadline_does_not_wait_for_inflight_quality_prefetch(self):
+        next_fetch_started, release_fetch, expired = Event(), Event(), Event()
+
+        def fetch(rows):
+            if [row["candidate_id"] for row in rows] == ["A4", "A5"]:
+                next_fetch_started.set()
+                release_fetch.wait(timeout=5)
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            if key == "A2":
+                self.assertTrue(next_fetch_started.wait(timeout=3))
+                expired.set()
+            return {"assessments": [_verified(key)]}
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 2),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                started = monotonic()
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2", "A3", "A4", "A5")),
+                    _ranking(("A1",), ("A2", "A3", "A4", "A5")), max_per_claim=1,
+                    event_baseline_limit=0, verification_batch_size=1,
+                    should_stop=expired.is_set, client=_live_metrics_client())
+                elapsed = monotonic() - started
+        finally:
+            release_fetch.set()
+
+        self.assertLess(elapsed, 2.0)
+        self.assertEqual(result["search"]["fetch_attempt_count"], 3)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A4", "A5"])
+        self.assertEqual(result["search"]["unused_candidate_ids"], ["A4", "A5"])
+
+    def test_deadline_arriving_during_prefetch_wait_returns_without_fetch_completion(self):
+        next_fetch_started, release_fetch, expired = Event(), Event(), Event()
+        wait_calls = []
+
+        def fetch(rows):
+            if [row["candidate_id"] for row in rows] == ["A4", "A5"]:
+                next_fetch_started.set()
+                release_fetch.wait(timeout=5)
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            if rows[0]["candidate_id"] == "A2":
+                self.assertTrue(next_fetch_started.wait(timeout=3))
+            return {"assessments": [_verified(rows[0]["candidate_id"])]}
+
+        def expire_while_waiting(futures, *, timeout):
+            wait_calls.append(timeout)
+            expired.set()
+            return set(), set(futures)
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 2),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify),
+                  patch("server.analysis.v2.comparison_selection.wait", side_effect=expire_while_waiting)):
+                started = monotonic()
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2", "A3", "A4", "A5")),
+                    _ranking(("A1",), ("A2", "A3", "A4", "A5")), max_per_claim=1,
+                    event_baseline_limit=0, verification_batch_size=1,
+                    should_stop=expired.is_set, client=_live_metrics_client())
+                elapsed = monotonic() - started
+        finally:
+            release_fetch.set()
+
+        self.assertEqual(wait_calls, [0.1])
+        self.assertLess(elapsed, 2.0)
+        self.assertEqual(result["search"]["fetch_attempt_count"], 3)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A4", "A5"])
+        self.assertEqual(result["search"]["unused_candidate_ids"], ["A4", "A5"])
 
     def test_parallel_rate_limit_keeps_in_flight_result_and_defers_later_candidate(self):
         barrier = Barrier(3)
