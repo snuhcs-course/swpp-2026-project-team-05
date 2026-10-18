@@ -2,11 +2,13 @@
 
 # AI-assisted Iteration 2 tests use invented articles and never call external services.
 from copy import deepcopy
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.message import Message
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event, Lock
 from time import monotonic
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -28,7 +30,7 @@ from server.analysis.v2.model_client import (
     ModelUnavailableError, OpenRouterJSONClient,
 )
 from server.analysis.v2.pipeline import (
-    _load_cached_analysis, _scoped_model_deadline, complete_rubric_analysis,
+    _load_cached_analysis, _scoped_model_deadline, complete_reader_analysis, complete_rubric_analysis,
     evaluate_analysis_snapshot, run_analysis_pipeline,
     run_discovery_pipeline,
 )
@@ -273,6 +275,111 @@ class StageBudgetTests(SimpleTestCase):
         self.assertEqual(len(captured), 1)
         self.assertLessEqual(captured[0], deadline - 75)
         self.assertEqual(recorder.deadline_at, deadline)
+
+    def test_verification_workers_keep_reserve_without_shortening_source_worker(self):
+        raw = object.__new__(OpenRouterJSONClient)
+        raw.model, raw.task_models = "synthetic-model", {}
+        raw.generate_json = lambda **request: {"budget_ms": request["timeout_budget_ms"]}
+        recorder = MetricsJSONClient(raw, deadline_at=monotonic() + 180)
+        stage_deadline = monotonic() + 5
+
+        with _scoped_model_deadline(recorder, stage_deadline) as verification:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                verify = executor.submit(verification.generate_json, name="verify_selected_candidate_bodies")
+                source = executor.submit(recorder.generate_json, name="source_content_units")
+                verify_budget = verify.result()["budget_ms"]
+                source_budget = source.result()["budget_ms"]
+
+        self.assertGreater(verify_budget, 3_000)
+        self.assertLessEqual(verify_budget, 5_000)
+        self.assertGreater(source_budget, 170_000)
+        self.assertEqual(recorder.deadline_at, recorder._base_deadline_at)
+
+    def test_shared_openrouter_recorder_bounds_total_provider_fanout(self):
+        raw = object.__new__(OpenRouterJSONClient)
+        raw.model, raw.task_models = "synthetic-model", {}
+        gate, four_started, lock = Event(), Event(), Lock()
+        active, peak = 0, 0
+
+        def generate(**_request):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+                if active == 4:
+                    four_started.set()
+            try:
+                self.assertTrue(gate.wait(2))
+                return {}
+            finally:
+                with lock:
+                    active -= 1
+
+        raw.generate_json = generate
+        recorder = MetricsJSONClient(raw, deadline_at=monotonic() + 10)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(recorder.generate_json, name="source_content_units")
+                       for _ in range(5)]
+            try:
+                self.assertTrue(four_started.wait(2))
+                with lock:
+                    self.assertEqual(active, 4)
+            finally:
+                gate.set()
+            for future in futures:
+                future.result()
+        self.assertEqual(peak, 4)
+
+    def test_live_reader_source_prefetch_overlaps_discovery(self):
+        raw = object.__new__(OpenRouterJSONClient)
+        raw.model, raw.task_models = "synthetic-model", {}
+        raw.temperature, raw.seed = 1.0, None
+        raw.usage_summary = lambda: {}
+        source_started, discovery_can_finish = Event(), Event()
+        expected = ([{"sentence_index": 0, "scope": "central", "unit_ids": ["u1"]}],
+                    [{"unit_id": "u1"}], 1)
+
+        def extract(*_args):
+            source_started.set()
+            self.assertTrue(discovery_can_finish.wait(2))
+            return expected
+
+        def discover(_url, **kwargs):
+            callback = kwargs["_after_candidate_search"]
+            self.assertIsNotNone(callback)
+            callback(article(), source_analysis())
+            self.assertTrue(source_started.wait(2))
+            discovery_can_finish.set()
+            return {"completed_stage": 4, "execution_status": "success", "status": "ready",
+                    "comparison_status": "available", "errors": [], "warnings": [],
+                    "source_article": article(), "source_analysis": source_analysis(),
+                    "search": {"candidates": []}}
+
+        def reader(discovery, **kwargs):
+            self.assertEqual(kwargs["_source_unit_future"].result(timeout=2), expected)
+            return discovery
+
+        with (patch("server.analysis.v2.pipeline.prepare_article", return_value=article()),
+              patch("server.analysis.v2.pipeline.run_discovery_pipeline", side_effect=discover),
+              patch("server.analysis.reader_analysis._extract_source_units", side_effect=extract),
+              patch("server.analysis.v2.pipeline.complete_reader_analysis", side_effect=reader)):
+            result = run_analysis_pipeline(SOURCE_URL, client=raw, use_cache=False,
+                                           analysis_profile="reader")
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(result["execution_status"], "success")
+
+    def test_failed_prefetch_preserves_verified_discovery_as_partial(self):
+        future = Future()
+        future.set_exception(TimeoutError("synthetic provider timeout"))
+        discovery = {"completed_stage": 4, "execution_status": "success", "status": "ready",
+                     "comparison_status": "available", "errors": [], "warnings": [],
+                     "source_article": article(), "source_analysis": source_analysis(),
+                     "search": {"candidates": []}, "display_selection": {"selected_article_ids": []}}
+        result = complete_reader_analysis(discovery, _source_unit_future=future)
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(result["comparison_status"], "available")
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertIsNone(result["reader_analysis"])
 
 
 class DiscoveryStatusTests(SimpleTestCase):

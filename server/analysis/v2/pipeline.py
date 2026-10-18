@@ -9,6 +9,7 @@ import math
 import os
 import tempfile
 import re
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -108,14 +109,30 @@ def _timed_stage(stage: str, deadline_at: float | None = None):
 def _scoped_model_deadline(client: Any, deadline_at: float | None):
     """Reserve time for stage 5 even when a stage-4 model call runs long."""
     if deadline_at is None or not isinstance(client, MetricsJSONClient):
-        yield
+        yield client
         return
-    original = client.deadline_at
-    client.deadline_at = min(original, deadline_at) if original is not None else deadline_at
-    try:
-        yield
-    finally:
-        client.deadline_at = original
+    with client.scoped_deadline(deadline_at):
+        # Verification launches worker threads. Their deadline must be scoped
+        # too, while an overlapping Reader source worker keeps the full budget.
+        scoped = (_ScopedMetricsJSONClient(client, client.deadline_at)
+                  if not isinstance(client, SnapshotJSONClient) else client)
+        yield scoped
+
+
+class _ScopedMetricsJSONClient(MetricsJSONClient):
+    """Apply one stage deadline in every verification worker, sharing metrics."""
+
+    def __init__(self, parent: MetricsJSONClient, deadline_at: float):
+        super().__init__(parent.client, deadline_at=deadline_at)
+        self._parent = parent
+
+    def generate_json(self, **request: Any) -> dict:
+        with self._parent.scoped_deadline(self.deadline_at):
+            return self._parent.generate_json(**request)
+
+    def check_budget(self) -> None:
+        with self._parent.scoped_deadline(self.deadline_at):
+            self._parent.check_budget()
 
 
 def _safe_error_code(value: object) -> str:
@@ -263,7 +280,8 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
                            event_baseline_limit: int = 5, verification_batch_size: int = 3,
                            client: Any = None, progress: Callable[[str], None] | None = None,
                            _prepared_source: dict | None = None,
-                           _deadline_at: float | None = None) -> dict:
+                           _deadline_at: float | None = None,
+                           _after_candidate_search: Callable[[dict, dict], None] | None = None) -> dict:
     """Return discovery or available data with structured operation errors."""
     result, stage, owned = _initial_result(url), "input_validation", False
     notify = progress or (lambda message: None)
@@ -305,6 +323,8 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         result["completed_stage"] = 3
         for error in metadata_search.get("errors", []):
             add_result_error(result, error)
+        if metadata_search["metadata_candidates"] and _after_candidate_search is not None:
+            _after_candidate_search(source, analysis)
         stage = "candidate_selection"
         if metadata_search["metadata_candidates"]:
             notify("4/4 LLM 후보 분류·Python 선택: 주장 관련성·강조점·표현 다양성 (본문 검증 전)")
@@ -317,10 +337,11 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
             remaining = max(0.0, _deadline_at - monotonic()) if _deadline_at is not None else 0.0
             rubric_reserve = min(RUBRIC_RESERVE_SECONDS, remaining * 0.5)
             with _scoped_model_deadline(client, _deadline_at - rubric_reserve
-                                        if _deadline_at is not None else None):
+                                        if _deadline_at is not None else None) as verification_client:
                 verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
                                                        max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
-                                                       verification_batch_size=verification_batch_size, client=client,
+                                                       verification_batch_size=verification_batch_size,
+                                                       client=verification_client,
                                                        progress=notify,
                                                        should_stop=(lambda: monotonic() >= _deadline_at - rubric_reserve)
                                                        if _deadline_at is not None else None)
@@ -406,7 +427,8 @@ def complete_rubric_analysis(discovery: dict, *, client: Any = None,
 
 
 def complete_reader_analysis(discovery: dict, *, client: Any = None,
-                             progress: Callable[[str], None] | None = None) -> dict:
+                             progress: Callable[[str], None] | None = None,
+                             _source_unit_future: Any = None) -> dict:
     """Analyze full displayed articles while preserving verified discovery on failure."""
     result = deepcopy(discovery)
     if result.get("completed_stage") != 4:
@@ -418,7 +440,9 @@ def complete_reader_analysis(discovery: dict, *, client: Any = None,
         if not isinstance(selected, list):
             selected = select_display_article_ids(
                 result["selection"], 3, result["search"]["candidates"])
-        reader = analyze_reader_content(result, selected, client=client, progress=progress)
+        source_units = _source_unit_future.result() if _source_unit_future is not None else None
+        reader = analyze_reader_content(result, selected, client=client, progress=progress,
+                                        precomputed_source_units=source_units)
         result.update(completed_stage=5, reader_analysis=reader,
                       warnings=list(result.get("warnings", [])) + list(reader.get("warnings", [])))
         if (reader.get("article_failures") or reader.get("i1_status") not in {"complete", "no_candidates"}
@@ -470,6 +494,7 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                           analysis_profile: str = "legacy") -> dict:
     """Return structured results; uncached calls use a soft 240-second deadline."""
     result, stage, owned = _initial_result(url), "input_validation", False
+    source_executor, source_future = None, None
     options = {"max_claims": max_claims, "max_candidates": max_candidates, "max_per_claim": max_per_claim,
                "display_per_query": display_per_query, "event_baseline_limit": event_baseline_limit,
                "verification_batch_size": verification_batch_size}
@@ -541,10 +566,24 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             owned = True
         recorder = (SnapshotJSONClient(client, settings, deadline_at=deadline_at) if use_cache
                     else MetricsJSONClient(client, deadline_at=deadline_at))
+        after_candidate_search = None
+        if analysis_profile == "reader" and not use_cache and isinstance(client, OpenRouterJSONClient):
+            # The source ledger needs the source plan, but no comparison result.
+            # Overlap it with candidate body verification. Snapshot runs stay
+            # serial so their exact request order remains reproducible.
+            source_executor = ThreadPoolExecutor(max_workers=1)
+
+            def after_candidate_search(prepared_source: dict, source_analysis: dict) -> None:
+                nonlocal source_future
+                from ..reader_analysis import _extract_source_units
+                source_future = source_executor.submit(
+                    _extract_source_units, prepared_source, source_analysis, recorder)
+
         stage = "discovery"
         with _timed_stage(stage, deadline_at):
             discovery = run_discovery_pipeline(url, **options, client=recorder, progress=progress,
-                                               _prepared_source=source, _deadline_at=deadline_at)
+                                               _prepared_source=source, _deadline_at=deadline_at,
+                                               _after_candidate_search=after_candidate_search)
         for failed_stage in ("source_analysis", "search", "candidate_selection",
                              "candidate_fetch", "candidate_collection"):
             _log_stage_result(failed_stage, discovery)
@@ -555,7 +594,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                 discovery = _limit_discovery_for_display(discovery, max_rubric_articles)
             stage = "reader_analysis" if analysis_profile == "reader" else "rubric_analysis"
             with _timed_stage(stage, deadline_at):
-                result = (complete_reader_analysis(discovery, client=recorder, progress=progress)
+                result = (complete_reader_analysis(discovery, client=recorder, progress=progress,
+                                                   _source_unit_future=source_future)
                           if analysis_profile == "reader" else
                           complete_rubric_analysis(discovery, client=recorder, progress=progress))
             _log_stage_result(stage, result)
@@ -597,6 +637,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
     except Exception as exc:
         return _record_failure(result, exc, stage)
     finally:
+        if source_executor is not None:
+            source_executor.shutdown(wait=True, cancel_futures=True)
         if owned:
             try:
                 client.close()
