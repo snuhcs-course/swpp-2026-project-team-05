@@ -5,14 +5,18 @@ from __future__ import annotations
 import unittest
 from collections import Counter
 from threading import Barrier, Lock, local
+from time import sleep
 from unittest.mock import patch
 
 from server.analysis.reader_analysis import (
-    analyze_reader_content, _review_absence, _safe_expression_marker,
+    analyze_reader_content, _review_absence, _review_expression_pairs, _safe_expression_marker,
 )
 from server.analysis.reader_contract import build_reader
 from server.analysis.v2.article_input import structure_article_body
-from server.analysis.v2.model_client import MetricsJSONClient, ModelResponseError, OpenRouterJSONClient
+from server.analysis.v2.model_client import (
+    MetricsJSONClient, ModelHTTPError, ModelResponseError, ModelResponseTruncatedError,
+    OpenRouterJSONClient,
+)
 
 
 def article(article_id: str, body: str) -> dict:
@@ -36,6 +40,45 @@ def fixture() -> dict:
                       "duplicate_article_groups": [], "source_duplicate_article_ids": []},
         "search": {"candidates": [a, b]},
     }
+
+
+def expression_fixture(count: int = 9) -> tuple[dict, dict, list[dict], dict]:
+    source = article("S0", "\n".join(f"시청은 새 다리 {i}를 착공했다." for i in range(count)))
+    related = article("A", "\n".join(f"시청은 새 다리 {i} 공사를 밀어붙였다." for i in range(count)))
+    units = [{"unit_id": f"u_{i}", "content": f"새 다리 {i} 착공",
+              "source_evidence": {"sentence_index": i, "quote": source["sentences"][i]["text"]}}
+             for i in range(count)]
+    alignments = {"A": {"unit_alignments": [{
+        "unit_id": f"u_{i}", "relation": "same",
+        "related_evidence": {"sentence_index": i, "quote": related["sentences"][i]["text"]},
+        "expression_differences": [],
+    } for i in range(count)]}}
+    return source, {"A": related}, units, alignments
+
+
+def expression_findings(pairs: list[dict]) -> dict:
+    return {"findings": [{
+        "pair_id": pair["pair_id"], "unit_id": pair["units"][0]["unit_id"],
+        "code": "C", "source_marker": {
+            "sentence_index": pair["source_sentence_index"], "quote": "착공했다"},
+        "related_marker": {
+            "sentence_index": pair["related_sentence_index"], "quote": "밀어붙였다"},
+        "note": "행위를 더 강하게 표현했다", "voice": "reporter", "quoted_use": "none",
+        "name_kind": "other", "semantic_relation": "equivalent",
+    } for pair in pairs]}
+
+
+class ChunkReviewClient:
+    def __init__(self, *, fail_at: int | None = None) -> None:
+        self.fail_at = fail_at
+        self.requests = []
+
+    def generate_json(self, **request) -> dict:
+        self.requests.append(request)
+        pairs = request["input_data"]["pairs"]
+        if pairs[0]["source_sentence_index"] == self.fail_at:
+            raise ModelResponseTruncatedError("synthetic output limit")
+        return expression_findings(pairs)
 
 
 class ReaderClient:
@@ -173,8 +216,8 @@ class ReaderAnalysisTests(unittest.TestCase):
         self.assertEqual(len(result["i1_stars"]), 1)
         self.assertEqual(result["i1_stars"][0]["checked_article_count"], 2)
         self.assertEqual(client.calls, ["source_content_units", "related_content_alignment",
-                                        "related_content_alignment", "expression_pair_A_G",
-                                        "i1_absence_review"])
+                                        "related_content_alignment", "i1_absence_review",
+                                        "expression_pair_A_G"])
         raw["reader_analysis"] = result
         reader = build_reader(raw, ["A", "B"], {row["candidate_id"]: row for row in raw["search"]["candidates"]},
                               {"S0": 0, "A": 1, "B": 2}, {})
@@ -231,6 +274,133 @@ class ReaderAnalysisTests(unittest.TestCase):
         self.assertEqual(result["expression_review"]["reviewed_pair_count"], 1)
         self.assertEqual(result["expression_review"]["omitted_pair_count"], 1)
         self.assertEqual(result["expression_review"]["status"], "partial")
+
+    def test_expression_chunks_review_all_pairs_with_bounded_outputs(self):
+        source, catalog, units, alignments = expression_fixture()
+        client = ChunkReviewClient()
+        diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
+        self.assertEqual([len(request["input_data"]["pairs"]) for request in client.requests], [4, 4, 1])
+        self.assertTrue(all(request["max_output_tokens"] == 8192 for request in client.requests))
+        self.assertEqual(diagnostic["status"], "complete")
+        self.assertEqual(diagnostic["eligible_pair_count"], 9)
+        self.assertEqual(diagnostic["reviewed_pair_count"], 9)
+        self.assertEqual(diagnostic["accepted_finding_count"], 9)
+        self.assertEqual(diagnostic["successful_chunk_count"], 3)
+        self.assertEqual(diagnostic["attempted_model_call_count"], calls)
+        self.assertEqual(calls, 3)
+        self.assertTrue(all(len(row["expression_differences"]) == 1
+                            for row in alignments["A"]["unit_alignments"]))
+
+    def test_failed_expression_chunk_keeps_other_grounded_findings(self):
+        source, catalog, units, alignments = expression_fixture()
+        client = ChunkReviewClient(fail_at=4)
+        diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
+        self.assertEqual(diagnostic["status"], "partial")
+        self.assertEqual(diagnostic["reviewed_pair_count"], 5)
+        self.assertEqual(diagnostic["failed_pair_count"], 4)
+        self.assertEqual(diagnostic["successful_chunk_count"], 2)
+        self.assertEqual(diagnostic["failed_chunk_count"], 1)
+        self.assertEqual(diagnostic["attempted_model_call_count"], calls)
+        self.assertEqual(calls, 3)
+        self.assertEqual([bool(row["expression_differences"])
+                          for row in alignments["A"]["unit_alignments"]],
+                         [True] * 4 + [False] * 4 + [True])
+
+    def test_parallel_expression_chunks_merge_deterministically_and_meter_cost(self):
+        class ConcurrentChunkClient(ChunkReviewClient, OpenRouterJSONClient):
+            def __init__(self):
+                ChunkReviewClient.__init__(self)
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self._usage_lock = Lock()
+                self._usage_totals = Counter()
+                self._metered_responses = self._cost_reported_responses = 0
+                self._barrier = Barrier(2)
+                self._active_lock = Lock()
+                self._active = self.max_active = 0
+                self.completed = []
+
+            def generate_json(self, **request):
+                first = request["input_data"]["pairs"][0]["source_sentence_index"]
+                with self._active_lock:
+                    self._active += 1
+                    self.max_active = max(self.max_active, self._active)
+                try:
+                    if first in {0, 4}:
+                        self._barrier.wait(timeout=5)
+                    if first == 0:
+                        sleep(0.05)
+                    self._capture_usage({"usage": {"prompt_tokens": 10,
+                                                    "completion_tokens": 2,
+                                                    "total_tokens": 12,
+                                                    "cost": 0.01}})
+                    self.last_call_finish_reason = "stop"
+                    with self._active_lock:
+                        self.completed.append(first)
+                    return ChunkReviewClient.generate_json(self, **request)
+                finally:
+                    with self._active_lock:
+                        self._active -= 1
+
+        source, catalog, units, serial_alignments = expression_fixture()
+        serial, _ = _review_expression_pairs(source, catalog, units, serial_alignments, ChunkReviewClient())
+        source, catalog, units, parallel_alignments = expression_fixture()
+        provider = ConcurrentChunkClient()
+        recorder = MetricsJSONClient(provider)
+        parallel, calls = _review_expression_pairs(source, catalog, units, parallel_alignments, recorder)
+        self.assertEqual(provider.max_active, 2)
+        self.assertEqual(provider.completed[:2], [4, 0])
+        self.assertEqual(parallel, serial)
+        self.assertEqual(parallel_alignments, serial_alignments)
+        self.assertEqual(calls, 3)
+        summary = recorder.execution_summary()
+        self.assertEqual(summary["attempted_calls"], 3)
+        self.assertEqual(summary["model_calls"], 3)
+        self.assertEqual(summary["provider_usage"]["metered_responses"], 3)
+        self.assertAlmostEqual(summary["provider_usage"]["reported_cost_usd"], 0.03)
+
+    def test_parallel_expression_review_stops_followup_chunks_after_429(self):
+        class RateLimitedOpenRouter(OpenRouterJSONClient):
+            def __init__(self):
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self._barrier = Barrier(2)
+                self.first_indexes = []
+                self._lock = Lock()
+
+            def generate_json(self, **request):
+                first = request["input_data"]["pairs"][0]["source_sentence_index"]
+                with self._lock:
+                    self.first_indexes.append(first)
+                self._barrier.wait(timeout=5)
+                if first == 0:
+                    raise ModelHTTPError(429)
+                return expression_findings(request["input_data"]["pairs"])
+
+        source, catalog, units, alignments = expression_fixture()
+        provider = RateLimitedOpenRouter()
+        diagnostic, calls = _review_expression_pairs(
+            source, catalog, units, alignments, MetricsJSONClient(provider))
+        self.assertCountEqual(provider.first_indexes, [0, 4])
+        self.assertEqual(diagnostic["status"], "partial")
+        self.assertEqual(diagnostic["attempted_pair_count"], 8)
+        self.assertEqual(diagnostic["reviewed_pair_count"], 4)
+        self.assertEqual(diagnostic["failed_pair_count"], 4)
+        self.assertEqual(diagnostic["deferred_pair_count"], 1)
+        self.assertEqual(diagnostic["attempted_model_call_count"], calls)
+        self.assertEqual(calls, 2)
+
+    def test_expression_review_without_candidates_makes_no_model_call(self):
+        source, _, _, _ = expression_fixture()
+        client = ChunkReviewClient()
+        diagnostic, calls = _review_expression_pairs(source, {}, [], {}, client)
+        self.assertEqual(diagnostic["status"], "no_candidates")
+        self.assertEqual(diagnostic["chunk_count"], 0)
+        self.assertEqual(diagnostic["attempted_model_call_count"], 0)
+        self.assertEqual(client.requests, [])
+        self.assertEqual(calls, 0)
 
     def test_title_only_possible_match_withholds_star(self):
         raw = fixture()

@@ -1,11 +1,14 @@
 """Synthetic regression checks for bounded candidate verification failures."""
 
 import json
+from threading import Barrier, Event, Lock
+from time import sleep
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
 from server.analysis.v2.comparison_selection import select_verified_comparisons
+from server.analysis.v2.model_client import MetricsJSONClient, OpenRouterJSONClient, SnapshotJSONClient
 from server.analysis.v2.pipeline import run_discovery_pipeline
 from server.analysis.v2.result_output import OperationError
 from server.analysis.v2_adapter import adapt_v2_result
@@ -55,7 +58,141 @@ def _verified(key):
             "claim_matches": [{"claim_id": "C1", "relation": "same_issue", "evidence": evidence}]}
 
 
+def _live_metrics_client():
+    # Only the production wrapper/client types are needed; these tests patch
+    # verification before any network access or credential lookup.
+    return MetricsJSONClient(object.__new__(OpenRouterJSONClient))
+
+
 class VerificationResilienceTests(SimpleTestCase):
+    def test_live_singletons_overlap_but_apply_in_candidate_order(self):
+        barrier, lock = Barrier(2), Lock()
+        active, maximum, completed = 0, 0, []
+
+        def verify(_source, _analysis, rows, *, client):
+            nonlocal active, maximum
+            key = rows[0]["candidate_id"]
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+            if key in {"A1", "A2"}:
+                barrier.wait(timeout=3)
+            if key == "A1":
+                sleep(0.03)
+            with lock:
+                completed.append(key)
+                active -= 1
+            return {"assessments": [_verified(key)]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2", "A3")),
+                _ranking(("A1", "A2", "A3")), max_per_claim=3,
+                event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+
+        self.assertEqual(maximum, 2)
+        self.assertEqual(completed, ["A2", "A1", "A3"])
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]],
+                         ["A1", "A2", "A3"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["verified_ids"],
+                         ["A1", "A2", "A3"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+
+    def test_quality_pool_singletons_overlap_without_changing_best_article(self):
+        barrier = Barrier(2)
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            if key in {"A2", "A3"}:
+                barrier.wait(timeout=3)
+            assessment = _verified(key)
+            if key == "A3":
+                assessment["claim_matches"][0]["relation"] = "same"
+            return {"assessments": [assessment]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2", "A3")),
+                _ranking(("A1",), ("A2", "A3")), max_per_claim=1,
+                event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+
+        self.assertEqual(result["selection"]["claim_comparisons"][0]["articles"][0]["candidate_id"], "A3")
+        self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+
+    def test_parallel_rate_limit_keeps_in_flight_result_and_defers_later_candidate(self):
+        barrier = Barrier(2)
+        calls = []
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            calls.append(key)
+            barrier.wait(timeout=3)
+            if key == "A1":
+                raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True,
+                                     http_status=429)
+            return {"assessments": [_verified(key)]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2", "A3")),
+                _ranking(("A1", "A2", "A3")), max_per_claim=3,
+                event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+
+        self.assertCountEqual(calls, ["A1", "A2"])
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["claim_comparisons"][0]["articles"]],
+                         ["A2"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"], ["A3"])
+        self.assertEqual([row["candidate_id"] for row in result["search"]["errors"]], ["A1", "A3"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 2)
+
+    def test_parallel_deadline_keeps_started_verifications_and_defers_next_wave(self):
+        barrier, expired = Barrier(2), Event()
+        calls = []
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            calls.append(key)
+            barrier.wait(timeout=3)
+            expired.set()
+            return {"assessments": [_verified(key)]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2", "A3")),
+                _ranking(("A1", "A2", "A3")), max_per_claim=3,
+                event_baseline_limit=0, verification_batch_size=1,
+                should_stop=expired.is_set, client=_live_metrics_client())
+
+        self.assertCountEqual(calls, ["A1", "A2"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["verified_ids"], ["A1", "A2"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"], ["A3"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 2)
+
+    def test_snapshot_client_keeps_serial_verification_order(self):
+        calls = []
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            calls.append(key)
+            return {"assessments": [_verified(key)]}
+
+        snapshot = SnapshotJSONClient(object.__new__(OpenRouterJSONClient), settings={})
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify),
+              patch("server.analysis.v2.comparison_selection.ThreadPoolExecutor",
+                    side_effect=AssertionError("Snapshot verification must be serial"))):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2")),
+                _ranking(("A1", "A2")), max_per_claim=2,
+                event_baseline_limit=0, verification_batch_size=1, client=snapshot)
+
+        self.assertEqual(calls, ["A1", "A2"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 2)
+
     def test_rate_limit_stops_reserve_verification_and_keeps_grounded_article(self):
         calls = []
 
