@@ -42,9 +42,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -321,6 +322,7 @@ private fun ReaderComparisonSheet(
 private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showExpressions: Boolean) {
     val uriHandler = LocalUriHandler.current
     val density = LocalDensity.current
+    val windowView = LocalView.current.rootView
     val article = page.article
     val scroll = rememberScrollState()
     val firstOffset = page.pairs.preferredFocusPair(showExpressions)?.relatedSpan?.start
@@ -383,9 +385,7 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
             modifier = Modifier.fillMaxSize()
                 .onSizeChanged { viewportHeight = it.height }
                 .onGloballyPositioned { coordinates ->
-                    var root = coordinates
-                    while (root.parentLayoutCoordinates != null) root = root.parentLayoutCoordinates!!
-                    visibleHeight = (root.size.height - coordinates.positionInRoot().y)
+                    visibleHeight = (windowView.height - coordinates.positionInWindow().y)
                         .roundToInt().coerceIn(0, coordinates.size.height)
                 }
         ) {
