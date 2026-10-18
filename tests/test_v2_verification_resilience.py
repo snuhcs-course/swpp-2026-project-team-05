@@ -5,11 +5,12 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from threading import Barrier, Event, Lock
-from time import monotonic, sleep
+from time import monotonic
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from server.analysis.diagnostics import analysis_id, submit_with_context
 from server.analysis.v2.comparison_selection import select_verified_comparisons
 from server.analysis.v2.model_client import MetricsJSONClient, OpenRouterJSONClient, SnapshotJSONClient
 from server.analysis.v2.pipeline import run_discovery_pipeline
@@ -68,6 +69,21 @@ def _live_metrics_client():
 
 
 class VerificationResilienceTests(SimpleTestCase):
+    def test_worker_context_is_request_scoped_even_when_the_thread_is_reused(self):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            first = analysis_id.set("first-request")
+            try:
+                first_future = submit_with_context(executor, analysis_id.get)
+            finally:
+                analysis_id.reset(first)
+            second = analysis_id.set("second-request")
+            try:
+                second_future = submit_with_context(executor, analysis_id.get)
+            finally:
+                analysis_id.reset(second)
+            self.assertEqual(first_future.result(timeout=3), "first-request")
+            self.assertEqual(second_future.result(timeout=3), "second-request")
+
     def test_next_body_fetch_overlaps_first_verdict_and_is_reused_by_refill(self):
         next_started, release_fetch = Event(), Event()
         fetched = []
@@ -217,8 +233,9 @@ class VerificationResilienceTests(SimpleTestCase):
         self.assertEqual(result["search"]["prefetch_discarded_ids"], [])
 
     def test_live_singletons_overlap_but_apply_in_candidate_order(self):
-        barrier, lock = Barrier(3), Lock()
-        active, maximum, completed = 0, 0, []
+        barrier, lock = Barrier(4), Lock()
+        others_finished = Event()
+        active, maximum, completed, request_ids = 0, 0, [], []
 
         def verify(_source, _analysis, rows, *, client):
             nonlocal active, maximum
@@ -226,30 +243,109 @@ class VerificationResilienceTests(SimpleTestCase):
             with lock:
                 active += 1
                 maximum = max(maximum, active)
-            if key in {"A1", "A2", "A3"}:
+                request_ids.append(analysis_id.get())
+            if key in {"A1", "A2", "A3", "A4"}:
                 barrier.wait(timeout=3)
             if key == "A1":
-                sleep(0.03)
+                self.assertTrue(others_finished.wait(timeout=3))
             with lock:
                 completed.append(key)
+                if len(completed) == 3 and key != "A1":
+                    others_finished.set()
                 active -= 1
             return {"assessments": [_verified(key)]}
 
+        token = analysis_id.set("parallel-request")
+        try:
+            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2", "A3", "A4"), discovered_by_event=True),
+                    _ranking(("A1", "A2", "A3")), max_per_claim=3,
+                    event_baseline_limit=4, verification_batch_size=1, client=_live_metrics_client())
+        finally:
+            analysis_id.reset(token)
+
+        self.assertEqual(maximum, 4)
+        self.assertCountEqual(completed, ["A1", "A2", "A3", "A4"])
+        self.assertEqual(request_ids, ["parallel-request"] * 4)
+        self.assertGreater(completed.index("A1"), completed.index("A2"))
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]],
+                         ["A1", "A2", "A3", "A4"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["verified_ids"],
+                         ["A1", "A2", "A3", "A4"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 4)
+
+    def test_four_workers_keep_three_worker_selection_and_candidate_count(self):
+        ids = tuple(f"A{index}" for index in range(1, 9))
+        barrier, lock = Barrier(4), Lock()
+        run_four = False
+        active = maximum = 0
+
+        def verify(_source, _analysis, rows, *, client):
+            nonlocal active, maximum
+            key = rows[0]["candidate_id"]
+            if run_four:
+                with lock:
+                    active += 1
+                    maximum = max(maximum, active)
+                barrier.wait(timeout=3)
+                with lock:
+                    active -= 1
+            assessment = _verified(key)
+            if key in {"A4", "A8"}:
+                assessment["claim_matches"][0]["relation"] = "same"
+            return {"assessments": [assessment]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            with patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3):
+                original = select_verified_comparisons(
+                    _article(), _analysis(), _search(ids, discovered_by_event=True),
+                    _ranking(("A1", "A2", "A3"), ids[3:]), max_per_claim=3,
+                    event_baseline_limit=8, verification_batch_size=1, client=_live_metrics_client())
+            run_four = True
+            widened = select_verified_comparisons(
+                _article(), _analysis(), _search(ids, discovered_by_event=True),
+                _ranking(("A1", "A2", "A3"), ids[3:]), max_per_claim=3,
+                event_baseline_limit=8, verification_batch_size=1, client=_live_metrics_client())
+
+        for field in ("assessments", "same_event_ids", "event_baseline_ids", "claim_comparisons"):
+            self.assertEqual(widened["selection"][field], original["selection"][field])
+        self.assertEqual(widened["search"]["fetch_attempt_count"], original["search"]["fetch_attempt_count"])
+        self.assertEqual(widened["selection"]["verification_llm_calls"], 8)
+        self.assertEqual(maximum, 4)
+
+    def test_four_worker_429_keeps_finished_verdicts_and_defers_later_wave(self):
+        barrier = Barrier(4)
+        calls = []
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            calls.append(key)
+            if key in {"A1", "A2", "A3", "A4"}:
+                barrier.wait(timeout=3)
+            if key == "A4":
+                raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True, http_status=429)
+            return {"assessments": [_verified(key)]}
+
+        ids = tuple(f"A{index}" for index in range(1, 6))
         with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
               patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
             result = select_verified_comparisons(
-                _article(), _analysis(), _search(("A1", "A2", "A3")),
-                _ranking(("A1", "A2", "A3")), max_per_claim=3,
-                event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+                _article(), _analysis(), _search(ids, discovered_by_event=True), _ranking(("A1",)),
+                max_per_claim=1, event_baseline_limit=5, verification_batch_size=1,
+                client=_live_metrics_client())
 
-        self.assertEqual(maximum, 3)
-        self.assertCountEqual(completed, ["A1", "A2", "A3"])
-        self.assertGreater(completed.index("A1"), completed.index("A2"))
-        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]],
-                         ["A1", "A2", "A3"])
-        self.assertEqual(result["selection"]["verification_rounds"][0]["verified_ids"],
-                         ["A1", "A2", "A3"])
-        self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+        self.assertTrue({"A1", "A2", "A3", "A4"} <= set(calls))
+        self.assertTrue(set(calls) <= set(ids))
+        assessments = {row["candidate_id"]: row for row in result["selection"]["assessments"]}
+        self.assertTrue(all(assessments[key]["event_relation"] == "same_event" for key in ids[:3]))
+        self.assertTrue(all(assessments[key]["verification_status"] == "unverified" for key in ids[3:]))
+        self.assertEqual(result["selection"]["claim_comparisons"][0]["articles"][0]["candidate_id"], "A1")
+        self.assertEqual(result["selection"]["verification_rounds"][0]["unverified_ids"], ["A4", "A5"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"], ["A5"])
+
 
     def test_slow_third_verdict_overlaps_only_two_next_wave_calls(self):
         late_finished = Event()
@@ -278,7 +374,8 @@ class VerificationResilienceTests(SimpleTestCase):
             return {"assessments": [_verified(key)]}
 
         ids = tuple(f"A{index}" for index in range(1, 9))
-        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+        with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3),
+              patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
               patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
             result = select_verified_comparisons(
                 _article(), _analysis(), _search(ids, discovered_by_event=True), _ranking(("A1",)),
@@ -318,7 +415,8 @@ class VerificationResilienceTests(SimpleTestCase):
 
         ids = tuple(f"A{index}" for index in range(1, 9))
         try:
-            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+            with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
                   patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
                 started = monotonic()
                 result = select_verified_comparisons(
@@ -375,7 +473,8 @@ class VerificationResilienceTests(SimpleTestCase):
             return {"assessments": [_verified(key)]}
 
         ids = tuple(f"A{index}" for index in range(1, 9))
-        with (patch("server.analysis.v2.comparison_selection.ThreadPoolExecutor", ObservedExecutor),
+        with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3),
+              patch("server.analysis.v2.comparison_selection.ThreadPoolExecutor", ObservedExecutor),
               patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
               patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
             result = select_verified_comparisons(
@@ -417,7 +516,8 @@ class VerificationResilienceTests(SimpleTestCase):
 
         ids = tuple(f"A{index}" for index in range(1, 9))
         try:
-            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+            with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
                   patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
                 started = monotonic()
                 result = select_verified_comparisons(
@@ -630,7 +730,8 @@ class VerificationResilienceTests(SimpleTestCase):
                                      http_status=429)
             return {"assessments": [_verified(key)]}
 
-        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+        with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3),
+              patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
               patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
             result = select_verified_comparisons(
                 _article(), _analysis(), search,
@@ -659,7 +760,8 @@ class VerificationResilienceTests(SimpleTestCase):
                 expired.set()
             return {"assessments": [_verified(key)]}
 
-        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+        with (patch("server.analysis.v2.comparison_selection.MAX_PARALLEL_VERIFICATIONS", 3),
+              patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
               patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
             result = select_verified_comparisons(
                 _article(), _analysis(), search,

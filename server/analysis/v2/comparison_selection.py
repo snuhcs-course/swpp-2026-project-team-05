@@ -7,6 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait, wait a
 from contextlib import contextmanager
 from typing import Any, Callable
 
+from ..diagnostics import submit_with_context
 from .article_search import fetch_candidate_articles
 from .llm_analysis import COMPARABLE_RELATIONS, prioritize_diverse_candidates, verify_candidate_articles
 from .model_client import (MetricsJSONClient, ModelResponseError, ModelResponseTruncatedError,
@@ -18,10 +19,10 @@ from .result_output import make_error_record
 # A bounded later pool can improve body quality and reporting diversity when
 # time remains, without making the serverless run unbounded.
 MAX_EXTRA_VERIFIED_CANDIDATES = 6
-# Candidate verdicts are independent once their bodies are fetched. Three
-# concurrent live calls shorten the long-tail wait without changing which
-# candidates are checked or how their grounded verdicts are applied.
-MAX_PARALLEL_VERIFICATIONS = 3
+# Candidate verdicts are independent once their bodies are fetched. Four
+# concurrent live calls match the provider-wide limit and shorten the long
+# tail without changing which candidates or grounded verdicts are selected.
+MAX_PARALLEL_VERIFICATIONS = 4
 # A slow verdict must not hold the next wave idle. At most two calls beyond
 # the original wave may start before that verdict reveals a 429 or deadline.
 MAX_VERIFICATION_SPECULATIVE_CALLS = 2
@@ -201,7 +202,8 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
         for key in dict.fromkeys(likely):
             if key in attempted_ids or key in articles or key in failed:
                 continue
-            body_prefetches[key] = body_executor.submit(fetch_candidate_articles, [metadata_map[key]])
+            body_prefetches[key] = submit_with_context(
+                body_executor, fetch_candidate_articles, [metadata_map[key]])
             body_prefetch_order.append(key)
             if len(body_prefetches) >= MAX_SPECULATIVE_BODY_FETCHES:
                 break
@@ -266,7 +268,7 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
         apply_verification(ids, outcome)
 
     def verify_singletons(ids: list[str], round_number: int, *, quality_pool: bool = False) -> bool:
-        """Keep three calls busy but apply verdicts only in candidate order."""
+        """Keep four calls busy but apply verdicts only in candidate order."""
         nonlocal verification_calls
         width = MAX_PARALLEL_VERIFICATIONS
         executor = ThreadPoolExecutor(max_workers=width)
@@ -314,9 +316,8 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                 if stop_after_index is not None and next_apply > stop_after_index:
                     return defer_rest()
                 wave_end = (next_apply // width + 1) * width
-                # Complete the original wave before applying any verdict in
-                # it. A finished A4 may be a 429 while A6 is still queued;
-                # the former three-wide batch would have launched A6 too.
+                # Complete the original wave before applying its verdicts.
+                # A later speculative call cannot affect that wave's answer.
                 # When a verdict is already ready, do not launch speculative
                 # calls from the following wave before applying it.
                 launch_limit = wave_end + (0 if next_apply in completed
@@ -334,7 +335,7 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                     key = ids[next_launch]
                     label = "추가 사건·주장 검증" if quality_pool else "사건·주장 검증"
                     notify(f"4단계 {round_number}차: {label} [{key}]")
-                    running[next_launch] = executor.submit(verify_response, [key])
+                    running[next_launch] = submit_with_context(executor, verify_response, [key])
                     verification_calls += 1
                     next_launch += 1
                 if stop_after_index is not None and next_apply > stop_after_index:
@@ -583,8 +584,7 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
             unchecked = [key for key in batch_ids if key in articles]
             next_ids = extra_ids[start + quality_pool_batch_size:start + 2 * quality_pool_batch_size]
             if fetch_executor is not None and unchecked and next_ids and not (should_stop and should_stop()):
-                prefetched = fetch_executor.submit(
-                    fetch_selected, next_ids)
+                prefetched = submit_with_context(fetch_executor, fetch_selected, next_ids)
                 prefetched_ids = next_ids
             if unchecked and should_stop and should_stop():
                 mark_unverified(unchecked, "verification_deferred", TimeoutError())

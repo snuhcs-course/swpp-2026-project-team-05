@@ -16,6 +16,7 @@ from threading import Event
 from time import monotonic
 from typing import Any, Callable
 
+from .diagnostics import submit_with_context
 from .v2.llm_analysis import (
     _RepairBudget, _article_for_model, _generate_json, _ground_evidence,
     _ground_span, _object_schema, _quote_ranges,
@@ -177,7 +178,7 @@ def _extract_source_units(source: dict, analysis: dict, client: Any) -> tuple[li
     if parallel:
         with ThreadPoolExecutor(max_workers=2) as executor:
             for start in range(0, len(chunks), 2):
-                futures = [executor.submit(_source_chunk, source, analysis, indexes, client)
+                futures = [submit_with_context(executor, _source_chunk, source, analysis, indexes, client)
                            for indexes in chunks[start:start + 2]]
                 for future in futures:
                     append(future.result())
@@ -512,7 +513,7 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
                 for index in indexes:
                     if rate_limited.is_set():
                         break
-                    futures.append((index, executor.submit(review_chunk, chunks[index])))
+                    futures.append((index, submit_with_context(executor, review_chunk, chunks[index])))
                 for index, future in futures:
                     reviews[index] = future.result()
                 if rate_limited.is_set() or any(reviews[index][3] for index, _ in futures):
@@ -713,7 +714,8 @@ def analyze_reader_content(discovery: dict, selected_ids: list[str], *, client: 
             futures = []
             for position, key in enumerate(selected_ids, 1):
                 notify(f"5단계 Reader: 비교 기사 {position}/{len(selected_ids)} 본문 정렬")
-                futures.append(executor.submit(_align_article, source, catalog[key], units, key, client))
+                futures.append(submit_with_context(
+                    executor, _align_article, source, catalog[key], units, key, client))
             for key, future in zip(selected_ids, futures):
                 try:
                     rows, count = future.result()
