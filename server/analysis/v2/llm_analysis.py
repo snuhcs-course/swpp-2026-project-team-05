@@ -553,11 +553,16 @@ def _review_source_scope(article: dict, analysis: dict, *, client: Any = None) -
     except ModelResponseError:
         if not repair_budget.consume():
             raise
-        repaired = _generate_json(client, repair_budget=repair_budget, **_fixed_input_repair_request(
+        repair_request = _fixed_input_repair_request(
             request, extra_instructions=(
                 " primary_anchor와 각 query_anchor는 제목이나 첫 문단에서, 각 scope_evidence는 "
                 "제안 claim의 evidence와 겹치는 지정 문장의 유일한 연속 원문에서 정확히 복사하세요. "
-                "관련성 판단이 불확실하면 uncertain으로 두세요.")))
+                "관련성 판단이 불확실하면 uncertain으로 두세요."))
+        # A repair can spend most of the original 3072-token cap on model
+        # reasoning before it emits the full scope schema. Keep the first
+        # request fast and enlarge only this one bounded repair attempt.
+        repair_request["max_output_tokens"] = 8192
+        repaired = _generate_json(client, repair_budget=repair_budget, **repair_request)
         return _validate_source_scope_review(article, analysis, repaired)
 
 
