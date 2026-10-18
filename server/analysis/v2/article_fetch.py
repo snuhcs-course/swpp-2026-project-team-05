@@ -19,6 +19,12 @@ from urllib.request import HTTPHandler, HTTPSHandler, HTTPRedirectHandler, Proxy
 MAX_ARTICLE_BYTES = 4 * 1024 * 1024
 _YNA_HOSTS = frozenset({"yna.co.kr", "www.yna.co.kr"})
 _YNA_CONTACT = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
+_YTN_BYLINE = re.compile(r"YTN\s+[^()\n]{1,40}\([\w.+-]+@ytn\.co\.kr\)")
+_YTN_TIP = re.compile(r"※\s*['\"‘]?당신의 제보가 뉴스가 됩니다['\"’]?")
+_YTN_COPYRIGHT = re.compile(
+    r"(?:\[저작권자\(c\)\s*YTN\b.*\]|Copyright\s*\(c\)\s*YTN\b.*)",
+    re.IGNORECASE,
+)
 
 
 class ArticleFetchError(RuntimeError):
@@ -239,6 +245,78 @@ def _extract_yna_article_body(html: str) -> str | None:
     return "\n\n".join(body) or None
 
 
+def _ytn_footer_kind(line: str) -> str | None:
+    """Recognize complete YTN contact lines, never arbitrary story fragments."""
+    line = line.strip()
+    if _YTN_BYLINE.fullmatch(line):
+        return "byline"
+    if _YTN_TIP.fullmatch(line):
+        return "tip"
+    if line == "[카카오톡] YTN 검색해 채널 추가":
+        return "kakao"
+    if line == "[전화] 02-398-8585":
+        return "phone"
+    if line == "[메일] social@ytn.co.kr":
+        return "mail"
+    if _YTN_COPYRIGHT.fullmatch(line):
+        return "copyright"
+    if line == "AD":
+        return "ad"
+    return None
+
+
+def _strip_ytn_footer(body: str) -> str:
+    """Remove a verified terminal contact block; leave the story untouched.
+
+    A journalist name or email can be newsworthy when quoted in an article, so
+    one matching line is insufficient. We require a contiguous terminal run of
+    recognized YTN footer lines and at least two independent contact/copyright
+    markers. This runs before sentence indices and Reader offsets are computed.
+    """
+    lines = body.splitlines(keepends=True)
+    nonblank = [(index, _ytn_footer_kind(line)) for index, line in enumerate(lines)
+                if line.strip()]
+    for position in range(max(0, len(nonblank) - 12), len(nonblank)):
+        suffix = nonblank[position:]
+        kinds = {kind for _, kind in suffix}
+        if (None not in kinds and len(kinds - {"byline", "ad"}) >= 2):
+            return "".join(lines[:suffix[0][0]]).rstrip()
+    return body.strip()
+
+
+def _extract_ytn_article_body(html: str) -> str | None:
+    """Read YTN's article container without its adjacent text ads.
+
+    YTN separates its story paragraphs with pairs of ``<br>`` tags. Generic
+    extraction flattens those blank lines and includes both neighboring "AD"
+    labels. Keep the source paragraph breaks while selecting only #CmAdContent.
+    Unknown page layouts fall back to Trafilatura.
+    """
+    from lxml import etree, html as lxml_html
+
+    try:
+        document = lxml_html.fromstring(html)
+    except (etree.ParserError, ValueError):
+        return None
+    containers = document.xpath('//*[@id="CmAdContent"]')
+    if len(containers) != 1:
+        return None
+    content = containers[0]
+    marker = "\ue000"
+    while marker in content.text_content():
+        marker += "\ue000"
+    for line_break in content.xpath(".//br"):
+        line_break.tail = marker + (line_break.tail or "")
+    body = "\n".join(
+        " ".join(segment.split()) for segment in content.text_content().split(marker)
+    ).strip()
+    return _strip_ytn_footer(body) or None
+
+
+def _is_ytn_host(hostname: str | None) -> bool:
+    return bool(hostname and (hostname == "ytn.co.kr" or hostname.endswith(".ytn.co.kr")))
+
+
 def fetch_article(url: str) -> dict[str, str]:
     """Return a news page's title and main body from one HTTP(S) request."""
     url = validate_article_url(url)
@@ -284,12 +362,18 @@ def fetch_article(url: str) -> dict[str, str]:
 
     hostname = urlsplit(url).hostname
     body = (_extract_yna_article_body(html) if hostname in _YNA_HOSTS else None)
+    if not body and _is_ytn_host(hostname):
+        body = _extract_ytn_article_body(html)
     if not body:
         body = extract(html, url=url, include_comments=False)
     if not body or not body.strip():
         raise ArticleFetchError("HTML에서 기사 본문을 찾지 못했습니다.", stage="extraction")
     parser = _TitleParser(url)
     parser.feed(html)
+    if _is_ytn_host(hostname) or parser.publisher.casefold() == "ytn":
+        body = _strip_ytn_footer(body)
+    if not body.strip():
+        raise ArticleFetchError("HTML에서 기사 본문을 찾지 못했습니다.", stage="extraction")
     title = parser.meta_title or unescape(parser.page_title).strip()
     return {
         "url": url,

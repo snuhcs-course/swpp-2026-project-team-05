@@ -5,7 +5,13 @@ from io import BytesIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from server.analysis.v2.article_fetch import _extract_yna_article_body, fetch_article
+from server.analysis.v2.article_fetch import (
+    _extract_yna_article_body,
+    _extract_ytn_article_body,
+    _strip_ytn_footer,
+    fetch_article,
+)
+from server.analysis.v2.article_input import structure_article_body
 
 
 YNA_HTML = """<html><head>
@@ -71,4 +77,93 @@ class YnaExtractionTests(TestCase):
             build.return_value.open.return_value = response
             article = fetch_article("https://www.yna.co.kr.example.com/view/story")
         self.assertEqual(article["body"], "generic result")
+        generic_extract.assert_called_once()
+
+
+YTN_HTML = """<html><head><meta property="og:title" content="예시 YTN 기사"></head><body>
+<div class="ad_newsview_text"><div class="icon">AD</div></div>
+<div id="CmAdContent" class="paragraph"><span>
+첫 문단은 실제 사건의 경위를 설명합니다.<br><br>
+둘째 문단은 관련자의 발언을 정확하게 전합니다.<br><br>
+YTN 임예진 (imyj77@ytn.co.kr)<br><br>
+※ '당신의 제보가 뉴스가 됩니다'<br>
+[카카오톡] YTN 검색해 채널 추가<br>
+[전화] 02-398-8585<br>
+[메일] social@ytn.co.kr</span><br><br>
+[저작권자(c) YTN 무단전재, 재배포 및 AI 데이터 활용 금지]
+</div>
+<div class="ad_newsview_text"><div class="icon">AD</div></div>
+</body></html>"""
+YTN_STORY = (
+    "첫 문단은 실제 사건의 경위를 설명합니다.\n\n"
+    "둘째 문단은 관련자의 발언을 정확하게 전합니다."
+)
+
+
+class YtnExtractionTests(TestCase):
+    def test_story_container_keeps_paragraphs_and_excludes_ads_and_footer(self):
+        body = _extract_ytn_article_body(YTN_HTML)
+        self.assertEqual(body, YTN_STORY)
+        structured = structure_article_body(body)
+        self.assertEqual([item["text"] for item in structured["paragraphs"]],
+                         ["첫 문단은 실제 사건의 경위를 설명합니다.",
+                          "둘째 문단은 관련자의 발언을 정확하게 전합니다."])
+        for sentence in structured["sentences"]:
+            self.assertEqual(body[sentence["start"]:sentence["end"]], sentence["text"])
+
+    def test_fetch_ytn_uses_story_container_before_generic_extractor(self):
+        response = BytesIO(YTN_HTML.encode("utf-8"))
+        response.headers = Message()
+        response.headers.add_header("Content-Type", "text/html; charset=utf-8")
+        with (patch("server.analysis.v2.article_fetch.build_opener") as build,
+              patch("trafilatura.extract") as generic_extract):
+            build.return_value.open.return_value = response
+            article = fetch_article("https://www.ytn.co.kr/_ln/0101_202610021009348094")
+        self.assertEqual(article["body"], YTN_STORY)
+        self.assertEqual(article["title"], "예시 YTN 기사")
+        generic_extract.assert_not_called()
+
+    def test_ytn_fallback_removes_contact_suffix_only(self):
+        self.assertIsNone(_extract_ytn_article_body("<html><body>다른 레이아웃</body></html>"))
+        raw = (YTN_STORY + "\nYTN 임예진 (imyj77@ytn.co.kr)\n"
+               "※ '당신의 제보가 뉴스가 됩니다'\n"
+               "[카카오톡] YTN 검색해 채널 추가\n"
+               "[전화] 02-398-8585\n"
+               "[메일] social@ytn.co.kr\n"
+               "[저작권자(c) YTN 무단전재, 재배포 및 AI 데이터 활용 금지]\nAD")
+        self.assertEqual(_strip_ytn_footer(raw), YTN_STORY)
+
+    def test_naver_ytn_publisher_uses_safe_suffix_cleaner(self):
+        html = ('<html><head><meta property="og:article:author" '
+                'content="YTN | 네이버"></head><body><article>본문</article></body></html>')
+        response = BytesIO(html.encode("utf-8"))
+        response.headers = Message()
+        response.headers.add_header("Content-Type", "text/html; charset=utf-8")
+        raw = (YTN_STORY + "\nYTN 임예진 (imyj77@ytn.co.kr)\n"
+               "※ '당신의 제보가 뉴스가 됩니다'\n[카카오톡] YTN 검색해 채널 추가")
+        with (patch("server.analysis.v2.article_fetch.build_opener") as build,
+              patch("trafilatura.extract", return_value=raw)):
+            build.return_value.open.return_value = response
+            article = fetch_article("https://n.news.naver.com/article/052/0000000001")
+        self.assertEqual(article["publisher"], "YTN")
+        self.assertEqual(article["body"], YTN_STORY)
+
+    def test_story_with_isolated_reporter_or_footer_words_is_not_cut(self):
+        story = ("기사 속 인물이 YTN 임예진 (imyj77@ytn.co.kr)를 언급했습니다.\n\n"
+                 "[전화] 02-398-8585라는 번호를 조사하는 내용입니다.\n\n"
+                 "마지막 발언도 기사 내용입니다.")
+        self.assertEqual(_strip_ytn_footer(story), story)
+        self.assertEqual(_strip_ytn_footer(story + "\nYTN 임예진 (imyj77@ytn.co.kr)"),
+                         story + "\nYTN 임예진 (imyj77@ytn.co.kr)")
+
+    def test_similar_hostname_does_not_trigger_ytn_selector_or_cleaner(self):
+        response = BytesIO(YTN_HTML.encode("utf-8"))
+        response.headers = Message()
+        response.headers.add_header("Content-Type", "text/html; charset=utf-8")
+        generic_body = "평범한 기사의 본문입니다.\n[전화] 02-398-8585\nAD"
+        with (patch("server.analysis.v2.article_fetch.build_opener") as build,
+              patch("trafilatura.extract", return_value=generic_body) as generic_extract):
+            build.return_value.open.return_value = response
+            article = fetch_article("https://www.ytn.co.kr.example.com/story")
+        self.assertEqual(article["body"], generic_body)
         generic_extract.assert_called_once()
