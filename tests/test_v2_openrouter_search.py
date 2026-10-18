@@ -61,7 +61,7 @@ class OpenRouterExaSearchTests(TestCase):
         self.assertNotIn("max_tool_calls", body)
         self.assertEqual(body["max_tokens"], 2048)
         self.assertEqual([message["role"] for message in body["messages"]], ["system", "user"])
-        self.assertIn("웹 검색 도구를 정확히 한 번", body["messages"][0]["content"])
+        self.assertIn("제공된 웹 검색 결과", body["messages"][0]["content"])
         search_data = json.loads(body["messages"][1]["content"].split("\n", 1)[1])
         self.assertEqual(search_data["title"], SOURCE["title"])
         self.assertEqual(search_data["event"], ANALYSIS["core_event"])
@@ -118,6 +118,14 @@ class OpenRouterExaSearchTests(TestCase):
                               "valid_citation_count=0", logs.output[0])
                 self.assertIn("finish_reason=other", logs.output[0])
                 self.assertNotIn("flat.example.com", logs.output[0])
+
+    def test_non_object_json_response_is_a_search_response_error(self):
+        with (patch("server.analysis.v2.article_search.get_openrouter_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.build_opener") as build):
+            build.return_value.open.return_value = BytesIO(b"[]")
+            with self.assertRaises(OperationError) as raised:
+                search_openrouter_exa_news(SOURCE, ANALYSIS)
+        self.assertEqual(raised.exception.code, "OPENROUTER_SEARCH_RESPONSE_INVALID")
 
     def test_http_failure_records_only_status(self):
         with (patch("server.analysis.v2.article_search.get_openrouter_api_key", return_value="synthetic-key"),
