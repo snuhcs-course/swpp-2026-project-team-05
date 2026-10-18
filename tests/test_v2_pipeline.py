@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from server.analysis.diagnostics import analysis_id
 from server.analysis.v2.article_fetch import ArticleFetchError, fetch_article, validate_article_url
 from server.analysis.v2.article_input import prepare_article, structure_article_body
 from server.analysis.v2.article_search import (
@@ -674,19 +675,29 @@ class FullRubricPathTests(SimpleTestCase):
         discovery, client = self._case()
         client.repair_information["A1"] = deepcopy(client.information["A1"])
         client.information["A1"]["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
-        rubric = analyze_selected_articles(discovery, client=client)
+        token = analysis_id.set("safe-diagnostic-123")
+        try:
+            with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+                rubric = analyze_selected_articles(discovery, client=client)
+        finally:
+            analysis_id.reset(token)
         self.assertEqual(rubric["llm_calls"], 4)
         self.assertEqual(client.calls[2], ("repair_article_information_I1_I5", "A1"))
         self.assertEqual(len(client.requests[2]["input_data"]["grounding_errors"]), 1)
         self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
         self.assertEqual(len(rubric["claim_analyses"][0]["information_by_article"]["A1"]["I4"]["items"]), 1)
+        self.assertIn('"analysis_id":"safe-diagnostic-123"', captured.output[0])
+        self.assertIn('"attempt":"initial"', captured.output[0])
+        self.assertIn('"reason_code":"QUOTE_NOT_UNIQUE"', captured.output[0])
+        self.assertNotIn("원문에 없는 전망", " ".join(captured.output))
 
     def test_information_schema_failure_uses_one_fixed_input_repair(self):
         discovery, client = self._case()
         client.repair_information["A1"] = deepcopy(client.information["A1"])
-        client.information["A1"] = {"lead_evidence": None}
+        client.information["A1"] = {"lead_evidence": None, "SECRET_SENTINEL": "model text"}
 
-        rubric = analyze_selected_articles(discovery, client=client)
+        with self.assertLogs("server.analysis.v2.llm_analysis", level="WARNING") as captured:
+            rubric = analyze_selected_articles(discovery, client=client)
 
         self.assertEqual(rubric["rubric"]["annotation_status"], "complete")
         self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
@@ -696,6 +707,12 @@ class FullRubricPathTests(SimpleTestCase):
         self.assertEqual(repair["name"], "repair_article_information_I1_I5")
         self.assertEqual(repair["input_data"], first["input_data"])
         self.assertNotIn("previous_response", repair["input_data"])
+        self.assertIn("오류 종류=required", repair["instructions"])
+        self.assertIn("스키마 위치=<root>", repair["instructions"])
+        self.assertNotIn("SECRET_SENTINEL", repair["instructions"])
+        self.assertIn('"reason_code":"SCHEMA_INVALID"', captured.output[0])
+        self.assertIn('"attempt":"initial"', captured.output[0])
+        self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output))
 
     def test_schema_repair_then_invalid_evidence_does_not_trigger_third_call(self):
         discovery, client = self._case()
@@ -703,13 +720,17 @@ class FullRubricPathTests(SimpleTestCase):
         client.repair_information["A1"]["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
         client.information["A1"] = {"lead_evidence": None}
 
-        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+        with self.assertLogs("server.analysis.v2", level="WARNING") as captured:
             rubric = analyze_selected_articles(discovery, client=client)
 
         self.assertEqual([name for name, article_id in client.calls if article_id == "A1"],
                          ["article_information_I1_I5", "repair_article_information_I1_I5"])
         self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
         self.assertNotIn("A1", rubric["article_annotations"])
+        logs = " ".join(captured.output)
+        self.assertIn('"reason_code":"SCHEMA_INVALID"', logs)
+        self.assertIn('"reason_code":"QUOTE_NOT_UNIQUE"', logs)
+        self.assertIn('"attempt":"repair"', logs)
 
     def test_source_schema_failure_remains_explicit_and_fatal_to_rubric(self):
         discovery, client = self._case()
@@ -794,9 +815,15 @@ class FullRubricPathTests(SimpleTestCase):
         self.assertEqual(result["rubric_analysis"]["claim_analyses"][0]["unverified_article_ids"], ["A1"])
         self.assertEqual(result["selection"], discovery["selection"])
         self.assertIn("I1~I5와 A~G는 미판정", format_analysis_result(result))
-        self.assertIn("article_id=A1", captured.output[0])
-        self.assertIn("reason=validation_failed", captured.output[0])
-        self.assertNotIn("원문에 없는 전망", captured.output[0])
+        logs = " ".join(captured.output)
+        self.assertEqual([name for name, article_id in client.calls if article_id == "A1"],
+                         ["article_information_I1_I5", "repair_article_information_I1_I5"])
+        self.assertIn('"attempt":"initial"', logs)
+        self.assertIn('"attempt":"repair"', logs)
+        self.assertEqual(logs.count('"reason_code":"QUOTE_NOT_UNIQUE"'), 2)
+        self.assertIn("article_id=A1", logs)
+        self.assertIn("reason=validation_failed", logs)
+        self.assertNotIn("원문에 없는 전망", logs)
 
     def test_invalid_related_article_preserves_other_verified_article(self):
         discovery, client = self._case()

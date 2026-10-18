@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import re
 import html
+import logging
 import unicodedata
 from typing import Any
 from urllib.parse import urlsplit
 
 from .model_client import GeminiJSONClient, ModelResponseError
+from ..diagnostics import log_event
+
+
+logger = logging.getLogger(__name__)
 
 
 CLAIM_KINDS = ("reported_fact", "attributed_statement", "editorial_position")
@@ -106,6 +111,33 @@ def _schema_error(exc: Any) -> ModelResponseError:
     return ModelResponseError("LLM 응답 형식이 올바르지 않습니다." + detail + ")")
 
 
+_SCHEMA_VALIDATORS = frozenset({
+    "additionalProperties", "anyOf", "const", "enum", "maxItems", "maxLength",
+    "minItems", "minLength", "minimum", "maximum", "required", "type",
+})
+
+
+def _safe_schema_failure(exc: Any) -> tuple[str, str]:
+    """Describe a local schema rule without including any model response value."""
+    validator = exc.validator if exc.validator in _SCHEMA_VALIDATORS else "other"
+    parts = []
+    path = list(exc.absolute_schema_path)
+    if path and path[-1] == exc.validator:
+        path.pop()
+    for part in path:
+        if type(part) is int and 0 <= part <= 999:
+            parts.append(str(part))
+        elif isinstance(part, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", part):
+            parts.append(part)
+        else:
+            return validator, "<schema>"
+    return validator, "/".join(parts)[:160] or "<root>"
+
+
+def _safe_task_name(name: Any) -> str:
+    return name if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", name) else "unknown"
+
+
 def _fixed_input_repair_request(request: dict, *, extra_instructions: str = "") -> dict:
     """Keep the original task data and schema; never feed the invalid output back."""
     return {**request, "name": "repair_" + request["name"],
@@ -127,6 +159,11 @@ def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None, *
             try:
                 result = client.generate_json(**request)
             except ModelResponseError:
+                task_name = _safe_task_name(request.get("name"))
+                log_event(logger, "model_output_validation_failed", level=logging.WARNING,
+                          task=task_name,
+                          attempt="repair" if task_name.startswith("repair_") else "initial",
+                          reason_code="MODEL_RESPONSE_INVALID")
                 if not budget.consume():
                     raise
                 request = _fixed_input_repair_request(kwargs)
@@ -135,9 +172,19 @@ def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None, *
                 validate(result, kwargs["schema"])
                 return result
             except ValidationError as exc:
+                validator, schema_path = _safe_schema_failure(exc)
+                task_name = _safe_task_name(request.get("name"))
+                log_event(logger, "model_output_validation_failed", level=logging.WARNING,
+                          task=task_name,
+                          attempt="repair" if task_name.startswith("repair_") else "initial",
+                          reason_code="SCHEMA_INVALID", validator=validator,
+                          schema_path=schema_path)
                 if not budget.consume():
                     raise _schema_error(exc) from exc
-                request = _fixed_input_repair_request(kwargs)
+                request = _fixed_input_repair_request(
+                    kwargs, extra_instructions=(
+                        f" 검증 오류 종류={validator}, 스키마 위치={schema_path}. "
+                        "해당 위치의 필수 키와 타입을 원문에 맞게 수정하세요."))
     finally:
         if owned:
             client.close()

@@ -2,9 +2,9 @@
 
 **기준일:** 2026-10-18 (KST)
 
-**통합 상태:** [PR #10](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/10)이 `main`의 `6b75cb9`로 병합됨.
+**통합 상태:** [PR #10](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/10)과 [PR #11](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/11)이 병합됨. 최신 병합 커밋은 `e6de3f5`.
 
-**상태:** 코드 통합·오프라인 검증 완료. 2026-10-18 기존 Vercel 운영 주소에 v2를 배포했고, 첫 실제 API 요청에서 부분 비교 결과를 받았다. 루브릭 분석은 검증 오류로 실패했고 Android 실서비스 요청은 로컬 에뮬레이터의 HTTPS 인증서 신뢰 오류로 아직 확인하지 못했다.
+**상태:** 코드 통합·오프라인 검증 완료. 2026-10-18 기존 Vercel 운영 주소에 최신 `e6de3f5`를 수동 배포했다. 공개 기사 한 건은 비교만 부분 반환했고, 다른 기사 한 건은 근거 있는 정보·표현 루브릭까지 부분 반환했다. 기본 Android APK의 직접 HTTPS 요청은 로컬 에뮬레이터 인증서 신뢰 오류로 막혔지만, 고정 운영 주소로만 연결하는 localhost 디버그 중계로 실제 응답이 앱에 표시되는 것까지 확인했다. 정상 네트워크에서 기본 APK의 종단 간 실행과 루브릭 품질 검토는 남아 있다.
 
 ## 우리가 만들고 있는 것
 
@@ -18,11 +18,13 @@
 
 Vercel `frameless-team05-api`의 기존 운영 주소에 10월 18일 통합 v2를 배포했다. 운영 환경의 `GOOGLE_API_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 변수명은 v2 코드의 필수 설정과 일치한다. 첫 요청에서 검색·비교는 결과를 반환했지만 루브릭 검증은 실패했다. **HTTP 200과 일부 카드가 있다고 전체 분석이나 결과 정확도가 확인된 것은 아니다.** [PR CI](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/39119062346)의 Python·Android 두 작업은 통과했고 PR #10은 `main`에 병합됐다.
 
+**최신 실행 확인(18 October, `e6de3f5`):** [PR #11 CI](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/39126362433)의 Django·Android 두 작업이 통과했고 운영 배포 `dpl_2FwmhJy2aFiu2kAFAVV4psHJ54XR`가 기존 주소로 연결됐다. `/api/health`는 HTTP 200과 `analysis_ready=true`였다. 기사 `057/0001971678`의 `max_related=1` 호출은 29.3초에 HTTP 200, 관련 기사 1건을 반환했으나 루브릭 I1–I5 검증이 복구 호출 뒤에도 실패해 루브릭은 없었다(`X-Analysis-ID: 9b4a14bae5dd`). 기사 `079/0004199926`의 같은 옵션은 28초 안팎에 두 차례 HTTP 200으로 관련 기사 1건, 주장 2건, I1/I2 항목 4건과 잠정 C 표현 항목 1건을 반환했다. 두 번 모두 상태는 `partial`이었고, 첫 주장 C1의 초기·후속 관계 판정 차이는 불확실로 보류됐다. 화면에 표시된 비교 인용은 두 원문에서 문자 그대로 확인했다. 두 번째 응답은 전체 A–G 비교나 정확도 평가의 증거가 아니다. 최신 기본 APK의 직접 요청은 에뮬레이터에서 `SSLHandshakeException`으로 막혔다. 디버그 APK→localhost 전용 중계→같은 운영 백엔드의 별도 실제 요청은 HTTP 200(`X-Analysis-ID: 2097c98d7e94`, 27.2초)을 받아 앱의 부분 비교·I1/I2·C 카드를 표시했다. 중계는 운영 호스트와 위 기사 한 건으로 제한했고 표준 TLS 검증을 사용했으며, 일반 배포 APK의 네트워크 성공을 입증하지 않는다.
+
 ## 다음 작업 순서
 
 1. **통합 검토:** 병합된 `main`에서 세 사람의 기능 연결, 근거 귀속, 오류·부분 결과 표시를 계속 검토한다. 준서님의 기존 PR #9는 원본 작업의 출처다. 루브릭 호출을 표시 기사로 제한했지만 검색·본문 검증 단계의 지연은 여전히 실제 서비스에서 측정해야 한다.
 2. **루브릭 재검증:** 첫 운영 요청의 `rubric_analysis` 검증 오류를 수정하고 같은 기사로 다시 호출한다. `X-Analysis-ID`, 백엔드 리비전, 단계별 결과와 총 소요 시간을 기록한다. 비교·루브릭의 인용 구절, 링크, 발언 주체를 원문에 대조한다.
-3. **Android 데모 확인:** 기본 APK의 대상 주소는 현재 v2를 배포한 Vercel 운영 주소다. 현재 로컬 에뮬레이터는 HTTPS 인증서 신뢰 오류로 요청이 막힌다. 적절한 네트워크 또는 기기에서 빌드된 APK의 대상 URL·리비전을 확인하고 입력→로딩→주장 목록→비교·루브릭 카드→원문 링크 순서로 검증한다. 실패와 재시도 화면도 확인한다. 이 단계가 통과해야 실제 v2 데모 영상으로 기록한다.
+3. **Android 데모 확인:** 기본 APK의 대상 주소는 현재 v2를 배포한 Vercel 운영 주소다. 현재 로컬 에뮬레이터의 직접 HTTPS 요청은 인증서 신뢰 오류로 막힌다. localhost 디버그 중계로 실제 운영 응답의 비교·루브릭 카드까지 확인했으나, 적절한 네트워크 또는 기기에서 기본 APK의 대상 URL·리비전을 확인하고 입력→로딩→주장 목록→비교·루브릭 카드→원문 링크 순서로 다시 검증해야 한다. 실패와 재시도 화면도 확인한다. 발표 영상에서는 디버그 중계 사용과 `partial` 상태를 명시한다.
 4. **루브릭 품질 검토:** 같은 사건/다른 사건, 부분 대응, 인용 반박, 다른 기사에만 등장하는 사실, 애매한 A–G 표현을 포함한 작은 사람 검토 세트를 만든다. 두 사람이 독립 판정한 뒤 차이를 조정하고 프롬프트·선별 규칙을 바꾼 경우 전후 사례와 지연을 함께 비교한다.
 5. **발표·제출:** [11장 영어 중간발표 구성안](midterm-presentation-outline.md)을 실제 검증 결과로 갱신하고 10월 19일 23:59 KST 슬라이드 제출에 맞춘다. Iteration 2 제출(10월 23일 23:59 KST)에는 Wiki Requirements/Design/Daily Standup 갱신, 별도 Testing Documentation Wiki/PDF, `iteration-2-demo` 브랜치의 README·짧은 영상, eTL ZIP의 Requirements/Design/Testing/AI Collaboration PDF와 일정 XLSX가 필요하다. 실제 제출물·팀 담당자는 최종 공지와 팀 합의에 대조한다.
 
