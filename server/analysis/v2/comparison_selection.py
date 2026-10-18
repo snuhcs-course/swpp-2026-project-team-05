@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
 from .article_search import fetch_candidate_articles
 from .llm_analysis import COMPARABLE_RELATIONS, prioritize_diverse_candidates, verify_candidate_articles
-from .model_client import ModelResponseError, ModelResponseTruncatedError
+from .model_client import (MetricsJSONClient, ModelResponseError, ModelResponseTruncatedError,
+                           OpenRouterJSONClient, SnapshotJSONClient)
 from .result_output import make_error_record
 
 
-# The first three metadata hits are a starting point, not the final quality
-# ranking. Two more verifier batches can inspect later articles when budget
-# remains, without making the serverless run unbounded.
+# The first metadata hits are a starting point, not the final quality ranking.
+# A bounded later pool can improve body quality and reporting diversity when
+# time remains, without making the serverless run unbounded.
 MAX_EXTRA_VERIFIED_CANDIDATES = 6
 
 
@@ -121,6 +123,11 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
     verification_calls = 0
     rate_limited = False
     rate_limit_error: Exception | None = None
+    # A singleton verdict depends only on the source and that candidate body.
+    # Recorded/replay and injected clients retain the original serial order.
+    parallel_singletons = (verification_batch_size == 1 and isinstance(client, MetricsJSONClient)
+                           and not isinstance(client, SnapshotJSONClient)
+                           and isinstance(client.client, OpenRouterJSONClient))
 
     def mark_unverified(ids: list[str], reason: str, exc: Exception) -> None:
         for key in ids:
@@ -134,19 +141,18 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                                  "verification_status": "unverified",
                                  "validation_warnings": [{"claim_id": None, "reason": reason}]}
 
-    def verify_batch(ids: list[str]) -> None:
-        """Split only truncated responses, retaining each grounded assessment."""
-        nonlocal verification_calls, rate_limited, rate_limit_error
-        if should_stop and should_stop():
-            mark_unverified(ids, "verification_deferred", TimeoutError())
-            return
-        verification_calls += 1
-        try:
-            result = verify_candidate_articles(source, analysis, [articles[key] for key in ids], client=client)
-            batch_assessments = {a["candidate_id"]: a for a in result["assessments"]}
-            if set(batch_assessments) != set(ids) or len(batch_assessments) != len(result["assessments"]):
-                raise ModelResponseError("선택 후보의 검증 결과가 누락되었거나 중복되었습니다.")
-        except ModelResponseTruncatedError as exc:
+    def verify_response(ids: list[str]) -> dict[str, dict]:
+        result = verify_candidate_articles(source, analysis, [articles[key] for key in ids], client=client)
+        batch_assessments = {a["candidate_id"]: a for a in result["assessments"]}
+        if set(batch_assessments) != set(ids) or len(batch_assessments) != len(result["assessments"]):
+            raise ModelResponseError("선택 후보의 검증 결과가 누락되었거나 중복되었습니다.")
+        return batch_assessments
+
+    def apply_verification(ids: list[str], outcome: dict[str, dict] | Exception) -> None:
+        """Apply independent responses in candidate order, including failures."""
+        nonlocal rate_limited, rate_limit_error
+        if isinstance(outcome, ModelResponseTruncatedError):
+            exc = outcome
             if len(ids) == 1:
                 mark_unverified(ids, "verification_failed", exc)
                 return
@@ -156,7 +162,8 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                     mark_unverified([key], "verification_deferred", rate_limit_error or exc)
                 else:
                     verify_batch([key])
-        except (RuntimeError, TimeoutError) as exc:
+        elif isinstance(outcome, (RuntimeError, TimeoutError)):
+            exc = outcome
             reason = ("verification_deferred" if isinstance(exc, TimeoutError)
                       and should_stop and should_stop() else "verification_failed")
             mark_unverified(ids, reason, exc)
@@ -164,7 +171,54 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                 rate_limited = True
                 rate_limit_error = exc
         else:
-            assessed.update(batch_assessments)
+            if isinstance(outcome, Exception):
+                raise outcome
+            assessed.update(outcome)
+
+    def verify_batch(ids: list[str]) -> None:
+        """Split only truncated responses, retaining each grounded assessment."""
+        nonlocal verification_calls
+        if should_stop and should_stop():
+            mark_unverified(ids, "verification_deferred", TimeoutError())
+            return
+        verification_calls += 1
+        try:
+            outcome = verify_response(ids)
+        except Exception as exc:
+            outcome = exc
+        apply_verification(ids, outcome)
+
+    def verify_singletons(ids: list[str], round_number: int, *, quality_pool: bool = False) -> bool:
+        """Run at most two live calls together and preserve ordered decisions."""
+        nonlocal verification_calls
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            for start in range(0, len(ids), 2):
+                if rate_limited or (should_stop and should_stop()):
+                    mark_unverified(ids[start:], "verification_deferred", rate_limit_error or TimeoutError())
+                    return True
+                launched = []
+                for key in ids[start:start + 2]:
+                    if should_stop and should_stop():
+                        break
+                    label = "추가 사건·주장 검증" if quality_pool else "사건·주장 검증"
+                    notify(f"4단계 {round_number}차: {label} [{key}]")
+                    verification_calls += 1
+                    launched.append((key, executor.submit(verify_response, [key])))
+                # Resolve in input order, even when the second model finishes first.
+                for key, future in launched:
+                    try:
+                        outcome = future.result()
+                    except Exception as exc:
+                        outcome = exc
+                    apply_verification([key], outcome)
+                if len(launched) < len(ids[start:start + 2]):
+                    mark_unverified(ids[start + len(launched):], "verification_deferred", TimeoutError())
+                    return True
+                if rate_limited:
+                    mark_unverified(ids[start + len(launched):], "verification_deferred",
+                                    rate_limit_error or TimeoutError())
+                    return True
+        return False
 
     while claim_map:
         round_number = len(rounds) + 1
@@ -243,23 +297,26 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
             }:
                 raise RuntimeError("일부 후보의 본문 수집 결과 또는 실패 기록이 빠졌습니다.")
         unchecked = [key for key in proposed if key in articles and key not in assessed]
-        for start in range(0, len(unchecked), verification_batch_size):
-            if stop_after_round:
-                break
-            if should_stop and should_stop():
-                mark_unverified(unchecked[start:], "verification_deferred", TimeoutError())
-                stop_after_round = True
-                break
-            batch_ids = unchecked[start:start + verification_batch_size]
-            notify(f"4단계 {round_number}차: 사건·주장 검증 [{', '.join(batch_ids)}]")
-            verify_batch(batch_ids)
-            if rate_limited:
-                # A persistent quota failure is shared across candidates.
-                # Preserve already grounded articles and leave time for the rubric.
-                stop_after_round = True
-                mark_unverified(unchecked[start + len(batch_ids):], "verification_deferred",
-                                rate_limit_error or TimeoutError())
-                break
+        if parallel_singletons and not stop_after_round:
+            stop_after_round = verify_singletons(unchecked, round_number)
+        else:
+            for start in range(0, len(unchecked), verification_batch_size):
+                if stop_after_round:
+                    break
+                if should_stop and should_stop():
+                    mark_unverified(unchecked[start:], "verification_deferred", TimeoutError())
+                    stop_after_round = True
+                    break
+                batch_ids = unchecked[start:start + verification_batch_size]
+                notify(f"4단계 {round_number}차: 사건·주장 검증 [{', '.join(batch_ids)}]")
+                verify_batch(batch_ids)
+                if rate_limited:
+                    # A persistent quota failure is shared across candidates.
+                    # Preserve already grounded articles and leave time for the rubric.
+                    stop_after_round = True
+                    mark_unverified(unchecked[start + len(batch_ids):], "verification_deferred",
+                                    rate_limit_error or TimeoutError())
+                    break
         for claim_id, ids in targets.items():
             for key in ids:
                 assessment = assessed.get(key)
@@ -331,13 +388,14 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
         extra_ids = extra_ids[:MAX_EXTRA_VERIFIED_CANDIDATES]
     if rate_limited:
         extra_ids = []
-    for start in range(0, len(extra_ids), verification_batch_size):
+    quality_pool_batch_size = 2 if parallel_singletons else verification_batch_size
+    for start in range(0, len(extra_ids), quality_pool_batch_size):
         if rate_limited:
             break
         if should_stop and should_stop():
             break
         round_number = len(rounds) + 1
-        batch_ids = extra_ids[start:start + verification_batch_size]
+        batch_ids = extra_ids[start:start + quality_pool_batch_size]
         notify(f"4단계 {round_number}차: 품질 검토 후보 {len(batch_ids)}개 본문 수집")
         fetched = fetch_candidate_articles([metadata_map[key] for key in batch_ids])
         attempted_ids.extend(batch_ids)
@@ -351,8 +409,11 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
         if unchecked and should_stop and should_stop():
             mark_unverified(unchecked, "verification_deferred", TimeoutError())
         elif unchecked:
-            notify(f"4단계 {round_number}차: 추가 사건·주장 검증 [{', '.join(unchecked)}]")
-            verify_batch(unchecked)
+            if parallel_singletons:
+                verify_singletons(unchecked, round_number, quality_pool=True)
+            else:
+                notify(f"4단계 {round_number}차: 추가 사건·주장 검증 [{', '.join(unchecked)}]")
+                verify_batch(unchecked)
         targets = {claim_id: [key for key in batch_ids if key in queue]
                    for claim_id, queue in queues.items()}
         for claim_id, ids in targets.items():
