@@ -104,6 +104,20 @@ def _timed_stage(stage: str, deadline_at: float | None = None):
                   duration_ms=round((perf_counter() - started) * 1000))
 
 
+@contextmanager
+def _scoped_model_deadline(client: Any, deadline_at: float | None):
+    """Reserve time for stage 5 even when a stage-4 model call runs long."""
+    if deadline_at is None or not isinstance(client, MetricsJSONClient):
+        yield
+        return
+    original = client.deadline_at
+    client.deadline_at = min(original, deadline_at) if original is not None else deadline_at
+    try:
+        yield
+    finally:
+        client.deadline_at = original
+
+
 def _safe_error_code(value: object) -> str:
     return value if isinstance(value, str) and value in LOG_ERROR_CODES else "PROCESSING_FAILED"
 
@@ -302,12 +316,14 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         with _timed_stage(stage, _deadline_at):
             remaining = max(0.0, _deadline_at - monotonic()) if _deadline_at is not None else 0.0
             rubric_reserve = min(RUBRIC_RESERVE_SECONDS, remaining * 0.5)
-            verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
-                                                   max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
-                                                   verification_batch_size=verification_batch_size, client=client,
-                                                   progress=notify,
-                                                   should_stop=(lambda: monotonic() >= _deadline_at - rubric_reserve)
-                                                   if _deadline_at is not None else None)
+            with _scoped_model_deadline(client, _deadline_at - rubric_reserve
+                                        if _deadline_at is not None else None):
+                verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
+                                                       max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
+                                                       verification_batch_size=verification_batch_size, client=client,
+                                                       progress=notify,
+                                                       should_stop=(lambda: monotonic() >= _deadline_at - rubric_reserve)
+                                                       if _deadline_at is not None else None)
         collection, selection = verified["search"], verified["selection"]
         warnings = list(selection.get("warnings", []))
         if any(query["status"] == "search_failed" for query in collection["queries"]):

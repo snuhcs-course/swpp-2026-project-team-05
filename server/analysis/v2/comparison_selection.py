@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from .article_search import fetch_candidate_articles
 from .llm_analysis import COMPARABLE_RELATIONS, prioritize_diverse_candidates, verify_candidate_articles
-from .model_client import ModelResponseError
+from .model_client import ModelResponseError, ModelResponseTruncatedError
 from .result_output import make_error_record
 
 
@@ -120,6 +120,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
     notify = progress or (lambda _: None)
     verification_calls = 0
     rate_limited = False
+    rate_limit_error: Exception | None = None
 
     def mark_unverified(ids: list[str], reason: str, exc: Exception) -> None:
         for key in ids:
@@ -132,6 +133,38 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                                  "event_evidence": None, "claim_matches": [],
                                  "verification_status": "unverified",
                                  "validation_warnings": [{"claim_id": None, "reason": reason}]}
+
+    def verify_batch(ids: list[str]) -> None:
+        """Split only truncated responses, retaining each grounded assessment."""
+        nonlocal verification_calls, rate_limited, rate_limit_error
+        if should_stop and should_stop():
+            mark_unverified(ids, "verification_deferred", TimeoutError())
+            return
+        verification_calls += 1
+        try:
+            result = verify_candidate_articles(source, analysis, [articles[key] for key in ids], client=client)
+            batch_assessments = {a["candidate_id"]: a for a in result["assessments"]}
+            if set(batch_assessments) != set(ids) or len(batch_assessments) != len(result["assessments"]):
+                raise ModelResponseError("선택 후보의 검증 결과가 누락되었거나 중복되었습니다.")
+        except ModelResponseTruncatedError as exc:
+            if len(ids) == 1:
+                mark_unverified(ids, "verification_failed", exc)
+                return
+            notify(f"4단계: 잘린 후보 검증 응답을 {len(ids)}개 기사별로 재검증")
+            for key in ids:
+                if rate_limited:
+                    mark_unverified([key], "verification_deferred", rate_limit_error or exc)
+                else:
+                    verify_batch([key])
+        except (RuntimeError, TimeoutError) as exc:
+            reason = ("verification_deferred" if isinstance(exc, TimeoutError)
+                      and should_stop and should_stop() else "verification_failed")
+            mark_unverified(ids, reason, exc)
+            if make_error_record(exc, stage="candidate_verification")["code"] == "MODEL_RATE_LIMITED":
+                rate_limited = True
+                rate_limit_error = exc
+        else:
+            assessed.update(batch_assessments)
 
     while claim_map:
         round_number = len(rounds) + 1
@@ -219,25 +252,14 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                 break
             batch_ids = unchecked[start:start + verification_batch_size]
             notify(f"4단계 {round_number}차: 사건·주장 검증 [{', '.join(batch_ids)}]")
-            verification_calls += 1
-            try:
-                result = verify_candidate_articles(source, analysis, [articles[key] for key in batch_ids], client=client)
-                batch_assessments = {a["candidate_id"]: a for a in result["assessments"]}
-                if set(batch_assessments) != set(batch_ids) or len(batch_assessments) != len(result["assessments"]):
-                    raise ModelResponseError("선택 후보의 검증 결과가 누락되었거나 중복되었습니다.")
-            except (RuntimeError, TimeoutError) as exc:
-                # A later failed batch must not erase already grounded comparisons.
-                # Placeholders are explicitly unverified and cannot enter matches.
-                mark_unverified(batch_ids, "verification_failed", exc)
-                if make_error_record(exc, stage="candidate_verification")["code"] == "MODEL_RATE_LIMITED":
-                    # A persistent quota failure is shared across candidates.
-                    # Preserve already grounded articles and leave time for the
-                    # rubric instead of spending every remaining batch on 429s.
-                    rate_limited = stop_after_round = True
-                    mark_unverified(unchecked[start + len(batch_ids):], "verification_deferred", exc)
-                    break
-                continue
-            assessed.update(batch_assessments)
+            verify_batch(batch_ids)
+            if rate_limited:
+                # A persistent quota failure is shared across candidates.
+                # Preserve already grounded articles and leave time for the rubric.
+                stop_after_round = True
+                mark_unverified(unchecked[start + len(batch_ids):], "verification_deferred",
+                                rate_limit_error or TimeoutError())
+                break
         for claim_id, ids in targets.items():
             for key in ids:
                 assessment = assessed.get(key)
@@ -330,18 +352,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
             mark_unverified(unchecked, "verification_deferred", TimeoutError())
         elif unchecked:
             notify(f"4단계 {round_number}차: 추가 사건·주장 검증 [{', '.join(unchecked)}]")
-            verification_calls += 1
-            try:
-                result = verify_candidate_articles(source, analysis, [articles[key] for key in unchecked], client=client)
-                batch_assessments = {a["candidate_id"]: a for a in result["assessments"]}
-                if set(batch_assessments) != set(unchecked) or len(batch_assessments) != len(result["assessments"]):
-                    raise ModelResponseError("추가 후보의 검증 결과가 누락되었거나 중복되었습니다.")
-            except (RuntimeError, TimeoutError) as exc:
-                mark_unverified(unchecked, "verification_failed", exc)
-                if make_error_record(exc, stage="candidate_verification")["code"] == "MODEL_RATE_LIMITED":
-                    rate_limited = True
-            else:
-                assessed.update(batch_assessments)
+            verify_batch(unchecked)
         targets = {claim_id: [key for key in batch_ids if key in queue]
                    for claim_id, queue in queues.items()}
         for claim_id, ids in targets.items():

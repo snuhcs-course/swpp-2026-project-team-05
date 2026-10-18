@@ -5,6 +5,8 @@ from pathlib import Path
 from uuid import uuid4
 from urllib.error import URLError
 
+from .model_client import ModelResponseError
+
 
 class OperationError(RuntimeError):
     """An expected service failure with a safe, machine-readable description."""
@@ -77,7 +79,7 @@ def make_error_record(exc: Exception, *, stage: str, **context) -> dict:
         code, message = "MODEL_TIMEOUT", "모델 API 응답 시간이 초과됐습니다."
     elif type(exc).__name__ == "ModelUnavailableError":
         code, message, retryable = "MODEL_UNAVAILABLE", "모델 API가 일시적으로 응답하지 않습니다.", True
-    elif type(exc).__name__ == "ModelResponseError":
+    elif isinstance(exc, ModelResponseError):
         code, message = "ANALYSIS_RESPONSE_INVALID", "분석 응답의 형식 또는 근거 검증에 실패했습니다."
     else:
         code, message = "PROCESSING_FAILED", "해당 처리 단계에서 오류가 발생했습니다."
