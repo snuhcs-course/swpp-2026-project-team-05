@@ -6,10 +6,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.ConnectException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
+import javax.net.ssl.SSLException
 
 /** 서버 요청과 응답 파싱만 담당한다. 화면 코드는 여기에 두지 않는다. */
 internal object AnalysisApi {
@@ -62,13 +64,19 @@ internal object AnalysisApi {
             Log.i(LOG_TAG, "Backend status=$status analysis_id=$analysisId")
             if (BuildConfig.DEBUG) logResponseShape(json)
             parseAnalysis(json, articleUrl)
-        } catch (_: ConnectException) {
-            throw IllegalStateException("서버에 연결할 수 없어요. 서버 주소와 상태를 확인해줘.")
-        } catch (_: SocketTimeoutException) {
-            throw IllegalStateException("분석 시간이 초과됐어요. 잠시 후 다시 시도해줘.")
+        } catch (error: IOException) {
+            if (BuildConfig.DEBUG) Log.w(LOG_TAG, "Network request failed: ${error.javaClass.name}")
+            throw IllegalStateException(networkErrorMessage(error))
         } finally {
             connection.disconnect()
         }
+    }
+
+    internal fun networkErrorMessage(error: IOException): String = when (error) {
+        is ConnectException -> "서버에 연결할 수 없어요. 서버 주소와 상태를 확인해줘."
+        is SocketTimeoutException -> "분석 시간이 초과됐어요. 잠시 후 다시 시도해줘."
+        is SSLException -> "보안 연결을 확인하지 못했어요. 네트워크 설정을 확인하거나 관리자에게 문의해 주세요."
+        else -> "네트워크 오류가 발생했어요. 연결 상태를 확인하고 다시 시도해 주세요."
     }
 
     internal fun parseAnalysis(root: JSONObject, requestedUrl: String): AnalysisResult {
@@ -317,6 +325,13 @@ internal object AnalysisApi {
             )
         }
 
+        val unverifiedIds = r.optJSONArray("expression_unverified_claim_ids")?.let { ids ->
+            (0 until ids.length()).mapNotNull { index ->
+                (ids.opt(index) as? String)?.takeIf { it.isNotBlank() }
+                    ?: run { dropped++; null }
+            }.toSet()
+        } ?: emptySet()
+
         if (dropped > 0) Log.w(LOG_TAG, "rubric: dropped $dropped malformed item(s)")
         return RubricResult(
             version = r.optString("version"),
@@ -324,6 +339,7 @@ internal object AnalysisApi {
             questions = questions,
             expressions = expressions,
             informations = informations,
+            expressionUnverifiedClaimIds = unverifiedIds,
             droppedCount = dropped
         )
     }

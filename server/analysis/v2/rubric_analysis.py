@@ -6,18 +6,24 @@ those annotations by Python; they do not prove that the model found every case.
 
 from __future__ import annotations
 
+import logging
 import re
 from difflib import SequenceMatcher
 from typing import Any, Callable
 
 from .llm_analysis import (
     COMPARABLE_RELATIONS, MATCH_RELATIONS, _article_for_model, _generate_json,
+    _RepairBudget,
     _ground_evidence, _locate_quote, _object_schema,
     _ground_span, _quote_ranges, _contained, _overlaps,
     _direct_speech_range, _direct_speech_parts, _source_name_evidence, _ground_attribution,
     _relation_schema, _ground_relation_evidence, _relation_summary, RELATION_INSTRUCTIONS,
 )
 from .model_client import GeminiJSONClient, ModelResponseError
+from .result_output import make_error_record
+
+
+logger = logging.getLogger(__name__)
 
 
 EXPRESSION_CATEGORIES = {
@@ -200,11 +206,14 @@ def analyze_article_information(article: dict, claims: list[dict], *, article_id
                                 "source_evidence": c.get("evidence")} for c in claims],
                     "verification_context": _verified_comparison_context(article, claims, verified_matches)},
     )
-    response = _generate_json(client, **request)
+    repair_budget = _RepairBudget()
+    response = _generate_json(client, repair_budget=repair_budget, **request)
     try:
-        annotation = {**_validate_information_response(article, claims, article_id, response), "llm_calls": 1}
+        annotation = _validate_information_response(article, claims, article_id, response)
     except ModelResponseError as exc:
-        repaired = _generate_json(client, **{
+        if not repair_budget.consume():
+            raise
+        repaired = _generate_json(client, repair_budget=repair_budget, **{
             **request, "name": "repair_article_information_I1_I5",
             "instructions": request["instructions"] + (
                 " 이전 응답의 근거 검증에 실패했습니다. 원래 기사만 근거로 JSON을 수정하세요."
@@ -216,7 +225,8 @@ def analyze_article_information(article: dict, claims: list[dict], *, article_id
             "input_data": {**request["input_data"], "previous_response": response,
                            "validation_error": str(exc), "grounding_errors": _grounding_diagnostics(article, response)},
         })
-        annotation = {**_validate_information_response(article, claims, article_id, repaired), "llm_calls": 2}
+        annotation = _validate_information_response(article, claims, article_id, repaired)
+    annotation["llm_calls"] = 1 + repair_budget.used
     return retain_verified_comparison_context(annotation, request["input_data"]["verification_context"])
 
 
@@ -585,8 +595,9 @@ def compare_claim_expressions(claim: dict, articles: dict[str, dict], annotation
         "markedness_reason": _text(empty=True),
         "description": _text(),
     }), 80)})
+    repair_budget = _RepairBudget()
     response = _generate_json(
-        client, name="claim_expression_A_G", schema=schema, max_output_tokens=8192,
+        client, repair_budget=repair_budget, name="claim_expression_A_G", schema=schema, max_output_tokens=8192,
         input_data={"claim": claim, "articles": [
             {"article_id": key, "article": _article_for_model(articles[key]),
              "information_annotation": annotations[key]} for key in present],
@@ -711,7 +722,8 @@ def compare_claim_expressions(claim: dict, articles: dict[str, dict], annotation
     differences = [p for p in pairs if p["has_lexical_difference"]]
     reporting_variants = [p for p in differences if p["source_reporting_verb_candidates"]
                           and p["comparison_reporting_verb_candidates"]]
-    return {"status": "analyzed", "findings": findings, "excluded": excluded, "llm_calls": 1,
+    return {"status": "analyzed", "findings": findings, "excluded": excluded,
+            "llm_calls": 1 + repair_budget.used,
             "surface_differences": differences, "invalid_findings": invalid,
             "diagnostics": {"compared_article_ids": present, "passage_pair_count": len(pairs),
                             "surface_difference_count": len(differences), "model_finding_count": len(response["findings"]),
@@ -739,7 +751,8 @@ def organize_expression_by_article(expression: dict, article_ids: list[str]) -> 
             references = [{"compared_article_id": f["article_id"], "evidence": f["baseline_evidence"]}
                           for f in expression["findings"] if f.get("baseline_article_id") == article_id
                           and f["category"] == code and f.get("baseline_evidence")]
-            status = ("observed" if any(f["markedness"] is not None for f in items) else
+            status = ("unverified" if expression["status"] == "unverified" else
+                      "observed" if any(f["markedness"] is not None for f in items) else
                       "needs_review" if items else "validation_failed" if invalid else "excluded" if excluded else
                       "comparison_reference" if references else
                       "insufficient_comparison" if expression["status"] == "no_comparison_pair" else
@@ -749,6 +762,8 @@ def organize_expression_by_article(expression: dict, article_ids: list[str]) -> 
                 reasons = ["no_representative_finding; absence_not_established"]
             elif status == "insufficient_comparison":
                 reasons = ["no_comparison_pair"]
+            elif status == "unverified":
+                reasons = ["claim_expression_unverified"]
             categories[code] = {"category_label": label, "status": status, "items": items,
                                 "excluded": excluded, "reference_evidence": references,
                                  "validation_errors": invalid,
@@ -784,7 +799,7 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
             or not set(related_ids) <= set(selection["same_event_ids"])):
         raise ValueError("분석 기사에는 본문이 있고 동일 사건으로 확인된 후보만 포함할 수 있습니다.")
     articles = {"S0": source, **{key: candidates[key] for key in related_ids}} if claims else {}
-    annotations, claim_results, calls = {}, [], 0
+    annotations, claim_results, calls, annotation_failures, expression_failures = {}, [], 0, [], []
     owned = client is None and bool(claims)
     if owned:
         client = GeminiJSONClient()
@@ -793,8 +808,23 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
         for index, (key, article) in enumerate(articles.items(), 1):
             notify(f"5단계 정보 분석 {index}/{len(articles)}: [{key}] {article.get('publisher') or article.get('title', '')}")
             assessment = next((r for r in selection["assessments"] if r["candidate_id"] == key), {})
-            annotations[key] = analyze_article_information(article, claims, article_id=key, client=client,
-                                                         verified_matches=assessment.get("claim_matches", []))
+            try:
+                annotations[key] = analyze_article_information(article, claims, article_id=key, client=client,
+                                                             verified_matches=assessment.get("claim_matches", []))
+            except (RuntimeError, TimeoutError) as exc:
+                # Keep grounded related articles; never log model or article text.
+                diagnostic = make_error_record(exc, stage="rubric_analysis")
+                reason = ("validation_failed" if isinstance(exc, ModelResponseError) else
+                          "model_unavailable" if diagnostic["retryable"] else "processing_failed")
+                event = "rubric_source_annotation_failed" if key == "S0" else "rubric_article_annotation_failed"
+                logger.warning("%s article_id=%s error_type=%s error_code=%s reason=%s",
+                               event, key, type(exc).__name__, diagnostic["code"], reason)
+                if key == "S0":
+                    raise
+                annotation_failures.append({"article_id": key, "phase": "article_information_I1_I5",
+                                            "reason": reason, "error_type": type(exc).__name__,
+                                            "retryable": diagnostic["retryable"]})
+                continue
             calls += annotations[key]["llm_calls"]
         for claim in claims:
             # Source claims must remain grounded in the source during later annotation.
@@ -802,12 +832,14 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
             if source_row["relation"] != "same" or not any(
                 e["sentence_index"] == claim["evidence"]["sentence_index"] for e in source_row["mentions"]
             ):
+                logger.warning("rubric_source_consistency_failed article_id=S0 claim_id=%s",
+                               claim["claim_id"])
                 raise ModelResponseError("입력 기사 정보 분석이 기존 핵심 주장 원문 근거와 일치하지 않습니다.")
             selected = [a["candidate_id"] for a in comparisons[claim["claim_id"]]["articles"]]
             # Each annotated article was checked against every source claim.
             # Preserve those observations even when the early claim selector
             # chose the article for a different claim.
-            information_ids = list(articles)
+            information_ids = [key for key in articles if key in annotations]
             information = {f"I{i}": [] for i in range(1, 6)}
             for key in information_ids:
                 annotation = annotations[key]
@@ -838,9 +870,24 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
                                            "affiliation_counts": {name: sum(v["affiliation"] == name for v in voices)
                                                                   for name in dict.fromkeys(v["affiliation"] for v in voices if v["affiliation"])}})
             notify(f"5단계 표현 비교: {claim['claim_id']}")
-            expression_ids = list(dict.fromkeys(["S0"] + selected))
-            expression = compare_claim_expressions(claim, {key: articles[key] for key in expression_ids},
-                                                   annotations, client=client)
+            expression_ids = list(dict.fromkeys(["S0"] + [key for key in selected if key in annotations]))
+            try:
+                expression = compare_claim_expressions(claim, {key: articles[key] for key in expression_ids},
+                                                       annotations, client=client)
+            except Exception as exc:
+                # AI-assisted resilience: keep grounded I1-I5 and withhold all A-G for this claim.
+                diagnostic = make_error_record(exc, stage="rubric_analysis")
+                reason = ("validation_failed" if isinstance(exc, ModelResponseError) else
+                          "model_unavailable" if diagnostic["retryable"] else
+                          "processing_failed")
+                logger.warning("rubric_expression_failed claim_id=%s error_type=%s error_code=%s reason=%s",
+                               claim["claim_id"], type(exc).__name__, diagnostic["code"], reason)
+                expression_failures.append({"claim_id": claim["claim_id"], "phase": "claim_expression_A_G",
+                                            "reason": reason, "error_type": type(exc).__name__,
+                                            "retryable": diagnostic["retryable"]})
+                expression = {"status": "unverified", "findings": [], "excluded": [], "llm_calls": 0,
+                              "surface_differences": [], "invalid_findings": [],
+                              "diagnostics": {"reason": "claim_expression_unverified"}}
             calls += expression["llm_calls"]
             for marker in expression["excluded"]:
                 if marker["reason"] == "direct_quote_recorded_in_I5":
@@ -848,7 +895,9 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
                     voice_row["quote_markers"].append(marker)
             claim_results.append({"claim_id": claim["claim_id"], "claim": claim["claim"],
                                   "source_evidence": claim["evidence"], "speaker": claim["speaker"],
-                                  "selected_article_ids": selected, "information": information,
+                                  "selected_article_ids": [key for key in selected if key in annotations],
+                                  "unverified_article_ids": [key for key in selected if key not in annotations],
+                                  "information": information,
                                   "expression": expression,
                                   "information_by_article": {key: {
                                       code: next(r for r in entries if r["article_id"] == key)
@@ -866,15 +915,24 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
                                 "generated_neutral_paraphrase": False, "zero_means_absolute_neutral": False},
             "lead_definition": "LLM이 지정한 리드 근거의 문단 번호를 Python이 대조",
             "judgment_status": "provisional", "aggregate_article_score": False,
+            "annotation_status": "partial" if annotation_failures or expression_failures else "complete",
             "count_scope": "LLM이 식별한 구간의 Python 측정; 식별 완전성을 보장하지 않음",
         },
         "articles": {key: {field: article.get(field, "") for field in ("title", "url", "publisher", "published_at")}
                      for key, article in articles.items()},
         "article_annotations": annotations, "event_baseline_ids": baseline_ids,
+        "article_annotation_failures": annotation_failures,
+        "expression_failures": expression_failures,
         "claim_analyses": claim_results, "llm_calls": calls,
         "warnings": ["I1 not_found는 전체 수집 본문에서 대응 내용을 찾지 못했다는 뜻이며 누락 의도를 판정하지 않습니다.",
                      "표지성은 실제 비교 원문에 대한 잠정적 상대 판정입니다. F 일방 사용 여부와 기준 표현 결정 방식은 검토가 필요합니다.",
                      "surface_differences는 실제 문구 차이 후보이며 의미 일치·A~G 분류·매체 입장을 확정하지 않습니다."]
+                    + [f"[{row['article_id']}] 루브릭 정보 분석의 원문 근거를 검증하지 못했습니다. "
+                       "해당 기사의 I1~I5와 A~G는 미판정이며 앞 단계의 비교 근거만 별도로 표시합니다."
+                       for row in annotation_failures]
+                    + [f"[{row['claim_id']}] 표현 분석을 검증하지 못했습니다. "
+                       "이 주장의 A~G는 미판정이며 검증된 I1~I5는 유지합니다."
+                       for row in expression_failures]
                     + [f"[{key}] {d['claim_id']}: 본문 검증과 정보 분석이 불일치하여 판정을 보류하고 기존 원문을 유지했습니다."
                        for key, annotation in annotations.items() for d in annotation.get("coverage_diagnostics", [])]
                     + [f"{row['claim_id']}: 표현 근거 검증에 실패한 {len(row['expression']['invalid_findings'])}건을 제외했습니다."

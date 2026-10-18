@@ -17,13 +17,13 @@ from server.analysis.v2.article_search import (
     fetch_candidate_articles, normalize_news_url, search_candidate_metadata,
 )
 from server.analysis.v2.comparison_selection import select_verified_comparisons
-from server.analysis.v2.llm_analysis import verify_candidate_articles
-from server.analysis.v2.model_client import ModelResponseError
+from server.analysis.v2.llm_analysis import analyze_source_article, verify_candidate_articles
+from server.analysis.v2.model_client import ModelResponseError, ModelUnavailableError
 from server.analysis.v2.pipeline import (
     complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
     run_discovery_pipeline,
 )
-from server.analysis.v2.result_output import OperationError, make_error_record
+from server.analysis.v2.result_output import OperationError, format_analysis_result, make_error_record
 from server.analysis.v2.rubric_analysis import (
     _verified_comparison_context, analyze_selected_articles, compare_claim_expressions,
     retain_verified_comparison_context,
@@ -78,6 +78,21 @@ class StubClient:
     def generate_json(self, **_kwargs):
         self.calls += 1
         return deepcopy(self.response)
+
+
+class SequenceClient:
+    """Return fixed synthetic outputs while preserving requests for retry checks."""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.requests = []
+
+    def generate_json(self, **request):
+        self.requests.append(deepcopy(request))
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return deepcopy(response)
 
 
 class RubricQueueClient:
@@ -237,6 +252,60 @@ class DiscoveryStatusTests(SimpleTestCase):
 
 
 class GroundingTests(SimpleTestCase):
+    @staticmethod
+    def _valid_source_response():
+        return {
+            "core_event": "시청의 계획 발표",
+            "event_evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"},
+            "event_query": "시청 계획 발표",
+            "claims": [{"claim": "시청이 계획을 발표했다", "claim_kind": "reported_fact",
+                        "speaker": "", "evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"},
+                        "selection_basis": ["event_relevance"], "search_query": "시청 새 계획"}],
+        }
+
+    def test_source_schema_failure_retries_once_with_unchanged_article(self):
+        client = SequenceClient([{"core_event": "필수 필드 누락"}, self._valid_source_response()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "repair_source_event_claims_queries"])
+        self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
+
+    def test_source_invalid_json_output_retries_once_without_reusing_bad_output(self):
+        client = SequenceClient([ModelResponseError("SECRET_SENTINEL raw output"),
+                                 self._valid_source_response()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual(len(client.requests), 2)
+        self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
+        self.assertNotIn("previous_response", client.requests[1]["input_data"])
+
+    def test_source_grounding_failure_retries_once_with_unchanged_article(self):
+        invalid = self._valid_source_response()
+        invalid["claims"][0]["evidence"]["quote"] = "원문에 없는 주장"
+        client = SequenceClient([invalid, self._valid_source_response()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "repair_source_event_claims_queries"])
+        self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
+
+    def test_source_schema_then_grounding_failure_never_makes_third_call(self):
+        invalid = self._valid_source_response()
+        invalid["claims"][0]["evidence"]["quote"] = "원문에 없는 주장"
+        client = SequenceClient([{"core_event": "필수 필드 누락"}, invalid])
+
+        with self.assertRaises(ModelResponseError):
+            analyze_source_article(article(), client=client)
+
+        self.assertEqual(len(client.requests), 2)
+
     def _response(self, *, event_quote, claim_quote):
         return {"assessments": {"A1": {
             "event_relation": "same_event",
@@ -284,7 +353,7 @@ class GroundingTests(SimpleTestCase):
         client = StubClient({"assessments": {}})
         with self.assertRaises(ModelResponseError):
             verify_candidate_articles(article(), source_analysis(), [article("A1")], client=client)
-        self.assertEqual(client.calls, 1)
+        self.assertEqual(client.calls, 2)  # One fixed-input schema repair, then reject.
 
 
 class CandidateSearchTests(SimpleTestCase):
@@ -556,11 +625,30 @@ class FullRubricPathTests(SimpleTestCase):
         discovery = {"source_article": source, "source_analysis": source_analysis(),
                      "search": {"candidates": [candidate]},
                      "selection": {"claim_comparisons": [{"claim_id": "C1", "articles": [
-                         {"candidate_id": "A1", "relation": "same", "evidence": match["evidence"]}]}],
+                         {"candidate_id": "A1", "title": candidate["title"],
+                          "url": candidate["url"], "relation": "same",
+                          "evidence": match["evidence"]}]}],
                          "same_event_ids": ["A1"], "event_baseline_ids": ["A1"],
                          "assessments": [{"candidate_id": "A1", "claim_matches": [match]}]}}
         client = RubricQueueClient({"S0": self._information(source=True),
                                    "A1": self._information(source=False)}, {"findings": []})
+        return discovery, client
+
+    def _two_claim_case(self):
+        discovery, client = self._case()
+        second_claim = deepcopy(discovery["source_analysis"]["claims"][0])
+        second_claim["claim_id"] = "C2"
+        discovery["source_analysis"]["claims"].append(second_claim)
+        second_comparison = deepcopy(discovery["selection"]["claim_comparisons"][0])
+        second_comparison["claim_id"] = "C2"
+        discovery["selection"]["claim_comparisons"].append(second_comparison)
+        second_match = deepcopy(discovery["selection"]["assessments"][0]["claim_matches"][0])
+        second_match["claim_id"] = "C2"
+        discovery["selection"]["assessments"][0]["claim_matches"].append(second_match)
+        for information in client.information.values():
+            second_coverage = deepcopy(information["claim_coverage"][0])
+            second_coverage["claim_id"] = "C2"
+            information["claim_coverage"].append(second_coverage)
         return discovery, client
 
     def test_full_stage_five_assembles_i1_through_i5_and_a_through_g(self):
@@ -593,7 +681,98 @@ class FullRubricPathTests(SimpleTestCase):
         self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
         self.assertEqual(len(rubric["claim_analyses"][0]["information_by_article"]["A1"]["I4"]["items"]), 1)
 
-    def test_unrepaired_quote_failure_keeps_verified_discovery_available(self):
+    def test_information_schema_failure_uses_one_fixed_input_repair(self):
+        discovery, client = self._case()
+        client.repair_information["A1"] = deepcopy(client.information["A1"])
+        client.information["A1"] = {"lead_evidence": None}
+
+        rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual(rubric["rubric"]["annotation_status"], "complete")
+        self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
+        self.assertEqual(rubric["llm_calls"], 4)
+        first, repair = client.requests[1:3]
+        self.assertEqual(first["name"], "article_information_I1_I5")
+        self.assertEqual(repair["name"], "repair_article_information_I1_I5")
+        self.assertEqual(repair["input_data"], first["input_data"])
+        self.assertNotIn("previous_response", repair["input_data"])
+
+    def test_schema_repair_then_invalid_evidence_does_not_trigger_third_call(self):
+        discovery, client = self._case()
+        client.repair_information["A1"] = deepcopy(client.information["A1"])
+        client.repair_information["A1"]["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
+        client.information["A1"] = {"lead_evidence": None}
+
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+            rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual([name for name, article_id in client.calls if article_id == "A1"],
+                         ["article_information_I1_I5", "repair_article_information_I1_I5"])
+        self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
+        self.assertNotIn("A1", rubric["article_annotations"])
+
+    def test_source_schema_failure_remains_explicit_and_fatal_to_rubric(self):
+        discovery, client = self._case()
+        client.information["S0"] = {"lead_evidence": None}
+        client.repair_information["S0"] = {"lead_evidence": None}
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+            result = complete_rubric_analysis(discovery, client=client)
+
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertIsNone(result["rubric_analysis"])
+        self.assertEqual(result["errors"][0]["code"], "ANALYSIS_RESPONSE_INVALID")
+        self.assertEqual(client.calls, [("article_information_I1_I5", "S0"),
+                                        ("repair_article_information_I1_I5", "S0")])
+        self.assertIn("rubric_source_annotation_failed article_id=S0", captured.output[0])
+
+    def test_related_model_outage_isolated_from_source_information(self):
+        discovery, client = self._case()
+        original = client.generate_json
+
+        def fail_related(**request):
+            if (request["name"] == "article_information_I1_I5"
+                    and request["input_data"]["article_id"] == "A1"):
+                raise ModelUnavailableError("SECRET_SENTINEL provider response")
+            return original(**request)
+
+        client.generate_json = fail_related
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+            rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual(set(rubric["article_annotations"]), {"S0"})
+        self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
+        self.assertEqual(rubric["article_annotation_failures"][0]["reason"], "model_unavailable")
+        self.assertTrue(rubric["article_annotation_failures"][0]["retryable"])
+        self.assertEqual([row["article_id"] for row in rubric["claim_analyses"][0]["information"]["I1"]],
+                         ["S0"])
+        self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output + rubric["warnings"]))
+
+    def test_expression_schema_failure_isolated_per_claim_after_one_repair(self):
+        discovery, client = self._two_claim_case()
+        original = client.generate_json
+        expression_requests = []
+
+        def fail_first_expression(**request):
+            if request["name"].endswith("claim_expression_A_G"):
+                expression_requests.append(deepcopy(request))
+                return {"findings": "invalid"} if request["input_data"]["claim"]["claim_id"] == "C1" else {"findings": []}
+            return original(**request)
+
+        client.generate_json = fail_first_expression
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+            rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual([request["name"] for request in expression_requests],
+                         ["claim_expression_A_G", "repair_claim_expression_A_G", "claim_expression_A_G"])
+        self.assertEqual(expression_requests[0]["input_data"], expression_requests[1]["input_data"])
+        self.assertEqual(rubric["expression_failures"][0]["claim_id"], "C1")
+        self.assertEqual(rubric["claim_analyses"][0]["expression"]["status"], "unverified")
+        self.assertEqual(rubric["claim_analyses"][1]["expression"]["status"], "analyzed")
+
+    def test_unrepaired_related_quote_keeps_only_grounded_rubric_rows(self):
         discovery, client = self._case()
         bad = deepcopy(client.information["A1"])
         bad["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
@@ -601,12 +780,137 @@ class FullRubricPathTests(SimpleTestCase):
         client.repair_information["A1"] = deepcopy(bad)
         discovery.update(completed_stage=4, status="ready", comparison_status="available",
                          execution_status="success", errors=[], warnings=[])
-        result = complete_rubric_analysis(discovery, client=client)
-        self.assertEqual(result["completed_stage"], 4)
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+            result = complete_rubric_analysis(discovery, client=client)
+        self.assertEqual(result["completed_stage"], 5)
         self.assertEqual(result["comparison_status"], "available")
         self.assertEqual(result["execution_status"], "partial")
         self.assertEqual(result["errors"][0]["stage"], "rubric_analysis")
+        self.assertEqual(result["errors"][0]["code"], "RUBRIC_ARTICLE_UNVERIFIED")
+        self.assertEqual(result["errors"][0]["candidate_id"], "A1")
+        self.assertEqual(result["rubric_analysis"]["rubric"]["annotation_status"], "partial")
+        self.assertEqual([row["article_id"] for row in result["rubric_analysis"]["claim_analyses"][0]["information"]["I1"]],
+                         ["S0"])
+        self.assertEqual(result["rubric_analysis"]["claim_analyses"][0]["unverified_article_ids"], ["A1"])
         self.assertEqual(result["selection"], discovery["selection"])
+        self.assertIn("I1~I5와 A~G는 미판정", format_analysis_result(result))
+        self.assertIn("article_id=A1", captured.output[0])
+        self.assertIn("reason=validation_failed", captured.output[0])
+        self.assertNotIn("원문에 없는 전망", captured.output[0])
+
+    def test_invalid_related_article_preserves_other_verified_article(self):
+        discovery, client = self._case()
+        second = deepcopy(discovery["search"]["candidates"][0])
+        second.update(candidate_id="A2", url="https://news.example.com/a2")
+        discovery["search"]["candidates"].append(second)
+        discovery["selection"]["same_event_ids"].append("A2")
+        discovery["selection"]["event_baseline_ids"].append("A2")
+        discovery["selection"]["claim_comparisons"][0]["articles"].append(
+            {"candidate_id": "A2", "title": second["title"], "url": second["url"],
+             "relation": "same",
+             "evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"}})
+        second_assessment = deepcopy(discovery["selection"]["assessments"][0])
+        second_assessment["candidate_id"] = "A2"
+        discovery["selection"]["assessments"].append(second_assessment)
+        client.information["A2"] = self._information(source=False)
+        bad = deepcopy(client.information["A1"])
+        bad["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
+        client.information["A1"] = bad
+        client.repair_information["A1"] = deepcopy(bad)
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+            result = complete_rubric_analysis(discovery, client=client)
+        rubric = result["rubric_analysis"]
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(set(rubric["article_annotations"]), {"S0", "A2"})
+        self.assertEqual([row["article_id"] for row in rubric["claim_analyses"][0]["information"]["I1"]],
+                         ["S0", "A2"])
+        self.assertEqual(rubric["claim_analyses"][0]["selected_article_ids"], ["A2"])
+        self.assertEqual(rubric["claim_analyses"][0]["unverified_article_ids"], ["A1"])
+        self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
+
+    def test_expression_failure_preserves_information_and_next_claim(self):
+        discovery, client = self._two_claim_case()
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        original = compare_claim_expressions
+
+        def fail_first_claim(claim, articles, annotations, *, client):
+            if claim["claim_id"] == "C1":
+                raise ModelResponseError("SECRET_SENTINEL model output")
+            return original(claim, articles, annotations, client=client)
+
+        with (patch("server.analysis.v2.rubric_analysis.compare_claim_expressions",
+                    side_effect=fail_first_claim),
+              self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured):
+            result = complete_rubric_analysis(discovery, client=client)
+        rubric = result["rubric_analysis"]
+        first, second = rubric["claim_analyses"]
+        self.assertEqual(result["completed_stage"], 5)
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(result["comparison_status"], "available")
+        self.assertEqual(rubric["rubric"]["annotation_status"], "partial")
+        self.assertEqual(result["errors"][0]["code"], "RUBRIC_EXPRESSION_UNVERIFIED")
+        self.assertEqual(result["errors"][0]["claim_id"], "C1")
+        self.assertEqual([row["article_id"] for row in first["information"]["I1"]], ["S0", "A1"])
+        self.assertEqual(first["expression"]["status"], "unverified")
+        self.assertEqual(first["expression"]["findings"], [])
+        self.assertEqual(first["expression_by_article"]["A1"]["A"]["status"], "unverified")
+        self.assertEqual(second["expression"]["status"], "analyzed")
+        self.assertEqual(rubric["expression_failures"][0]["claim_id"], "C1")
+        self.assertIn("A~G 근거를 검증하지 못해 미판정", format_analysis_result(result))
+        self.assertIn("claim_id=C1", captured.output[0])
+        self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output + result["warnings"]))
+
+    def test_expression_transient_errors_remain_retryable_without_logging_exception_text(self):
+        class RateLimitCause(Exception):
+            code = 429
+
+        for failure_kind, error_code in (("unavailable", "MODEL_UNAVAILABLE"),
+                                         ("rate_limit", "MODEL_RATE_LIMITED")):
+            with self.subTest(failure_kind=failure_kind):
+                discovery, client = self._two_claim_case()
+                discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                                 execution_status="success", errors=[], warnings=[])
+                original = compare_claim_expressions
+
+                def fail_first_claim(claim, articles, annotations, *, client):
+                    if claim["claim_id"] == "C1":
+                        if failure_kind == "rate_limit":
+                            raise RuntimeError("SECRET_SENTINEL model response") from RateLimitCause(
+                                "SECRET_SENTINEL provider response")
+                        raise ModelUnavailableError("SECRET_SENTINEL model response")
+                    return original(claim, articles, annotations, client=client)
+
+                with (patch("server.analysis.v2.rubric_analysis.compare_claim_expressions",
+                            side_effect=fail_first_claim),
+                      self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured):
+                    result = complete_rubric_analysis(discovery, client=client)
+                self.assertEqual(result["execution_status"], "partial")
+                self.assertEqual(result["errors"][0]["code"], "RUBRIC_EXPRESSION_UNVERIFIED")
+                self.assertTrue(result["errors"][0]["retryable"])
+                self.assertEqual(result["rubric_analysis"]["expression_failures"][0]["reason"],
+                                 "model_unavailable")
+                self.assertEqual(result["rubric_analysis"]["claim_analyses"][1]["expression"]["status"],
+                                 "analyzed")
+                self.assertIn(f"error_code={error_code}", captured.output[0])
+                self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output + result["warnings"] +
+                                                          [str(result["errors"])]))
+
+    def test_pipeline_failure_log_omits_exception_message(self):
+        discovery, client = self._case()
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        with (patch("server.analysis.v2.pipeline.analyze_selected_articles",
+                    side_effect=ModelResponseError("SECRET_SENTINEL article/model content")),
+              self.assertLogs("server.analysis.v2.pipeline", level="WARNING") as captured):
+            result = complete_rubric_analysis(discovery, client=client)
+        self.assertEqual(result["errors"][0]["code"], "ANALYSIS_RESPONSE_INVALID")
+        self.assertIn("stage=rubric_analysis", captured.output[0])
+        self.assertIn("error_type=ModelResponseError", captured.output[0])
+        self.assertIn("error_code=ANALYSIS_RESPONSE_INVALID", captured.output[0])
+        self.assertNotIn("SECRET_SENTINEL", captured.output[0])
 
     def test_source_annotation_cannot_drop_existing_grounded_claim(self):
         discovery, client = self._case()
@@ -616,6 +920,19 @@ class FullRubricPathTests(SimpleTestCase):
         with self.assertRaisesRegex(ModelResponseError, "입력 기사 정보 분석"):
             analyze_selected_articles(discovery, client=client)
         self.assertNotIn(("claim_expression_A_G", None), client.calls)
+
+    def test_invalid_source_annotation_remains_fatal_to_rubric(self):
+        discovery, client = self._case()
+        source = client.information["S0"]["claim_coverage"][0]
+        source.update(relation="not_found", mentions=[], headline_evidence=None,
+                      relation_evidence=[])
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        result = complete_rubric_analysis(discovery, client=client)
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertIsNone(result["rubric_analysis"])
+        self.assertEqual(result["errors"][0]["code"], "ANALYSIS_RESPONSE_INVALID")
 
     def test_full_pipeline_snapshot_reuse_replay_and_corruption_recovery(self):
         discovery, client = self._case()

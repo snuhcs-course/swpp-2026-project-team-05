@@ -83,24 +83,61 @@ def _article_for_model(article: dict) -> dict:
     }
 
 
-def _generate_json(client: Any, **kwargs: Any) -> dict:
-    """Validate shape for both the real SDK client and injected test clients."""
+class _RepairBudget:
+    """Permit at most one additional model call for one analysis task."""
+
+    def __init__(self) -> None:
+        self.used = 0
+
+    def consume(self) -> bool:
+        if self.used:
+            return False
+        self.used = 1
+        return True
+
+
+def _schema_error(exc: Any) -> ModelResponseError:
+    path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
+    missing = ([key for key in exc.validator_value if key not in exc.instance]
+               if exc.validator == "required" and isinstance(exc.instance, dict) else [])
+    detail = f" ({path}: {exc.validator}"
+    if missing:
+        detail += "; 누락=" + ",".join(missing)
+    return ModelResponseError("LLM 응답 형식이 올바르지 않습니다." + detail + ")")
+
+
+def _fixed_input_repair_request(request: dict, *, extra_instructions: str = "") -> dict:
+    """Keep the original task data and schema; never feed the invalid output back."""
+    return {**request, "name": "repair_" + request["name"],
+            "instructions": request["instructions"] + (
+                " 이전 출력의 JSON 형식 또는 원문 근거 검증에 실패했습니다. 같은 입력 원문만 다시 읽고, "
+                "필수 키·타입·열거값·개수·길이 제한을 지킨 완전한 JSON 객체를 반환하세요. "
+                "근거 인용을 추측하거나 만들지 마세요.") + extra_instructions}
+
+
+def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None, **kwargs: Any) -> dict:
+    """Validate shape and retry one malformed model output against the unchanged input."""
     from jsonschema import ValidationError, validate
     owned = client is None
     client = client if client is not None else GeminiJSONClient()
+    budget = repair_budget if repair_budget is not None else _RepairBudget()
     try:
-        result = client.generate_json(**kwargs)
-        try:
-            validate(result, kwargs["schema"])
-        except ValidationError as exc:
-            path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
-            missing = ([key for key in exc.validator_value if key not in exc.instance]
-                       if exc.validator == "required" and isinstance(exc.instance, dict) else [])
-            detail = f" ({path}: {exc.validator}"
-            if missing:
-                detail += "; 누락=" + ",".join(missing)
-            raise ModelResponseError("LLM 응답 형식이 올바르지 않습니다." + detail + ")") from exc
-        return result
+        request = dict(kwargs)
+        while True:
+            try:
+                result = client.generate_json(**request)
+            except ModelResponseError:
+                if not budget.consume():
+                    raise
+                request = _fixed_input_repair_request(kwargs)
+                continue
+            try:
+                validate(result, kwargs["schema"])
+                return result
+            except ValidationError as exc:
+                if not budget.consume():
+                    raise _schema_error(exc) from exc
+                request = _fixed_input_repair_request(kwargs)
     finally:
         if owned:
             client.close()
@@ -311,7 +348,7 @@ def _relation_summary(rows: list[dict], relation: str) -> dict:
 
 
 def analyze_source_article(article: dict, *, max_claims: int = 5, client: Any = None) -> dict:
-    """One LLM call: core event, at most five grounded claims, and search queries."""
+    """Extract grounded claims, with at most one fixed-input repair call."""
     if type(max_claims) is not int or not 1 <= max_claims <= 5:
         raise ValueError("max_claims는 1~5의 정수여야 합니다.")
     schema = _object_schema({
@@ -329,8 +366,8 @@ def analyze_source_article(article: dict, *, max_claims: int = 5, client: Any = 
             "search_query": {"type": "string", "minLength": 2, "maxLength": 80},
         })},
     })
-    response = _generate_json(
-        client, name="source_event_claims_queries",
+    request = dict(
+        name="source_event_claims_queries",
         instructions=(
             "입력 기사 전체를 읽고 제목·리드를 중심으로 핵심 사건 하나를 한국어 한 문장으로 쓰세요. "
             "그 사건에 직접 관계있는 원자적 주장만 최대 max_claims개 고르세요. "
@@ -351,6 +388,22 @@ def analyze_source_article(article: dict, *, max_claims: int = 5, client: Any = 
         input_data={"article": _article_for_model(article), "max_claims": max_claims},
         schema=schema, max_output_tokens=4096,
     )
+    repair_budget = _RepairBudget()
+    response = _generate_json(client, repair_budget=repair_budget, **request)
+    try:
+        return _validate_source_response(article, response)
+    except ModelResponseError:
+        if not repair_budget.consume():
+            raise
+        repaired = _generate_json(client, repair_budget=repair_budget, **_fixed_input_repair_request(
+            request, extra_instructions=(
+                " 사건 및 각 주장 근거는 지정된 문장 안의 유일한 연속 원문을 그대로 복사하세요. "
+                "중복 주장과 발언자 종류 불일치를 다시 확인하세요.")))
+        return _validate_source_response(article, repaired)
+
+
+def _validate_source_response(article: dict, response: dict) -> dict:
+    """Reject invented, duplicated, or ambiguous source evidence."""
     claims, seen = [], set()
     for row in response["claims"]:
         claim = " ".join(row["claim"].split())

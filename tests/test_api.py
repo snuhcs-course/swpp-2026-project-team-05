@@ -1,13 +1,15 @@
 """API contract tests that do not call Gemini or Naver."""
 
 import json
+import logging
 import os
 from unittest.mock import patch
 
-from django.test import Client, SimpleTestCase
+from django.test import Client, SimpleTestCase, override_settings
 
 from server.analysis.article_fetch import _PublicRedirectHandler, validate_article_url
 from server.analysis.model_client import ModelUnavailableError
+from server.analysis.diagnostics import analysis_stage
 
 
 ARTICLE_URL = "https://n.news.naver.com/article/057/0001971678"
@@ -21,6 +23,7 @@ class AnalyzeApiTests(SimpleTestCase):
             "NAVER_CLIENT_ID": "test-id",
             "NAVER_CLIENT_SECRET": "test-secret",
             "FRAMELESS_PIPELINE": "v1",
+            "FRAMELESS_ALLOW_LEGACY_V1": "1",
         })
         credentials.start()
         self.addCleanup(credentials.stop)
@@ -88,10 +91,13 @@ class AnalyzeApiTests(SimpleTestCase):
 
     @patch("server.views.analyze_related_articles", side_effect=RuntimeError("private upstream detail"))
     def test_upstream_error_does_not_leak_details(self, analyze):
-        with self.assertLogs("server.views", level="ERROR"):
+        with self.assertLogs("server.views", level="ERROR") as captured:
             response = self.post({"url": ARTICLE_URL})
         self.assertEqual(response.status_code, 502)
         self.assertNotIn("private upstream detail", response.content.decode())
+        self.assertTrue(any("pipeline_unhandled" in row for row in captured.output))
+        self.assertTrue(all("private upstream detail" not in row for row in captured.output))
+        self.assertTrue(all(record.exc_info is None for record in captured.records))
 
     @patch("server.views.analyze_related_articles", side_effect=ModelUnavailableError("unavailable"))
     def test_model_service_unavailable_is_retryable(self, analyze):
@@ -110,6 +116,22 @@ class AnalyzeApiTests(SimpleTestCase):
 
     def test_wrong_method_is_rejected(self):
         self.assertEqual(self.client.get("/api/analyze").status_code, 405)
+
+    @override_settings(IS_PRODUCTION=True)
+    @patch("server.views.analyze_related_articles")
+    def test_legacy_pipeline_cannot_run_on_public_server(self, analyze):
+        response = self.post({"url": ARTICLE_URL})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "invalid_pipeline_config")
+        analyze.assert_not_called()
+
+    @patch.dict(os.environ, {"FRAMELESS_ALLOW_LEGACY_V1": ""})
+    @patch("server.views.analyze_related_articles")
+    def test_legacy_pipeline_requires_explicit_local_opt_in(self, analyze):
+        response = self.post({"url": ARTICLE_URL})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "invalid_pipeline_config")
+        analyze.assert_not_called()
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": "", "NAVER_CLIENT_ID": ""})
     def test_missing_credentials_are_reported_without_calling_pipeline(self):
@@ -144,3 +166,14 @@ class ArticleUrlTests(SimpleTestCase):
             _PublicRedirectHandler().redirect_request(
                 None, None, 302, "Found", {}, "http://127.0.0.1/private"
             )
+
+
+class DiagnosticsTests(SimpleTestCase):
+    def test_stage_failure_log_never_records_exception_text_or_traceback(self):
+        with self.assertLogs("tests.safe_diagnostics", level="ERROR") as captured:
+            with self.assertRaisesRegex(RuntimeError, "private article body"):
+                with analysis_stage(logging.getLogger("tests.safe_diagnostics"), "synthetic_stage"):
+                    raise RuntimeError("private article body")
+        self.assertIn('"stage":"synthetic_stage"', captured.output[0])
+        self.assertNotIn("private article body", captured.output[0])
+        self.assertIsNone(captured.records[0].exc_info)

@@ -30,7 +30,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.swpp.team5.frameless.BuildConfig
 import com.swpp.team5.frameless.data.ArticleRef
 import com.swpp.team5.frameless.data.Relation
 import com.swpp.team5.frameless.ui.state.AnswerView
@@ -49,7 +48,7 @@ import com.swpp.team5.frameless.ui.theme.TagPill
 /**
  * 출처 근거 카드: 번호 · 기사 제목 · 원문 링크 · 인용문.
  * 같은 내용은 청록, 다른 해석/표현은 라일락 배경으로 인용문을 칠한다.
- * 다른 해석/표현일 때는 서버가 보낸 관계 값을 작게 남겨 추적할 수 있게 한다.
+ * 관계는 사용자가 읽을 수 있는 이름으로 표시한다.
  */
 @Composable
 internal fun SourceEvidenceCard(number: Int, clip: Clip) {
@@ -84,11 +83,7 @@ internal fun SourceEvidenceCard(number: Int, clip: Clip) {
             else Caption("링크 없음")
         }
         when (kind) {
-            MatchKind.DIFF -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                TagPill(Relation.from(clip.relationRaw).label, Fl.TintDiff, Fl.InkDiff)
-                // 서버 원래 값(opposes 등)은 개발 빌드에서만 작게 남긴다
-                if (BuildConfig.DEBUG) Text(clip.relationRaw, fontSize = 10.sp, color = Fl.Line)
-            }
+            MatchKind.DIFF -> TagPill(Relation.from(clip.relationRaw).label, Fl.TintDiff, Fl.InkDiff)
             MatchKind.OTHER -> if (clip.relationRaw.isNotBlank()) {
                 val relation = Relation.from(clip.relationRaw)
                 Caption("관계: ${if (relation == Relation.OTHER) "분류 확인 필요" else relation.label}")

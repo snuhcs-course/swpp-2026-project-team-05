@@ -220,6 +220,7 @@
         "status": "needs_review",
         "note": "잠정 분석이며 추가 검토가 필요해요."
       }
-    ]
+    ],
+    "expression_unverified_claim_ids": []
   }
 }

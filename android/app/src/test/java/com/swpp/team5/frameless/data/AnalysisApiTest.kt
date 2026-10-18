@@ -3,6 +3,11 @@ package com.swpp.team5.frameless.data
 import com.swpp.team5.frameless.ui.state.ComparisonModel
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import javax.net.ssl.SSLException
+import javax.net.ssl.SSLHandshakeException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -12,6 +17,39 @@ import org.junit.Test
 
 // AI-assisted contract tests: fixture fields mirror the Android UI's current backend response contract.
 class AnalysisApiTest {
+    @Test
+    fun networkErrorMessage_hidesCertificateDetailsAndHandlesOtherIoFailures() {
+        val certificateFailure = SSLHandshakeException(
+            "java.security.cert.CertPathValidatorException: Trust anchor for certification path not found."
+        )
+
+        assertEquals(
+            "보안 연결을 확인하지 못했어요. 네트워크 설정을 확인하거나 관리자에게 문의해 주세요.",
+            AnalysisApi.networkErrorMessage(certificateFailure)
+        )
+        assertEquals(
+            AnalysisApi.networkErrorMessage(certificateFailure),
+            AnalysisApi.networkErrorMessage(SSLException("TLS protocol failure"))
+        )
+        assertFalse(AnalysisApi.networkErrorMessage(certificateFailure).contains("CertPathValidatorException"))
+        assertEquals(
+            "네트워크 오류가 발생했어요. 연결 상태를 확인하고 다시 시도해 주세요.",
+            AnalysisApi.networkErrorMessage(IOException("raw network details"))
+        )
+    }
+
+    @Test
+    fun networkErrorMessage_preservesSpecificConnectionAndTimeoutGuidance() {
+        assertEquals(
+            "서버에 연결할 수 없어요. 서버 주소와 상태를 확인해줘.",
+            AnalysisApi.networkErrorMessage(ConnectException("connection refused"))
+        )
+        assertEquals(
+            "분석 시간이 초과됐어요. 잠시 후 다시 시도해줘.",
+            AnalysisApi.networkErrorMessage(SocketTimeoutException("read timed out"))
+        )
+    }
+
     @Test
     fun parseAnalysis_preservesEvidenceRelationsAndArticleLinks() {
         val result = AnalysisApi.parseAnalysis(responseWithMatches(), "https://requested.example/article")
@@ -154,6 +192,61 @@ class AnalysisApiTest {
         assertEquals(listOf("늘린다"), result.rubric!!.expressions.map { it.span })
         assertEquals(listOf("I1"), result.rubric!!.informations.map { it.code })
         assertFalse(ComparisonModel(result).questionMode)
+    }
+
+    @Test
+    fun parseAnalysis_partialRubricKeepsUnjudgedI1WithoutInferringAbsenceOrScore() {
+        val root = responseWithMatches()
+        val related = root.getJSONArray("related_articles")
+        for (i in 0 until related.length()) related.getJSONObject(i).put("article_index", i + 1)
+        root.getJSONObject("comparison").getJSONArray("issues").getJSONObject(0).put("claim_id", "C1")
+        val unjudged = JSONObject()
+            .put("code", "I1")
+            .put("claim_id", "C1")
+            .put("article_index", 2)
+            .put("sentence", JSONObject.NULL)
+            .put("value", "이 기사의 루브릭 근거를 검증하지 못했어요. 주장 포함·누락과 표현 차이는 미판정입니다.")
+        root.put("rubric", JSONObject()
+            .put("version", "0.2.1")
+            .put("judgment_status", "provisional")
+            .put("questions", JSONArray())
+            .put("information_differences", JSONArray().put(unjudged))
+            .put("expression_differences", JSONArray()))
+        root.put("analysis_status", JSONObject()
+            .put("execution_status", "partial")
+            .put("comparison_status", "available"))
+
+        val result = AnalysisApi.parseAnalysis(root, "https://requested.example/article")
+        val model = ComparisonModel(result)
+        val information = result.rubric!!.informations.single()
+
+        assertEquals("partial", result.analysisStatus?.executionStatus)
+        assertEquals("available", result.analysisStatus?.comparisonStatus)
+        assertEquals(0, result.rubric!!.droppedCount)
+        assertEquals("I1", information.code)
+        assertEquals("C1", information.claimId)
+        assertEquals(2, information.articleIndex)
+        assertNull(information.sentence)
+        assertTrue(information.value.contains("미판정"))
+        assertFalse(information.value.contains("찾지 못했어요"))
+        assertEquals(information, model.issues[0].rubric.informations.single().i)
+        assertTrue(model.issues.all { it.notFound.isEmpty() })
+        assertFalse(model.noMatches)
+        assertTrue(result.rubric!!.expressions.isEmpty())
+        assertTrue(model.issues[0].rubric.expressions.isEmpty())
+    }
+
+    @Test
+    fun parseAnalysis_expressionFailuresKeepOnlyValidClaimIds() {
+        val root = responseWithMatches().put("rubric", JSONObject()
+            .put("version", "0.2.1")
+            .put("expression_unverified_claim_ids", JSONArray()
+                .put("C1").put("C1").put(7).put("")))
+
+        val rubric = AnalysisApi.parseAnalysis(root, "https://requested.example/article").rubric!!
+
+        assertEquals(setOf("C1"), rubric.expressionUnverifiedClaimIds)
+        assertEquals(2, rubric.droppedCount)
     }
 
     companion object {

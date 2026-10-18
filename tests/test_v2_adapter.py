@@ -161,6 +161,7 @@ class AdapterTests(SimpleTestCase):
         rubric = adapt_v2_result(pipeline_result(), max_related=2, requested_url=SOURCE_URL)["rubric"]
         self.assertEqual(rubric["questions"], [])  # P3 has not been adopted.
         self.assertEqual(rubric["judgment_status"], "provisional")
+        self.assertEqual(rubric["expression_unverified_claim_ids"], [])
         expressions = rubric["expression_differences"]
         self.assertEqual(expressions[0]["categories"][0]["markedness"], 2)
         self.assertIsNone(expressions[1]["categories"][0]["markedness"])
@@ -170,6 +171,61 @@ class AdapterTests(SimpleTestCase):
         information = rubric["information_differences"]
         self.assertTrue(any(row["code"] == "I2" and row["sentence"] == "A 기사 관객 수가 늘었다" for row in information))
         self.assertTrue(any(row["code"] == "I5" and row["sentence"] == "관계자는 새 기록이라고 말했다" for row in information))
+
+    def test_partial_rubric_marks_failed_article_unverified_without_scores(self):
+        raw = deepcopy(pipeline_result())
+        raw["rubric_analysis"]["article_annotation_failures"] = [
+            {"article_id": "B", "phase": "article_information_I1_I5",
+             "reason": "validation_failed", "error_type": "ModelResponseError"}]
+        # Even inconsistent stale rows must not become verified UI cards.
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        rubric = result["rubric"]
+        failed = [row for row in rubric["information_differences"] if row["article_index"] == 2]
+        self.assertEqual(len(failed), 1)
+        self.assertEqual(failed[0]["code"], "I1")
+        self.assertIsNone(failed[0]["sentence"])
+        self.assertIn("미판정", failed[0]["value"])
+        self.assertNotIn("누락 의도", failed[0]["value"])
+        self.assertFalse(any(row["article_index"] == 2 for row in rubric["expression_differences"]))
+        self.assertTrue(any(row["article_index"] == 1 and row["code"] == "I1"
+                            for row in rubric["information_differences"]))
+
+    def test_failed_claim_expression_withholds_stale_scores_but_keeps_information(self):
+        raw = deepcopy(pipeline_result())
+        later_claim = deepcopy(raw["rubric_analysis"]["claim_analyses"][0])
+        later_claim["claim_id"] = "C2"
+        raw["rubric_analysis"]["claim_analyses"].append(later_claim)
+        raw["rubric_analysis"]["expression_failures"] = [
+            {"claim_id": "C1", "phase": "claim_expression_A_G",
+             "reason": "validation_failed", "error_type": "ModelResponseError"}]
+        raw["warnings"] = ["[C1] A~G는 미판정이며 검증된 I1~I5는 유지합니다."]
+        raw["errors"] = [{"stage": "rubric_analysis", "code": "RUBRIC_EXPRESSION_UNVERIFIED",
+                          "message": "주장별 A~G 표현 근거를 검증하지 못했습니다.", "retryable": False}]
+        # The synthetic raw result deliberately retains stale C1 scores as a defensive contract test.
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        self.assertEqual(result["analysis_status"]["errors"][0]["code"], "RUBRIC_EXPRESSION_UNVERIFIED")
+        self.assertIn("미판정", result["analysis_status"]["warnings"][0])
+        rubric = result["rubric"]
+        self.assertEqual(rubric["expression_unverified_claim_ids"], ["C1"])
+        self.assertTrue(any(row["claim_id"] == "C1" and row["code"] == "I1"
+                            for row in rubric["information_differences"]))
+        self.assertFalse(any(row["claim_id"] == "C1" for row in rubric["expression_differences"]))
+        self.assertTrue(any(row["claim_id"] == "C2" for row in rubric["expression_differences"]))
+
+    def test_unverified_expression_status_without_failure_row_is_partial(self):
+        raw = deepcopy(pipeline_result())
+        claim = raw["rubric_analysis"]["claim_analyses"][0]
+        claim["expression"]["status"] = "unverified"
+
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        self.assertEqual(result["rubric"]["expression_unverified_claim_ids"], ["C1"])
+        self.assertFalse(result["rubric"]["expression_differences"])
+        self.assertTrue(any(row["claim_id"] == "C1" and row["code"] == "I1"
+                            for row in result["rubric"]["information_differences"]))
 
     def test_later_coverage_disagreement_withholds_relation_and_i2(self):
         raw = pipeline_result()
@@ -287,6 +343,40 @@ class IntegratedApiTests(SimpleTestCase):
         result = analyze_related_articles_v2(SOURCE_URL, max_related=2)
         self.assertEqual(len(result["related_articles"]), 2)
         self.assertEqual(pipeline.call_args.kwargs["max_rubric_articles"], 2)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_terminal_failure_is_not_masked_by_earlier_partial_error(self, pipeline):
+        from server.views import PipelineResultError, analyze_related_articles_v2
+        raw = pipeline_result()
+        raw["execution_status"] = "failed"
+        raw["source_analysis"] = None
+        raw["errors"] = [
+            {"stage": "search", "code": "SEARCH_TIMEOUT", "message": "검색 지연", "retryable": True},
+            {"stage": "source_analysis", "code": "ANALYSIS_RESPONSE_INVALID",
+             "message": "분석 형식 오류", "retryable": False},
+            {"stage": "client_close", "code": "PROCESSING_FAILED",
+             "message": "종료 오류", "retryable": False},
+        ]
+        pipeline.return_value = raw
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(SOURCE_URL)
+        self.assertEqual(raised.exception.code, "analysis_response_invalid")
+        self.assertFalse(raised.exception.retryable)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_unavailable_comparison_is_retryable_if_any_search_error_can_recover(self, pipeline):
+        from server.views import PipelineResultError, analyze_related_articles_v2
+        raw = pipeline_result()
+        raw["comparison_status"] = "unavailable"
+        raw["errors"] = [
+            {"stage": "search", "code": "SEARCH_TIMEOUT", "message": "검색 지연", "retryable": True},
+            {"stage": "candidate_fetch", "code": "ARTICLE_BODY_NOT_FOUND",
+             "message": "본문 없음", "retryable": False},
+        ]
+        pipeline.return_value = raw
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(SOURCE_URL)
+        self.assertTrue(raised.exception.retryable)
 
     @patch("server.views.analyze_related_articles_v2")
     def test_v2_unavailable_is_not_reported_as_no_matches(self, analyze):

@@ -20,7 +20,7 @@ FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를
 
 ### Iteration 2 통합 버전 확인
 
-현재 통합 브랜치는 Android UI v2와 주장별 비교·루브릭 v2를 연결합니다. 기존 공개 백엔드가 아직 v2로 배포되지 않았다면 앱 기본 설정만으로는 이 버전을 확인할 수 없습니다. 로컬에서 확인할 때는 루트의 `.env.example`을 `.env`로 복사하고 개인에게 허용된 Gemini 및 NAVER API HUB 키를 설정한 다음 서버를 실행합니다. 키는 저장소나 APK에 넣지 않습니다.
+`main`은 Android UI v2와 주장별 비교·루브릭 v2를 연결합니다. 앱의 기본 주소인 `https://frameless-team05-api.vercel.app`에도 2026년 10월 18일 v2를 배포했습니다. 실제 분석은 기사와 모델 응답에 따라 부분 결과가 될 수 있으므로, 데모에 쓸 URL은 앱에서 직접 확인해야 합니다. 로컬에서 확인할 때는 루트의 `.env.example`을 `.env`로 복사하고 개인에게 허용된 Gemini 및 NAVER API HUB 키를 설정한 다음 서버를 실행합니다. 키는 저장소나 APK에 넣지 않습니다.
 
 ```sh
 python3.12 -m venv .venv

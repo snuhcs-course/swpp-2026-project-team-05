@@ -93,6 +93,8 @@ internal data class RubricResult(
     val questions: List<RubricQuestion>,
     val expressions: List<ExpressionDifference>,
     val informations: List<InformationDifference>,
+    /** A–G 표현 검증에 실패한 v2 주장 ID. 표현 차이가 없다는 뜻이 아니다. */
+    val expressionUnverifiedClaimIds: Set<String>,
     /** 형식 검사에서 버린 항목 수. 0이 아니면 서버 출력 점검이 필요하다. */
     val droppedCount: Int
 )

@@ -38,7 +38,8 @@ def analysis_stage(logger: logging.Logger, name: str, **fields: object) -> Itera
             error_type=type(exc).__name__,
             **fields,
         )
-        logger.exception("Analysis stage failed: analysis_id=%s stage=%s", analysis_id.get(), name)
+        # The structured event above is enough to locate the failing stage.
+        # Tracebacks can include article text or provider response details.
         raise
     else:
         log_event(
