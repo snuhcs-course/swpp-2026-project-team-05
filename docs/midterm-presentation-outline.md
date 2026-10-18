@@ -1,98 +1,26 @@
-# FrameLESS midterm presentation outline
+# FrameLESS midterm presentation — speaker outline
 
-**Draft date:** 18 October 2026 (KST). **Format:** 11 slides, English, 8 minutes of presentation plus 3 minutes of Q&A. The slide file is due 19 October at 23:59 KST according to the course notice shared in the team Slack [S0]. This is a content outline, not a completed deck. Refresh all status statements and capture the final demo evidence before export.
+**Draft date:** 18 October 2026 (KST). **Deck:** [11 editable slides](midterm-presentation-draft.pptx), [slide preview](midterm-presentation-preview.png). The course notice [S0] calls for an 8-minute English talk, 3-minute Q&A, and slide submission by 19 October 23:59 KST.
 
-**One-sentence thesis:** FrameLESS starts from a Korean news article selected by the reader and puts source-linked passages from same-event coverage beside its claims, so the reader can inspect reporting differences without an article-level truth or political-bias verdict.
+**Main point:** FrameLESS starts with one Korean news article and shows source-linked passages from reports of the same event. Readers inspect differences themselves; the app does not give an article-wide truth or bias score.
 
-**Evidence rule for the deck:** Describe a feature as *implemented locally* only when it is in the integration commit; describe it as *verified end to end* only after an Android run against a configured v2 backend. As of this draft, tested candidate `91d7c29` passed 58 Python tests and 25 Android JVM tests and built an APK. The synthetic-response emulator walkthrough used the same production code from integration commit `ef73309`; the later commits add CI and tests. One real article's **input fetch/extraction stage** also passed. A real NAVER/Gemini v2 request and deployed v2 demo have **not** been signed off because local service keys are unavailable [S3]. Never show the synthetic screenshot or clip as a live LLM result.
+**Evidence boundary:** Slides describe the code in [draft PR #10](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/10) and offline checks. Slide 8 is explicitly a **synthetic-response UI preview**. It is not a live NAVER/Gemini result. Replace or supplement it with a genuine recorded v2 walkthrough only after the sign-off below. The current production deployment precedes v2; confirm the backend and APK revisions before recording. Course and implementation sources are listed after the checklist.
 
-## Slide 1 — FrameLESS: Compare the Reporting, Inspect the Sources (0:15)
+| Slide | Time | Spoken point |
+| --- | ---: | --- |
+| 1. FrameLESS | 0:15 | Start from a reader-selected article; compare passages and sources, not a verdict. |
+| 2. The comparison gap | 0:35 | Existing discovery and coverage views help, but finding passages that address one claim still takes effort [S1, S2]. |
+| 3. From URL to source | 0:40 | Paste URL → find same-event reports → compare a claim → open the original page [S1]. |
+| 4. Iteration 1 baseline | 0:35 | The first app/API worked. Missing-versus-unavailable evidence motivated a clearer rubric [S4]. |
+| 5. Two kinds of comparison | 0:45 | I1–I5 tracks information; A–G compares expression. Insufficient evidence stays unrated. P3 question grouping is still a proposal [S5]. |
+| 6. System architecture | 0:40 | Android calls Django; server-side NAVER/Gemini analysis returns source-linked JSON. Keys stay on the server [S4, S6]. |
+| 7. Keeping evidence attached | 1:05 | The v2/Android contract mismatch could misattribute a quote. Stable IDs, source URL, quote and status now travel together. Offline tests check this contract [S3, S6]. |
+| 8. Current UI preview | 1:30 | Show the clearly labeled synthetic screen. Point to the quote and original link, then state that live service and human source review remain pending [S3]. |
+| 9. Team and integration status | 0:50 | Credit each person's work. Draft PR #10 connects the pieces; it is not merged or live-verified [S7, S8]. |
+| 10. Before we call it a demo | 0:35 | Run one real v2 request, inspect cited passages, then record the same result on Android [S3, S9]. |
+| 11. AI in the workflow | 0:30 | AI helped draft this integration; code tests exposed assumptions. Human review must judge the comparisons. Confirm teammates’ own examples before speaking for them [S10]. |
 
-- Android app for readers of Korean online news.
-- Start with one article URL; compare it with reports of the same event.
-- Team 05: Seoyoung Do, Junseo Heo, Jinsol Lee, Seungmin Kim.
-
-**Visual / evidence:** Product name, one clean device frame. Use a final app screenshot only after the demo build is frozen; otherwise a clearly marked design mockup. Project framing: [S1].
-
-## Slide 2 — Why One Article Is Not Enough (0:35)
-
-- A reader can find more coverage, but comparing corresponding claims and original wording takes work.
-- Our Iteration 1 competitive review considered NAVER News for discovery and Ground News for cross-source coverage and outlet-level ratings.
-- FrameLESS focuses on the reader's chosen article and the passages that address its particular claims.
-
-**Visual / evidence:** Three-column workflow comparison: “discover articles” / “compare coverage” / “inspect claim-linked original passages.” Phrase this as our product positioning, not a claim that no competitor can ever provide a similar feature. Ground News's own documentation describes story coverage and bias/factuality filters [S2]; FrameLESS's intended distinction is specified in [S1]. Do not add unverified market size or usage statistics.
-
-## Slide 3 — The Reader Journey: URL to Evidence (0:40)
-
-- Paste a public Korean news URL; the app validates it and starts analysis.
-- Find and screen same-event articles; group responses around claims in the selected article.
-- Open the exact cited passage and its source-page link; show an honest empty or error state when evidence is insufficient.
-
-**Visual / evidence:** Four-step flow drawn from [S1]: URL → event and claim extraction → same-event search and screening → comparison cards with source links. If showing the UI, label the build/revision. Avoid wording that implies the app fact-checks claims.
-
-## Slide 4 — What Iteration 1 Delivered—and Revealed (0:35)
-
-- Delivered: URL input, same-event retrieval, source-claim comparison, linked evidence, and a deployed Django API.
-- Known gaps: related-only claims were outside the comparison; per-source absence and the insufficient-coverage state needed clearer handling.
-- The first pipeline was a baseline for studying a more explicit comparison method, not a validated neutrality classifier.
-
-**Visual / evidence:** A two-column “working baseline / observed gap” card. Use the historical [Iteration 1 demo video](https://github.com/snuhcs-course/swpp-2026-project-team-05/blob/iteration-1-demo/docs/demo/iteration-1-demo.mp4) only with an “Iteration 1” label. The status and limitations are documented in [S4].
-
-## Slide 5 — Iteration 2: An Explicit Evidence Rubric (0:45)
-
-- **I1–I5, information:** whether a claim appears, its placement, background, forecasts, and whose voice is quoted.
-- **A–G, expression:** compare reporter wording such as reporting verbs, event labels, modifiers, and certainty against observed wording in other articles.
-- Keep “not found,” uncertain attribution, and unscored expression distinct; no article-wide score.
-
-**Visual / evidence:** Two-column I1–I5 / A–G diagram, with one short *synthetic, visibly labeled* passage-pair example. The currently adopted code lists I1–I5/A–G and treats P3 question grouping as a proposal [S5]. The slide must say “claim-level rubric”; do not present question-level clustering as shipped unless it is implemented and verified before deck lock.
-
-## Slide 6 — Architecture: Thin Android Client, Server-Side Analysis (0:40)
-
-- Kotlin/Jetpack Compose sends an article URL to the Django `POST /api/analyze` endpoint.
-- The Python server fetches article text, searches via NAVER API HUB, and uses Gemini for structured event, claim, relation, and rubric analysis.
-- The server returns source-linked JSON; API keys remain server-side.
-
-**Visual / evidence:** Android → Django/Vercel → article sites + NAVER API HUB + Gemini → JSON → Android. Distinguish the Iteration 1 deployed backend from the local v2 integration; the production deployment is not proof that v2 has been deployed. Architecture in [S4], current integration path in [S6].
-
-## Slide 7 — Technical Depth: Preserving Evidence Across the v2 Contract (1:05)
-
-- **Problem:** the new Python pipeline and Android UI used different result structures; naïve mapping could attach a quote to the wrong article or turn an unselected article into “no match.”
-- **Choice:** map stable claim and article IDs, verified original quotes, relation and speaker attribution, and explicit `available` / `partial` / `unavailable` states into the Android response.
-- **Observed result:** tested candidate `91d7c29` passes the full offline suites (58 Python and 25 Android JVM tests) and builds an APK. A synthetic v2 response was rendered on an emulator with the same production code from `ef73309`. A real article input fetch passed; NAVER/Gemini v2 search, model output quality, and complete live integration remain unverified.
-
-**Visual / evidence:** One claim node branching to two article cards with highlighted quote, article URL, and status; beside it, a small “unverified ≠ absent; unscored ≠ zero” callout. Cite implementation [S6] and preliminary test report [S3]. Do not state that exact quote presence proves the claim's truth or that model relation judgments are always correct.
-
-## Slide 8 — Demo: Follow One Claim to Its Original Passage (1:30)
-
-- Start from a real public article URL, then show the result, one comparison card, a rubric item, and the linked source page.
-- Show the selected article, quote, and relation together; pause on any uncertain or partial status if it appears.
-- End at the linked source page rather than an unsupported “correct/bias” verdict.
-
-**Visual / evidence:** Replace this slot with a **recorded live v2 walkthrough only after the live-demo checklist below passes**. If that cannot be completed by slide lock, show the historical Iteration 1 end-to-end clip as such and, if useful, a separate short **“Synthetic v2 UI preview — mocked response, no live NAVER/Gemini analysis”** clip or screenshot [S3]. A synthetic preview alone must not be called a working end-to-end v2 demo.
-
-## Slide 9 — Team Execution and Current Integration Status (0:50)
-
-- Seoyoung: comparison rubric; Junseo: v2 analysis pipeline; Jinsol: v2 Android UI; Seungmin: backend/client integration, verification, and demo coordination.
-- October 18 local status: Jinsol's UI branch and Junseo's v2 package are connected through the Django API in integration commit `ef73309`; offline tests and synthetic emulator navigation pass.
-- Open issues: live v2 credentials/deployment and validation, model-quality review, source/article attribution, and measured UI/pipeline test gaps.
-
-**Visual / evidence:** Four-lane responsibility strip and a small “local / offline verified / live pending” progress board. The current work is in [draft integration PR #10](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/10); Junseo's [PR #9](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/9) remains open as the source-work reference. Neither PR is proof that the integrated branch is merged. Refresh PR status and commit IDs at deck lock. Assignment context in team Slack [S7], code branches in [S8], test gaps in [S3]. Do not invent completed milestones or percent complete.
-
-## Slide 10 — Next Steps: Turn an Integrated Build into a Reliable Demo (0:35)
-
-- Verify a configured v2 request and Android walkthrough; capture build, backend revision, URL, outcome, time, and `X-Analysis-ID`.
-- Review same-event selection and claim/rubric outputs on representative Korean news cases; fix wrong or missing evidence before tuning wording.
-- Add deterministic pipeline and device UI tests, then update the Iteration 2 Wiki/testing package and freeze a reviewable demo branch.
-
-**Visual / evidence:** Three gates: live run → human evidence review → reproducible release. Quality targets and known test gaps are in [S1], [S3], and [S4]. Iteration 2 delivery requirements are in the course Slack notice [S9]. Do not show a completion checkmark before the gate is actually passed.
-
-## Slide 11 — AI-Assisted Development: Useful, but Audited (0:30)
-
-- In the product, Gemini proposes structured analyses; Python checks references and literal evidence, while readers inspect the linked sources.
-- In development, AI assistance can accelerate integration and test drafting; a human must still review contracts, failure semantics, and the final demo.
-- The lesson from this integration: passing mocked tests supports interface confidence, not correctness of model judgments or real service availability.
-
-**Visual / evidence:** A short “AI proposes → code validates → people inspect” loop, with one concrete example from the v2 contract [S6]. Before presenting this as a **team-wide historical reflection**, each member should confirm the actual tools/prompts they used and one accepted or rejected suggestion. The current AI Collaboration Wiki has no substantive Iteration 1 account yet [S10]; do not invent one. The Iteration 2 prompt log/report should document the real process [S9].
+The timings total **8:00**. Speaker notes in the deck contain source links and reminders; keep them out of the visible slides. If a verified live recording becomes available, shorten the narration on slide 8 and use the 1:30 slot for the clip.
 
 ## Live-demo sign-off before replacing Slide 8's placeholder
 
@@ -107,7 +35,7 @@
 - **[S0] Course midterm notice:** [SWPP announcements Slack post](https://swpp2026fall.slack.com/archives/C0BUL8N1864/p1791813453833289). Course requirements were relayed in the task context: 9–11 English slides, 8-minute talk + 3-minute Q&A, title/concept, motivation/competition, features, demo video, architecture, a technical-depth problem/choice/result, project management roles/issues/PR/progress, next steps, and AI-development reflection. Verify the final deck against the notice before submitting.
 - **[S1] Product and requirements:** [FrameLESS Requirements and Specifications Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Requirements-and-Specifications), including FR-01–FR-06, NFR-04–NFR-07, audience, and Iteration 1 competitive review.
 - **[S2] Competitor's own description:** [Ground News: How Does Ground News Help Readers See News Differently?](https://help.ground.news/en/articles/485057), which describes story-level coverage, source comparison, and bias/factuality context. This supports only the high-level comparison above.
-- **[S3] Preliminary integration testing:** [Testing Documentation draft](testing-documentation-iter2.md) and its [synthetic Android screenshot](testing-assets/android-synthetic-rubric.png). The draft records tested candidate `91d7c29`, 58 passing Python tests, 25 passing Android JVM tests, an APK build, one synthetic emulator walkthrough on the same production code, and one real article input-fetch check. It explicitly does not claim a live v2 search/Gemini result. Rerun and revise these figures if the submission code changes.
+- **[S3] Preliminary integration testing:** [Testing Documentation draft](testing-documentation-iter2.md) and its [synthetic Android screenshot](testing-assets/android-synthetic-rubric.png). Commit `5eb473e` passed 64 Django tests, 3 CI-gate tests, 25 Android JVM tests, lint, and an APK build locally. The earlier synthetic emulator walkthrough and one real article input-fetch check are limited evidence. There is no signed-off live v2 search/Gemini result. Rerun and revise these figures if the submission code changes.
 - **[S4] Iteration 1 architecture, status, and limitations:** [FrameLESS Design Documentation Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Design-Documentation), especially §§2 and 4.
 - **[S5] Adopted rubric implementation and proposal boundary:** [v2 rubric package](../server/analysis/v2/rubric_analysis.py) (`EXPRESSION_CATEGORIES`, `PROPOSALS`, and I1–I5 result assembly); Seoyoung's [team Slack rubric discussion](https://swpp2026fall.slack.com/archives/C0C56TCMKU6/p1792113199423159).
 - **[S6] Local integration code:** [v2 adapter](../server/analysis/v2_adapter.py), [Django route](../server/views.py), [Android response model](../android/app/src/main/java/com/swpp/team5/frameless/data/AnalysisModels.kt), and [Android comparison state](../android/app/src/main/java/com/swpp/team5/frameless/ui/state/AnalysisUiState.kt). These local links reflect the worktree, not a deployed release.
