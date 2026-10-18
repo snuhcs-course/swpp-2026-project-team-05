@@ -3,6 +3,7 @@
 from io import BytesIO
 import json
 from threading import Event
+from time import monotonic
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -222,6 +223,124 @@ class SearchQualityTests(TestCase):
                 {"event_query": "청계천 수질 조사", "core_event": "청계천 수질 조사 발표"},
             )
         self.assertEqual(rows, [])
+
+    def test_all_naver_429_uses_grounded_citation_and_keeps_search_errors(self):
+        response = {"interaction": {"steps": [
+            {"type": "google_search_call", "arguments": {"queries": ["청계천 수질"]}},
+            {"type": "model_output", "content": [{"type": "text", "text": "인용 기사",
+                "annotations": [{"type": "url_citation", "url": "https://other.example.com/report",
+                                 "title": "다른 언론사 기사"}]}]},
+        ]}}
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news",
+                    side_effect=OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.build_opener") as build):
+            build.return_value.open.return_value = BytesIO(json.dumps(response).encode("utf-8"))
+            result = search_candidate_metadata(SOURCE, {"event_query": "청계천 수질 조사", "claims": []})
+        self.assertEqual(result["search_status"], "partial")
+        self.assertEqual([(row["provider"], row["status"]) for row in result["queries"]],
+                         [("naver", "search_failed"), ("google_grounding", "searched")])
+        self.assertEqual([(row["provider"], row["http_status"]) for row in result["errors"]],
+                         [("naver", 429)])
+        candidate = result["metadata_candidates"][0]
+        self.assertEqual(candidate["urls"], ["https://other.example.com/report"])
+        self.assertTrue(candidate["discovered_by_event"])
+        self.assertEqual(candidate["search_matches"][0]["provider"], "google_grounding")
+        self.assertEqual(build.return_value.open.call_args.kwargs["timeout"], 30.0)
+
+    def test_google_fallback_failure_and_empty_citations_preserve_naver_failures(self):
+        analysis = {"event_query": "청계천 수질 조사", "claims": []}
+        naver_error = OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=naver_error),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.search_google_grounded_news",
+                    side_effect=OperationError("Google unavailable", code="GOOGLE_SEARCH_HTTP_ERROR"))):
+            failed = search_candidate_metadata(SOURCE, analysis)
+        self.assertEqual(failed["search_status"], "failed")
+        self.assertEqual([row["provider"] for row in failed["errors"]], ["naver", "google_grounding"])
+        self.assertEqual(failed["metadata_candidates"], [])
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=naver_error),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.search_google_grounded_news", return_value=[])):
+            empty = search_candidate_metadata(SOURCE, analysis)
+        self.assertEqual(empty["search_status"], "partial")
+        self.assertEqual(empty["metadata_candidates"], [])
+        self.assertEqual([row["provider"] for row in empty["errors"]], ["naver"])
+
+    def test_naver_partial_or_empty_success_does_not_call_google_fallback(self):
+        queries = ["청계천 수질 조사", "청계천 수질 발표"]
+        def partial_search(query, _display):
+            if query == queries[0]:
+                return [_row("naver", "sim")]
+            raise OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=partial_search),
+              patch("server.analysis.v2.article_search.get_gemini_api_key") as key,
+              patch("server.analysis.v2.article_search.search_google_grounded_news") as google):
+            partial = search_candidate_metadata(SOURCE, {"event_query": queries[0],
+                                                         "event_queries": queries, "claims": []})
+        self.assertEqual(partial["search_status"], "partial")
+        self.assertEqual(partial["metadata_candidates"][0]["title"], "naver 기사")
+        key.assert_not_called()
+        google.assert_not_called()
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", return_value=[]),
+              patch("server.analysis.v2.article_search.search_google_grounded_news") as google):
+            empty = search_candidate_metadata(SOURCE, {"event_query": queries[0], "claims": []})
+        self.assertEqual(empty["search_status"], "success")
+        google.assert_not_called()
+
+        def empty_partial_search(query, _display):
+            if query == queries[0]:
+                return []
+            raise OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=empty_partial_search),
+              patch("server.analysis.v2.article_search.search_google_grounded_news") as google):
+            empty_partial = search_candidate_metadata(SOURCE, {"event_query": queries[0],
+                                                               "event_queries": queries, "claims": []})
+        self.assertEqual(empty_partial["search_status"], "partial")
+        self.assertEqual(empty_partial["metadata_candidates"], [])
+        google.assert_not_called()
+
+    def test_google_fallback_skips_short_deadline_and_bounds_request_timeout(self):
+        analysis = {"event_query": "청계천 수질 조사", "claims": []}
+        naver_error = OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=naver_error),
+              patch("server.analysis.v2.article_search.get_gemini_api_key") as key,
+              patch("server.analysis.v2.article_search.search_google_grounded_news") as google):
+            skipped = search_candidate_metadata(SOURCE, analysis,
+                                                google_fallback_deadline_at=monotonic() + 4)
+        self.assertEqual(skipped["search_status"], "failed")
+        self.assertEqual(len(skipped["queries"]), 1)
+        key.assert_not_called()
+        google.assert_not_called()
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=naver_error),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value=None),
+              patch("server.analysis.v2.article_search.search_google_grounded_news") as google):
+            unconfigured = search_candidate_metadata(SOURCE, analysis,
+                                                     google_fallback_deadline_at=monotonic() + 45)
+        self.assertEqual(unconfigured["search_status"], "failed")
+        google.assert_not_called()
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=naver_error),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.search_google_grounded_news", return_value=[]) as google):
+            search_candidate_metadata(SOURCE, analysis, google_fallback_deadline_at=monotonic() + 15)
+        timeout = google.call_args.kwargs["timeout_seconds"]
+        self.assertGreaterEqual(timeout, 5)
+        self.assertLess(timeout, 15)
 
     def test_optional_google_failure_keeps_naver_candidate_and_partial_status(self):
         with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "1"}),

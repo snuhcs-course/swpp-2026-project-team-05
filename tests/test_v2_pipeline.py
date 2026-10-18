@@ -266,7 +266,7 @@ class StageBudgetTests(SimpleTestCase):
                                   "assessments": [], "claim_comparisons": []}}
 
         with (patch("server.analysis.v2.pipeline.analyze_source_article", return_value=source_analysis()),
-              patch("server.analysis.v2.pipeline.search_candidate_metadata", return_value=metadata_search),
+              patch("server.analysis.v2.pipeline.search_candidate_metadata", return_value=metadata_search) as search,
               patch("server.analysis.v2.pipeline.rank_comparison_candidates", return_value={"claim_candidates": []}),
               patch("server.analysis.v2.pipeline.select_verified_comparisons", side_effect=select)):
             result = run_discovery_pipeline(SOURCE_URL, client=recorder, _prepared_source=article(),
@@ -275,6 +275,7 @@ class StageBudgetTests(SimpleTestCase):
         self.assertEqual(len(captured), 1)
         self.assertLessEqual(captured[0], deadline - 75)
         self.assertEqual(recorder.deadline_at, deadline)
+        self.assertEqual(search.call_args.kwargs["google_fallback_deadline_at"], deadline - 105)
 
     def test_verification_workers_keep_reserve_without_shortening_source_worker(self):
         raw = object.__new__(OpenRouterJSONClient)
@@ -404,6 +405,48 @@ class DiscoveryStatusTests(SimpleTestCase):
         self.assertEqual(result["comparison_status"], "unavailable")
         self.assertEqual(result["execution_status"], "partial")
         self.assertEqual(result["errors"][0]["stage"], "search")
+
+    def test_google_fallback_candidate_still_needs_body_and_same_event_verification(self):
+        grounded = {"title": "다른 언론사 보도", "description": "",
+                    "link": "https://other.example.com/report", "originallink": "",
+                    "search_provided_at": "", "search_provider": "google_grounding"}
+        ranking = {"claim_candidates": [{"claim_id": "C1", "selected_candidate_ids": ["A1"],
+                                          "reserve_candidate_ids": [], "candidate_profiles": [
+                                              {"candidate_id": "A1", "relevance": "direct", "focus": "계획"}]}]}
+        fetched, verified = [], []
+
+        def fetch(rows):
+            fetched.extend(row["candidate_id"] for row in rows)
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            verified.extend(row["candidate_id"] for row in rows)
+            return {"assessments": [{"candidate_id": row["candidate_id"],
+                                     "event_relation": "same_event", "event_focus": "primary",
+                                     "claim_matches": [{"claim_id": "C1", "relation": "same",
+                                                        "evidence": {"sentence_index": 0, "quote": "새 계획"}}]}
+                                    for row in rows]}
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.pipeline.analyze_source_article", return_value=source_analysis()),
+              patch("server.analysis.v2.article_search.search_naver_news",
+                    side_effect=OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.search_google_grounded_news", return_value=[grounded]),
+              patch("server.analysis.v2.pipeline.rank_comparison_candidates", return_value=ranking),
+              patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = run_discovery_pipeline(SOURCE_URL, client=object(), _prepared_source=article(),
+                                            _deadline_at=monotonic() + 240)
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["comparison_status"], "available")
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(fetched, ["A1"])
+        self.assertEqual(verified, ["A1"])
+        self.assertEqual(result["selection"]["same_event_ids"], ["A1"])
+        self.assertEqual(result["search"]["metadata_candidates"][0]["search_matches"][0]["provider"],
+                         "google_grounding")
+        self.assertEqual(result["errors"][0]["http_status"], 429)
 
     def test_invalid_option_stops_before_source_or_model_calls(self):
         with patch("server.analysis.v2.pipeline.prepare_article") as prepare:

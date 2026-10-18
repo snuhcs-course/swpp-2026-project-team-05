@@ -46,6 +46,9 @@ DEFAULT_UNCACHED_BUDGET_SECONDS = 240.0
 # Source discovery can inspect extra bodies, but the rubric still needs time
 # within Vercel's hard function limit. Stop optional verification early.
 RUBRIC_RESERVE_SECONDS = 75.0
+# Leave room for candidate ranking, body verification, and the reader after an
+# outage-only Google search. The search call itself is capped at 30 seconds.
+GOOGLE_FALLBACK_POST_SEARCH_RESERVE_SECONDS = 30.0
 # Search coverage changes as new articles are published, even when the source
 # article body is unchanged. Never treat a local snapshot as timeless I1 data.
 DEFAULT_CACHE_MAX_AGE_SECONDS = 300.0
@@ -318,7 +321,11 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
             notify("3/4 네이버 검색·URL 중복 제거 (제목·설명만 수집)")
             with _timed_stage(stage, _deadline_at):
                 metadata_search = search_candidate_metadata(source, analysis, max_candidates=max_candidates,
-                                                             display_per_query=display_per_query)
+                                                             display_per_query=display_per_query,
+                                                             google_fallback_deadline_at=(
+                                                                 _deadline_at - RUBRIC_RESERVE_SECONDS
+                                                                 - GOOGLE_FALLBACK_POST_SEARCH_RESERVE_SECONDS
+                                                                 if _deadline_at is not None else None))
         result["search"].update(metadata_search)
         result["completed_stage"] = 3
         for error in metadata_search.get("errors", []):
