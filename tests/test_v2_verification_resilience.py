@@ -251,6 +251,194 @@ class VerificationResilienceTests(SimpleTestCase):
                          ["A1", "A2", "A3"])
         self.assertEqual(result["selection"]["verification_llm_calls"], 3)
 
+    def test_slow_third_verdict_overlaps_only_two_next_wave_calls(self):
+        late_finished = Event()
+        lock = Lock()
+        calls, completed_late = [], []
+        active = maximum = 0
+
+        def verify(_source, _analysis, rows, *, client):
+            nonlocal active, maximum
+            key = rows[0]["candidate_id"]
+            with lock:
+                calls.append(key)
+                active += 1
+                maximum = max(maximum, active)
+            if key == "A3":
+                self.assertTrue(late_finished.wait(timeout=3))
+                with lock:
+                    self.assertNotIn("A6", calls)
+            if key in {"A4", "A5"}:
+                with lock:
+                    completed_late.append(key)
+                    if len(completed_late) == 2:
+                        late_finished.set()
+            with lock:
+                active -= 1
+            return {"assessments": [_verified(key)]}
+
+        ids = tuple(f"A{index}" for index in range(1, 9))
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(ids, discovered_by_event=True), _ranking(("A1",)),
+                max_per_claim=1, event_baseline_limit=8, verification_batch_size=1,
+                client=_live_metrics_client())
+
+        self.assertLessEqual(maximum, 3)
+        self.assertGreaterEqual(maximum, 2)
+        self.assertCountEqual(calls, ids)
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]], list(ids))
+        self.assertEqual(result["selection"]["verification_llm_calls"], 8)
+
+    def test_late_rate_limit_discards_two_newer_calls_without_waiting(self):
+        late_started, a4_finished, release_late = Event(), Event(), Event()
+        lock = Lock()
+        calls, late_calls = [], []
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            with lock:
+                calls.append(key)
+            if key == "A3":
+                self.assertTrue(late_started.wait(timeout=3))
+                self.assertTrue(a4_finished.wait(timeout=3))
+                raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True,
+                                     http_status=429)
+            if key in {"A4", "A5"}:
+                with lock:
+                    late_calls.append(key)
+                    if len(late_calls) == 2:
+                        late_started.set()
+                if key == "A4":
+                    a4_finished.set()
+                else:
+                    release_late.wait(timeout=5)
+            return {"assessments": [_verified(key)]}
+
+        ids = tuple(f"A{index}" for index in range(1, 9))
+        try:
+            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                started = monotonic()
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(ids, discovered_by_event=True), _ranking(("A1",)),
+                    max_per_claim=1, event_baseline_limit=8, verification_batch_size=1,
+                    client=_live_metrics_client())
+                elapsed = monotonic() - started
+        finally:
+            release_late.set()
+
+        self.assertLess(elapsed, 2.0)
+        self.assertCountEqual(calls, ("A1", "A2", "A3", "A4", "A5"))
+        assessments = {row["candidate_id"]: row for row in result["selection"]["assessments"]}
+        self.assertEqual(set(assessments), set(ids))
+        self.assertTrue(all(assessments[key]["verification_status"] == "unverified"
+                            and assessments[key]["claim_matches"] == [] for key in ids[3:]))
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["claim_comparisons"][0]["articles"]],
+                         ["A1"])
+        self.assertEqual(result["selection"]["assessments"][2]["verification_status"], "unverified")
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"],
+                         ["A4", "A5", "A6", "A7", "A8"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 5)
+        self.assertEqual(result["selection"]["verification_detached_calls_at_cutoff"], 1)
+
+    def test_second_wave_rate_limit_keeps_all_original_wave_verdicts(self):
+        next_wave_finished = Event()
+        lock = Lock()
+        calls, finished = [], set()
+
+        class ObservedExecutor(ThreadPoolExecutor):
+            def submit(self, fn, *args, **kwargs):
+                future = super().submit(fn, *args, **kwargs)
+                if fn.__name__ == "verify_response" and args[0][0] in {"A4", "A5"}:
+                    key = args[0][0]
+
+                    def record_completion(_future):
+                        with lock:
+                            finished.add(key)
+                            if finished == {"A4", "A5"}:
+                                next_wave_finished.set()
+
+                    future.add_done_callback(record_completion)
+                return future
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            with lock:
+                calls.append(key)
+            if key == "A3":
+                self.assertTrue(next_wave_finished.wait(timeout=3))
+            if key == "A4":
+                raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True,
+                                     http_status=429)
+            return {"assessments": [_verified(key)]}
+
+        ids = tuple(f"A{index}" for index in range(1, 9))
+        with (patch("server.analysis.v2.comparison_selection.ThreadPoolExecutor", ObservedExecutor),
+              patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(ids, discovered_by_event=True), _ranking(("A1",)),
+                max_per_claim=1, event_baseline_limit=8, verification_batch_size=1,
+                client=_live_metrics_client())
+
+        self.assertCountEqual(calls, ids[:6])
+        assessments = {row["candidate_id"]: row for row in result["selection"]["assessments"]}
+        self.assertEqual(assessments["A5"]["event_relation"], "same_event")
+        self.assertEqual(assessments["A6"]["event_relation"], "same_event")
+        self.assertEqual(assessments["A4"]["verification_status"], "unverified")
+        self.assertEqual(result["selection"]["verification_rounds"][0]["verified_ids"],
+                         ["A1", "A2", "A3", "A5", "A6"])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"],
+                         ["A7", "A8"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 6)
+        self.assertEqual(result["selection"]["verification_detached_calls_at_cutoff"], 0)
+
+    def test_deadline_discards_two_newer_calls_without_waiting(self):
+        late_started, release_late, expired = Event(), Event(), Event()
+        lock = Lock()
+        calls, late_calls = [], []
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            with lock:
+                calls.append(key)
+            if key == "A3":
+                self.assertTrue(late_started.wait(timeout=3))
+                expired.set()
+            if key in {"A4", "A5"}:
+                with lock:
+                    late_calls.append(key)
+                    if len(late_calls) == 2:
+                        late_started.set()
+                release_late.wait(timeout=5)
+            return {"assessments": [_verified(key)]}
+
+        ids = tuple(f"A{index}" for index in range(1, 9))
+        try:
+            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                started = monotonic()
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(ids, discovered_by_event=True), _ranking(("A1",)),
+                    max_per_claim=1, event_baseline_limit=8, verification_batch_size=1,
+                    should_stop=expired.is_set, client=_live_metrics_client())
+                elapsed = monotonic() - started
+        finally:
+            release_late.set()
+
+        self.assertLess(elapsed, 2.0)
+        self.assertCountEqual(calls, ("A1", "A2", "A3", "A4", "A5"))
+        assessments = {row["candidate_id"]: row for row in result["selection"]["assessments"]}
+        self.assertEqual(set(assessments), set(ids))
+        self.assertTrue(all(assessments[key]["verification_status"] == "unverified"
+                            and assessments[key]["claim_matches"] == [] for key in ids[3:]))
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"],
+                         ["A4", "A5", "A6", "A7", "A8"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 5)
+        self.assertEqual(result["selection"]["verification_detached_calls_at_cutoff"], 2)
+
     def test_quality_pool_singletons_overlap_without_changing_best_article(self):
         barrier = Barrier(2)
 
@@ -449,12 +637,13 @@ class VerificationResilienceTests(SimpleTestCase):
                 _ranking(("A1", "A2", "A3"), ("A4",)), max_per_claim=3,
                 event_baseline_limit=1, verification_batch_size=1, client=_live_metrics_client())
 
-        self.assertCountEqual(calls, ["A1", "A2", "A3"])
+        self.assertTrue({"A1", "A2", "A3"} <= set(calls))
+        self.assertTrue(set(calls) <= {"A1", "A2", "A3", "A4"})
         self.assertEqual([row["candidate_id"] for row in result["selection"]["claim_comparisons"][0]["articles"]],
                          ["A2", "A3"])
         self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"], ["A4"])
         self.assertEqual([row["candidate_id"] for row in result["search"]["errors"]], ["A1", "A4"])
-        self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+        self.assertEqual(result["selection"]["verification_llm_calls"], len(calls))
 
     def test_parallel_deadline_keeps_started_verifications_and_defers_next_wave(self):
         barrier, expired = Barrier(3), Event()
@@ -465,8 +654,9 @@ class VerificationResilienceTests(SimpleTestCase):
         def verify(_source, _analysis, rows, *, client):
             key = rows[0]["candidate_id"]
             calls.append(key)
-            barrier.wait(timeout=3)
-            expired.set()
+            if key in {"A1", "A2", "A3"}:
+                barrier.wait(timeout=3)
+                expired.set()
             return {"assessments": [_verified(key)]}
 
         with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=_fetch),
@@ -477,10 +667,11 @@ class VerificationResilienceTests(SimpleTestCase):
                 event_baseline_limit=1, verification_batch_size=1,
                 should_stop=expired.is_set, client=_live_metrics_client())
 
-        self.assertCountEqual(calls, ["A1", "A2", "A3"])
+        self.assertTrue({"A1", "A2", "A3"} <= set(calls))
+        self.assertTrue(set(calls) <= {"A1", "A2", "A3", "A4"})
         self.assertEqual(result["selection"]["verification_rounds"][0]["verified_ids"], ["A1", "A2", "A3"])
         self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"], ["A4"])
-        self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+        self.assertIn(result["selection"]["verification_llm_calls"], (3, 4))
 
     def test_snapshot_client_keeps_serial_verification_order(self):
         calls = []

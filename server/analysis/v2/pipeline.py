@@ -617,6 +617,10 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             _log_stage_result(stage, result)
         stage = "cache_save"
         execution = recorder.execution_summary()
+        # Detached speculative verification may finish after this snapshot;
+        # expose its count so provider_usage is not read as a final total.
+        execution["verification_detached_calls_at_cutoff"] = (
+            (result.get("selection") or {}).get("verification_detached_calls_at_cutoff", 0))
         log_event(logger, "model_execution", **execution)
         if use_cache:
             snapshot_id = _digest({"settings": settings, "versions": versions,
