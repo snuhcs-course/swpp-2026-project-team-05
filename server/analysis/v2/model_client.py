@@ -264,6 +264,10 @@ class ModelResponseError(RuntimeError):
     """The model did not return usable structured output."""
 
 
+class ModelResponseTruncatedError(ModelResponseError):
+    """The provider stopped before completing the structured response."""
+
+
 class ModelUnavailableError(RuntimeError):
     """The provider is still unavailable after bounded SDK retries."""
 
@@ -585,13 +589,16 @@ class OpenRouterJSONClient:
         # compatible gateway; mirror the direct Gemini adapter's behavior.
         if not re.match(r"^google/gemini-3\.(?:[6-9]|[1-9][0-9])(?:-|$)", routed_model):
             request["temperature"] = self.temperature
+        # Full-body verification may need more than 60 seconds when the model
+        # uses reasoning tokens. Other tasks keep their existing timeout.
+        call_timeout = 90.0 if task_name == "verify_selected_candidate_bodies" else 60.0
         started = monotonic()
         for retry in range(3):
             remaining = (None if timeout_budget_ms is None
                          else timeout_budget_ms / 1000 - (monotonic() - started))
             if remaining is not None and remaining < 1.0:
                 raise TimeoutError("OpenRouter 모델 API 응답 시간이 초과됐습니다.")
-            timeout = min(60.0, remaining) if remaining is not None else 60.0
+            timeout = min(call_timeout, remaining) if remaining is not None else call_timeout
             try:
                 response = self._client.post(OPENROUTER_COMPLETIONS_URL, json=request, timeout=timeout)
             except httpx.TimeoutException as exc:
@@ -622,12 +629,15 @@ class OpenRouterJSONClient:
             self._capture_usage(payload)
             choice = payload["choices"][0]
             self.last_call_finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+        except (ValueError, TypeError, KeyError, IndexError) as exc:
+            raise ModelResponseError("The model returned an invalid completion envelope") from exc
+        if self.last_call_finish_reason == "length":
+            raise ModelResponseTruncatedError("The model response was truncated")
+        try:
             message = choice["message"]
             content = message["content"]
         except (ValueError, TypeError, KeyError, IndexError) as exc:
             raise ModelResponseError("The model returned an invalid completion envelope") from exc
-        if choice.get("finish_reason") == "length":
-            raise ModelResponseError("The model response was truncated")
         if not isinstance(content, str) or not content:
             raise ModelResponseError("The model returned no text (possibly a refusal)")
         try:

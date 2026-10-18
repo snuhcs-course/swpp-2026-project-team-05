@@ -7,6 +7,7 @@ from email.message import Message
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from time import monotonic
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -22,9 +23,13 @@ from server.analysis.v2.comparison_selection import select_verified_comparisons
 from server.analysis.v2.llm_analysis import (
     analyze_source_article, prioritize_diverse_candidates, verify_candidate_articles,
 )
-from server.analysis.v2.model_client import ModelResponseError, ModelUnavailableError
+from server.analysis.v2.model_client import (
+    MetricsJSONClient, ModelHTTPError, ModelResponseError, ModelResponseTruncatedError,
+    ModelUnavailableError, OpenRouterJSONClient,
+)
 from server.analysis.v2.pipeline import (
-    _load_cached_analysis, complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
+    _load_cached_analysis, _scoped_model_deadline, complete_rubric_analysis,
+    evaluate_analysis_snapshot, run_analysis_pipeline,
     run_discovery_pipeline,
 )
 from server.analysis.v2.result_output import OperationError, format_analysis_result, make_error_record
@@ -221,6 +226,53 @@ class ArticleInputTests(SimpleTestCase):
             with self.assertRaises(ArticleFetchError) as raised:
                 fetch_article(SOURCE_URL)
         self.assertEqual(raised.exception.stage, "extraction")
+
+
+class StageBudgetTests(SimpleTestCase):
+    def test_candidate_deadline_bounds_provider_call_and_restores_reader_budget(self):
+        raw = object.__new__(OpenRouterJSONClient)
+        raw.model, raw.task_models = "synthetic-model", {}
+        requests = []
+        raw.generate_json = lambda **request: requests.append(request) or {}
+        original_deadline = monotonic() + 180
+        recorder = MetricsJSONClient(raw, deadline_at=original_deadline)
+        stage_deadline = monotonic() + 5
+
+        with _scoped_model_deadline(recorder, stage_deadline):
+            recorder.generate_json(name="verify_selected_candidate_bodies", instructions="synthetic",
+                                   input_data={}, schema={})
+            self.assertEqual(recorder.deadline_at, stage_deadline)
+        self.assertEqual(recorder.deadline_at, original_deadline)
+        self.assertGreater(requests[0]["timeout_budget_ms"], 4000)
+        self.assertLessEqual(requests[0]["timeout_budget_ms"], 5000)
+
+        with self.assertRaisesRegex(RuntimeError, "synthetic"):
+            with _scoped_model_deadline(recorder, stage_deadline):
+                raise RuntimeError("synthetic")
+        self.assertEqual(recorder.deadline_at, original_deadline)
+
+    def test_discovery_scopes_candidate_verification_before_reader_reserve(self):
+        deadline = monotonic() + 240
+        recorder = MetricsJSONClient(object(), deadline_at=deadline)
+        metadata_search = {**empty_search(), "metadata_candidates": [{"candidate_id": "A1"}]}
+        captured = []
+
+        def select(_source, _analysis, _metadata, _ranking, **kwargs):
+            captured.append(kwargs["client"].deadline_at)
+            return {"search": {**metadata_search, "candidates": [], "fetch_failures": []},
+                    "selection": {"event_baseline_ids": [], "same_event_ids": [],
+                                  "assessments": [], "claim_comparisons": []}}
+
+        with (patch("server.analysis.v2.pipeline.analyze_source_article", return_value=source_analysis()),
+              patch("server.analysis.v2.pipeline.search_candidate_metadata", return_value=metadata_search),
+              patch("server.analysis.v2.pipeline.rank_comparison_candidates", return_value={"claim_candidates": []}),
+              patch("server.analysis.v2.pipeline.select_verified_comparisons", side_effect=select)):
+            result = run_discovery_pipeline(SOURCE_URL, client=recorder, _prepared_source=article(),
+                                            _deadline_at=deadline)
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(len(captured), 1)
+        self.assertLessEqual(captured[0], deadline - 75)
+        self.assertEqual(recorder.deadline_at, deadline)
 
 
 class DiscoveryStatusTests(SimpleTestCase):
@@ -542,6 +594,14 @@ class GroundingTests(SimpleTestCase):
             verify_candidate_articles(article(), source_analysis(), [article("A1")], client=client)
         self.assertEqual(client.calls, 2)  # One fixed-input schema repair, then reject.
 
+    def test_truncated_candidate_response_is_not_repeated_at_same_limit(self):
+        client = SequenceClient([ModelResponseTruncatedError("synthetic truncation")])
+        with self.assertRaises(ModelResponseTruncatedError):
+            verify_candidate_articles(article(), source_analysis(), [article("A1")], client=client)
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(client.requests[0]["name"], "verify_selected_candidate_bodies")
+        self.assertEqual(client.requests[0]["max_output_tokens"], 16384)
+
     def test_passing_mention_cannot_become_same_event_comparison(self):
         body = "시청은 가을 축제를 개최했다.\n새 계획도 발표했다고 짧게 언급했다."
         candidate = {**article("A1", body=body), "title": "시청 가을 축제 개최",
@@ -628,6 +688,155 @@ class CandidateSearchTests(SimpleTestCase):
 
 
 class CandidateRefillTests(SimpleTestCase):
+    @staticmethod
+    def _two_candidate_case():
+        metadata = [{"candidate_id": key, "title": f"{key} 기사",
+                     "description": "계획 발표", "urls": [f"https://news.example.com/{key}"],
+                     "discovered_by_event": False} for key in ("A1", "A2")]
+        ranking = {"claim_candidates": [{"claim_id": "C1", "selected_candidate_ids": ["A1", "A2"],
+                                          "reserve_candidate_ids": [],
+                                          "candidate_profiles": [
+                                              {"candidate_id": key, "relevance": "direct", "focus": key}
+                                              for key in ("A1", "A2")]}]}
+        return {**empty_search(), "metadata_candidates": metadata}, ranking
+
+    def test_truncated_batch_splits_and_keeps_successful_candidates(self):
+        metadata_search, ranking = self._two_candidate_case()
+        requests = []
+
+        def fetch(rows):
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            ids = [row["candidate_id"] for row in rows]
+            requests.append(ids)
+            if len(ids) > 1:
+                raise ModelResponseTruncatedError("synthetic truncation")
+            key = ids[0]
+            return {"assessments": [{"candidate_id": key, "event_relation": "same_event",
+                                     "event_focus": "primary", "claim_matches": [{"claim_id": "C1",
+                                     "relation": "same", "evidence": {"sentence_index": 0,
+                                     "quote": "새 계획"}}]}]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(article(), source_analysis(), metadata_search, ranking,
+                                                 max_per_claim=2, event_baseline_limit=0, client=object())
+        self.assertEqual(requests, [["A1", "A2"], ["A1"], ["A2"]])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 3)
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["claim_comparisons"][0]["articles"]],
+                         ["A1", "A2"])
+        self.assertEqual(result["search"]["errors"], [])
+
+    def test_truncated_batch_isolates_failed_candidate(self):
+        metadata_search, ranking = self._two_candidate_case()
+        requests = []
+
+        def fetch(rows):
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            ids = [row["candidate_id"] for row in rows]
+            requests.append(ids)
+            if len(ids) > 1 or ids == ["A2"]:
+                raise ModelResponseTruncatedError("synthetic truncation")
+            return {"assessments": [{"candidate_id": "A1", "event_relation": "same_event",
+                                     "event_focus": "primary", "claim_matches": [{"claim_id": "C1",
+                                     "relation": "same", "evidence": {"sentence_index": 0,
+                                     "quote": "새 계획"}}]}]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(article(), source_analysis(), metadata_search, ranking,
+                                                 max_per_claim=2, event_baseline_limit=0, client=object())
+        self.assertEqual(requests, [["A1", "A2"], ["A1"], ["A2"]])
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["claim_comparisons"][0]["articles"]],
+                         ["A1"])
+        self.assertEqual([(row["candidate_id"], row["code"]) for row in result["search"]["errors"]],
+                         [("A2", "ANALYSIS_RESPONSE_INVALID")])
+        self.assertEqual(next(row for row in result["selection"]["assessments"]
+                              if row["candidate_id"] == "A2")["verification_status"], "unverified")
+
+    def test_truncated_batch_defers_singletons_after_deadline(self):
+        metadata_search, ranking = self._two_candidate_case()
+        state = {"stop": False, "calls": 0}
+
+        def fetch(rows):
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            state["calls"] += 1
+            state["stop"] = True
+            raise ModelResponseTruncatedError("synthetic truncation")
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(article(), source_analysis(), metadata_search, ranking,
+                                                 max_per_claim=2, event_baseline_limit=0, client=object(),
+                                                 should_stop=lambda: state["stop"])
+        self.assertEqual(state["calls"], 1)
+        self.assertEqual(result["selection"]["verification_llm_calls"], 1)
+        self.assertEqual([row["candidate_id"] for row in result["search"]["errors"]], ["A1", "A2"])
+        self.assertTrue(all(row["reason"] == "verification_deferred"
+                            for row in result["selection"]["claim_attempts"]))
+
+    def test_truncated_batch_rate_limit_defers_remaining_and_following_batch(self):
+        metadata = [{"candidate_id": key, "title": f"{key} 기사", "description": "계획 발표",
+                     "urls": [f"https://news.example.com/{key}"],
+                     "discovered_by_event": key != "A1"} for key in ("A1", "A2", "A3", "A4")]
+        metadata_search = {**empty_search(), "metadata_candidates": metadata}
+        ranking = {"claim_candidates": [{"claim_id": "C1", "selected_candidate_ids": ["A1"],
+                                          "reserve_candidate_ids": ["A2", "A3", "A4"],
+                                          "candidate_profiles": [{"candidate_id": key, "relevance": "direct",
+                                                                  "focus": "계획"} for key in
+                                                                 ("A1", "A2", "A3", "A4")]}]}
+        requests = []
+
+        def fetch(rows):
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            ids = [row["candidate_id"] for row in rows]
+            requests.append(ids)
+            if len(ids) > 1:
+                raise ModelResponseTruncatedError("synthetic truncation")
+            if ids == ["A1"]:
+                raise ModelHTTPError(429)
+            self.fail("Rate limit should defer remaining candidates")
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(article(), source_analysis(), metadata_search, ranking,
+                                                 max_per_claim=1, event_baseline_limit=3,
+                                                 verification_batch_size=3, client=object())
+        self.assertEqual(requests, [["A1", "A2", "A3"], ["A1"]])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 2)
+        self.assertEqual([(row["candidate_id"], row["code"]) for row in result["search"]["errors"]],
+                         [(key, "MODEL_RATE_LIMITED") for key in ("A1", "A2", "A3", "A4")])
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"],
+                         ["A2", "A3", "A4"])
+
+    def test_timeout_at_candidate_deadline_is_deferred(self):
+        metadata_search, ranking = self._two_candidate_case()
+        state = {"stop": False}
+
+        def fetch(rows):
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            state["stop"] = True
+            raise TimeoutError("synthetic phase deadline")
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(article(), source_analysis(), metadata_search, ranking,
+                                                 max_per_claim=2, event_baseline_limit=0, client=object(),
+                                                 should_stop=lambda: state["stop"])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 1)
+        self.assertEqual(result["selection"]["verification_rounds"][0]["deferred_ids"], ["A1", "A2"])
+        self.assertTrue(all(row["reason"] == "verification_deferred"
+                            for row in result["selection"]["claim_attempts"]))
+
     def test_rejected_initial_candidate_is_replaced_by_verified_reserve(self):
         metadata = [{"candidate_id": candidate_id, "title": f"{candidate_id} 기사",
                      "description": "계획 발표", "urls": [f"https://news.example.com/{candidate_id}"],

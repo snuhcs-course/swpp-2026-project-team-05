@@ -7,7 +7,8 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from server.analysis.v2.model_client import (
-    GeminiJSONClient, MetricsJSONClient, ModelResponseError, OpenRouterJSONClient, get_generation_settings,
+    GeminiJSONClient, MetricsJSONClient, ModelResponseError, ModelResponseTruncatedError,
+    OpenRouterJSONClient, get_generation_settings,
     get_missing_configuration, get_openrouter_generation_settings,
 )
 
@@ -140,6 +141,35 @@ class ModelRoutingTests(TestCase):
         self.assertNotIn("PROMPT_SECRET", str(captured.output) + repr(execution))
         self.assertNotIn("ARTICLE_SECRET", str(captured.output) + repr(execution))
         recorder.client.close()
+
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
+    @patch("httpx.Client")
+    def test_full_body_verification_has_90_second_provider_timeout_only(self, constructor):
+        constructor.return_value.post.return_value = SimpleNamespace(
+            status_code=200, content=b"synthetic-envelope",
+            json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
+        )
+        client = OpenRouterJSONClient()
+        request = {"instructions": "synthetic", "input_data": {}, "schema": {"type": "object"}}
+        client.generate_json(name="verify_selected_candidate_bodies", **request)
+        client.generate_json(name="source_event_claims_queries", **request)
+        calls = constructor.return_value.post.call_args_list
+        self.assertEqual([call.kwargs["timeout"] for call in calls], [90.0, 60.0])
+        client.close()
+
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
+    @patch("httpx.Client")
+    def test_length_without_content_is_still_classified_as_truncation(self, constructor):
+        constructor.return_value.post.return_value = SimpleNamespace(
+            status_code=200, content=b"synthetic-envelope",
+            json=lambda: {"choices": [{"message": {}, "finish_reason": "length"}]},
+        )
+        client = OpenRouterJSONClient()
+        with self.assertRaises(ModelResponseTruncatedError):
+            client.generate_json(name="verify_selected_candidate_bodies", instructions="synthetic",
+                                 input_data={}, schema={"type": "object"})
+        self.assertEqual(constructor.return_value.post.call_count, 1)
+        client.close()
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
     @patch("httpx.Client")

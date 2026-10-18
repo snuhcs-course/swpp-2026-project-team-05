@@ -9,7 +9,7 @@ import unicodedata
 from typing import Any
 from urllib.parse import urlsplit
 
-from .model_client import GeminiJSONClient, ModelResponseError
+from .model_client import GeminiJSONClient, ModelResponseError, ModelResponseTruncatedError
 from ..diagnostics import log_event
 
 
@@ -158,6 +158,10 @@ def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None, *
         while True:
             try:
                 result = client.generate_json(**request)
+            except ModelResponseTruncatedError:
+                # Repeating the same large input at the same output limit only
+                # burns the analysis deadline. The caller can split the batch.
+                raise
             except ModelResponseError:
                 task_name = _safe_task_name(request.get("name"))
                 log_event(logger, "model_output_validation_failed", level=logging.WARNING,
@@ -868,7 +872,7 @@ def verify_candidate_articles(source: dict, analysis: dict, candidates: list[dic
         }) for claim_id in claim_map}),
     }) for key in candidate_map})})
     response = _generate_json(
-        client, name="verify_selected_candidate_bodies", schema=schema, max_output_tokens=8192,
+        client, name="verify_selected_candidate_bodies", schema=schema, max_output_tokens=16384,
         instructions=(
             "제목·설명으로 미리 고른 후보의 전체 본문을 검증합니다. 이번 작업에서는 기사를 선택하지 않습니다. "
             "모든 후보 ID와 모든 주장 ID를 필수 키로 반환합니다. 입력 기사와 같은 구체적 사건인지 확인하세요. "
