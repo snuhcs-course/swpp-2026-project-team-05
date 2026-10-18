@@ -8,12 +8,13 @@ from email.utils import parsedate_to_datetime
 from itertools import zip_longest
 import json
 import logging
+import math
 import os
 from random import uniform
 import re
 from html import unescape
 from http.client import HTTPException
-from time import sleep
+from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -26,6 +27,8 @@ from .result_output import OperationError, make_error_record
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 _GOOGLE_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+_GOOGLE_SEARCH_TIMEOUT_SECONDS = 30.0
+_GOOGLE_FALLBACK_MIN_TIMEOUT_SECONDS = 5.0
 _RETRYABLE_NEWS_HTTP_STATUSES = frozenset({408, 500, 502, 503, 504})
 _MAX_NEWS_RETRY_AFTER_SECONDS = 1.0
 logger = logging.getLogger(__name__)
@@ -184,7 +187,8 @@ def _reviewed_event_queries(analysis: dict) -> list[str]:
     return [" ".join(analysis["event_query"].split())]
 
 
-def search_google_grounded_news(source: dict, analysis: dict, *, max_urls: int = 10) -> list[dict]:
+def search_google_grounded_news(source: dict, analysis: dict, *, max_urls: int = 10,
+                                timeout_seconds: float = _GOOGLE_SEARCH_TIMEOUT_SECONDS) -> list[dict]:
     """Discover candidate URLs from actual Google Search citation annotations.
 
     The model's prose and URL-looking strings are never used as article URLs.
@@ -193,6 +197,9 @@ def search_google_grounded_news(source: dict, analysis: dict, *, max_urls: int =
     """
     if type(max_urls) is not int or not 1 <= max_urls <= 20:
         raise ValueError("max_urls는 1~20의 정수여야 합니다.")
+    if (type(timeout_seconds) not in (int, float) or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= _GOOGLE_SEARCH_TIMEOUT_SECONDS):
+        raise ValueError("Google 검색 제한 시간은 0~30초여야 합니다.")
     api_key = get_gemini_api_key()
     if not api_key:
         raise OperationError("Google 검색용 Gemini API 설정이 없습니다.", code="GOOGLE_SEARCH_CONFIGURATION_MISSING")
@@ -223,7 +230,7 @@ def search_google_grounded_news(source: dict, analysis: dict, *, max_urls: int =
                       headers={"x-goog-api-key": api_key, "Content-Type": "application/json",
                                "Accept": "application/json"}, method="POST")
     try:
-        with build_opener(_NoCredentialRedirects()).open(request, timeout=30) as response:
+        with build_opener(_NoCredentialRedirects()).open(request, timeout=timeout_seconds) as response:
             raw = response.read(2_000_001)
         if len(raw) > 2_000_000:
             raise OperationError("Google 검색 응답이 너무 큽니다.", code="GOOGLE_SEARCH_RESPONSE_INVALID")
@@ -392,7 +399,8 @@ def _fetch_candidate(item: dict) -> tuple[dict | None, dict | None]:
 
 
 def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: int = 20,
-                              display_per_query: int = 10, event_reserve: int = 5) -> dict:
+                              display_per_query: int = 10, event_reserve: int = 5,
+                              google_fallback_deadline_at: float | None = None) -> dict:
     """Search metadata without bodies; provider-tagged queries expose external search status.
 
     The optional Google Interactions call is not part of the JSON client's
@@ -405,7 +413,8 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     if type(display_per_query) is not int or not 1 <= display_per_query <= 100:
         raise ValueError("display_per_query는 1~100의 정수여야 합니다.")
     queries, pool = _query_plan(analysis), []
-    if _google_grounding_enabled():
+    google_parallel = _google_grounding_enabled()
+    if google_parallel:
         queries.append({"query": _reviewed_event_queries(analysis)[0],
                         "sources": [{"scope": "event", "claim_id": None}],
                         "provider": "google_grounding"})
@@ -424,6 +433,26 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     # then consume responses in query-plan order for stable candidate IDs/ranks.
     with ThreadPoolExecutor(max_workers=min(4, len(queries))) as executor:
         query_results = list(executor.map(run_query, queries))
+    # The optional parallel mode keeps its existing behavior. Otherwise spend a
+    # separate Google request only when every NAVER query has actually failed.
+    # A successful empty NAVER response is not an API outage.
+    if (not google_parallel and query_results
+            and all(failure is not None for _items, failure in query_results)):
+        remaining = (_GOOGLE_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
+                     google_fallback_deadline_at - monotonic() - 1.0)
+        timeout_seconds = min(_GOOGLE_SEARCH_TIMEOUT_SECONDS, remaining)
+        if timeout_seconds >= _GOOGLE_FALLBACK_MIN_TIMEOUT_SECONDS and get_gemini_api_key():
+            record = {"query": _reviewed_event_queries(analysis)[0],
+                      "sources": [{"scope": "event", "claim_id": None}],
+                      "provider": "google_grounding"}
+            try:
+                items = search_google_grounded_news(source, analysis, max_urls=min(10, max_candidates),
+                                                    timeout_seconds=timeout_seconds)
+                outcome = (items, None)
+            except RuntimeError as exc:
+                outcome = (None, exc)
+            queries.append(record)
+            query_results.append(outcome)
     errors, succeeded = [], 0
     for record, (items, failure) in zip(queries, query_results):
         provider = record.get("provider", "naver")
