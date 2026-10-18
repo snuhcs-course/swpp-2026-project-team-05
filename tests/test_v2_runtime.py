@@ -16,7 +16,7 @@ from google.genai.errors import APIError
 from server.analysis.diagnostics import analysis_id
 from server.analysis.v2.model_client import (GeminiJSONClient, OpenRouterJSONClient,
                                              MetricsJSONClient, ModelHTTPError, ModelUnavailableError)
-from server.analysis.v2.pipeline import (_initial_result, _record_failure,
+from server.analysis.v2.pipeline import (_completion_summary, _initial_result, _record_failure,
                                          complete_rubric_analysis, run_analysis_pipeline)
 from server.analysis.v2.result_output import OperationError, make_error_record
 
@@ -195,6 +195,65 @@ class RuntimeTests(SimpleTestCase):
         self.assertIn('"verification_detached_calls_at_cutoff":2', logs)
         self.assertNotIn("PROMPT_SECRET", logs)
         self.assertNotIn("ARTICLE_SECRET", logs)
+        completed = [json.loads(line.split("analysis ", 1)[1]) for line in captured.output
+                     if '"event":"analysis_completed"' in line]
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0]["analysis_id"], "synthetic123")
+        self.assertEqual(completed[0]["execution_status"], "success")
+        self.assertEqual(completed[0]["verification"], {"detached_call_count_at_cutoff": 2})
+        self.assertEqual(completed[0]["model_task_attempt_counts"], {"source_analysis": 1})
+        self.assertGreaterEqual(completed[0]["model_task_elapsed_ms_sum"]["source_analysis"], 0)
+        self.assertEqual(set(completed[0]["stage_elapsed_ms"]),
+                         {"source_fetch", "discovery", "rubric_analysis"})
+
+    def test_completion_summary_counts_deferred_candidates_without_logging_ids_or_text(self):
+        result = {"execution_status": "partial", "errors": [
+            {"code": "SEARCH_TIMEOUT", "message": "ARTICLE_SECRET", "url": "URL_SECRET"},
+            {"code": "PROMPT_SECRET"}],
+            "display_selection": {"truncated": True},
+            "reader_analysis": {"article_failures": [{"article_id": "URL_SECRET"}],
+                                "i1_status": "withheld", "expression_review": {"status": "partial"}},
+            "selection": {"verification_llm_calls": 4,
+                          "verification_rounds": [{"deferred_ids": ["URL_SECRET", "A2"]},
+                                                  {"deferred_ids": ["A2"]},
+                                                  {"deferred_ids": None},
+                                                  {"deferred_ids": "URL_SECRET"}]}}
+        original = deepcopy(result)
+        summary = _completion_summary(result, {"search": 1200, "URL_SECRET": 9000},
+                                      {"task_counts": {"verify_selected_candidate_bodies": 3,
+                                                       "URL_SECRET": 1},
+                                       "task_failure_counts": {"verify_selected_candidate_bodies": 1},
+                                       "task_duration_ms": {"verify_selected_candidate_bodies": 1500,
+                                                            "PROMPT_SECRET-unsafe": 500}}, 240000)
+        self.assertEqual(result, original)
+        self.assertEqual(summary["verification"], {"attempted_call_count": 4,
+                                                    "deferred_candidate_count": 2})
+        self.assertEqual(summary["model_task_attempt_counts"],
+                         {"verify_selected_candidate_bodies": 4})
+        self.assertEqual(summary["stage_elapsed_ms"], {"search": 1200})
+        self.assertEqual(summary["partial_reason_codes"], [
+            "DISPLAY_SELECTION_TRUNCATED", "PROCESSING_FAILED", "READER_ALIGNMENT_FAILED",
+            "READER_EXPRESSION_INCOMPLETE", "READER_I1_INCOMPLETE", "SEARCH_TIMEOUT",
+            "VERIFICATION_DEFERRED"])
+        encoded = json.dumps(summary)
+        self.assertNotIn("ARTICLE_SECRET", encoded)
+        self.assertNotIn("PROMPT_SECRET", encoded)
+        self.assertNotIn("URL_SECRET", encoded)
+
+    def test_completion_summary_logs_failed_stage_without_model_client(self):
+        with (patch("server.analysis.v2.pipeline.prepare_article",
+                    side_effect=OperationError("ARTICLE_SECRET", code="ARTICLE_TIMEOUT")),
+              self.assertLogs("server.analysis.v2.pipeline", level="INFO") as captured):
+            result = run_analysis_pipeline(URL, client=_FakeClient(), use_cache=False)
+        completed = [json.loads(line.split("analysis ", 1)[1]) for line in captured.output
+                     if '"event":"analysis_completed"' in line]
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0]["execution_status"], "failed")
+        self.assertIn("ARTICLE_TIMEOUT", completed[0]["partial_reason_codes"])
+        self.assertIn("source_fetch", completed[0]["stage_elapsed_ms"])
+        self.assertNotIn("model_task_attempt_counts", completed[0])
+        self.assertNotIn("ARTICLE_SECRET", "\n".join(captured.output))
+        self.assertEqual(result["errors"][0]["code"], "ARTICLE_TIMEOUT")
 
     def test_budget_expiry_after_discovery_preserves_stage_four(self):
         client = _FakeClient()
