@@ -16,6 +16,8 @@
 
 현재 통과한 것은 테스트 커밋 `91d7c29`의 Python 58개, Android JVM 25개, debug APK 빌드와 [두 작업이 성공한 PR CI](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/39116785595)다. 합성 v2 HTTP 응답을 이용한 Android 에뮬레이터 화면 이동과 공개 기사 한 건의 입력·본문 추출 단계도 확인했다. 테스트 수치와 증거는 [Testing Documentation 초안](testing-documentation-iter2.md)에 기록한다. **NAVER 검색, Gemini 분석, 원문 근거의 의미 정확도, 실제 서버→Android 전체 흐름과 소요 시간은 아직 확인하지 않았다.** 합성 화면을 실제 LLM 분석 결과로 소개하지 않는다.
 
+기존 Vercel `frameless-team05-api`의 운영 배포는 10월 5일 `main`의 `fc0de10`이며 현재 통합 브랜치가 반영된 배포가 아니다. 프로젝트에는 Git 자동 연결이 없고, 운영 환경에 `GOOGLE_API_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 변수명이 설정되어 있다. 이 세 이름은 v2 코드의 필수 설정과 일치하지만 **키의 유효성이나 실제 호출 성공은 확인 전**이다. 로컬 `.env`는 아직 없으며, 운영 배포를 바꾸지 않고 v2를 시험할 키 설정 경로를 정하는 중이다. 현재 PR의 [최신 CI](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/39117136721)도 Python·Android 두 작업이 성공했다.
+
 ## 다음 작업 순서
 
 1. **통합 검토:** 회귀 테스트를 보강하고 PR에서 세 사람의 기능 연결, 근거 귀속, 오류·부분 결과 표시를 검토한다. 준서님의 기존 PR #9는 원본 작업의 출처로 남겨 두고, 새 통합 PR의 적용 범위를 분명히 적는다.
@@ -26,7 +28,7 @@
 
 ## 현재 결정이 필요한 입력
 
-- 실제 v2 서버 호출에 쓸 키 설정 경로. 키 값은 저장소·문서·대화에 넣지 않는다.
+- 기존 Vercel 운영 환경의 키를 로컬 시험에 활용할지, 별도 로컬 `.env`를 설정할지. 키 값은 저장소·문서·대화에 넣지 않는다.
 - 시험 책임자와 중간발표에서 보여 줄 팀원별 실제 작업·AI 사용 사례 확인.
 - P3 질문별 묶음의 기대 출력과 사람 판정 기준. 현재는 핵심 데모가 안정적으로 동작한 뒤 가능한 범위에서 다룬다.
 
