@@ -236,6 +236,7 @@ def search_google_grounded_news(source: dict, analysis: dict, *, max_urls: int =
             raise OperationError("Google 검색 응답이 너무 큽니다.", code="GOOGLE_SEARCH_RESPONSE_INVALID")
         payload = json.loads(raw)
     except HTTPError as exc:
+        logger.warning("google_search_http_error upstream_status=%d", exc.code)
         if 300 <= exc.code < 400:
             raise OperationError("Google 검색 API의 리다이렉트를 허용하지 않습니다.",
                                  code="GOOGLE_SEARCH_REDIRECT_BLOCKED", http_status=exc.code) from exc

@@ -6,6 +6,7 @@ from threading import Event
 from time import monotonic
 from unittest import TestCase
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from server.analysis.v2.article_search import (
     _GOOGLE_INTERACTIONS_URL, search_candidate_metadata, search_google_grounded_news,
@@ -391,3 +392,24 @@ class SearchQualityTests(TestCase):
                 )
         self.assertEqual(raised.exception.code, "GOOGLE_SEARCH_RESPONSE_INVALID")
         self.assertNotIn("upstream-sensitive-error-content", str(raised.exception))
+
+    def test_google_http_failure_logs_only_numeric_upstream_status(self):
+        for status in (400, 403, 429):
+            with (self.subTest(status=status),
+                  patch("server.analysis.v2.article_search.get_gemini_api_key",
+                        return_value="synthetic-secret-key"),
+                  patch("server.analysis.v2.article_search.build_opener") as build,
+                  self.assertLogs("server.analysis.v2.article_search", level="WARNING") as logs):
+                build.return_value.open.side_effect = HTTPError(
+                    "https://example.com/sensitive-url", status, "sensitive upstream reason", {},
+                    BytesIO(b"sensitive upstream body"))
+                with self.assertRaises(OperationError) as raised:
+                    search_google_grounded_news(
+                        {**SOURCE, "title": "sensitive article title"},
+                        {"event_query": "sensitive search query", "claims": []},
+                    )
+            self.assertEqual(raised.exception.code, "GOOGLE_SEARCH_HTTP_ERROR")
+            self.assertEqual(raised.exception.http_status, status)
+            self.assertEqual(logs.output, [
+                f"WARNING:server.analysis.v2.article_search:google_search_http_error upstream_status={status}"
+            ])
