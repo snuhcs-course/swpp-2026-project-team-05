@@ -700,6 +700,32 @@ class CandidateRefillTests(SimpleTestCase):
                                               for key in ("A1", "A2")]}]}
         return {**empty_search(), "metadata_candidates": metadata}, ranking
 
+    def test_single_candidate_batches_keep_both_grounded_comparisons(self):
+        metadata_search, ranking = self._two_candidate_case()
+        requests = []
+
+        def fetch(rows):
+            return {"candidates": [article(row["candidate_id"]) for row in rows], "fetch_failures": []}
+
+        def verify(_source, _analysis, rows, *, client):
+            requests.append([row["candidate_id"] for row in rows])
+            key = rows[0]["candidate_id"]
+            return {"assessments": [{"candidate_id": key, "event_relation": "same_event",
+                                     "event_focus": "primary", "claim_matches": [{"claim_id": "C1",
+                                     "relation": "same", "evidence": {"sentence_index": 0,
+                                     "quote": "새 계획"}}]}]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(article(), source_analysis(), metadata_search, ranking,
+                                                 max_per_claim=2, event_baseline_limit=0,
+                                                 verification_batch_size=1, client=object())
+        self.assertEqual(requests, [["A1"], ["A2"]])
+        self.assertEqual(result["selection"]["verification_llm_calls"], 2)
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["claim_comparisons"][0]["articles"]],
+                         ["A1", "A2"])
+        self.assertEqual(result["search"]["errors"], [])
+
     def test_truncated_batch_splits_and_keeps_successful_candidates(self):
         metadata_search, ranking = self._two_candidate_case()
         requests = []

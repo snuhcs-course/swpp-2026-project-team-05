@@ -493,6 +493,14 @@ class IntegratedApiTests(SimpleTestCase):
         self.assertEqual(pipeline.call_args.kwargs["max_rubric_articles"], 2)
 
     @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_v2_reader_verifies_one_candidate_per_call(self, pipeline):
+        from server.views import analyze_related_articles_v2
+        pipeline.return_value = pipeline_result()
+        analyze_related_articles_v2(SOURCE_URL, max_related=2)
+        self.assertEqual(pipeline.call_args.kwargs["analysis_profile"], "reader")
+        self.assertEqual(pipeline.call_args.kwargs["verification_batch_size"], 1)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
     def test_terminal_failure_is_not_masked_by_earlier_partial_error(self, pipeline):
         from server.views import PipelineResultError, analyze_related_articles_v2
         raw = pipeline_result()
