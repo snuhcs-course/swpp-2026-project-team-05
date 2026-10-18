@@ -144,7 +144,7 @@ class ModelRoutingTests(TestCase):
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
     @patch("httpx.Client")
-    def test_full_body_verification_has_90_second_provider_timeout_only(self, constructor):
+    def test_larger_structured_output_tasks_have_90_second_provider_timeout(self, constructor):
         constructor.return_value.post.return_value = SimpleNamespace(
             status_code=200, content=b"synthetic-envelope",
             json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
@@ -152,9 +152,11 @@ class ModelRoutingTests(TestCase):
         client = OpenRouterJSONClient()
         request = {"instructions": "synthetic", "input_data": {}, "schema": {"type": "object"}}
         client.generate_json(name="verify_selected_candidate_bodies", **request)
+        client.generate_json(name="source_content_units", **request)
+        client.generate_json(name="repair_source_content_units", **request)
         client.generate_json(name="source_event_claims_queries", **request)
         calls = constructor.return_value.post.call_args_list
-        self.assertEqual([call.kwargs["timeout"] for call in calls], [90.0, 60.0])
+        self.assertEqual([call.kwargs["timeout"] for call in calls], [90.0, 90.0, 90.0, 60.0])
         client.close()
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
