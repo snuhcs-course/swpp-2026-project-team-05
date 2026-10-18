@@ -2,6 +2,8 @@
 
 import json
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from threading import Barrier, Event, Lock
 from time import monotonic, sleep
 from unittest.mock import patch
@@ -138,6 +140,50 @@ class VerificationResilienceTests(SimpleTestCase):
         self.assertEqual(result["search"]["fetch_failures"], [])
         self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A2"])
         self.assertEqual(result["search"]["unused_candidate_ids"], ["A2"])
+
+    def test_queued_speculative_fetch_cancelled_before_start_is_not_discarded(self):
+        started, release_fetch = Event(), Event()
+        fetched = []
+
+        @contextmanager
+        def single_worker_prefetch(enabled, *, max_workers=1):
+            if not enabled:
+                yield None
+                return
+            executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                yield executor
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
+
+        def fetch(rows):
+            key = rows[0]["candidate_id"]
+            fetched.append(key)
+            if key == "A2":
+                started.set()
+                release_fetch.wait(timeout=3)
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            self.assertTrue(started.wait(timeout=3))
+            raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True, http_status=429)
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection._prefetch_executor",
+                        side_effect=single_worker_prefetch),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2", "A3", "A4")),
+                    _ranking(("A1",), ("A2", "A3", "A4")), max_per_claim=1,
+                    event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+        finally:
+            release_fetch.set()
+
+        self.assertEqual(fetched, ["A1", "A2"])
+        self.assertEqual(result["search"]["fetch_attempt_count"], 1)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A2"])
+        self.assertEqual(result["search"]["unused_candidate_ids"], ["A2", "A3", "A4"])
 
     def test_prefetched_fetch_failure_counts_once_only_when_selected(self):
         fetched, verified = [], []

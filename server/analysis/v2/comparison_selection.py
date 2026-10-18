@@ -170,6 +170,9 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
 
     def fetch_selected(ids: list[str]) -> dict:
         """Use speculative bodies only after the normal selector asks for them."""
+        # An initial selected batch still waits for its complete fetch result,
+        # exactly as the former synchronous fetch_candidate_articles call did.
+        # The later quality-pool prefetch has its own deadline-aware wait.
         fresh_ids = [key for key in ids if key not in body_prefetches]
         fresh = (fetch_candidate_articles([metadata_map[key] for key in fresh_ids]) if fresh_ids else
                  {"candidates": [], "fetch_failures": []})
@@ -552,8 +555,8 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
     # was actually selected. Cancel queued work; running fetches may finish.
     for key in body_prefetch_order:
         if key not in attempted_ids:
-            body_prefetches[key].cancel()
-            if key not in prefetch_discarded_ids:
+            # A queued future cancelled before it starts made no HTTP request.
+            if not body_prefetches[key].cancel() and key not in prefetch_discarded_ids:
                 prefetch_discarded_ids.append(key)
     independent_ids, body_groups, source_duplicates = _independent_same_event_ids(
         source, metadata, articles, assessed, set(claim_map))
