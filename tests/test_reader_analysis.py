@@ -9,8 +9,8 @@ from time import monotonic, sleep
 from unittest.mock import patch
 
 from server.analysis.reader_analysis import (
-    analyze_reader_content, _extract_source_units, _review_absence,
-    _review_expression_pairs, _safe_expression_marker,
+    analyze_reader_content, _alignment_chunk, _extract_source_units, _neutral_a_pair,
+    _review_absence, _review_expression_pairs, _safe_expression_marker,
 )
 from server.analysis.reader_contract import build_reader
 from server.analysis.v2.article_input import structure_article_body
@@ -534,6 +534,45 @@ class ReaderAnalysisTests(unittest.TestCase):
             alignment_difference=False, expression_mode="fail"))
         self.assertEqual(failed["expression_review"]["status"], "failed")
         self.assertEqual(failed["i1_status"], "complete")
+
+    def test_neutral_reporting_verbs_are_not_a_differences_in_either_pass(self):
+        source = article("S0", "관계자는 조치를 말했습니다.")
+        related = article("A", "관계자는 조치를 설명했습니다.")
+        unit = {"unit_id": "u1", "content": "관계자가 조치를 언급했다",
+                "kind": "attributed_statement",
+                "source_evidence": {"sentence_index": 0, "quote": source["sentences"][0]["text"]}}
+
+        class NeutralVerbClient:
+            def generate_json(self, **request):
+                if request["name"] == "related_content_alignment":
+                    return {"unit_alignments": [{
+                        "unit_id": "u1", "relation": "same",
+                        "related_evidence": {"sentence_index": 0, "quote": related["sentences"][0]["text"]},
+                        "difference_summary": "보도 동사의 어휘가 다르다",
+                        "expression_differences": [{
+                            "code": "A", "source_marker": {"sentence_index": 0, "quote": "말했습니다"},
+                            "related_marker": {"sentence_index": 0, "quote": "설명했습니다"},
+                            "note": "보도 동사가 다르다", "voice": "reporter",
+                        }],
+                    }]}
+                pair = request["input_data"]["pairs"][0]
+                return {"findings": [{
+                    "pair_id": pair["pair_id"], "unit_id": "u1", "code": "A",
+                    "source_marker": {"sentence_index": 0, "quote": "말했습니다"},
+                    "related_marker": {"sentence_index": 0, "quote": "설명했습니다"},
+                    "note": "보도 동사가 다르다", "voice": "reporter",
+                    "quoted_use": "none", "name_kind": "other",
+                    "semantic_relation": "equivalent",
+                }]}
+
+        rows, _ = _alignment_chunk(source, related, [unit], "A", NeutralVerbClient())
+        self.assertEqual(rows[0]["expression_differences"], [])
+        diagnostic, _ = _review_expression_pairs(
+            source, {"A": related}, [unit], {"A": {"unit_alignments": rows}}, NeutralVerbClient())
+        self.assertEqual(diagnostic["accepted_finding_count"], 0)
+        self.assertEqual(diagnostic["withheld_finding_count"], 1)
+        self.assertFalse(_neutral_a_pair("A", "강조했습니다", "말했습니다"))
+        self.assertFalse(_neutral_a_pair("C", "말했습니다", "설명했습니다"))
 
     def test_direct_speech_marker_is_withheld_but_short_scare_quote_can_be_named(self):
         quoted = article("Q", '기자는 "졸속"이라고 말했다.')
