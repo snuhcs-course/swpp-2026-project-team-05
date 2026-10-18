@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import re
 import socket
 from html import unescape
 from html.parser import HTMLParser
@@ -16,6 +17,8 @@ from urllib.request import HTTPHandler, HTTPSHandler, HTTPRedirectHandler, Proxy
 
 
 MAX_ARTICLE_BYTES = 4 * 1024 * 1024
+_YNA_HOSTS = frozenset({"yna.co.kr", "www.yna.co.kr"})
+_YNA_CONTACT = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 
 
 class ArticleFetchError(RuntimeError):
@@ -195,6 +198,34 @@ class _TitleParser(HTMLParser):
             self._read_article_metadata(value.get("@graph"))
 
 
+def _extract_yna_article_body(html: str) -> str | None:
+    """Use YNA's article paragraphs, excluding its nearby summary and tooltips.
+
+    Trafilatura may mistake the three-line summary and the Google source tooltip
+    above ``#articleWrap`` for article text. YNA keeps the actual story as direct
+    paragraph children of ``.story-news``; captions and related links are nested
+    in other elements. A missing or changed structure falls back to Trafilatura.
+    """
+    from lxml import etree, html as lxml_html
+
+    try:
+        document = lxml_html.fromstring(html)
+    except (etree.ParserError, ValueError):
+        return None
+    paragraphs = document.xpath(
+        '//*[@id="articleWrap"]//div['
+        'contains(concat(" ", normalize-space(@class), " "), " story-news ")'
+        ']/p[not(contains(concat(" ", normalize-space(@class), " "), '
+        '" txt-copyright "))]'
+    )
+    body = []
+    for paragraph in paragraphs:
+        text = " ".join(paragraph.text_content().split())
+        if text and not _YNA_CONTACT.fullmatch(text):
+            body.append(text)
+    return "\n".join(body) or None
+
+
 def fetch_article(url: str) -> dict[str, str]:
     """Return a news page's title and main body from one HTTP(S) request."""
     url = validate_article_url(url)
@@ -238,7 +269,10 @@ def fetch_article(url: str) -> dict[str, str]:
         raise ArticleFetchError("기사 서버에 연결하지 못했거나 응답 시간이 초과됐습니다.",
                                 stage="download") from exc
 
-    body = extract(html, url=url, include_comments=False)
+    hostname = urlsplit(url).hostname
+    body = (_extract_yna_article_body(html) if hostname in _YNA_HOSTS else None)
+    if not body:
+        body = extract(html, url=url, include_comments=False)
     if not body or not body.strip():
         raise ArticleFetchError("HTML에서 기사 본문을 찾지 못했습니다.", stage="extraction")
     parser = _TitleParser(url)
