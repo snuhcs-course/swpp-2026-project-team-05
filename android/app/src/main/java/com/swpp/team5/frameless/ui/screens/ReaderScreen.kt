@@ -40,9 +40,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -150,6 +153,7 @@ internal fun ReaderScreen(
     val uriHandler = LocalUriHandler.current
     val targets = remember(reader) { reader.targets().nonOverlapping() }
     val showExpressions = analysisStatus?.executionStatus != "failed"
+    val hasExpressionDifferences = showExpressions && targets.any { it.codes.isNotEmpty() }
     val fullReview = reader.version == "0.2" && reader.coverage == "all_source_sentences_reviewed"
     val partial = analysisStatus?.executionStatus in setOf("partial", "failed") ||
         reader.articleFailureCount > 0 || reader.i1Status == "partial"
@@ -208,11 +212,17 @@ internal fun ReaderScreen(
                 SourceLink(onClick = { uriHandler.openUri(url) }, label = "기사 원문 열기")
             }
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
-                Caption("대응 문장 · 눌러 비교")
-                Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
-                Caption("표현 차이 A–G")
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
+                    Caption("같은 내용을 다룬 문장 · 눌러 보기")
+                }
+                if (hasExpressionDifferences) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
+                        Caption("표현 차이 A–G")
+                    }
+                }
             }
             if (reader.i1Stars.isNotEmpty()) {
                 Caption("★ 확인한 비교 기사에서 찾지 못한 내용", color = Fl.Danger)
@@ -257,6 +267,21 @@ internal fun ReaderScreen(
 
 private data class RelatedPage(val article: ReaderArticle, val pairs: List<ReaderPair>)
 
+internal fun sheetInstruction(pageCount: Int, expanded: Boolean): String = when {
+    pageCount > 1 && expanded -> "좌우로 다른 기사 보기"
+    pageCount > 1 -> "좌우로 다른 기사 보기 · 위로 끌어 펼치기"
+    expanded -> ""
+    else -> "위로 끌어 펼치기"
+}
+
+/** Center the selected sentence inside the part of the sheet currently visible. */
+internal fun centeredReaderOffset(sentenceCenter: Float, visibleHeight: Int, maxScroll: Int): Int =
+    (sentenceCenter - visibleHeight / 2f).roundToInt().coerceIn(0, maxScroll)
+
+/** Make even a match near the article's end reachable in a short sheet peek. */
+internal fun readerTailPadding(viewportHeight: Int, visibleHeight: Int): Int =
+    viewportHeight - visibleHeight.coerceIn(0, viewportHeight) / 2
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun ReaderComparisonSheet(
@@ -287,11 +312,9 @@ private fun ReaderComparisonSheet(
                 Text("다른 기사", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Caption("${pagerState.currentPage + 1} / ${pages.size}")
             }
-            if (pages.size > 1) {
-                Caption("좌우로 기사 전환 · 위로 끌어 전문 보기",
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
-            } else {
-                Caption("위로 끌어 전문 보기", modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+            val instruction = sheetInstruction(pages.size, sheetState.currentValue == SheetValue.Expanded)
+            if (instruction.isNotEmpty()) {
+                Caption(instruction, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = Fl.Line)
@@ -307,25 +330,36 @@ private fun ReaderComparisonSheet(
 private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showExpressions: Boolean) {
     val uriHandler = LocalUriHandler.current
     val density = LocalDensity.current
+    val windowView = LocalView.current.rootView
     val article = page.article
     val scroll = rememberScrollState()
+    val firstOffset = page.pairs.preferredFocusPair(showExpressions)?.relatedSpan?.start
     var layout by remember(article.id, page.pairs) { mutableStateOf<TextLayoutResult?>(null) }
     var viewportHeight by remember(article.id) { mutableIntStateOf(0) }
+    var visibleHeight by remember(article.id) { mutableIntStateOf(0) }
+    var initialFocusApplied by remember(article.id, firstOffset) { mutableStateOf(false) }
     val highlightText = remember(article, page.pairs, showExpressions) {
         relatedReaderText(article, page.pairs, showExpressions)
     }
-    val firstOffset = page.pairs.preferredPreviewPair(showExpressions)?.relatedSpan?.start
 
-    LaunchedEffect(article.id, firstOffset, layout, viewportHeight, scroll.maxValue, sheetState.currentValue) {
+    LaunchedEffect(article.id, firstOffset, layout, visibleHeight, viewportHeight,
+        scroll.maxValue, sheetState.currentValue) {
+        if (initialFocusApplied || sheetState.currentValue == SheetValue.Hidden) return@LaunchedEffect
         val offset = firstOffset ?: return@LaunchedEffect
         val textLayout = layout ?: return@LaunchedEffect
-        if (sheetState.currentValue != SheetValue.Expanded || viewportHeight <= 0 ||
-            scroll.maxValue <= 0 || offset !in article.body.indices) return@LaunchedEffect
+        if (visibleHeight <= 0 || offset !in article.body.indices) return@LaunchedEffect
+        // Text layout can arrive before the scroll container has its final range.
+        if (scroll.maxValue == 0 && textLayout.size.height > viewportHeight) return@LaunchedEffect
         awaitFrame()
         val box = textLayout.getBoundingBox(offset)
         val textTopPadding = with(density) { 14.dp.toPx() }
-        val target = (textTopPadding + box.top + box.height / 2f - viewportHeight / 2f).roundToInt()
-        scroll.scrollTo(target.coerceIn(0, scroll.maxValue))
+        val target = centeredReaderOffset(
+            sentenceCenter = textTopPadding + box.top + box.height / 2f,
+            visibleHeight = visibleHeight,
+            maxScroll = scroll.maxValue
+        )
+        scroll.scrollTo(target)
+        initialFocusApplied = true
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 14.dp)) {
@@ -342,7 +376,7 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Caption("표현 차이 후보", color = Fl.InkDiff)
+                Caption("다르게 쓴 표현", color = Fl.InkDiff)
                 differences.forEach { difference ->
                     Text(
                         text = "${difference.code} · ${difference.note}".trimEnd(' ', '·'),
@@ -355,62 +389,35 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
         }
         Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = Fl.Line)
-        if (sheetState.currentValue == SheetValue.Expanded) {
-            Box(modifier = Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }) {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(scroll)) {
-                    Text(
-                        text = highlightText,
-                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                        color = Fl.Ink,
-                        fontFamily = Fl.Serif,
-                        fontSize = 15.sp,
-                        lineHeight = 27.sp,
-                        onTextLayout = { layout = it }
-                    )
-                    Spacer(Modifier.height(with(density) { (viewportHeight / 2f).toDp() }))
+        Box(
+            modifier = Modifier.fillMaxSize()
+                .onSizeChanged { viewportHeight = it.height }
+                .onGloballyPositioned { coordinates ->
+                    visibleHeight = (windowView.height - coordinates.positionInWindow().y)
+                        .roundToInt().coerceIn(0, coordinates.size.height)
                 }
+        ) {
+            Column(modifier = Modifier.fillMaxSize().verticalScroll(
+                scroll, enabled = sheetState.currentValue == SheetValue.Expanded)) {
+                Text(
+                    text = highlightText,
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    color = Fl.Ink,
+                    fontFamily = Fl.Serif,
+                    fontSize = 15.sp,
+                    lineHeight = 27.sp,
+                    onTextLayout = { layout = it }
+                )
+                Spacer(Modifier.height(with(density) {
+                    readerTailPadding(viewportHeight, visibleHeight).toDp()
+                }))
             }
-        } else {
-            Text(
-                text = relatedSentencePreview(article, page.pairs, showExpressions),
-                color = Fl.Ink,
-                fontFamily = Fl.Serif,
-                fontSize = 15.sp,
-                lineHeight = 26.sp,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 18.dp)
-            )
         }
     }
 }
 
-/** Put the verified sentence first, retaining the article's real separator before the next. */
-internal fun relatedSentencePreview(
-    article: ReaderArticle,
-    pairs: List<ReaderPair>,
-    showExpressions: Boolean = true
-): AnnotatedString = buildAnnotatedString {
-    val pair = pairs.preferredPreviewPair(showExpressions) ?: return@buildAnnotatedString
-    val index = article.sentences.indexOfFirst { it.id == pair.relatedSentenceId }
-    if (index < 0) return@buildAnnotatedString
-    val sentence = article.sentences[index]
-    val next = article.sentences.getOrNull(index + 1)
-    val end = next?.span?.end?.takeIf { it in sentence.span.end..article.body.length }
-        ?: sentence.span.end
-    val start = length
-    append(article.body.substring(sentence.span.start, end))
-    val selectedEnd = start + sentence.span.end - sentence.span.start
-    addStyle(SpanStyle(background = ReaderMatch, textDecoration = TextDecoration.Underline), start, selectedEnd)
-    if (showExpressions) pair.expressionDifferences.forEach { difference ->
-        val markerStart = start + difference.relatedMarkerSpan.start - sentence.span.start
-        val markerEnd = start + difference.relatedMarkerSpan.end - sentence.span.start
-        if (markerStart >= start && markerEnd <= selectedEnd && markerEnd > markerStart) {
-            addStyle(SpanStyle(background = ReaderMarker, fontWeight = FontWeight.Bold), markerStart, markerEnd)
-        }
-    }
-}
-
-/** An A–G tap opens at its marked counterpart even when a neutral match starts earlier. */
-internal fun List<ReaderPair>.preferredPreviewPair(showExpressions: Boolean): ReaderPair? =
+/** An A–G tap focuses its marked counterpart even when a neutral match starts earlier. */
+internal fun List<ReaderPair>.preferredFocusPair(showExpressions: Boolean): ReaderPair? =
     minWithOrNull(compareBy<ReaderPair> { if (showExpressions && it.expressionDifferences.isNotEmpty()) 0 else 1 }
         .thenBy { it.relatedSpan.start })
 
@@ -437,6 +444,6 @@ private fun relationLabel(raw: String): String = when (raw) {
     "reframes" -> "다르게 구성한 내용"
     "different_interpretation" -> "다른 해석"
     "same_issue" -> "같은 쟁점"
-    "uncertain" -> "관계 판정 불확실"
+    "uncertain" -> "연결을 확인 중"
     else -> ""
 }
