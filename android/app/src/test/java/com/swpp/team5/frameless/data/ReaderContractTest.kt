@@ -1,8 +1,10 @@
 package com.swpp.team5.frameless.data
 
 import com.swpp.team5.frameless.ui.screens.nonOverlapping
-import com.swpp.team5.frameless.ui.screens.preferredPreviewPair
-import com.swpp.team5.frameless.ui.screens.relatedSentencePreview
+import com.swpp.team5.frameless.ui.screens.centeredReaderOffset
+import com.swpp.team5.frameless.ui.screens.preferredFocusPair
+import com.swpp.team5.frameless.ui.screens.relatedReaderText
+import com.swpp.team5.frameless.ui.screens.sheetInstruction
 import com.swpp.team5.frameless.ui.screens.sourceReaderText
 import com.swpp.team5.frameless.ui.screens.targets
 import org.json.JSONArray
@@ -182,8 +184,7 @@ class ReaderContractTest {
         assertEquals("S0-S0", target.sentenceId)
         assertTrue(target.codes.isEmpty())
         assertFalse(sourceReaderText(reader, reader.targets()).text.contains("〔A〕"))
-        assertTrue(relatedSentencePreview(reader.relatedArticles.single(), target.pairs).text
-            .contains("첫 대응 표현이다."))
+        assertEquals(relatedBody, relatedReaderText(reader.relatedArticles.single(), target.pairs).text)
     }
 
     @Test
@@ -241,18 +242,18 @@ class ReaderContractTest {
     }
 
     @Test
-    fun markedPairWinsSheetPreviewAgainstEarlierNeutralPair() {
+    fun markedPairWinsSheetFocusAgainstEarlierNeutralPair() {
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root(), "https://source.example/article").reader)
         val marked = reader.pairs.single().copy(relatedSpan = ReaderSpan(15, 20))
         val neutral = marked.copy(id = "P2", relatedSpan = ReaderSpan(0, 5),
             expressionDifferences = emptyList())
 
-        assertEquals(marked, listOf(neutral, marked).preferredPreviewPair(showExpressions = true))
-        assertEquals(neutral, listOf(neutral, marked).preferredPreviewPair(showExpressions = false))
+        assertEquals(marked, listOf(neutral, marked).preferredFocusPair(showExpressions = true))
+        assertEquals(neutral, listOf(neutral, marked).preferredFocusPair(showExpressions = false))
     }
 
     @Test
-    fun collapsedPreviewKeepsTheExtractedSeparatorBetweenSentences() {
+    fun relatedSheetUsesFullExtractedBodyWithOriginalSentenceSeparators() {
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root(), "https://source.example/article").reader)
         val original = reader.relatedArticles.single()
         val first = original.sentences[0]
@@ -268,8 +269,24 @@ class ReaderContractTest {
                     paragraphIndex = if (separator == " ") 0 else 1
                 )
             ))
-            assertEquals(body, relatedSentencePreview(article, reader.pairs).text)
+            assertEquals(body, relatedReaderText(article, reader.pairs).text)
         }
+    }
+
+    @Test
+    fun sheetInstructionsOnlyOfferToExpandWhileCollapsed() {
+        assertEquals("위로 끌어 펼치기", sheetInstruction(pageCount = 1, expanded = false))
+        assertEquals("", sheetInstruction(pageCount = 1, expanded = true))
+        assertEquals("좌우로 다른 기사 보기 · 위로 끌어 펼치기",
+            sheetInstruction(pageCount = 2, expanded = false))
+        assertEquals("좌우로 다른 기사 보기", sheetInstruction(pageCount = 2, expanded = true))
+    }
+
+    @Test
+    fun focusScrollCentersMatchedSentenceWithinVisiblePeekAndClampsAtArticleEdges() {
+        assertEquals(500, centeredReaderOffset(sentenceCenter = 700f, visibleHeight = 400, maxScroll = 1000))
+        assertEquals(0, centeredReaderOffset(sentenceCenter = 50f, visibleHeight = 400, maxScroll = 1000))
+        assertEquals(600, centeredReaderOffset(sentenceCenter = 950f, visibleHeight = 400, maxScroll = 600))
     }
 
     private fun root(): JSONObject {
