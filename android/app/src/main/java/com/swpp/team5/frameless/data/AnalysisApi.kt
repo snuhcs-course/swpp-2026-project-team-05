@@ -18,9 +18,9 @@ internal object AnalysisApi {
     private const val MAX_RELATED_ARTICLES = 3
     private const val LOG_TAG = "FrameLESS.Analysis"
 
-    private val EXPRESSION_CODES = setOf("A", "B", "C", "D", "E", "F", "G", "H")
+    private val EXPRESSION_CODES = setOf("A", "B", "C", "D", "E", "F", "G")
     private val INFORMATION_CODES = setOf("I1", "I2", "I3", "I4", "I5")
-    private val BASELINE_SOURCES = setOf("outlet", "neutral_paraphrase")
+    private val BASELINE_SOURCES = setOf("outlet", "")
     private val POLARITIES = setOf("negative", "positive", "none")
     private val AIMS = setOf("direct", "indirect")
     private val ABSENCE_REASONS = setOf("timing_impossible", "format", "editorial", "unknown")
@@ -102,31 +102,52 @@ internal object AnalysisApi {
                         sourceClaimIndex = if (m.has("source_claim_index") && !m.isNull("source_claim_index"))
                             m.optInt("source_claim_index", -1).takeIf { it >= 0 } else null,
                         relationRaw = m.optString("relation_to_source"),
-                        quote = m.optJSONObject("evidence")?.optString("quote").orEmpty()
+                        quote = m.optJSONObject("evidence")?.optString("quote").orEmpty(),
+                        relationOwnerRaw = m.optString("relation_owner")
+                            .takeIf { m.has("relation_owner") && !m.isNull("relation_owner") && it.isNotBlank() },
+                        speaker = m.optString("speaker").takeUnless { m.isNull("speaker") }.orEmpty(),
+                        speechKindRaw = m.optString("speech_kind")
+                            .takeIf { m.has("speech_kind") && !m.isNull("speech_kind") && it.isNotBlank() },
+                        hasMultipleVoices = m.optBoolean("has_multiple_voices", false),
+                        relationWarning = m.optString("relation_warning")
+                            .takeIf { m.has("relation_warning") && !m.isNull("relation_warning") && it.isNotBlank() }
                     )
-                }
+                },
+                claimId = issue.optString("claim_id").ifBlank { null }
             )
         }
         val allMembers = issues.flatMap { it.members }
 
-        // 기사 목록: 입력 기사 + members에 실제 등장한 기사
+        val relatedJson = root.optJSONArray("related_articles") ?: JSONArray()
+        // AI-generated adapter: explicit article_index keeps rubric-only baseline links available.
+        // v1 responses lack this field, so their member-derived article list still works.
+        val membersByIndex = allMembers.filter { it.articleIndex > 0 }.groupBy { it.articleIndex }
+        val relatedByIndex = relatedJson.objects()
+            .filter { it.has("article_index") && !it.isNull("article_index") }
+            .groupBy { it.optInt("article_index", -1) }
+            .filterKeys { it > 0 }
         val articles = buildList {
             add(ArticleRef(0, sourceTitle, sourceUrl))
-            allMembers.filter { it.articleIndex > 0 }
-                .groupBy { it.articleIndex }
-                .toSortedMap()
-                .forEach { (index, ms) ->
-                    add(ArticleRef(
-                        articleIndex = index,
-                        title = ms.firstOrNull { it.title.isNotBlank() }?.title ?: "다른 출처 $index",
-                        url = ms.firstOrNull { it.url != null }?.url
-                    ))
+            (membersByIndex.keys + relatedByIndex.keys).toSortedSet().forEach { index ->
+                val ms = membersByIndex[index].orEmpty()
+                val rs = relatedByIndex[index].orEmpty()
+                val memberUrl = ms.firstOrNull { it.url != null }?.url
+                val relatedUrl = rs.firstOrNull { it.optString("url").isHttpUrl() }
+                    ?.optString("url")
+                if (memberUrl != null && relatedUrl != null && memberUrl != relatedUrl) {
+                    throw IllegalStateException("비교 기사 링크와 판정 결과의 기사 ID가 일치하지 않아요.")
                 }
+                add(ArticleRef(
+                    articleIndex = index,
+                    title = rs.firstOrNull { it.optString("title").isNotBlank() }?.optString("title")
+                        ?: ms.firstOrNull { it.title.isNotBlank() }?.title ?: "다른 출처 $index",
+                    url = relatedUrl ?: memberUrl
+                ))
+            }
         }
 
-        // related_articles 중 members에 한 번도 등장하지 않은 기사 (url로만 대조, 순서로 추정하지 않음)
-        val memberUrls = articles.mapNotNull { it.url }.toSet()
-        val relatedJson = root.optJSONArray("related_articles") ?: JSONArray()
+        // 선택된 issue member에 표시되지 않았다는 뜻만 남긴다. 누락 판정은 아니다.
+        val memberUrls = allMembers.mapNotNull { it.url }.toSet() + sourceUrl
         val relatedWithoutMatches = relatedJson.objects().mapNotNull { r ->
             val url = r.optString("url")
             if (url.isNotBlank() && url !in memberUrls) r.optString("title").ifBlank { url } else null
@@ -160,7 +181,14 @@ internal object AnalysisApi {
             issues = issues,
             sourceOnlyClaims = sourceOnlyClaims,
             relatedOnlyMembers = relatedOnlyMembers,
-            rubric = root.optJSONObject("rubric")?.let { parseRubric(it) }
+            rubric = root.optJSONObject("rubric")?.let { parseRubric(it) },
+            analysisStatus = root.optJSONObject("analysis_status")?.let { status ->
+                AnalysisStatus(
+                    executionStatus = status.optString("execution_status"),
+                    comparisonStatus = status.optString("comparison_status"),
+                    warnings = (status.optJSONArray("warnings") ?: JSONArray()).strings()
+                )
+            }
         )
     }
 
@@ -239,12 +267,15 @@ internal object AnalysisApi {
             val span = e.optString("span")
             val categories = (e.optJSONArray("categories") ?: JSONArray()).objects().mapNotNull { c ->
                 val code = c.optString("code")
-                val m = if (c.has("markedness")) c.optInt("markedness", -1) else -1
-                if (code in EXPRESSION_CODES && m in 0..2) CategoryMark(code, m) else null
+                val markedness = if (c.has("markedness") && !c.isNull("markedness"))
+                    c.optInt("markedness", -1).takeIf { it in 0..2 } else null
+                if (code in EXPRESSION_CODES && c.has("markedness") &&
+                    (c.isNull("markedness") || markedness != null)) CategoryMark(code, markedness) else null
             }
             val baseline = e.optJSONObject("baseline")
             val baselineSource = baseline?.optString("source").orEmpty()
             val polarity = e.optString("polarity")
+            val status = e.optString("status").ifBlank { "unspecified" }
             // 원문 추적 원칙: 표현은 반드시 같은 문장 안에 그대로 있어야 한다.
             val valid = e.has("article_index") && sentence.isNotBlank() && span.isNotBlank() &&
                 sentence.contains(span) && categories.isNotEmpty() &&
@@ -252,18 +283,21 @@ internal object AnalysisApi {
             if (!valid) { dropped++; return@mapNotNull null }
             ExpressionDifference(
                 articleIndex = e.optInt("article_index"),
-                questionId = e.optString("question_id").ifBlank { null },
+                questionId = e.optionalString("question_id"),
+                claimId = e.optionalString("claim_id"),
                 sentence = sentence,
                 span = span,
                 categories = categories,
-                baselineText = baseline?.optString("text").orEmpty(),
+                baselineText = baseline?.optionalString("text").orEmpty(),
                 baselineSource = baselineSource,
-                baselineArticleIndex = baseline?.takeIf { it.has("article_index") }?.optInt("article_index"),
-                target = e.optString("target").ifBlank { null },
+                baselineArticleIndex = baseline?.takeIf { it.has("article_index") && !it.isNull("article_index") }
+                    ?.optInt("article_index"),
+                target = e.optionalString("target"),
                 polarity = polarity,
                 aim = e.optString("aim").takeIf { it in AIMS },
-                held = e.optString("status") == "held",
-                note = e.optString("note")
+                status = status,
+                held = status != "provisional" || categories.any { it.markedness == null },
+                note = e.optionalString("note").orEmpty()
             )
         }
 
@@ -274,10 +308,11 @@ internal object AnalysisApi {
             InformationDifference(
                 code = code,
                 articleIndex = i.optInt("article_index"),
-                questionId = i.optString("question_id").ifBlank { null },
-                sentence = i.optString("sentence").ifBlank { null },
+                questionId = i.optionalString("question_id"),
+                claimId = i.optionalString("claim_id"),
+                sentence = i.optionalString("sentence"),
                 value = value,
-                target = i.optString("target").ifBlank { null },
+                target = i.optionalString("target"),
                 polarity = i.optString("polarity").takeIf { it in POLARITIES }
             )
         }
@@ -285,6 +320,7 @@ internal object AnalysisApi {
         if (dropped > 0) Log.w(LOG_TAG, "rubric: dropped $dropped malformed item(s)")
         return RubricResult(
             version = r.optString("version"),
+            judgmentStatus = r.optString("judgment_status"),
             questions = questions,
             expressions = expressions,
             informations = informations,
@@ -313,6 +349,10 @@ internal object AnalysisApi {
 
     private fun JSONArray.objects(): List<JSONObject> =
         (0 until length()).mapNotNull { optJSONObject(it) }
+
+    /** org.json can stringify JSON null as the literal "null"; keep optional fields truly absent. */
+    private fun JSONObject.optionalString(key: String): String? =
+        if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
 
     private fun JSONArray.strings(): List<String> =
         (0 until length()).mapNotNull { optString(it).takeIf { s -> s.isNotBlank() } }

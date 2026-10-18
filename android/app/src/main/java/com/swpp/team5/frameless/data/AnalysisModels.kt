@@ -15,8 +15,10 @@ internal enum class ClaimType { SHARED, DIFFERENT }
 /** 서버 relation_to_source 값을 그대로 보존한다. 알 수 없는 값도 버리지 않는다. */
 internal enum class Relation(val wire: String, val label: String) {
     SAME("same", "같은 내용"),
-    OPPOSES("opposes", "다른 해석/표현"),
-    DIFFERENT_INTERPRETATION("different_interpretation", "다른 해석/표현"),
+    OPPOSES("opposes", "반대되는 주장"),
+    DIFFERENT_INTERPRETATION("different_interpretation", "다른 해석"),
+    SAME_ISSUE("same_issue", "같은 쟁점의 다른 내용"),
+    UNCERTAIN("uncertain", "관계 판정 불확실"),
     OTHER("", "기타");
 
     companion object {
@@ -59,7 +61,14 @@ internal data class IssueMember(
     val url: String?,
     val sourceClaimIndex: Int?,
     val relationRaw: String,
-    val quote: String
+    val quote: String,
+    /** 이 관계 판정의 주체: reporter | attributed_speaker | uncertain. 구 API에는 없음. */
+    val relationOwnerRaw: String? = null,
+    val speaker: String = "",
+    /** direct | indirect | none | uncertain. 구 API에는 없음. */
+    val speechKindRaw: String? = null,
+    val hasMultipleVoices: Boolean = false,
+    val relationWarning: String? = null
 ) {
     val relation: Relation get() = Relation.from(relationRaw)
 }
@@ -67,17 +76,20 @@ internal data class IssueMember(
 /** comparison.issues[] 한 개. label은 서버 issue 문자열 그대로. */
 internal data class IssueGroup(
     val label: String,
-    val members: List<IssueMember>
+    val members: List<IssueMember>,
+    /** v2의 원본 주장 ID. 문장 유사도로 다른 주장에 루브릭을 붙이지 않는다. */
+    val claimId: String? = null
 )
 
 /* ------------------------------------------------------------------
- * 2. 판정 기준 v0.2.1 데이터 (서버가 아직 보내지 않음)
+ * 2. 판정 기준 v0.2.1 데이터
  *    응답 최상위에 "rubric" 객체가 있을 때만 채워진다. 없으면 null.
- *    앱은 이 값을 만들거나 추정하지 않는다. 스키마는 FrameLESS_rubric_api_contract.md [제안].
+ *    앱은 질문 묶음, 유표성, 누락 판정을 만들거나 추정하지 않는다.
  * ------------------------------------------------------------------ */
 
 internal data class RubricResult(
     val version: String,
+    val judgmentStatus: String,
     val questions: List<RubricQuestion>,
     val expressions: List<ExpressionDifference>,
     val informations: List<InformationDifference>,
@@ -103,20 +115,21 @@ internal data class QuestionAnswer(
 )
 
 internal data class CategoryMark(
-    /** A~G, H(P5 제안) */
+    /** 채택된 A~G만 표시한다. */
     val code: String,
-    /** 유표성 0~2 */
-    val markedness: Int
+    /** 잠정 상대 유표성 0~2. 보류되면 null이며 0은 절대 중립이 아니다. */
+    val markedness: Int?
 )
 
 internal data class ExpressionDifference(
     val articleIndex: Int,
     val questionId: String?,
+    val claimId: String?,
     val sentence: String,
     val span: String,
     val categories: List<CategoryMark>,
     val baselineText: String,
-    /** outlet | neutral_paraphrase (P1) */
+    /** outlet 또는 빈 문자열. P1 중립 재작성은 미적용. */
     val baselineSource: String,
     val baselineArticleIndex: Int?,
     val target: String?,
@@ -124,10 +137,12 @@ internal data class ExpressionDifference(
     val polarity: String,
     /** direct | indirect, 없으면 null */
     val aim: String?,
+    /** provisional | needs_review | needs_comparison */
+    val status: String,
     val held: Boolean,
     val note: String
 ) {
-    val maxMarkedness: Int get() = categories.maxOfOrNull { it.markedness } ?: 0
+    val maxMarkedness: Int? get() = categories.mapNotNull { it.markedness }.maxOrNull()
 }
 
 internal data class InformationDifference(
@@ -135,10 +150,18 @@ internal data class InformationDifference(
     val code: String,
     val articleIndex: Int,
     val questionId: String?,
+    val claimId: String?,
     val sentence: String?,
     val value: String,
     val target: String?,
     val polarity: String?
+)
+
+/** v2 처리 상태. 실패와 실제 비교 결과 없음은 별도로 보존한다. */
+internal data class AnalysisStatus(
+    val executionStatus: String,
+    val comparisonStatus: String,
+    val warnings: List<String>
 )
 
 /* ------------------------------------------------------------------
@@ -162,8 +185,9 @@ internal data class AnalysisResult(
     val sourceOnlyClaims: List<SourceClaim>,
     /** 입력 기사 클레임과 연결되지 않은 다른 기사 문장 (source_claim_index 없음) */
     val relatedOnlyMembers: List<IssueMember>,
-    /** 판정 기준 v0.2.1 데이터. 서버가 rubric을 보내지 않으면 null */
-    val rubric: RubricResult?
+    /** 판정 기준 v0.2.1 데이터. 이번 분석에 없으면 null. */
+    val rubric: RubricResult?,
+    val analysisStatus: AnalysisStatus? = null
 ) {
     fun articleTitle(index: Int): String =
         articles.firstOrNull { it.articleIndex == index }?.title

@@ -20,6 +20,7 @@ class AnalyzeApiTests(SimpleTestCase):
             "GEMINI_API_KEY": "test-key",
             "NAVER_CLIENT_ID": "test-id",
             "NAVER_CLIENT_SECRET": "test-secret",
+            "FRAMELESS_PIPELINE": "v1",
         })
         credentials.start()
         self.addCleanup(credentials.stop)

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.BuildConfig
 import com.swpp.team5.frameless.data.ArticleRef
+import com.swpp.team5.frameless.data.Relation
 import com.swpp.team5.frameless.ui.state.AnswerView
 import com.swpp.team5.frameless.ui.state.ExpressionItem
 import com.swpp.team5.frameless.ui.state.InformationItem
@@ -84,18 +85,44 @@ internal fun SourceEvidenceCard(number: Int, clip: Clip) {
         }
         when (kind) {
             MatchKind.DIFF -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                TagPill("다른 해석/표현", Fl.TintDiff, Fl.InkDiff)
+                TagPill(Relation.from(clip.relationRaw).label, Fl.TintDiff, Fl.InkDiff)
                 // 서버 원래 값(opposes 등)은 개발 빌드에서만 작게 남긴다
                 if (BuildConfig.DEBUG) Text(clip.relationRaw, fontSize = 10.sp, color = Fl.Line)
             }
-            MatchKind.OTHER -> if (clip.relationRaw.isNotBlank()) Caption("관계: ${clip.relationRaw}")
+            MatchKind.OTHER -> if (clip.relationRaw.isNotBlank()) {
+                val relation = Relation.from(clip.relationRaw)
+                Caption("관계: ${if (relation == Relation.OTHER) "분류 확인 필요" else relation.label}")
+            }
             MatchKind.SAME -> Unit
         }
         QuoteText(clip.quote, tint)
+        provenanceLines(clip).forEach { Caption(it) }
         if (clip.alsoIn.isNotEmpty()) {
             Caption("같은 문장이 주장 " + clip.alsoIn.joinToString(", ") { two(it + 1) } + "에도 연결돼 있어요")
         }
     }
+}
+
+/** 서버가 확정한 발화 귀속만 설명한다. 메타데이터가 없거나 불확실하면 매체 입장으로 승격하지 않는다. */
+internal fun provenanceLines(clip: Clip): List<String> = buildList {
+    when (clip.relationOwnerRaw) {
+        "reporter" -> add("관계 판정 주체: 기자 서술")
+        "attributed_speaker" -> {
+            val speaker = clip.speaker.ifBlank { "발언자 미확인" }
+            val kind = when (clip.speechKindRaw) {
+                "direct" -> "직접 인용"
+                "indirect" -> "간접 인용"
+                else -> "인용 발언"
+            }
+            add("관계 판정 주체: $speaker · $kind")
+            add("인용된 발언과 비교한 결과예요. 매체의 입장을 뜻하지 않아요.")
+        }
+        else -> add("발화 주체 확인 필요 · 이 문장을 매체의 입장으로 해석하지 마세요.")
+    }
+    if (clip.hasMultipleVoices) {
+        add("근거에 여러 발화 주체가 섞여 있어요. 원문에서 각각의 발언을 확인해 주세요.")
+    }
+    clip.relationWarning?.takeIf { it.isNotBlank() }?.let { add("관계 판정 보류: $it") }
 }
 
 /** 명조 인용문. tint가 있으면 문장 배경을 칠한다 */
@@ -157,16 +184,15 @@ internal object RubricLabels {
         "D" to "정도 수식어",
         "E" to "평가 수식어",
         "F" to "명명",
-        "G" to "양태·확신",
-        "H" to "행위자 범위 확대"
+        "G" to "양태·확신"
     )
 
-    /** 정보 구성 차이 설명 */
+    /** 원문에서 관찰한 정보 구성 요소. 항목이 곧 차이나 의도를 뜻하지 않는다. */
     val information = mapOf(
-        "I1" to "다른 기사에 대응 문장이 없음",
-        "I2" to "제목/리드/본문 등 배치 차이",
-        "I3" to "다른 기사가 추가한 배경",
-        "I4" to "추측·전망 표현",
+        "I1" to "주장 포함·대응 여부",
+        "I2" to "제목·리드·본문 배치",
+        "I3" to "배경 정보",
+        "I4" to "추측·전망",
         "I5" to "직접/간접 인용 및 인용 주체"
     )
 
@@ -178,11 +204,12 @@ internal object RubricLabels {
         else -> null
     }
 
-    /** "표현 차이: 명명(F) · 유표성 보류" */
+    /** AI-generated display guard: null은 보류이며 0은 절대 중립이 아니다. */
     fun expressionTitle(item: ExpressionItem): String {
         val e = item.e
         val cats = e.categories.joinToString(" · ") { "${expression[it.code] ?: it.code}(${it.code})" }
-        val mark = if (e.held) "유표성 보류" else "유표성 ${e.maxMarkedness}"
+        val mark = if (e.held || e.maxMarkedness == null) "유표성 보류"
+            else "잠정 상대 유표성 ${e.maxMarkedness}"
         return "표현 차이: $cats · $mark"
     }
 }
@@ -237,11 +264,12 @@ private fun RubricCardBox(content: @Composable () -> Unit) {
 
 /**
  * 표현 차이 카드. 반드시 원문 표현(span)·문장·출처 기사·원문 링크를 함께 보여준다.
- * baselineTitle: 기준 표현이 다른 기사에서 왔을 때 그 기사 제목
+ * baselineArticle: 기준 표현의 원문 기사와 링크
  */
 @Composable
-internal fun ExpressionEvidenceCard(item: ExpressionItem, baselineTitle: String?) {
+internal fun ExpressionEvidenceCard(item: ExpressionItem, baselineArticle: ArticleRef?) {
     val e = item.e
+    val uriHandler = LocalUriHandler.current
     RubricCardBox {
         TagPill(RubricLabels.expressionTitle(item), Fl.TintDiff, Fl.InkDiff)
         ArticleLine(item.article, "기사 ${e.articleIndex}")
@@ -252,20 +280,18 @@ internal fun ExpressionEvidenceCard(item: ExpressionItem, baselineTitle: String?
             color = Fl.Ink2
         )
         if (e.baselineText.isNotBlank()) {
-            val from = if (e.baselineSource == "outlet") {
-                "비교 기사" + (baselineTitle?.let { " · $it" } ?: "")
-            } else {
-                "중립 대체 표현 · 모델 생성"
-            }
+            val from = "비교 기사" + (baselineArticle?.title?.let { " · $it" } ?: "")
             Text("비교 기준 “${e.baselineText}” ($from)", fontSize = 12.sp, color = Fl.Ink2)
+            baselineArticle?.url?.let { url -> SourceLink(onClick = { uriHandler.openUri(url) }) }
         }
         e.target?.let { Caption("대상: $it") }
-        if (e.held) Caption("판단 근거가 부족해 유표성을 정하지 않았어요.")
+        if (e.held) Caption("비교 근거 또는 의미 판정을 더 확인해야 해 유표성을 보류했어요.")
+        else Caption("실제 비교 원문에 대한 모델의 잠정 상대 판정이에요. 0도 절대 중립을 뜻하지 않아요.")
         if (e.note.isNotBlank()) Caption("설명(모델 정리): ${e.note}")
     }
 }
 
-/** 정보 구성 차이 카드 (I1~I5) */
+/** 정보 구성 관찰 카드 (I1~I5) */
 @Composable
 internal fun InformationEvidenceCard(item: InformationItem) {
     val i = item.i

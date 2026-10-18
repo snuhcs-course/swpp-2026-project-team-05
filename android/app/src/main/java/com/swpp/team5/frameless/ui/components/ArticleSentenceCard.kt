@@ -54,6 +54,7 @@ internal fun ArticleSentenceCard(
 ) {
     val sameCount = matches.filter { kindOf(it.relationRaw) == MatchKind.SAME }.map { it.article.articleIndex }.distinct().size
     val diffCount = matches.filter { kindOf(it.relationRaw) == MatchKind.DIFF }.map { it.article.articleIndex }.distinct().size
+    val otherCount = matches.filter { kindOf(it.relationRaw) == MatchKind.OTHER }.map { it.article.articleIndex }.distinct().size
     val tint = when {
         sameCount > 0 -> Fl.TintSame
         diffCount > 0 -> Fl.TintDiff
@@ -100,8 +101,9 @@ internal fun ArticleSentenceCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (sameCount > 0) TagPill("같은 내용 · ${sameCount}곳", Fl.TintSame, Fl.InkSame)
-            if (diffCount > 0) TagPill("다른 해석/표현 · ${diffCount}곳", Fl.TintDiff, Fl.InkDiff)
-            if (sameCount == 0 && diffCount == 0) {
+            if (diffCount > 0) TagPill("다르게 다룬 내용 · ${diffCount}곳", Fl.TintDiff, Fl.InkDiff)
+            if (otherCount > 0) TagPill("그 밖의 대응 · ${otherCount}곳", Fl.TintNone, Fl.Ink2)
+            if (sameCount == 0 && diffCount == 0 && otherCount == 0) {
                 Text(NO_MATCH_TEXT, fontSize = 11.sp, color = Fl.Muted)
             }
             if (groups.isNotEmpty()) {
@@ -127,7 +129,8 @@ internal fun tinted(text: String, tint: Color?, expressions: List<ExpressionDiff
             for ((start, end, e) in ranges) {
                 if (start < cursor) continue
                 append(text.substring(cursor, start))
-                val mark = if (e.maxMarkedness >= 1) {
+                // AI-generated display guard: held/null judgments have no score emphasis.
+                val mark = if (!e.held && (e.maxMarkedness ?: 0) >= 1) {
                     SpanStyle(textDecoration = TextDecoration.Underline, fontWeight = FontWeight.Bold)
                 } else SpanStyle()
                 withStyle(mark) { append(text.substring(start, end)) }

@@ -4,6 +4,7 @@ import com.swpp.team5.frameless.data.AnalysisResult
 import com.swpp.team5.frameless.data.ArticleRef
 import com.swpp.team5.frameless.data.ExpressionDifference
 import com.swpp.team5.frameless.data.InformationDifference
+import com.swpp.team5.frameless.data.IssueMember
 import com.swpp.team5.frameless.data.QuestionAnswer
 import com.swpp.team5.frameless.data.Relation
 
@@ -40,8 +41,8 @@ internal data class ComparisonSelection(
 
 internal const val OTHERS_GROUP = -1
 
-/** 대응 문장이 없을 때 쓰는 문구. 누락 의도나 편향을 암시하지 않는다. */
-internal const val NO_MATCH_TEXT = "현재 수집된 비교 기사에서 대응 문장을 찾지 못했어요."
+/** 선택된 결과의 범위만 설명한다. 기사 전체의 누락을 추정하지 않는다. */
+internal const val NO_MATCH_TEXT = "현재 표시된 비교 결과에 대응 문장이 없어요."
 
 /* ==================================================================
  * 비교 화면용 모델 — 서버 값을 묶기만 한다. 새 판정을 만들지 않는다.
@@ -52,7 +53,7 @@ internal enum class MatchKind { SAME, DIFF, OTHER }
 internal fun kindOf(raw: String): MatchKind = when (Relation.from(raw)) {
     Relation.SAME -> MatchKind.SAME
     Relation.OPPOSES, Relation.DIFFERENT_INTERPRETATION -> MatchKind.DIFF
-    Relation.OTHER -> MatchKind.OTHER
+    Relation.SAME_ISSUE, Relation.UNCERTAIN, Relation.OTHER -> MatchKind.OTHER
 }
 
 /** 입력 기사 문장 하나 */
@@ -70,7 +71,29 @@ internal data class Clip(
     /** 서버 relation_to_source 원래 값 */
     val relationRaw: String,
     /** 같은 문장이 연결된 다른 묶음 번호 */
-    val alsoIn: List<Int>
+    val alsoIn: List<Int>,
+    /** 관계 판정 주체를 클립까지 보존해 인용된 발언을 매체 의견으로 오인하지 않게 한다. */
+    val relationOwnerRaw: String? = null,
+    val speaker: String = "",
+    val speechKindRaw: String? = null,
+    val hasMultipleVoices: Boolean = false,
+    val relationWarning: String? = null
+)
+
+private fun clipOf(member: IssueMember, article: ArticleRef, alsoIn: List<Int> = emptyList()) = Clip(
+    article = article,
+    quote = cleanQuote(member.quote),
+    relationRaw = member.relationRaw,
+    alsoIn = alsoIn,
+    relationOwnerRaw = member.relationOwnerRaw,
+    speaker = member.speaker,
+    speechKindRaw = member.speechKindRaw,
+    hasMultipleVoices = member.hasMultipleVoices,
+    relationWarning = member.relationWarning
+)
+
+private fun Clip.identity(): List<Any?> = listOf(
+    article.articleIndex, quote, relationRaw, relationOwnerRaw, speaker, speechKindRaw, hasMultipleVoices
 )
 
 /** 서버가 보낸 표현 차이 하나 + 그 표현이 실린 기사 */
@@ -98,12 +121,13 @@ internal data class IssueView(
     val same: List<Clip>,
     val diff: List<Clip>,
     val other: List<Clip>,
-    /** 이 묶음에서 대응 문장을 찾지 못한 비교 기사 */
+    /** v1 응답의 미표시 기사. v2는 선택 제외와 미발견을 구분할 수 없어 비운다. */
     val notFound: List<ArticleRef>,
     val rubric: RubricItems
 ) {
     val sameOutlets: Int get() = same.map { it.article.articleIndex }.distinct().size
     val diffOutlets: Int get() = diff.map { it.article.articleIndex }.distinct().size
+    val otherOutlets: Int get() = other.map { it.article.articleIndex }.distinct().size
 }
 
 /** 질문 단위 쟁점 (서버 rubric.questions 하나) */
@@ -148,12 +172,15 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
     /** 입력 기사 주장과 연결되지 않은 다른 기사 문장 */
     val unlinkedClips: List<Clip> = analysis.issues.flatMap { it.members }
         .filter { m -> m.articleIndex > 0 && m.quote.isNotBlank() && m.sourceClaimIndex == null }
-        .mapNotNull { m -> articleOf(m.articleIndex)?.let { Clip(it, cleanQuote(m.quote), m.relationRaw, emptyList()) } }
-        .distinctBy { it.article.articleIndex to it.quote }
+        .mapNotNull { m -> articleOf(m.articleIndex)?.let { clipOf(m, it) } }
+        .distinctBy { it.identity() }
 
-    /** 다른 기사에서 찾은 대응 문장이 하나도 없음 */
-    val noMatches: Boolean =
-        issues.all { it.same.isEmpty() && it.diff.isEmpty() && it.other.isEmpty() } && unlinkedClips.isEmpty()
+    /** AI-generated contract guard: 처리 실패를 비교 결과 없음으로 바꾸지 않는다. */
+    val noMatches: Boolean = when (analysis.analysisStatus?.comparisonStatus) {
+        "no_matches", "not_requested" -> true
+        "available", "unavailable" -> false
+        else -> issues.all { it.same.isEmpty() && it.diff.isEmpty() && it.other.isEmpty() } && unlinkedClips.isEmpty()
+    }
 
     /** 왼쪽 문장 밑줄용: 입력 기사의 표현 차이 중 직접 인용 밖에 있는 것만 */
     val inputExpressions: List<ExpressionDifference> =
@@ -173,8 +200,8 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
     fun matchesFor(s: InputSentence): List<Clip> =
         analysis.issues.flatMap { it.members }
             .filter { it.articleIndex > 0 && it.quote.isNotBlank() && it.sourceClaimIndex in s.sourceClaimIndexes }
-            .mapNotNull { m -> articleOf(m.articleIndex)?.let { Clip(it, cleanQuote(m.quote), m.relationRaw, emptyList()) } }
-            .distinctBy { Triple(it.article.articleIndex, it.quote, kindOf(it.relationRaw)) }
+            .mapNotNull { m -> articleOf(m.articleIndex)?.let { clipOf(m, it) } }
+            .distinctBy { it.identity() }
 
     /** 입력 문장이 속한 묶음 번호 (쟁점 모드면 질문, 아니면 주장) */
     fun groupsFor(s: InputSentence): List<Int> =
@@ -219,18 +246,21 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
                 val alsoIn = analysis.issues.indices.filter { j ->
                     j != i && analysis.issues[j].members.any { it.articleIndex == m.articleIndex && cleanQuote(it.quote) == q }
                 }
-                Clip(article, q, m.relationRaw, alsoIn)
+                clipOf(m, article, alsoIn)
             }
-            .distinctBy { Triple(it.article.articleIndex, it.quote, kindOf(it.relationRaw)) }
+            .distinctBy { it.identity() }
 
-        // 이 주장에 붙는 rubric: 서버가 준 문장이 이 주장의 문장과 같을 때만
+        // v2 claim_id로 연결하고, ID가 없는 v1만 원문 문장으로 연결한다.
         val sentences = inputQuotes.map { 0 to it } + clips.map { it.article.articleIndex to it.quote }
         val infos = allInformations.filter { item ->
-            val s = item.i.sentence ?: return@filter false
-            sentences.any { (idx, q) -> idx == item.i.articleIndex && sameText(q, s) }
+            if (issue.claimId != null && item.i.claimId != null) issue.claimId == item.i.claimId
+            else item.i.sentence?.let { s ->
+                sentences.any { (idx, q) -> idx == item.i.articleIndex && sameText(q, s) }
+            } ?: false
         }
         val exprs = allExpressions.filter { item ->
-            sentences.any { (idx, q) -> idx == item.e.articleIndex && sameText(q, item.e.sentence) }
+            if (issue.claimId != null && item.e.claimId != null) issue.claimId == item.e.claimId
+            else sentences.any { (idx, q) -> idx == item.e.articleIndex && sameText(q, item.e.sentence) }
         }
 
         val covered = clips.map { it.article.articleIndex }.toSet()
@@ -241,7 +271,8 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
             same = clips.filter { kindOf(it.relationRaw) == MatchKind.SAME },
             diff = clips.filter { kindOf(it.relationRaw) == MatchKind.DIFF },
             other = clips.filter { kindOf(it.relationRaw) == MatchKind.OTHER },
-            notFound = others.filter { it.articleIndex !in covered },
+            notFound = if (analysis.analysisStatus == null) others.filter { it.articleIndex !in covered }
+                else emptyList(),
             rubric = splitRubric(infos, exprs)
         )
     }
@@ -254,7 +285,7 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
             answers.any { a -> a.articleIndex == 0 && a.answer.evidenceQuotes.any { sameText(it, s.quote) } }
         }
         val clips = inputHere.flatMap { matchesFor(it) }
-            .distinctBy { Triple(it.article.articleIndex, it.quote, kindOf(it.relationRaw)) }
+            .distinctBy { it.identity() }
         return QuestionView(
             index = index,
             id = id,

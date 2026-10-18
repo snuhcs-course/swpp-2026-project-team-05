@@ -51,6 +51,7 @@ import com.swpp.team5.frameless.ui.state.NarrowTab
 import com.swpp.team5.frameless.ui.state.OTHERS_GROUP
 import com.swpp.team5.frameless.ui.state.QuestionView
 import com.swpp.team5.frameless.ui.state.RubricItems
+import com.swpp.team5.frameless.ui.state.sameText
 import com.swpp.team5.frameless.ui.state.two
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
@@ -97,6 +98,7 @@ internal fun ComparisonScreen(
 
         Column(modifier = Modifier.fillMaxSize()) {
             ComparisonHeader(model = model, compact = compact, onNewArticle = onNewArticle)
+            AnalysisStatusNotice(model)
 
             when {
                 model.noMatches && !selection.showDespiteNoMatch -> NoMatchState(
@@ -208,9 +210,23 @@ private fun ComparisonHeader(model: ComparisonModel, compact: Boolean, onNewArti
     HRule()
     if (!compact && !model.noMatches && analysis.relatedWithoutMatches.isNotEmpty()) {
         Caption(
-            text = "대응 문장을 하나도 찾지 못한 비교 기사: " + analysis.relatedWithoutMatches.joinToString(", "),
+            text = "이번 주장 비교에 표시되지 않은 관련 기사: " + analysis.relatedWithoutMatches.joinToString(", "),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
+    }
+}
+
+/** AI-generated status guard: 일부 단계 실패를 '비교 결과 없음'으로 안내하지 않는다. */
+@Composable
+private fun AnalysisStatusNotice(model: ComparisonModel) {
+    val status = model.analysis.analysisStatus ?: return
+    if (status.executionStatus !in setOf("partial", "failed") && status.comparisonStatus != "unavailable") return
+    Column(
+        modifier = Modifier.fillMaxWidth().background(Fl.Inset).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Caption("일부 분석이나 관계 판정을 확인하지 못했어요.", color = Fl.Danger)
+        Caption("아래에는 확인된 범위의 결과만 표시해요. 표시되지 않은 내용은 차이가 없다는 뜻이 아니에요.")
     }
 }
 
@@ -222,9 +238,9 @@ private fun Legend() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        LegendSwatch(Fl.TintNone, "대응 문장 없음")
+        LegendSwatch(Fl.TintNone, "표시된 대응 문장 없음")
         LegendSwatch(Fl.TintSame, "같은 내용")
-        LegendSwatch(Fl.TintDiff, "다른 해석/표현")
+        LegendSwatch(Fl.TintDiff, "다르게 다룬 내용")
         Spacer(modifier = Modifier.weight(1f))
         Caption("문장을 누르면 대응하는 출처가 나와요")
     }
@@ -253,10 +269,12 @@ private fun NoMatchState(model: ComparisonModel, onRetry: () -> Unit, onShowAnyw
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Caption("비교 결과 없음")
                 Text(
-                    text = if (analysis.relatedArticleCount == 0) {
+                    text = if (analysis.analysisStatus?.comparisonStatus == "not_requested") {
+                        "이번 기사에서 비교할 핵심 주장을\n추출하지 못했어요"
+                    } else if (analysis.relatedArticleCount == 0) {
                         "같은 사건을 보도한 다른 기사를\n찾지 못했어요"
                     } else {
-                        "비교 기사 ${analysis.relatedArticleCount}건을 찾았지만\n대응 문장은 없었어요"
+                        "비교 기사 ${analysis.relatedArticleCount}건에서\n표시할 대응 문장이 없어요"
                     },
                     fontFamily = Fl.Serif,
                     fontWeight = FontWeight.ExtraBold,
@@ -360,7 +378,7 @@ private fun InputArticlePane(
                 noun = model.noun,
                 selected = showSelection && selection.focusedQuote == s.quote,
                 inSelectedGroup = showSelection && selection.group in groups,
-                expressions = model.inputExpressions,
+                expressions = model.inputExpressions.filter { sameText(it.sentence, s.quote) },
                 onClick = { onSentence(s) }
             )
         }
@@ -386,12 +404,12 @@ private fun GroupList(model: ComparisonModel, onOpen: (Int) -> Unit) {
             }
         } else {
             Caption(
-                "서버가 질문 단위 쟁점을 아직 보내지 않아, 입력 기사 주장별로 묶었어요.",
+                "현재 분석은 입력 기사 주장별로 묶었어요.",
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
             )
             model.issues.forEach { issue ->
                 GroupRow(caption = "주장 ${two(issue.index + 1)}", title = issue.label, onClick = { onOpen(issue.index) }) {
-                    Tally(issue.sameOutlets, issue.diffOutlets)
+                    Tally(issue.sameOutlets, issue.diffOutlets, issue.otherOutlets)
                 }
             }
         }
@@ -508,7 +526,7 @@ private fun IssueDetail(model: ComparisonModel, issue: IssueView, showInput: Boo
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Caption("주장 ${two(issue.index + 1)} / ${two(model.issues.size)}")
         Text(issue.label, fontFamily = Fl.Serif, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, lineHeight = 26.sp, color = Fl.Ink)
-        Tally(issue.sameOutlets, issue.diffOutlets)
+        Tally(issue.sameOutlets, issue.diffOutlets, issue.otherOutlets)
     }
 
     // 입력 기사 문장 (좁은 화면 상세에서만)
@@ -531,10 +549,10 @@ private fun IssueDetail(model: ComparisonModel, issue: IssueView, showInput: Boo
 
     ClipSections(issue.same, issue.diff, issue.other, issue.sameOutlets, issue.diffOutlets)
 
-    // 이 주장에서 대응 문장을 찾지 못한 비교 기사 (사실만 전한다. I1로 분류하지 않는다)
+    // v1 응답에서 이번 묶음에 표시되지 않은 기사. v2 선택 밖의 기사는 누락으로 추정하지 않는다.
     if (issue.notFound.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SectionTitle("대응 문장이 없는 비교 기사", count = issue.notFound.size)
+            SectionTitle("이번 주장 비교에 표시되지 않은 기사", count = issue.notFound.size)
             Caption(NO_MATCH_TEXT)
             issue.notFound.forEach { a ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -562,7 +580,7 @@ private fun ClipSections(same: List<Clip>, diff: List<Clip>, other: List<Clip>, 
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionTitle("다르게 언급된 부분", count = diffOutlets)
+        SectionTitle("다르게 다룬 내용", count = diffOutlets)
         if (diff.isEmpty()) {
             EmptyState("뚜렷한 차이를 찾지 못했어요.")
         } else {
@@ -572,7 +590,7 @@ private fun ClipSections(same: List<Clip>, diff: List<Clip>, other: List<Clip>, 
 
     if (other.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionTitle("관계가 표시되지 않은 대응 문장", count = other.size)
+            SectionTitle("그 밖의 대응 관계", count = other.size)
             other.forEachIndexed { n, clip -> SourceEvidenceCard(n + 1, clip) }
         }
     }
@@ -587,19 +605,19 @@ private fun RubricSections(model: ComparisonModel, items: RubricItems) {
     val infoCount = items.informations.size + items.quotedExpressions.size
     if (infoCount > 0) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionTitle("정보 구성 차이", count = infoCount)
+            SectionTitle("정보 구성", count = infoCount)
             items.informations.sortedBy { it.i.code }.forEach { InformationEvidenceCard(it) }
             items.quotedExpressions.forEach { QuotedExpressionCard(it) }
         }
     }
     if (items.expressions.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionTitle("표현 차이", count = items.expressions.size)
-            Caption("범주와 원문 표현만 보여주고 어느 쪽이 옳은지는 판정하지 않아요.")
+            SectionTitle("표현 차이 후보", count = items.expressions.size)
+            Caption("모델의 잠정 판정과 원문을 함께 보여줘요. 어느 쪽이 옳은지는 판정하지 않아요.")
             items.expressions.forEach { item ->
                 ExpressionEvidenceCard(
                     item = item,
-                    baselineTitle = item.e.baselineArticleIndex?.let { model.articleOf(it)?.title }
+                    baselineArticle = item.e.baselineArticleIndex?.let { model.articleOf(it) }
                 )
             }
         }
@@ -615,8 +633,8 @@ private fun OthersDetail(model: ComparisonModel) {
 
     val inputOnly = model.inputSentences.filter { model.matchesFor(it).isEmpty() }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionTitle("대응 문장이 없는 입력 기사 문장", count = inputOnly.size)
-        if (inputOnly.isEmpty()) EmptyState("모든 입력 기사 문장에서 대응 문장을 찾았어요.")
+        SectionTitle("이번 비교에 대응이 표시되지 않은 입력 기사 문장", count = inputOnly.size)
+        if (inputOnly.isEmpty()) EmptyState("모든 입력 기사 문장에 대응이 표시됐어요.")
         else Caption(NO_MATCH_TEXT)
         inputOnly.forEach { s ->
             Box(modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp)).padding(12.dp)) {
@@ -635,7 +653,11 @@ private fun OthersDetail(model: ComparisonModel) {
     if (rubric == null) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionTitle("판정 기준 v0.2.1")
-            EmptyState("질문 단위 쟁점, 정보 구성 차이(I1~I5), 표현 차이(A~G·유표성)는 서버 응답에 아직 없어 표시하지 않아요.")
+            EmptyState(if (model.analysis.analysisStatus == null) {
+                "서버 응답에 정보 구성(I1~I5)과 표현 분석(A~G)이 없어 표시하지 않아요."
+            } else {
+                "이번 분석에서 정보 구성(I1~I5)과 표현 분석(A~G) 결과를 표시할 수 없어요."
+            })
         }
     } else {
         if (rubric.droppedCount > 0) {
@@ -648,11 +670,12 @@ private fun OthersDetail(model: ComparisonModel) {
 /* ---------------- 작은 조각 ---------------- */
 
 @Composable
-private fun Tally(sameOutlets: Int, diffOutlets: Int) {
+private fun Tally(sameOutlets: Int, diffOutlets: Int, otherOutlets: Int = 0) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (sameOutlets > 0) TagPill("같은 내용 · ${sameOutlets}곳", Fl.TintSame, Fl.InkSame)
-        if (diffOutlets > 0) TagPill("다른 해석/표현 · ${diffOutlets}곳", Fl.TintDiff, Fl.InkDiff)
-        if (sameOutlets == 0 && diffOutlets == 0) Caption("대응 문장 없음")
+        if (diffOutlets > 0) TagPill("다르게 다룬 내용 · ${diffOutlets}곳", Fl.TintDiff, Fl.InkDiff)
+        if (otherOutlets > 0) TagPill("그 밖의 대응 · ${otherOutlets}곳", Fl.TintNone, Fl.Ink2)
+        if (sameOutlets == 0 && diffOutlets == 0 && otherOutlets == 0) Caption("표시된 대응 문장 없음")
     }
 }
 
