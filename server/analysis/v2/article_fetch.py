@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import socket
 from html import unescape
 from html.parser import HTMLParser
-from http.client import HTTPException, IncompleteRead
+from http.client import HTTPConnection, HTTPSConnection, HTTPException, IncompleteRead
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPHandler, HTTPSHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 
 
@@ -58,6 +59,62 @@ class _PublicRedirectHandler(HTTPRedirectHandler):
     def redirect_request(self, request, response, code, message, headers, new_url):
         validate_article_url(new_url)
         return super().redirect_request(request, response, code, message, headers, new_url)
+
+
+def _public_addresses(url: str) -> tuple[str, ...]:
+    """Resolve every address for this hop; reject mixed public/private answers."""
+    parsed = urlsplit(validate_article_url(url))
+    port = 443 if parsed.scheme == "https" else 80
+    addresses = []
+    try:
+        answers = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ArticleFetchError("기사 서버 주소를 확인하지 못했습니다.", stage="dns") from exc
+    for _family, _type, _proto, _name, sockaddr in answers:
+        address = sockaddr[0]
+        if not ipaddress.ip_address(address).is_global:
+            raise ArticleFetchError("공개 네트워크 주소가 아닌 기사 서버에는 연결할 수 없습니다.",
+                                    stage="unsafe_address")
+        if address not in addresses:
+            addresses.append(address)
+    if not addresses:
+        raise ArticleFetchError("기사 서버 주소를 확인하지 못했습니다.", stage="dns")
+    return tuple(addresses)
+
+
+def _pinned_connection(connection_type, host: str, addresses: tuple[str, ...], **kwargs):
+    """Keep the original Host/SNI while connecting only to vetted numeric IPs."""
+    connection = connection_type(host, **kwargs)
+
+    def connect(address, timeout, source_address):
+        last_error = None
+        for ip in addresses:
+            try:
+                return socket.create_connection((ip, address[1]), timeout, source_address)
+            except OSError as exc:
+                last_error = exc
+        raise last_error or OSError("No public address could be reached")
+
+    connection._create_connection = connect
+    return connection
+
+
+class _PublicHTTPHandler(HTTPHandler):
+    def http_open(self, request):
+        if request.has_proxy():
+            raise ArticleFetchError("기사 서버에 안전하게 연결할 수 없습니다.", stage="unsafe_proxy")
+        addresses = _public_addresses(request.full_url)
+        return self.do_open(lambda host, **kwargs: _pinned_connection(
+            HTTPConnection, host, addresses, **kwargs), request)
+
+
+class _PublicHTTPSHandler(HTTPSHandler):
+    def https_open(self, request):
+        if request._tunnel_host:
+            raise ArticleFetchError("기사 서버에 안전하게 연결할 수 없습니다.", stage="unsafe_proxy")
+        addresses = _public_addresses(request.full_url)
+        return self.do_open(lambda host, **kwargs: _pinned_connection(
+            HTTPSConnection, host, addresses, context=self._context, **kwargs), request)
 
 
 class _TitleParser(HTMLParser):
@@ -153,7 +210,10 @@ def fetch_article(url: str) -> dict[str, str]:
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Encoding": "identity",
     })
-    opener = build_opener(_PublicRedirectHandler())
+    # Arbitrary user URLs cannot rely on a proxy's independent DNS/egress policy.
+    # This only changes article requests; it does not alter machine proxy settings.
+    opener = build_opener(ProxyHandler({}), _PublicRedirectHandler(),
+                          _PublicHTTPHandler(), _PublicHTTPSHandler())
     try:
         with opener.open(request, timeout=15) as response:
             if response.headers.get_content_type() not in ("text/html", "application/xhtml+xml"):

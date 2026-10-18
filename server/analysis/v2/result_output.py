@@ -43,6 +43,12 @@ def make_error_record(exc: Exception, *, stage: str, **context) -> dict:
             code, message = "ARTICLE_UNSUPPORTED_CONTENT", "기사 주소가 HTML 페이지를 반환하지 않았습니다."
         elif fetch_stage == "size_limit":
             code, message = "ARTICLE_SIZE_LIMIT", "기사 페이지가 수집 용량 제한을 초과했습니다."
+        elif fetch_stage == "unsafe_address":
+            code, message = "ARTICLE_UNSAFE_ADDRESS", "공개 네트워크 주소가 아닌 기사 서버에는 연결할 수 없습니다."
+        elif fetch_stage == "unsafe_proxy":
+            code, message = "ARTICLE_UNSAFE_PROXY", "기사 서버에 안전하게 연결할 수 없습니다."
+        elif fetch_stage == "dns":
+            code, message, retryable = "ARTICLE_DNS_FAILED", "기사 서버 주소를 확인하지 못했습니다.", True
         else:
             code, message = "ARTICLE_FETCH_FAILED", "기사 본문을 가져오지 못했습니다."
             retryable = fetch_stage == "download" or isinstance(exc, (OSError, URLError))

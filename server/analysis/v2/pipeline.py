@@ -5,23 +5,26 @@ from __future__ import annotations
 import ast
 import json
 import logging
+import math
 import os
 import tempfile
 import re
-from collections import Counter
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
+from time import monotonic, perf_counter
 from typing import Any, Callable
 
+from ..diagnostics import analysis_id, log_event
 from .article_fetch import validate_article_url
 from .article_input import prepare_article
 from .article_search import search_candidate_metadata
 from .comparison_selection import select_verified_comparisons
 from .display_selection import select_display_article_ids
 from .llm_analysis import analyze_source_article, rank_comparison_candidates
-from .model_client import (GeminiJSONClient, SnapshotJSONClient, canonical_json,
+from .model_client import (GeminiJSONClient, MetricsJSONClient, SnapshotJSONClient, canonical_json,
                           get_generation_settings, get_missing_configuration)
 from .rubric_analysis import analyze_selected_articles
 from .result_output import (OperationError, make_error_record, add_result_error,
@@ -31,11 +34,69 @@ from .result_output import (OperationError, make_error_record, add_result_error,
 logger = logging.getLogger(__name__)
 
 
-PIPELINE_VERSION = "metadata-select-verify-attribution-diversity-errors-v4"
+PIPELINE_VERSION = "metadata-select-verify-attribution-diversity-errors-v5"
 PROMPT_VERSION = "grounded-expression-pairs-v3"
 RUBRIC_VERSION = "0.2.1"
 # AI-assisted integration: use a writable cache path in read-only deployments.
 DEFAULT_CACHE_DIR = Path(os.getenv("FRAMELESS_ANALYSIS_CACHE_DIR") or (Path(tempfile.gettempdir()) / "frameless-analysis-v2"))
+# AI-assisted runtime policy: leave a margin under Vercel's 300-second function limit.
+DEFAULT_UNCACHED_BUDGET_SECONDS = 240.0
+LOG_ERROR_CODES = frozenset({
+    "ANALYSIS_RESPONSE_INVALID", "ARTICLE_BODY_NOT_FOUND", "ARTICLE_DNS_FAILED",
+    "ARTICLE_FETCH_FAILED", "ARTICLE_HTTP_ERROR", "ARTICLE_RESPONSE_INTERRUPTED",
+    "ARTICLE_SIZE_LIMIT", "ARTICLE_TIMEOUT", "ARTICLE_UNSAFE_ADDRESS", "ARTICLE_UNSAFE_PROXY",
+    "ARTICLE_UNSUPPORTED_CONTENT", "CACHE_WRITE_FAILED", "CANDIDATE_URL_MISSING",
+    "CONFIGURATION_ERROR", "GEMINI_CONFIGURATION_MISSING", "INPUT_ENCODING_INVALID",
+    "INPUT_FILE_NOT_FOUND", "INPUT_FILE_UNREADABLE", "INPUT_JSON_INVALID", "INPUT_RESULT_INVALID",
+    "INVALID_INPUT", "MODEL_HTTP_ERROR", "MODEL_RATE_LIMITED", "MODEL_TIMEOUT",
+    "MODEL_UNAVAILABLE", "NAVER_CONFIGURATION_MISSING", "OUTPUT_WRITE_FAILED",
+    "PROCESSING_FAILED", "RUBRIC_ARTICLE_UNVERIFIED", "RUBRIC_EXPRESSION_UNVERIFIED",
+    "SEARCH_FAILED", "SEARCH_HTTP_ERROR", "SEARCH_REDIRECT_BLOCKED", "SEARCH_RESPONSE_INVALID",
+    "SEARCH_TIMEOUT",
+})
+
+
+def _ensure_budget(deadline_at: float | None) -> None:
+    if deadline_at is not None and monotonic() >= deadline_at:
+        raise TimeoutError("분석 실행의 소프트 마감시간을 초과했습니다.")
+
+
+@contextmanager
+def _timed_stage(stage: str, deadline_at: float | None = None):
+    """Log fixed stage metadata; a deadline cannot interrupt an in-flight fetch."""
+    started = perf_counter()
+    log_event(logger, "stage_started", stage=stage)
+    try:
+        _ensure_budget(deadline_at)
+        yield
+    except Exception as exc:
+        error = make_error_record(exc, stage=stage)
+        log_event(logger, "stage_failed", level=logging.WARNING, stage=stage,
+                  duration_ms=round((perf_counter() - started) * 1000),
+                  error_type=type(exc).__name__, error_code=_safe_error_code(error["code"]))
+        raise
+    else:
+        # A nested operation may catch its own error and return partial data.
+        log_event(logger, "stage_returned", stage=stage,
+                  duration_ms=round((perf_counter() - started) * 1000))
+
+
+def _safe_error_code(value: object) -> str:
+    return value if isinstance(value, str) and value in LOG_ERROR_CODES else "PROCESSING_FAILED"
+
+
+def _log_stage_result(stage: str, result: dict) -> None:
+    """Report internally caught failures without recording their text or URLs."""
+    codes = sorted({_safe_error_code(error.get("code")) for error in result.get("errors", [])
+                    if isinstance(error, dict) and (stage == "discovery" or error.get("stage") == stage)})
+    if codes or stage in {"discovery", "rubric_analysis"}:
+        execution_status = result.get("execution_status")
+        safe_status = (execution_status if isinstance(execution_status, str)
+                       and execution_status in {"success", "partial", "failed"} else "unknown")
+        log_event(logger, "stage_result", level=logging.INFO if safe_status == "success" and not codes else logging.WARNING,
+                  stage=stage,
+                  execution_status=safe_status,
+                  error_codes=codes)
 
 
 def _digest(value: Any) -> str:
@@ -113,8 +174,8 @@ def _record_failure(result: dict, exc: Exception, stage: str) -> dict:
         result["comparison_status"] = "unavailable"
     error = make_error_record(exc, stage=stage)
     # AI-assisted diagnostics: log only fixed stage/code and exception class, never response text.
-    logger.warning("pipeline_stage_failed stage=%s error_type=%s error_code=%s",
-                   stage, type(exc).__name__, error["code"])
+    logger.warning("pipeline_stage_failed analysis_id=%s stage=%s error_type=%s error_code=%s",
+                   analysis_id.get(), stage, type(exc).__name__, _safe_error_code(error["code"]))
     return add_result_error(result, error,
                             fatal=not isinstance(result.get("source_analysis"), dict))
 
@@ -157,10 +218,12 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
                            max_per_claim: int = 3, display_per_query: int = 10,
                            event_baseline_limit: int = 5, verification_batch_size: int = 3,
                            client: Any = None, progress: Callable[[str], None] | None = None,
-                           _prepared_source: dict | None = None) -> dict:
+                           _prepared_source: dict | None = None,
+                           _deadline_at: float | None = None) -> dict:
     """Return discovery or available data with structured operation errors."""
     result, stage, owned = _initial_result(url), "input_validation", False
     notify = progress or (lambda message: None)
+
     try:
         url = validate_article_url(url)
         _validate_pipeline_options({"max_claims": max_claims, "max_candidates": max_candidates,
@@ -170,7 +233,8 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         stage = "source_fetch"
         if _prepared_source is None:
             notify("1/4 입력 기사 수집·문장 번호 부여")
-            source = prepare_article(url)
+            with _timed_stage(stage, _deadline_at):
+                source = prepare_article(url)
         else:
             source = _prepared_source
         result.update(source_article=source, completed_stage=1)
@@ -182,15 +246,17 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
             owned = True
         stage = "source_analysis"
         notify("2/4 LLM 호출 1: 핵심 사건·주장·검색어 생성")
-        analysis = analyze_source_article(source, max_claims=max_claims, client=client)
+        with _timed_stage(stage, _deadline_at):
+            analysis = analyze_source_article(source, max_claims=max_claims, client=client)
         result.update(source_analysis=analysis, completed_stage=2)
         metadata_search = {"queries": [], "metadata_candidates": [], "discovered_count": 0,
                            "errors": [], "search_status": "not_run"}
         stage = "search"
         if analysis["claims"]:
             notify("3/4 네이버 검색·URL 중복 제거 (제목·설명만 수집)")
-            metadata_search = search_candidate_metadata(source, analysis, max_candidates=max_candidates,
-                                                         display_per_query=display_per_query)
+            with _timed_stage(stage, _deadline_at):
+                metadata_search = search_candidate_metadata(source, analysis, max_candidates=max_candidates,
+                                                             display_per_query=display_per_query)
         result["search"].update(metadata_search)
         result["completed_stage"] = 3
         for error in metadata_search.get("errors", []):
@@ -198,13 +264,18 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         stage = "candidate_selection"
         if metadata_search["metadata_candidates"]:
             notify("4/4 LLM 후보 분류·Python 선택: 주장 관련성·강조점·표현 다양성 (본문 검증 전)")
-        ranking = rank_comparison_candidates(source, analysis, metadata_search["metadata_candidates"],
-                                              max_per_claim=max_per_claim, client=client)
+        with _timed_stage(stage, _deadline_at):
+            ranking = rank_comparison_candidates(source, analysis, metadata_search["metadata_candidates"],
+                                                  max_per_claim=max_per_claim, client=client)
         result["candidate_ranking"] = ranking
         stage = "candidate_collection"
-        verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
-                                               max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
-                                               verification_batch_size=verification_batch_size, client=client, progress=notify)
+        with _timed_stage(stage, _deadline_at):
+            verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
+                                                   max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
+                                                   verification_batch_size=verification_batch_size, client=client,
+                                                   progress=notify,
+                                                   should_stop=(lambda: monotonic() >= _deadline_at)
+                                                   if _deadline_at is not None else None)
         collection, selection = verified["search"], verified["selection"]
         warnings = []
         if any(query["status"] == "search_failed" for query in collection["queries"]):
@@ -271,7 +342,8 @@ def complete_rubric_analysis(discovery: dict, *, client: Any = None,
         for failure in rubric.get("article_annotation_failures", []):
             add_result_error(result, make_error_record(
                 OperationError("관련 기사 루브릭 근거를 검증하지 못했습니다.",
-                               code="RUBRIC_ARTICLE_UNVERIFIED"),
+                               code="RUBRIC_ARTICLE_UNVERIFIED",
+                               retryable=bool(failure.get("retryable"))),
                 stage="rubric_analysis", candidate_id=failure["article_id"]))
         for failure in rubric.get("expression_failures", []):
             add_result_error(result, make_error_record(
@@ -319,8 +391,9 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                           client: Any = None, progress: Callable[[str], None] | None = None,
                           use_cache: bool = True, force_refresh: bool = False,
                           cache_dir: str | Path | None = None,
-                          max_rubric_articles: int | None = None) -> dict:
-    """Return success, partial data or a structured failure for every operation."""
+                          max_rubric_articles: int | None = None,
+                          execution_budget_seconds: float | None = None) -> dict:
+    """Return structured results; uncached calls use a soft 240-second deadline."""
     result, stage, owned = _initial_result(url), "input_validation", False
     options = {"max_claims": max_claims, "max_candidates": max_candidates, "max_per_claim": max_per_claim,
                "display_per_query": display_per_query, "event_baseline_limit": event_baseline_limit,
@@ -334,9 +407,20 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             raise ValueError("max_rubric_articles must be an integer between 1 and 3")
         if type(use_cache) is not bool or type(force_refresh) is not bool:
             raise ValueError("use_cache·force_refresh must be bool")
+        if execution_budget_seconds is not None and (
+            type(execution_budget_seconds) not in (int, float)
+            or not math.isfinite(execution_budget_seconds)
+            or execution_budget_seconds <= 0
+        ):
+            raise ValueError("execution_budget_seconds must be a positive finite number")
+        budget_seconds = (DEFAULT_UNCACHED_BUDGET_SECONDS if not use_cache else None)
+        if execution_budget_seconds is not None:
+            budget_seconds = float(execution_budget_seconds)
+        deadline_at = monotonic() + budget_seconds if budget_seconds is not None else None
         stage = "source_fetch"
         notify("1/4 입력 기사 수집·문장 번호 부여")
-        source = prepare_article(url)
+        with _timed_stage(stage, deadline_at):
+            source = prepare_article(url)
         result.update(source_article=source, completed_stage=1)
         stage = "configuration"
         settings = (get_generation_settings() if client is None else get_generation_settings(
@@ -345,6 +429,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
         versions = _analysis_versions()
         source_hash = _digest(source)
         cache_options = {**options, "max_rubric_articles": max_rubric_articles}
+        if execution_budget_seconds is not None:
+            cache_options["execution_budget_seconds"] = float(execution_budget_seconds)
         key = _digest({"source_sha256": source_hash, "settings": settings, "versions": versions, "options": cache_options})
         directory = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
         if use_cache and not force_refresh:
@@ -352,7 +438,10 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             if bundle is not None:
                 result = deepcopy(bundle["result"])
                 result["reproducibility"]["cache_hit"] = True
-                result["reproducibility"]["execution"] = {"model_calls": 0, "task_counts": {}, "sdk_retries_included": False}
+                result["reproducibility"]["execution"] = {
+                    "model_calls": 0, "task_counts": {}, "sdk_retries_included": False,
+                    "attempted_calls": 0, "failed_calls": 0, "model_duration_ms": 0,
+                }
                 notify("저장된 동일 입력·설정의 분석 재사용 (LLM·검색 호출 없음)")
                 return result
         if client is None:
@@ -360,21 +449,34 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                 raise OperationError("Gemini API 키를 설정해 주세요.", code="GEMINI_CONFIGURATION_MISSING")
             client = GeminiJSONClient(**settings)
             owned = True
-        recorder = SnapshotJSONClient(client, settings)
+        recorder = (SnapshotJSONClient(client, settings, deadline_at=deadline_at) if use_cache
+                    else MetricsJSONClient(client, deadline_at=deadline_at))
         stage = "discovery"
-        discovery = run_discovery_pipeline(url, **options, client=recorder, progress=progress,
-                                           _prepared_source=source)
+        with _timed_stage(stage, deadline_at):
+            discovery = run_discovery_pipeline(url, **options, client=recorder, progress=progress,
+                                               _prepared_source=source, _deadline_at=deadline_at)
+        for failed_stage in ("source_analysis", "search", "candidate_selection",
+                             "candidate_fetch", "candidate_collection"):
+            _log_stage_result(failed_stage, discovery)
+        _log_stage_result(stage, discovery)
         result = discovery
         if discovery["completed_stage"] == 4:
             if max_rubric_articles is not None:
                 discovery = _limit_discovery_for_display(discovery, max_rubric_articles)
             stage = "rubric_analysis"
-            result = complete_rubric_analysis(discovery, client=recorder, progress=progress)
+            with _timed_stage(stage, deadline_at):
+                result = complete_rubric_analysis(discovery, client=recorder, progress=progress)
+            _log_stage_result(stage, result)
         stage = "cache_save"
-        execution = {"model_calls": len(recorder.records),
-                     "task_counts": dict(Counter(r["name"] for r in recorder.records)), "sdk_retries_included": False}
-        snapshot_id = _digest({"settings": settings, "versions": versions,
-                               "requests": recorder.records, "result": result})
+        execution = recorder.execution_summary()
+        log_event(logger, "model_execution", **execution)
+        if use_cache:
+            snapshot_id = _digest({"settings": settings, "versions": versions,
+                                   "requests": recorder.records, "result": result})
+        else:
+            # AI-assisted privacy boundary: identify the result without retaining model transcripts.
+            snapshot_id = _digest({"settings": settings, "versions": versions,
+                                   "result": result})
         snapshot_path = directory / (key + "." + snapshot_id + ".json")
         result["reproducibility"] = {
             "settings": settings, "versions": versions, "source_sha256": source_hash,
@@ -383,6 +485,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             "created_at": datetime.now(timezone.utc).isoformat(), "cache_hit": False,
             "original_execution": execution, "execution": dict(execution),
         }
+        if not use_cache:
+            result["reproducibility"]["snapshot_id_basis"] = "result_without_model_transcript"
         if use_cache:
             partial = result["execution_status"] != "success"
             if partial:

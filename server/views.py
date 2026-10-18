@@ -8,6 +8,7 @@ from time import perf_counter
 from urllib.parse import urlsplit
 from uuid import uuid4
 
+from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -50,23 +51,30 @@ def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
     if not isinstance(raw, dict):
         raise PipelineResultError("analysis_failed", "분석 결과를 읽지 못했어요.")
     errors = raw.get("errors") if isinstance(raw.get("errors"), list) else []
-    first = next((row for row in errors if isinstance(row, dict)), {})
+    # Ignore cleanup and earlier recoverable discovery errors when explaining
+    # a fatal source failure. Those records can be appended after the cause.
+    terminal_error = next((row for row in reversed(errors) if isinstance(row, dict) and
+                           row.get("stage") not in {"client_close", "cache_save", "search",
+                                                    "candidate_fetch", "candidate_verification"}), {})
+    if not terminal_error:
+        terminal_error = next((row for row in reversed(errors) if isinstance(row, dict)), {})
     if raw.get("execution_status") == "failed" or not isinstance(raw.get("source_analysis"), dict):
         raise PipelineResultError(
-            str(first.get("code") or "analysis_failed").lower(),
-            str(first.get("message") or "기사를 분석하지 못했어요. 잠시 후 다시 시도해 주세요."),
-            retryable=bool(first.get("retryable")),
+            str(terminal_error.get("code") or "analysis_failed").lower(),
+            str(terminal_error.get("message") or "기사를 분석하지 못했어요. 잠시 후 다시 시도해 주세요."),
+            retryable=bool(terminal_error.get("retryable")),
         )
     if raw.get("comparison_status") == "unavailable":
         raise PipelineResultError(
             "comparison_unavailable",
             "비교 기사를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
-            retryable=bool(first.get("retryable")),
+            retryable=any(bool(row.get("retryable")) for row in errors if isinstance(row, dict)),
         )
     try:
         return adapt_v2_result(raw, max_related=max_related, requested_url=source_url)
-    except PipelineContractError:
-        logger.exception("V2 result does not satisfy the display contract")
+    except PipelineContractError as exc:
+        log_event(logger, "adapter_failed", level=logging.ERROR,
+                  error_code="INVALID_ANALYSIS_RESULT", error_type=type(exc).__name__)
         raise PipelineResultError("invalid_analysis_result", "분석 결과를 표시하지 못했어요. 잠시 후 다시 시도해 주세요.") from None
 
 
@@ -114,9 +122,16 @@ def analyze(request):
             duration_ms=round((perf_counter() - started) * 1000),
         )
         return response
-    except Exception:
-        logger.exception("Unhandled analysis request error: analysis_id=%s", request_id)
-        raise
+    except Exception as exc:
+        # Python tracebacks can contain model or article text in exception
+        # arguments. Keep the correlation ID and exception class only.
+        log_event(logger, "request_unhandled", level=logging.ERROR,
+                  error_code="REQUEST_UNHANDLED", error_type=type(exc).__name__)
+        response = _error("analysis_failed", "기사를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)
+        response["X-Analysis-ID"] = request_id
+        log_event(logger, "request_completed", status_code=502,
+                  duration_ms=round((perf_counter() - started) * 1000))
+        return response
     finally:
         analysis_id.reset(token)
 
@@ -160,6 +175,10 @@ def _analyze_request(request):
     pipeline_name = os.getenv("FRAMELESS_PIPELINE", "v2").strip().lower()
     if pipeline_name not in {"v1", "v2"}:
         return _error("invalid_pipeline_config", "서버 분석 설정을 확인해 주세요.", 503)
+    if pipeline_name == "v1" and (settings.IS_PRODUCTION or os.getenv("FRAMELESS_ALLOW_LEGACY_V1") != "1"):
+        # v1 is kept for explicit local Iteration 1 replay. Its fetch path does
+        # not pin public DNS results, so a default or public deployment fails closed.
+        return _error("invalid_pipeline_config", "이 서버에서는 v1 분석을 사용할 수 없습니다.", 503)
     log_event(logger, "request_validated", article_host=urlsplit(url).hostname,
               max_related=max_related, pipeline=pipeline_name)
     if not _analysis_slot.acquire(blocking=False):
@@ -183,8 +202,9 @@ def _analyze_request(request):
             )
             response["Retry-After"] = "30"
             return response
-        except Exception:
-            logger.exception("Article analysis failed")
+        except Exception as exc:
+            log_event(logger, "pipeline_unhandled", level=logging.ERROR,
+                      error_code="ANALYSIS_FAILED", error_type=type(exc).__name__)
             return _error("analysis_failed", "기사를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)
     finally:
         _analysis_slot.release()

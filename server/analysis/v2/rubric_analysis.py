@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from .llm_analysis import (
     COMPARABLE_RELATIONS, MATCH_RELATIONS, _article_for_model, _generate_json,
+    _RepairBudget,
     _ground_evidence, _locate_quote, _object_schema,
     _ground_span, _quote_ranges, _contained, _overlaps,
     _direct_speech_range, _direct_speech_parts, _source_name_evidence, _ground_attribution,
@@ -205,11 +206,14 @@ def analyze_article_information(article: dict, claims: list[dict], *, article_id
                                 "source_evidence": c.get("evidence")} for c in claims],
                     "verification_context": _verified_comparison_context(article, claims, verified_matches)},
     )
-    response = _generate_json(client, **request)
+    repair_budget = _RepairBudget()
+    response = _generate_json(client, repair_budget=repair_budget, **request)
     try:
-        annotation = {**_validate_information_response(article, claims, article_id, response), "llm_calls": 1}
+        annotation = _validate_information_response(article, claims, article_id, response)
     except ModelResponseError as exc:
-        repaired = _generate_json(client, **{
+        if not repair_budget.consume():
+            raise
+        repaired = _generate_json(client, repair_budget=repair_budget, **{
             **request, "name": "repair_article_information_I1_I5",
             "instructions": request["instructions"] + (
                 " 이전 응답의 근거 검증에 실패했습니다. 원래 기사만 근거로 JSON을 수정하세요."
@@ -221,7 +225,8 @@ def analyze_article_information(article: dict, claims: list[dict], *, article_id
             "input_data": {**request["input_data"], "previous_response": response,
                            "validation_error": str(exc), "grounding_errors": _grounding_diagnostics(article, response)},
         })
-        annotation = {**_validate_information_response(article, claims, article_id, repaired), "llm_calls": 2}
+        annotation = _validate_information_response(article, claims, article_id, repaired)
+    annotation["llm_calls"] = 1 + repair_budget.used
     return retain_verified_comparison_context(annotation, request["input_data"]["verification_context"])
 
 
@@ -590,8 +595,9 @@ def compare_claim_expressions(claim: dict, articles: dict[str, dict], annotation
         "markedness_reason": _text(empty=True),
         "description": _text(),
     }), 80)})
+    repair_budget = _RepairBudget()
     response = _generate_json(
-        client, name="claim_expression_A_G", schema=schema, max_output_tokens=8192,
+        client, repair_budget=repair_budget, name="claim_expression_A_G", schema=schema, max_output_tokens=8192,
         input_data={"claim": claim, "articles": [
             {"article_id": key, "article": _article_for_model(articles[key]),
              "information_annotation": annotations[key]} for key in present],
@@ -716,7 +722,8 @@ def compare_claim_expressions(claim: dict, articles: dict[str, dict], annotation
     differences = [p for p in pairs if p["has_lexical_difference"]]
     reporting_variants = [p for p in differences if p["source_reporting_verb_candidates"]
                           and p["comparison_reporting_verb_candidates"]]
-    return {"status": "analyzed", "findings": findings, "excluded": excluded, "llm_calls": 1,
+    return {"status": "analyzed", "findings": findings, "excluded": excluded,
+            "llm_calls": 1 + repair_budget.used,
             "surface_differences": differences, "invalid_findings": invalid,
             "diagnostics": {"compared_article_ids": present, "passage_pair_count": len(pairs),
                             "surface_difference_count": len(differences), "model_finding_count": len(response["findings"]),
@@ -804,14 +811,19 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
             try:
                 annotations[key] = analyze_article_information(article, claims, article_id=key, client=client,
                                                              verified_matches=assessment.get("claim_matches", []))
-            except ModelResponseError as exc:
-                # AI-assisted resilience: keep only grounded articles; never log model or article text.
-                logger.warning("rubric_article_annotation_failed article_id=%s error_type=%s reason=validation_failed",
-                               key, type(exc).__name__)
+            except (RuntimeError, TimeoutError) as exc:
+                # Keep grounded related articles; never log model or article text.
+                diagnostic = make_error_record(exc, stage="rubric_analysis")
+                reason = ("validation_failed" if isinstance(exc, ModelResponseError) else
+                          "model_unavailable" if diagnostic["retryable"] else "processing_failed")
+                event = "rubric_source_annotation_failed" if key == "S0" else "rubric_article_annotation_failed"
+                logger.warning("%s article_id=%s error_type=%s error_code=%s reason=%s",
+                               event, key, type(exc).__name__, diagnostic["code"], reason)
                 if key == "S0":
                     raise
                 annotation_failures.append({"article_id": key, "phase": "article_information_I1_I5",
-                                            "reason": "validation_failed", "error_type": type(exc).__name__})
+                                            "reason": reason, "error_type": type(exc).__name__,
+                                            "retryable": diagnostic["retryable"]})
                 continue
             calls += annotations[key]["llm_calls"]
         for claim in claims:
@@ -820,6 +832,8 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
             if source_row["relation"] != "same" or not any(
                 e["sentence_index"] == claim["evidence"]["sentence_index"] for e in source_row["mentions"]
             ):
+                logger.warning("rubric_source_consistency_failed article_id=S0 claim_id=%s",
+                               claim["claim_id"])
                 raise ModelResponseError("입력 기사 정보 분석이 기존 핵심 주장 원문 근거와 일치하지 않습니다.")
             selected = [a["candidate_id"] for a in comparisons[claim["claim_id"]]["articles"]]
             # Each annotated article was checked against every source claim.

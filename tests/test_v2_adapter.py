@@ -344,6 +344,40 @@ class IntegratedApiTests(SimpleTestCase):
         self.assertEqual(len(result["related_articles"]), 2)
         self.assertEqual(pipeline.call_args.kwargs["max_rubric_articles"], 2)
 
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_terminal_failure_is_not_masked_by_earlier_partial_error(self, pipeline):
+        from server.views import PipelineResultError, analyze_related_articles_v2
+        raw = pipeline_result()
+        raw["execution_status"] = "failed"
+        raw["source_analysis"] = None
+        raw["errors"] = [
+            {"stage": "search", "code": "SEARCH_TIMEOUT", "message": "검색 지연", "retryable": True},
+            {"stage": "source_analysis", "code": "ANALYSIS_RESPONSE_INVALID",
+             "message": "분석 형식 오류", "retryable": False},
+            {"stage": "client_close", "code": "PROCESSING_FAILED",
+             "message": "종료 오류", "retryable": False},
+        ]
+        pipeline.return_value = raw
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(SOURCE_URL)
+        self.assertEqual(raised.exception.code, "analysis_response_invalid")
+        self.assertFalse(raised.exception.retryable)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_unavailable_comparison_is_retryable_if_any_search_error_can_recover(self, pipeline):
+        from server.views import PipelineResultError, analyze_related_articles_v2
+        raw = pipeline_result()
+        raw["comparison_status"] = "unavailable"
+        raw["errors"] = [
+            {"stage": "search", "code": "SEARCH_TIMEOUT", "message": "검색 지연", "retryable": True},
+            {"stage": "candidate_fetch", "code": "ARTICLE_BODY_NOT_FOUND",
+             "message": "본문 없음", "retryable": False},
+        ]
+        pipeline.return_value = raw
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(SOURCE_URL)
+        self.assertTrue(raised.exception.retryable)
+
     @patch("server.views.analyze_related_articles_v2")
     def test_v2_unavailable_is_not_reported_as_no_matches(self, analyze):
         from server.views import PipelineResultError

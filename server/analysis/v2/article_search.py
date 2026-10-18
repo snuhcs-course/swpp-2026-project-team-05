@@ -9,7 +9,7 @@ from html import unescape
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .model_client import get_naver_credentials
 from .article_fetch import validate_article_url
@@ -18,6 +18,13 @@ from .result_output import OperationError, make_error_record
 
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+
+
+class _NoCredentialRedirects(HTTPRedirectHandler):
+    """Do not forward NAVER API credentials to a redirected origin."""
+
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        return None
 
 
 def _plain_text(value: str) -> str:
@@ -57,9 +64,12 @@ def search_naver_news(query: str, display: int = 10) -> list[dict]:
     }), headers={"X-NCP-APIGW-API-KEY-ID": client_id,
                  "X-NCP-APIGW-API-KEY": client_secret, "Accept": "application/json"})
     try:
-        with urlopen(request, timeout=10) as response:
+        with build_opener(_NoCredentialRedirects()).open(request, timeout=10) as response:
             payload = json.load(response)
     except HTTPError as exc:
+        if 300 <= exc.code < 400:
+            raise OperationError("네이버 검색 API의 리다이렉트를 허용하지 않습니다.",
+                                 code="SEARCH_REDIRECT_BLOCKED", http_status=exc.code) from exc
         raise OperationError(f"네이버 뉴스 검색이 실패했습니다 (HTTP {exc.code}).",
                              code="SEARCH_HTTP_ERROR", http_status=exc.code,
                              retryable=exc.code in (408, 429) or exc.code >= 500) from exc

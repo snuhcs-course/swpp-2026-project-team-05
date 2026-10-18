@@ -17,7 +17,7 @@ from server.analysis.v2.article_search import (
     fetch_candidate_articles, normalize_news_url, search_candidate_metadata,
 )
 from server.analysis.v2.comparison_selection import select_verified_comparisons
-from server.analysis.v2.llm_analysis import verify_candidate_articles
+from server.analysis.v2.llm_analysis import analyze_source_article, verify_candidate_articles
 from server.analysis.v2.model_client import ModelResponseError, ModelUnavailableError
 from server.analysis.v2.pipeline import (
     complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
@@ -78,6 +78,21 @@ class StubClient:
     def generate_json(self, **_kwargs):
         self.calls += 1
         return deepcopy(self.response)
+
+
+class SequenceClient:
+    """Return fixed synthetic outputs while preserving requests for retry checks."""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.requests = []
+
+    def generate_json(self, **request):
+        self.requests.append(deepcopy(request))
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return deepcopy(response)
 
 
 class RubricQueueClient:
@@ -237,6 +252,60 @@ class DiscoveryStatusTests(SimpleTestCase):
 
 
 class GroundingTests(SimpleTestCase):
+    @staticmethod
+    def _valid_source_response():
+        return {
+            "core_event": "시청의 계획 발표",
+            "event_evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"},
+            "event_query": "시청 계획 발표",
+            "claims": [{"claim": "시청이 계획을 발표했다", "claim_kind": "reported_fact",
+                        "speaker": "", "evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"},
+                        "selection_basis": ["event_relevance"], "search_query": "시청 새 계획"}],
+        }
+
+    def test_source_schema_failure_retries_once_with_unchanged_article(self):
+        client = SequenceClient([{"core_event": "필수 필드 누락"}, self._valid_source_response()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "repair_source_event_claims_queries"])
+        self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
+
+    def test_source_invalid_json_output_retries_once_without_reusing_bad_output(self):
+        client = SequenceClient([ModelResponseError("SECRET_SENTINEL raw output"),
+                                 self._valid_source_response()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual(len(client.requests), 2)
+        self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
+        self.assertNotIn("previous_response", client.requests[1]["input_data"])
+
+    def test_source_grounding_failure_retries_once_with_unchanged_article(self):
+        invalid = self._valid_source_response()
+        invalid["claims"][0]["evidence"]["quote"] = "원문에 없는 주장"
+        client = SequenceClient([invalid, self._valid_source_response()])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "repair_source_event_claims_queries"])
+        self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
+
+    def test_source_schema_then_grounding_failure_never_makes_third_call(self):
+        invalid = self._valid_source_response()
+        invalid["claims"][0]["evidence"]["quote"] = "원문에 없는 주장"
+        client = SequenceClient([{"core_event": "필수 필드 누락"}, invalid])
+
+        with self.assertRaises(ModelResponseError):
+            analyze_source_article(article(), client=client)
+
+        self.assertEqual(len(client.requests), 2)
+
     def _response(self, *, event_quote, claim_quote):
         return {"assessments": {"A1": {
             "event_relation": "same_event",
@@ -284,7 +353,7 @@ class GroundingTests(SimpleTestCase):
         client = StubClient({"assessments": {}})
         with self.assertRaises(ModelResponseError):
             verify_candidate_articles(article(), source_analysis(), [article("A1")], client=client)
-        self.assertEqual(client.calls, 1)
+        self.assertEqual(client.calls, 2)  # One fixed-input schema repair, then reject.
 
 
 class CandidateSearchTests(SimpleTestCase):
@@ -611,6 +680,97 @@ class FullRubricPathTests(SimpleTestCase):
         self.assertEqual(len(client.requests[2]["input_data"]["grounding_errors"]), 1)
         self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
         self.assertEqual(len(rubric["claim_analyses"][0]["information_by_article"]["A1"]["I4"]["items"]), 1)
+
+    def test_information_schema_failure_uses_one_fixed_input_repair(self):
+        discovery, client = self._case()
+        client.repair_information["A1"] = deepcopy(client.information["A1"])
+        client.information["A1"] = {"lead_evidence": None}
+
+        rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual(rubric["rubric"]["annotation_status"], "complete")
+        self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
+        self.assertEqual(rubric["llm_calls"], 4)
+        first, repair = client.requests[1:3]
+        self.assertEqual(first["name"], "article_information_I1_I5")
+        self.assertEqual(repair["name"], "repair_article_information_I1_I5")
+        self.assertEqual(repair["input_data"], first["input_data"])
+        self.assertNotIn("previous_response", repair["input_data"])
+
+    def test_schema_repair_then_invalid_evidence_does_not_trigger_third_call(self):
+        discovery, client = self._case()
+        client.repair_information["A1"] = deepcopy(client.information["A1"])
+        client.repair_information["A1"]["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
+        client.information["A1"] = {"lead_evidence": None}
+
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+            rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual([name for name, article_id in client.calls if article_id == "A1"],
+                         ["article_information_I1_I5", "repair_article_information_I1_I5"])
+        self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
+        self.assertNotIn("A1", rubric["article_annotations"])
+
+    def test_source_schema_failure_remains_explicit_and_fatal_to_rubric(self):
+        discovery, client = self._case()
+        client.information["S0"] = {"lead_evidence": None}
+        client.repair_information["S0"] = {"lead_evidence": None}
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+            result = complete_rubric_analysis(discovery, client=client)
+
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertIsNone(result["rubric_analysis"])
+        self.assertEqual(result["errors"][0]["code"], "ANALYSIS_RESPONSE_INVALID")
+        self.assertEqual(client.calls, [("article_information_I1_I5", "S0"),
+                                        ("repair_article_information_I1_I5", "S0")])
+        self.assertIn("rubric_source_annotation_failed article_id=S0", captured.output[0])
+
+    def test_related_model_outage_isolated_from_source_information(self):
+        discovery, client = self._case()
+        original = client.generate_json
+
+        def fail_related(**request):
+            if (request["name"] == "article_information_I1_I5"
+                    and request["input_data"]["article_id"] == "A1"):
+                raise ModelUnavailableError("SECRET_SENTINEL provider response")
+            return original(**request)
+
+        client.generate_json = fail_related
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+            rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual(set(rubric["article_annotations"]), {"S0"})
+        self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
+        self.assertEqual(rubric["article_annotation_failures"][0]["reason"], "model_unavailable")
+        self.assertTrue(rubric["article_annotation_failures"][0]["retryable"])
+        self.assertEqual([row["article_id"] for row in rubric["claim_analyses"][0]["information"]["I1"]],
+                         ["S0"])
+        self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output + rubric["warnings"]))
+
+    def test_expression_schema_failure_isolated_per_claim_after_one_repair(self):
+        discovery, client = self._two_claim_case()
+        original = client.generate_json
+        expression_requests = []
+
+        def fail_first_expression(**request):
+            if request["name"].endswith("claim_expression_A_G"):
+                expression_requests.append(deepcopy(request))
+                return {"findings": "invalid"} if request["input_data"]["claim"]["claim_id"] == "C1" else {"findings": []}
+            return original(**request)
+
+        client.generate_json = fail_first_expression
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+            rubric = analyze_selected_articles(discovery, client=client)
+
+        self.assertEqual([request["name"] for request in expression_requests],
+                         ["claim_expression_A_G", "repair_claim_expression_A_G", "claim_expression_A_G"])
+        self.assertEqual(expression_requests[0]["input_data"], expression_requests[1]["input_data"])
+        self.assertEqual(rubric["expression_failures"][0]["claim_id"], "C1")
+        self.assertEqual(rubric["claim_analyses"][0]["expression"]["status"], "unverified")
+        self.assertEqual(rubric["claim_analyses"][1]["expression"]["status"], "analyzed")
 
     def test_unrepaired_related_quote_keeps_only_grounded_rubric_rows(self):
         discovery, client = self._case()
