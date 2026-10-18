@@ -22,14 +22,17 @@ MAX_EXTRA_VERIFIED_CANDIDATES = 6
 # concurrent live calls shorten the long-tail wait without changing which
 # candidates are checked or how their grounded verdicts are applied.
 MAX_PARALLEL_VERIFICATIONS = 3
+# Fetch only a few likely next bodies while the first verdicts run. These
+# downloads never change candidate order or count as attempted until selected.
+MAX_SPECULATIVE_BODY_FETCHES = 3
 
 
 @contextmanager
-def _prefetch_executor(enabled: bool):
+def _prefetch_executor(enabled: bool, *, max_workers: int = 1):
     if not enabled:
         yield None
         return
-    executor = ThreadPoolExecutor(max_workers=1)
+    executor = ThreadPoolExecutor(max_workers=max_workers)
     try:
         yield executor
     finally:
@@ -106,6 +109,23 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                                 verification_batch_size: int = 3, client: Any = None,
                                 progress: Callable[[str], None] | None = None,
                                 should_stop: Callable[[], bool] | None = None) -> dict:
+    """Verify candidates in ranked order, warming a bounded set of likely next bodies."""
+    live_singletons = (verification_batch_size == 1 and isinstance(client, MetricsJSONClient)
+                       and not isinstance(client, SnapshotJSONClient)
+                       and isinstance(client.client, OpenRouterJSONClient))
+    with _prefetch_executor(live_singletons, max_workers=MAX_SPECULATIVE_BODY_FETCHES) as body_executor:
+        return _select_verified_comparisons(
+            source, analysis, metadata_search, ranking, max_per_claim=max_per_claim,
+            event_baseline_limit=event_baseline_limit, verification_batch_size=verification_batch_size,
+            client=client, progress=progress, should_stop=should_stop, body_executor=body_executor)
+
+
+def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: dict, ranking: dict, *,
+                                 max_per_claim: int, event_baseline_limit: int,
+                                 verification_batch_size: int, client: Any,
+                                 progress: Callable[[str], None] | None,
+                                 should_stop: Callable[[], bool] | None,
+                                 body_executor: ThreadPoolExecutor | None) -> dict:
     """Confirm ranked candidates and return the existing search/selection structures.
 
     Each article body is downloaded and verified at most once in this run.
@@ -144,9 +164,40 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
     rate_limit_error: Exception | None = None
     # A singleton verdict depends only on the source and that candidate body.
     # Recorded/replay and injected clients retain the original serial order.
-    parallel_singletons = (verification_batch_size == 1 and isinstance(client, MetricsJSONClient)
-                           and not isinstance(client, SnapshotJSONClient)
-                           and isinstance(client.client, OpenRouterJSONClient))
+    parallel_singletons = body_executor is not None
+    body_prefetches = {}
+    body_prefetch_order = []
+
+    def fetch_selected(ids: list[str]) -> dict:
+        """Use speculative bodies only after the normal selector asks for them."""
+        fresh_ids = [key for key in ids if key not in body_prefetches]
+        fresh = (fetch_candidate_articles([metadata_map[key] for key in fresh_ids]) if fresh_ids else
+                 {"candidates": [], "fetch_failures": []})
+        results = [fresh] + [body_prefetches[key].result() for key in ids if key in body_prefetches]
+        candidates = {row["candidate_id"]: row for result in results for row in result["candidates"]}
+        failures = {row["candidate_id"]: row for result in results for row in result["fetch_failures"]}
+        return {"candidates": [candidates[key] for key in ids if key in candidates],
+                "fetch_failures": [failures[key] for key in ids if key in failures]}
+
+    def warm_next_bodies() -> None:
+        if body_executor is None or body_prefetches or rate_limited or (should_stop and should_stop()):
+            return
+        # Same position-first order used for the later quality pool. A refill
+        # can choose differently; such futures remain isolated and are ignored.
+        queue_depth = max((len(queue) for queue in queues.values()), default=0)
+        likely = []
+        for position in range(queue_depth):
+            for queue in queues.values():
+                if position < len(queue):
+                    likely.append(queue[position])
+        likely.extend(baseline_queue)
+        for key in dict.fromkeys(likely):
+            if key in attempted_ids or key in articles or key in failed:
+                continue
+            body_prefetches[key] = body_executor.submit(fetch_candidate_articles, [metadata_map[key]])
+            body_prefetch_order.append(key)
+            if len(body_prefetches) >= MAX_SPECULATIVE_BODY_FETCHES:
+                break
 
     def mark_unverified(ids: list[str], reason: str, exc: Exception) -> None:
         for key in ids:
@@ -308,7 +359,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                 verification_errors.append(make_error_record(TimeoutError(), stage="candidate_verification"))
         elif pending:
             notify(f"4단계 {round_number}차: 선택 후보 {len(pending)}개 본문 수집")
-            fetched = fetch_candidate_articles([metadata_map[key] for key in pending])
+            fetched = fetch_selected(pending)
             attempted_ids.extend(pending)
             articles.update({a["candidate_id"]: a for a in fetched["candidates"]})
             failed.update({f["candidate_id"]: f for f in fetched["fetch_failures"]})
@@ -316,6 +367,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                 f["candidate_id"] for f in fetched["fetch_failures"]
             }:
                 raise RuntimeError("일부 후보의 본문 수집 결과 또는 실패 기록이 빠졌습니다.")
+            warm_next_bodies()
         unchecked = [key for key in proposed if key in articles and key not in assessed]
         if parallel_singletons and not stop_after_round:
             stop_after_round = verify_singletons(unchecked, round_number)
@@ -442,7 +494,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                         break
                 fetched = prefetched.result()
             else:
-                fetched = fetch_candidate_articles([metadata_map[key] for key in batch_ids])
+                fetched = fetch_selected(batch_ids)
             prefetched = None
             prefetched_ids = []
             attempted_ids.extend(batch_ids)
@@ -456,7 +508,7 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
             next_ids = extra_ids[start + quality_pool_batch_size:start + 2 * quality_pool_batch_size]
             if fetch_executor is not None and unchecked and next_ids and not (should_stop and should_stop()):
                 prefetched = fetch_executor.submit(
-                    fetch_candidate_articles, [metadata_map[key] for key in next_ids])
+                    fetch_selected, next_ids)
                 prefetched_ids = next_ids
             if unchecked and should_stop and should_stop():
                 mark_unverified(unchecked, "verification_deferred", TimeoutError())
@@ -496,6 +548,13 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                            "deferred_ids": [key for key in unchecked if key in verification_deferred],
                            "reused_verified_candidates": {}, "diversity_selection_notes": {},
                            "quality_pool": True})
+    # Speculative failures and successes are invisible until their candidate
+    # was actually selected. Cancel queued work; running fetches may finish.
+    for key in body_prefetch_order:
+        if key not in attempted_ids:
+            body_prefetches[key].cancel()
+            if key not in prefetch_discarded_ids:
+                prefetch_discarded_ids.append(key)
     independent_ids, body_groups, source_duplicates = _independent_same_event_ids(
         source, metadata, articles, assessed, set(claim_map))
     duplicate_groups = [group for group in body_groups if len(group) > 1]
