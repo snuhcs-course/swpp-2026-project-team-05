@@ -171,6 +171,25 @@ class AdapterTests(SimpleTestCase):
         self.assertTrue(any(row["code"] == "I2" and row["sentence"] == "A 기사 관객 수가 늘었다" for row in information))
         self.assertTrue(any(row["code"] == "I5" and row["sentence"] == "관계자는 새 기록이라고 말했다" for row in information))
 
+    def test_partial_rubric_marks_failed_article_unverified_without_scores(self):
+        raw = deepcopy(pipeline_result())
+        raw["rubric_analysis"]["article_annotation_failures"] = [
+            {"article_id": "B", "phase": "article_information_I1_I5",
+             "reason": "validation_failed", "error_type": "ModelResponseError"}]
+        # Even inconsistent stale rows must not become verified UI cards.
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        rubric = result["rubric"]
+        failed = [row for row in rubric["information_differences"] if row["article_index"] == 2]
+        self.assertEqual(len(failed), 1)
+        self.assertEqual(failed[0]["code"], "I1")
+        self.assertIsNone(failed[0]["sentence"])
+        self.assertIn("미판정", failed[0]["value"])
+        self.assertNotIn("누락 의도", failed[0]["value"])
+        self.assertFalse(any(row["article_index"] == 2 for row in rubric["expression_differences"]))
+        self.assertTrue(any(row["article_index"] == 1 and row["code"] == "I1"
+                            for row in rubric["information_differences"]))
+
     def test_later_coverage_disagreement_withholds_relation_and_i2(self):
         raw = pipeline_result()
         i1 = raw["rubric_analysis"]["claim_analyses"][0]["information"]["I1"][2]

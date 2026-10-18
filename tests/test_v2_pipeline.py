@@ -23,7 +23,7 @@ from server.analysis.v2.pipeline import (
     complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
     run_discovery_pipeline,
 )
-from server.analysis.v2.result_output import OperationError, make_error_record
+from server.analysis.v2.result_output import OperationError, format_analysis_result, make_error_record
 from server.analysis.v2.rubric_analysis import (
     _verified_comparison_context, analyze_selected_articles, compare_claim_expressions,
     retain_verified_comparison_context,
@@ -556,7 +556,9 @@ class FullRubricPathTests(SimpleTestCase):
         discovery = {"source_article": source, "source_analysis": source_analysis(),
                      "search": {"candidates": [candidate]},
                      "selection": {"claim_comparisons": [{"claim_id": "C1", "articles": [
-                         {"candidate_id": "A1", "relation": "same", "evidence": match["evidence"]}]}],
+                         {"candidate_id": "A1", "title": candidate["title"],
+                          "url": candidate["url"], "relation": "same",
+                          "evidence": match["evidence"]}]}],
                          "same_event_ids": ["A1"], "event_baseline_ids": ["A1"],
                          "assessments": [{"candidate_id": "A1", "claim_matches": [match]}]}}
         client = RubricQueueClient({"S0": self._information(source=True),
@@ -593,7 +595,7 @@ class FullRubricPathTests(SimpleTestCase):
         self.assertEqual(rubric["article_annotations"]["A1"]["llm_calls"], 2)
         self.assertEqual(len(rubric["claim_analyses"][0]["information_by_article"]["A1"]["I4"]["items"]), 1)
 
-    def test_unrepaired_quote_failure_keeps_verified_discovery_available(self):
+    def test_unrepaired_related_quote_keeps_only_grounded_rubric_rows(self):
         discovery, client = self._case()
         bad = deepcopy(client.information["A1"])
         bad["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
@@ -601,12 +603,55 @@ class FullRubricPathTests(SimpleTestCase):
         client.repair_information["A1"] = deepcopy(bad)
         discovery.update(completed_stage=4, status="ready", comparison_status="available",
                          execution_status="success", errors=[], warnings=[])
-        result = complete_rubric_analysis(discovery, client=client)
-        self.assertEqual(result["completed_stage"], 4)
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured:
+            result = complete_rubric_analysis(discovery, client=client)
+        self.assertEqual(result["completed_stage"], 5)
         self.assertEqual(result["comparison_status"], "available")
         self.assertEqual(result["execution_status"], "partial")
         self.assertEqual(result["errors"][0]["stage"], "rubric_analysis")
+        self.assertEqual(result["errors"][0]["code"], "RUBRIC_ARTICLE_UNVERIFIED")
+        self.assertEqual(result["errors"][0]["candidate_id"], "A1")
+        self.assertEqual(result["rubric_analysis"]["rubric"]["annotation_status"], "partial")
+        self.assertEqual([row["article_id"] for row in result["rubric_analysis"]["claim_analyses"][0]["information"]["I1"]],
+                         ["S0"])
+        self.assertEqual(result["rubric_analysis"]["claim_analyses"][0]["unverified_article_ids"], ["A1"])
         self.assertEqual(result["selection"], discovery["selection"])
+        self.assertIn("I1~I5와 A~G는 미판정", format_analysis_result(result))
+        self.assertIn("article_id=A1", captured.output[0])
+        self.assertIn("reason=validation_failed", captured.output[0])
+        self.assertNotIn("원문에 없는 전망", captured.output[0])
+
+    def test_invalid_related_article_preserves_other_verified_article(self):
+        discovery, client = self._case()
+        second = deepcopy(discovery["search"]["candidates"][0])
+        second.update(candidate_id="A2", url="https://news.example.com/a2")
+        discovery["search"]["candidates"].append(second)
+        discovery["selection"]["same_event_ids"].append("A2")
+        discovery["selection"]["event_baseline_ids"].append("A2")
+        discovery["selection"]["claim_comparisons"][0]["articles"].append(
+            {"candidate_id": "A2", "title": second["title"], "url": second["url"],
+             "relation": "same",
+             "evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"}})
+        second_assessment = deepcopy(discovery["selection"]["assessments"][0])
+        second_assessment["candidate_id"] = "A2"
+        discovery["selection"]["assessments"].append(second_assessment)
+        client.information["A2"] = self._information(source=False)
+        bad = deepcopy(client.information["A1"])
+        bad["forecasts"][0]["evidence"]["quote"] = "원문에 없는 전망"
+        client.information["A1"] = bad
+        client.repair_information["A1"] = deepcopy(bad)
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        with self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING"):
+            result = complete_rubric_analysis(discovery, client=client)
+        rubric = result["rubric_analysis"]
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(set(rubric["article_annotations"]), {"S0", "A2"})
+        self.assertEqual([row["article_id"] for row in rubric["claim_analyses"][0]["information"]["I1"]],
+                         ["S0", "A2"])
+        self.assertEqual(rubric["claim_analyses"][0]["selected_article_ids"], ["A2"])
+        self.assertEqual(rubric["claim_analyses"][0]["unverified_article_ids"], ["A1"])
+        self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
 
     def test_source_annotation_cannot_drop_existing_grounded_claim(self):
         discovery, client = self._case()
@@ -616,6 +661,19 @@ class FullRubricPathTests(SimpleTestCase):
         with self.assertRaisesRegex(ModelResponseError, "입력 기사 정보 분석"):
             analyze_selected_articles(discovery, client=client)
         self.assertNotIn(("claim_expression_A_G", None), client.calls)
+
+    def test_invalid_source_annotation_remains_fatal_to_rubric(self):
+        discovery, client = self._case()
+        source = client.information["S0"]["claim_coverage"][0]
+        source.update(relation="not_found", mentions=[], headline_evidence=None,
+                      relation_evidence=[])
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        result = complete_rubric_analysis(discovery, client=client)
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertIsNone(result["rubric_analysis"])
+        self.assertEqual(result["errors"][0]["code"], "ANALYSIS_RESPONSE_INVALID")
 
     def test_full_pipeline_snapshot_reuse_replay_and_corruption_recovery(self):
         discovery, client = self._case()

@@ -259,6 +259,12 @@ def complete_rubric_analysis(discovery: dict, *, client: Any = None,
         result.update(completed_stage=5, rubric_analysis=rubric,
                       warnings=list(result["warnings"]) + rubric["warnings"])
         resolve_stage_errors(result, "rubric_analysis")
+        # AI-assisted resilience: one invalid article must not erase grounded rubric rows.
+        for failure in rubric.get("article_annotation_failures", []):
+            add_result_error(result, make_error_record(
+                OperationError("관련 기사 루브릭 근거를 검증하지 못했습니다.",
+                               code="RUBRIC_ARTICLE_UNVERIFIED"),
+                stage="rubric_analysis", candidate_id=failure["article_id"]))
         return _finish_discovery(result)
     except Exception as exc:
         result["rubric_analysis"] = None

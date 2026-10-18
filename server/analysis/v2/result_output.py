@@ -205,7 +205,14 @@ def format_analysis_result(result: dict, *, show_details: bool = False) -> str:
             key = article["candidate_id"]
             lines.extend(["", f"  {index}) [{key}] {article['title']}"])
             if row:
-                coverage = next(r for r in row["information"]["I1"] if r["article_id"] == key)
+                coverage = next((r for r in row["information"]["I1"] if r["article_id"] == key), None)
+                if coverage is None:
+                    # AI-assisted resilience: show only the earlier verified comparison for this article.
+                    lines.extend(["     루브릭 근거를 검증하지 못해 I1~I5와 A~G는 미판정입니다.",
+                                  f"     앞 단계 관계: {format_relation_with_owner(article)}",
+                                  f"     앞 단계 원문: {article['evidence']['quote']}",
+                                  f"     링크: {article['url']}"])
+                    continue
                 evidence = coverage["evidence"] or coverage.get("verification_context", [])
                 actual_quote = evidence[0]["quote"] if evidence else (
                     coverage["headline_evidence"]["quote"] if coverage["headline_evidence"] else "대응 원문을 찾지 못함")

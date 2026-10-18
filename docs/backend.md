@@ -48,9 +48,7 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 | `GOOGLE_API_KEY` | Gemini API 키 |
 | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | NAVER API HUB 키 |
 
-GitHub 조직의 Vercel 앱 설치 승인을 기다리고 있습니다(2026-10-04 기준).
-**연결되기 전에는 `main` 푸시만으로 재배포되지 않습니다.** Vercel 프로젝트
-관리 권한이 있는 계정으로 로그인한 뒤 저장소 루트에서 연결하고 수동 배포합니다.
+2026년 10월 18일 `main`의 Iteration 2 통합 코드를 이 프로젝트에 수동 배포했습니다. 당시 Git 자동 연결은 확인되지 않았으므로 **`main`에 푸시한 것만으로 운영 백엔드가 갱신됐다고 가정하지 마세요.** Vercel 프로젝트 관리 권한이 있는 계정으로 로그인한 뒤 저장소 루트에서 연결하고 수동 배포합니다.
 
 ```sh
 npx vercel link --project frameless-team05-api --scope kim-seungmins-projects
