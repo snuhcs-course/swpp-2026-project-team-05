@@ -12,6 +12,7 @@ import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
+from threading import Event
 from time import monotonic
 from typing import Any, Callable
 
@@ -32,7 +33,7 @@ SOURCE_SENTENCE_BATCH = 8
 SOURCE_SINGLE_SENTENCE_OUTPUT_TOKENS = 16384
 ALIGNMENT_UNIT_BATCH = 18
 EXPRESSION_PAIR_LIMIT = 18
-EXPRESSION_PAIR_CHUNK = 4
+EXPRESSION_PAIR_CHUNK = 3
 EXPRESSION_CODES = tuple("ABCDEFG")
 OBSERVED_RELATIONS = frozenset({"same", "refutes", "reframes"})
 RELATIONS = ("same", "refutes", "reframes", "related_only", "absent", "uncertain")
@@ -149,8 +150,15 @@ def _source_chunk(source: dict, analysis: dict, indexes: list[int], client: Any,
 def _extract_source_units(source: dict, analysis: dict, client: Any) -> tuple[list[dict], list[dict], int]:
     _article_for_model(source)
     ledger, units, calls = [], [], 0
-    chunks = [list(range(start, min(start + SOURCE_SENTENCE_BATCH, len(source["sentences"]))))
-              for start in range(0, len(source["sentences"]), SOURCE_SENTENCE_BATCH)]
+    sentence_count = len(source["sentences"])
+    if SOURCE_SENTENCE_BATCH < sentence_count <= SOURCE_SENTENCE_BATCH + 4:
+        # A lone 8-sentence call can exhaust its output on a 9–12 sentence
+        # article. Two balanced calls still fit in one concurrent wave.
+        midpoint = (sentence_count + 1) // 2
+        chunks = [list(range(midpoint)), list(range(midpoint, sentence_count))]
+    else:
+        chunks = [list(range(start, min(start + SOURCE_SENTENCE_BATCH, sentence_count)))
+                  for start in range(0, sentence_count, SOURCE_SENTENCE_BATCH)]
 
     def append(result: tuple[list[dict], list[dict], int]) -> None:
         nonlocal calls
@@ -423,8 +431,19 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
     chunks = [candidates[start:start + EXPRESSION_PAIR_CHUNK]
               for start in range(0, len(candidates), EXPRESSION_PAIR_CHUNK)]
     diagnostic["chunk_count"] = len(chunks)
+    rate_limited = Event()
 
-    def review_chunk(chunk: list[dict]) -> tuple[list[dict], int, bool, bool]:
+    def deadline_reached(*, retry: bool = False) -> bool:
+        # A split response needs useful time for another model call; a retry
+        # started in the final seconds would only turn a partial result into a
+        # slow partial result. Initial chunks retain the existing 1s margin.
+        margin = 10.0 if retry else 1.0
+        return (isinstance(client, MetricsJSONClient) and client.deadline_at is not None
+                and monotonic() >= client.deadline_at - margin)
+
+    def review_chunk(chunk: list[dict], *, retry: bool = False) -> tuple[list[dict], int, int, bool]:
+        if retry and rate_limited.is_set():
+            return [], 0, 0, True
         pair_ids = [pair["pair_id"] for pair in chunk]
         schema = _object_schema({"findings": {"type": "array", "maxItems": 8 * len(chunk),
             "items": _object_schema({
@@ -444,13 +463,31 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
                 client, repair_budget=budget, name="expression_pair_A_G", schema=schema,
                 max_output_tokens=8192, instructions=instructions,
                 input_data={"categories": categories, "pairs": chunk})
+        except ModelResponseTruncatedError:
+            spent = 1 + budget.used
+            if rate_limited.is_set():
+                return [], spent, 0, True
+            if len(chunk) == 1 or deadline_reached(retry=True):
+                return [], spent, 0, False
+            # The original model call examined every pair, but its incomplete
+            # JSON must not count as a review. Retry only smaller, independent
+            # subsets and retain any fully validated findings from either side.
+            midpoint = len(chunk) // 2
+            left = review_chunk(chunk[:midpoint], retry=True)
+            if left[3] or rate_limited.is_set() or deadline_reached(retry=True):
+                return left[0], spent + left[1], left[2], left[3] or rate_limited.is_set()
+            right = review_chunk(chunk[midpoint:], retry=True)
+            return (left[0] + right[0], spent + left[1] + right[1],
+                    left[2] + right[2], right[3])
         except ModelHTTPError as exc:
-            return [], 1 + budget.used, False, exc.http_status == 429
+            if exc.http_status == 429:
+                rate_limited.set()
+            return [], 1 + budget.used, 0, exc.http_status == 429
         except (RuntimeError, TimeoutError, ValueError):
-            # One truncated or unavailable answer cannot erase findings from
+            # One unavailable answer cannot erase findings from
             # the other chunks or the already grounded alignment stage.
-            return [], 1 + budget.used, False, False
-        return response["findings"], 1 + budget.used, True, False
+            return [], 1 + budget.used, 0, False
+        return response["findings"], 1 + budget.used, len(chunk), False
 
     # Live OpenRouter calls can overlap, while snapshot replay and direct mock
     # clients keep a stable serial request order. Findings are always applied
@@ -458,24 +495,27 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
     parallel = (len(chunks) > 1 and isinstance(client, MetricsJSONClient)
                 and not isinstance(client, SnapshotJSONClient)
                 and isinstance(client.client, OpenRouterJSONClient))
-    reviews: list[tuple[list[dict], int, bool, bool] | None] = [None] * len(chunks)
-
-    def deadline_reached() -> bool:
-        return (isinstance(client, MetricsJSONClient) and client.deadline_at is not None
-                and monotonic() >= client.deadline_at - 1.0)
+    reviews: list[tuple[list[dict], int, int, bool] | None] = [None] * len(chunks)
 
     if parallel:
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            for start in range(0, len(chunks), 2):
-                if deadline_reached():
+        # Reader I1 and alignments have finished before this pass. Three
+        # independent reviews match the provider's bounded concurrency while
+        # keeping 13–18 selected pairs within two waves.
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for start in range(0, len(chunks), 3):
+                if rate_limited.is_set() or deadline_reached():
                     break
                 # Complete the current wave before submitting more. A 429 in
-                # either response then stops all later provider calls.
-                indexes = list(range(start, min(start + 2, len(chunks))))
-                futures = [executor.submit(review_chunk, chunks[index]) for index in indexes]
-                for index, future in zip(indexes, futures):
+                # any response then stops later calls and split retries.
+                indexes = list(range(start, min(start + 3, len(chunks))))
+                futures = []
+                for index in indexes:
+                    if rate_limited.is_set():
+                        break
+                    futures.append((index, executor.submit(review_chunk, chunks[index])))
+                for index, future in futures:
                     reviews[index] = future.result()
-                if any(reviews[index][3] for index in indexes):
+                if rate_limited.is_set() or any(reviews[index][3] for index, _ in futures):
                     break
     else:
         for index, chunk in enumerate(chunks):
@@ -493,15 +533,15 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
             diagnostic["deferred_pair_count"] += len(chunk)
             diagnostic["deferred_chunk_count"] += 1
             continue
-        findings, call_count, succeeded, _ = review
+        findings, call_count, reviewed_pairs, _ = review
         diagnostic["attempted_pair_count"] += len(chunk)
         diagnostic["attempted_chunk_count"] += 1
         diagnostic["attempted_model_call_count"] += call_count
-        if succeeded:
-            diagnostic["reviewed_pair_count"] += len(chunk)
+        diagnostic["reviewed_pair_count"] += reviewed_pairs
+        diagnostic["failed_pair_count"] += len(chunk) - reviewed_pairs
+        if reviewed_pairs == len(chunk):
             diagnostic["successful_chunk_count"] += 1
         else:
-            diagnostic["failed_pair_count"] += len(chunk)
             diagnostic["failed_chunk_count"] += 1
         pair_map = {pair["pair_id"]: pair for pair in chunk}
         for finding in findings:
@@ -540,7 +580,7 @@ def _review_expression_pairs(source: dict, catalog: dict[str, dict], units: list
                 continue
             row["expression_differences"].append(detail)
             accepted += 1
-    status = ("failed" if not diagnostic["successful_chunk_count"] else
+    status = ("failed" if not diagnostic["reviewed_pair_count"] else
               "complete" if diagnostic["reviewed_pair_count"] == total_candidates else "partial")
     return {**diagnostic, "status": status, "accepted_finding_count": accepted,
             "withheld_finding_count": withheld}, diagnostic["attempted_model_call_count"]

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextlib import contextmanager
 from typing import Any, Callable
 
 from .article_search import fetch_candidate_articles
@@ -21,6 +22,20 @@ MAX_EXTRA_VERIFIED_CANDIDATES = 6
 # concurrent live calls shorten the long-tail wait without changing which
 # candidates are checked or how their grounded verdicts are applied.
 MAX_PARALLEL_VERIFICATIONS = 3
+
+
+@contextmanager
+def _prefetch_executor(enabled: bool):
+    if not enabled:
+        yield None
+        return
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        yield executor
+    finally:
+        # A running article fetch cannot be cancelled. Its result is isolated
+        # from selection state, so a deadline/429 must not wait for it.
+        executor.shutdown(wait=False, cancel_futures=True)
 
 
 def _body_signature(article: dict) -> tuple[int, frozenset[str]] | None:
@@ -394,61 +409,93 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
     if rate_limited:
         extra_ids = []
     quality_pool_batch_size = MAX_PARALLEL_VERIFICATIONS if parallel_singletons else verification_batch_size
-    for start in range(0, len(extra_ids), quality_pool_batch_size):
-        if rate_limited:
-            break
-        if should_stop and should_stop():
-            break
-        round_number = len(rounds) + 1
-        batch_ids = extra_ids[start:start + quality_pool_batch_size]
-        notify(f"4단계 {round_number}차: 품질 검토 후보 {len(batch_ids)}개 본문 수집")
-        fetched = fetch_candidate_articles([metadata_map[key] for key in batch_ids])
-        attempted_ids.extend(batch_ids)
-        articles.update({a["candidate_id"]: a for a in fetched["candidates"]})
-        failed.update({f["candidate_id"]: f for f in fetched["fetch_failures"]})
-        if set(batch_ids) != {a["candidate_id"] for a in fetched["candidates"]} | {
-            f["candidate_id"] for f in fetched["fetch_failures"]
-        }:
-            raise RuntimeError("일부 후보의 본문 수집 결과 또는 실패 기록이 빠졌습니다.")
-        unchecked = [key for key in batch_ids if key in articles]
-        if unchecked and should_stop and should_stop():
-            mark_unverified(unchecked, "verification_deferred", TimeoutError())
-        elif unchecked:
-            if parallel_singletons:
-                verify_singletons(unchecked, round_number, quality_pool=True)
+    prefetch_discarded_ids = []
+    # The next quality-pool body fetch is independent of this batch's LLM
+    # verdict. Keep only one batch ahead and apply its result in queue order.
+    with _prefetch_executor(parallel_singletons and len(extra_ids) > quality_pool_batch_size) as fetch_executor:
+        prefetched = None
+        prefetched_ids = []
+
+        def discard_prefetch() -> None:
+            # A queued future can still be cancelled before any network work.
+            # A running/completed future is recorded separately from the
+            # candidates actually used for selection and verification.
+            if prefetched is not None and not prefetched.cancel():
+                prefetch_discarded_ids.extend(prefetched_ids)
+
+        for start in range(0, len(extra_ids), quality_pool_batch_size):
+            if rate_limited or (should_stop and should_stop()):
+                discard_prefetch()
+                break
+            round_number = len(rounds) + 1
+            batch_ids = extra_ids[start:start + quality_pool_batch_size]
+            notify(f"4단계 {round_number}차: 품질 검토 후보 {len(batch_ids)}개 본문 수집")
+            if prefetched is not None:
+                # A deadline may arrive while the next page is still loading.
+                # Stop waiting without treating that speculative fetch as an
+                # attempted candidate or a fetch failure.
+                if should_stop is not None:
+                    while not prefetched.done() and not should_stop():
+                        wait((prefetched,), timeout=0.1)
+                    if should_stop():
+                        discard_prefetch()
+                        break
+                fetched = prefetched.result()
             else:
-                notify(f"4단계 {round_number}차: 추가 사건·주장 검증 [{', '.join(unchecked)}]")
-                verify_batch(unchecked)
-        targets = {claim_id: [key for key in batch_ids if key in queue]
-                   for claim_id, queue in queues.items()}
-        for claim_id, ids in targets.items():
-            for key in ids:
-                assessment = assessed.get(key, {})
-                match = _grounded_matches(assessment, set(claim_map)).get(claim_id)
-                reason = ("fetch_failed" if key in failed else
-                          "verification_failed" if key in verification_failed else
-                          "verification_deferred" if key in verification_deferred else
-                          "different_event" if assessment.get("event_relation") == "different_event" else
-                          "uncertain_event" if assessment.get("event_relation") == "uncertain" else
-                          "verified" if match else "no_claim_match")
-                claim_attempts.append({"round": round_number, "claim_id": claim_id, "candidate_id": key,
-                                       "status": "accepted" if match else "rejected", "reason": reason,
-                                       "selection_basis": "quality_pool"})
-        for key in batch_ids:
-            if key in baseline_queue:
-                baseline_attempts.append({"round": round_number, "candidate_id": key,
-                                          "status": "accepted" if assessed.get(key, {}).get("event_relation") == "same_event" else "rejected",
-                                          "reason": assessed.get(key, {}).get("event_relation", "unverified")})
-        rounds.append({"round": round_number, "claim_targets": targets,
-                       "event_baseline_targets": [key for key in batch_ids if key in baseline_queue],
-                       "fetched_ids": batch_ids,
-                       "verified_ids": [key for key in unchecked if key not in verification_failed
-                                        and key not in verification_deferred],
-                       "unverified_ids": [key for key in unchecked if key in verification_failed
-                                          or key in verification_deferred],
-                       "deferred_ids": [key for key in unchecked if key in verification_deferred],
-                       "reused_verified_candidates": {}, "diversity_selection_notes": {},
-                       "quality_pool": True})
+                fetched = fetch_candidate_articles([metadata_map[key] for key in batch_ids])
+            prefetched = None
+            prefetched_ids = []
+            attempted_ids.extend(batch_ids)
+            articles.update({a["candidate_id"]: a for a in fetched["candidates"]})
+            failed.update({f["candidate_id"]: f for f in fetched["fetch_failures"]})
+            if set(batch_ids) != {a["candidate_id"] for a in fetched["candidates"]} | {
+                f["candidate_id"] for f in fetched["fetch_failures"]
+            }:
+                raise RuntimeError("일부 후보의 본문 수집 결과 또는 실패 기록이 빠졌습니다.")
+            unchecked = [key for key in batch_ids if key in articles]
+            next_ids = extra_ids[start + quality_pool_batch_size:start + 2 * quality_pool_batch_size]
+            if fetch_executor is not None and unchecked and next_ids and not (should_stop and should_stop()):
+                prefetched = fetch_executor.submit(
+                    fetch_candidate_articles, [metadata_map[key] for key in next_ids])
+                prefetched_ids = next_ids
+            if unchecked and should_stop and should_stop():
+                mark_unverified(unchecked, "verification_deferred", TimeoutError())
+            elif unchecked:
+                if parallel_singletons:
+                    verify_singletons(unchecked, round_number, quality_pool=True)
+                else:
+                    notify(f"4단계 {round_number}차: 추가 사건·주장 검증 [{', '.join(unchecked)}]")
+                    verify_batch(unchecked)
+            targets = {claim_id: [key for key in batch_ids if key in queue]
+                       for claim_id, queue in queues.items()}
+            for claim_id, ids in targets.items():
+                for key in ids:
+                    assessment = assessed.get(key, {})
+                    match = _grounded_matches(assessment, set(claim_map)).get(claim_id)
+                    reason = ("fetch_failed" if key in failed else
+                              "verification_failed" if key in verification_failed else
+                              "verification_deferred" if key in verification_deferred else
+                              "different_event" if assessment.get("event_relation") == "different_event" else
+                              "uncertain_event" if assessment.get("event_relation") == "uncertain" else
+                              "verified" if match else "no_claim_match")
+                    claim_attempts.append({"round": round_number, "claim_id": claim_id, "candidate_id": key,
+                                           "status": "accepted" if match else "rejected", "reason": reason,
+                                           "selection_basis": "quality_pool"})
+            for key in batch_ids:
+                if key in baseline_queue:
+                    baseline_attempts.append({"round": round_number, "candidate_id": key,
+                                              "status": "accepted" if assessed.get(key, {}).get("event_relation") == "same_event" else "rejected",
+                                              "reason": assessed.get(key, {}).get("event_relation", "unverified")})
+            rounds.append({"round": round_number, "claim_targets": targets,
+                           "event_baseline_targets": [key for key in batch_ids if key in baseline_queue],
+                           "fetched_ids": batch_ids,
+                           "verified_ids": [key for key in unchecked if key not in verification_failed
+                                            and key not in verification_deferred],
+                           "unverified_ids": [key for key in unchecked if key in verification_failed
+                                              or key in verification_deferred],
+                           "deferred_ids": [key for key in unchecked if key in verification_deferred],
+                           "reused_verified_candidates": {}, "diversity_selection_notes": {},
+                           "quality_pool": True})
     independent_ids, body_groups, source_duplicates = _independent_same_event_ids(
         source, metadata, articles, assessed, set(claim_map))
     duplicate_groups = [group for group in body_groups if len(group) > 1]
@@ -513,9 +560,13 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
         "exhausted_claim_ids": [row["claim_id"] for row in final_comparisons
                                 if len(row["articles"]) < max_per_claim],
     }
+    # Keep the existing selection-attempt count stable. A speculative fetch
+    # discarded at a deadline/429 is visible separately, never as a verified
+    # candidate or a body-fetch failure.
     search = {**metadata_search, "errors": list(metadata_search.get("errors", [])) + verification_errors,
               "candidates": [articles[key] for key in attempted_ids if key in articles],
               "fetch_failures": [failed[key] for key in attempted_ids if key in failed],
               "fetch_attempt_count": len(attempted_ids),
+              "prefetch_discarded_ids": prefetch_discarded_ids,
               "unused_candidate_ids": [m["candidate_id"] for m in metadata if m["candidate_id"] not in attempted_ids]}
     return {"search": search, "selection": selection}

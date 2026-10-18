@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 from collections import Counter
-from threading import Barrier, Lock, local
-from time import sleep
+from threading import Barrier, Event, Lock, local
+from time import monotonic, sleep
 from unittest.mock import patch
 
 from server.analysis.reader_analysis import (
@@ -283,6 +283,43 @@ class ReaderAnalysisTests(unittest.TestCase):
                 self.assertTrue(all(len(request["input_data"]["article"]["sentences"]) == 4
                                     for request in requests))
 
+    def test_ten_source_sentences_use_two_balanced_chunks(self):
+        source, analysis = self._source_unit_case(10)
+
+        class RecordingClient:
+            def __init__(self):
+                self.requests = []
+
+            def generate_json(self, **request):
+                self.requests.append(request)
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        client = RecordingClient()
+        ledger, units, calls = _extract_source_units(source, analysis, client)
+        self.assertEqual([len(request["input_data"]["article"]["sentences"])
+                          for request in client.requests], [5, 5])
+        self.assertEqual([row["sentence_index"] for row in ledger], list(range(10)))
+        self.assertEqual([row["source_evidence"]["sentence_index"] for row in units], list(range(10)))
+        self.assertEqual(calls, 2)
+
+    def test_thirteen_to_sixteen_source_sentences_keep_original_two_chunks(self):
+        class RecordingClient:
+            def __init__(self):
+                self.requests = []
+
+            def generate_json(self, **request):
+                self.requests.append(request)
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        for count in (13, 16):
+            with self.subTest(count=count):
+                source, analysis = self._source_unit_case(count)
+                client = RecordingClient()
+                ledger, units, calls = _extract_source_units(source, analysis, client)
+                self.assertEqual([len(request["input_data"]["article"]["sentences"])
+                                  for request in client.requests], [8, count - 8])
+                self.assertEqual((len(ledger), len(units), calls), (count, count, 2))
+
     def test_live_source_chunks_overlap_and_merge_in_sentence_order(self):
         class ConcurrentSourceClient(OpenRouterJSONClient):
             def __init__(self):
@@ -476,7 +513,7 @@ class ReaderAnalysisTests(unittest.TestCase):
         source, catalog, units, alignments = expression_fixture()
         client = ChunkReviewClient()
         diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
-        self.assertEqual([len(request["input_data"]["pairs"]) for request in client.requests], [4, 4, 1])
+        self.assertEqual([len(request["input_data"]["pairs"]) for request in client.requests], [3, 3, 3])
         self.assertTrue(all(request["max_output_tokens"] == 8192 for request in client.requests))
         self.assertEqual(diagnostic["status"], "complete")
         self.assertEqual(diagnostic["eligible_pair_count"], 9)
@@ -488,20 +525,103 @@ class ReaderAnalysisTests(unittest.TestCase):
         self.assertTrue(all(len(row["expression_differences"]) == 1
                             for row in alignments["A"]["unit_alignments"]))
 
+    def test_final_two_pair_initial_batch_keeps_output_budget(self):
+        source, catalog, units, alignments = expression_fixture(count=8)
+        client = ChunkReviewClient()
+        diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
+        self.assertEqual([len(request["input_data"]["pairs"]) for request in client.requests], [3, 3, 2])
+        self.assertEqual([request["max_output_tokens"] for request in client.requests],
+                         [8192, 8192, 8192])
+        self.assertEqual((diagnostic["status"], calls), ("complete", 3))
+
     def test_failed_expression_chunk_keeps_other_grounded_findings(self):
         source, catalog, units, alignments = expression_fixture()
-        client = ChunkReviewClient(fail_at=4)
+        client = ChunkReviewClient(fail_at=3)
         diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
         self.assertEqual(diagnostic["status"], "partial")
-        self.assertEqual(diagnostic["reviewed_pair_count"], 5)
-        self.assertEqual(diagnostic["failed_pair_count"], 4)
+        self.assertEqual(diagnostic["reviewed_pair_count"], 8)
+        self.assertEqual(diagnostic["failed_pair_count"], 1)
         self.assertEqual(diagnostic["successful_chunk_count"], 2)
         self.assertEqual(diagnostic["failed_chunk_count"], 1)
         self.assertEqual(diagnostic["attempted_model_call_count"], calls)
-        self.assertEqual(calls, 3)
+        self.assertEqual(calls, 5)
+        self.assertEqual([len(request["input_data"]["pairs"]) for request in client.requests],
+                         [3, 3, 1, 2, 3])
+        self.assertEqual([request["max_output_tokens"] for request in client.requests],
+                         [8192, 8192, 8192, 8192, 8192])
         self.assertEqual([bool(row["expression_differences"])
                           for row in alignments["A"]["unit_alignments"]],
-                         [True] * 4 + [False] * 4 + [True])
+                         [True] * 3 + [False] + [True] * 5)
+
+    def test_truncated_expression_chunk_recovers_all_pairs_in_smaller_calls(self):
+        class TruncatingBatchClient(ChunkReviewClient):
+            def generate_json(self, **request):
+                pairs = request["input_data"]["pairs"]
+                if len(pairs) == 3 and pairs[0]["source_sentence_index"] == 3:
+                    self.requests.append(request)
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                return super().generate_json(**request)
+
+        source, catalog, units, alignments = expression_fixture()
+        client = TruncatingBatchClient()
+        diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
+        self.assertEqual(diagnostic["status"], "complete")
+        self.assertEqual(diagnostic["reviewed_pair_count"], 9)
+        self.assertEqual(diagnostic["failed_pair_count"], 0)
+        self.assertEqual(diagnostic["accepted_finding_count"], 9)
+        self.assertEqual(diagnostic["attempted_model_call_count"], calls)
+        self.assertEqual(calls, 5)
+        self.assertEqual([len(request["input_data"]["pairs"]) for request in client.requests],
+                         [3, 3, 1, 2, 3])
+        self.assertEqual([request["max_output_tokens"] for request in client.requests],
+                         [8192, 8192, 8192, 8192, 8192])
+        self.assertTrue(all(len(row["expression_differences"]) == 1
+                            for row in alignments["A"]["unit_alignments"]))
+
+    def test_expression_truncation_near_deadline_skips_recovery(self):
+        class TruncatingOpenRouter(OpenRouterJSONClient):
+            def __init__(self):
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self.calls = 0
+
+            def generate_json(self, **request):
+                self.calls += 1
+                raise ModelResponseTruncatedError("synthetic output limit")
+
+        source, catalog, units, alignments = expression_fixture(count=3)
+        provider = TruncatingOpenRouter()
+        diagnostic, calls = _review_expression_pairs(
+            source, catalog, units, alignments,
+            MetricsJSONClient(provider, deadline_at=monotonic() + 5))
+        self.assertEqual((provider.calls, calls), (1, 1))
+        self.assertEqual(diagnostic["status"], "failed")
+        self.assertEqual(diagnostic["failed_pair_count"], 3)
+        self.assertEqual(diagnostic["attempted_model_call_count"], 1)
+
+    def test_rate_limit_during_truncation_recovery_stops_later_calls(self):
+        class RateLimitedRecoveryClient(ChunkReviewClient):
+            def generate_json(self, **request):
+                pairs = request["input_data"]["pairs"]
+                first = pairs[0]["source_sentence_index"]
+                if first == 0 and len(pairs) == 3:
+                    self.requests.append(request)
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                if first == 0 and len(pairs) == 1:
+                    self.requests.append(request)
+                    raise ModelHTTPError(429)
+                return super().generate_json(**request)
+
+        source, catalog, units, alignments = expression_fixture()
+        client = RateLimitedRecoveryClient()
+        diagnostic, calls = _review_expression_pairs(source, catalog, units, alignments, client)
+        self.assertEqual([request["input_data"]["pairs"][0]["source_sentence_index"]
+                          for request in client.requests], [0, 0])
+        self.assertEqual((calls, diagnostic["attempted_model_call_count"]), (2, 2))
+        self.assertEqual(diagnostic["failed_pair_count"], 3)
+        self.assertEqual(diagnostic["deferred_pair_count"], 6)
+        self.assertEqual(diagnostic["status"], "failed")
 
     def test_parallel_expression_chunks_merge_deterministically_and_meter_cost(self):
         class ConcurrentChunkClient(ChunkReviewClient, OpenRouterJSONClient):
@@ -513,7 +633,7 @@ class ReaderAnalysisTests(unittest.TestCase):
                 self._usage_lock = Lock()
                 self._usage_totals = Counter()
                 self._metered_responses = self._cost_reported_responses = 0
-                self._barrier = Barrier(2)
+                self._barrier = Barrier(3)
                 self._active_lock = Lock()
                 self._active = self.max_active = 0
                 self.completed = []
@@ -524,7 +644,7 @@ class ReaderAnalysisTests(unittest.TestCase):
                     self._active += 1
                     self.max_active = max(self.max_active, self._active)
                 try:
-                    if first in {0, 4}:
+                    if first in {0, 3, 6}:
                         self._barrier.wait(timeout=5)
                     if first == 0:
                         sleep(0.05)
@@ -546,8 +666,9 @@ class ReaderAnalysisTests(unittest.TestCase):
         provider = ConcurrentChunkClient()
         recorder = MetricsJSONClient(provider)
         parallel, calls = _review_expression_pairs(source, catalog, units, parallel_alignments, recorder)
-        self.assertEqual(provider.max_active, 2)
-        self.assertEqual(provider.completed[:2], [4, 0])
+        self.assertEqual(provider.max_active, 3)
+        self.assertCountEqual(provider.completed[:2], [3, 6])
+        self.assertEqual(provider.completed[2], 0)
         self.assertEqual(parallel, serial)
         self.assertEqual(parallel_alignments, serial_alignments)
         self.assertEqual(calls, 3)
@@ -563,7 +684,7 @@ class ReaderAnalysisTests(unittest.TestCase):
                 self.model = "synthetic-model"
                 self.task_models = {}
                 self._thread_state = local()
-                self._barrier = Barrier(2)
+                self._barrier = Barrier(3)
                 self.first_indexes = []
                 self._lock = Lock()
 
@@ -576,18 +697,70 @@ class ReaderAnalysisTests(unittest.TestCase):
                     raise ModelHTTPError(429)
                 return expression_findings(request["input_data"]["pairs"])
 
-        source, catalog, units, alignments = expression_fixture()
+        source, catalog, units, alignments = expression_fixture(count=12)
         provider = RateLimitedOpenRouter()
         diagnostic, calls = _review_expression_pairs(
             source, catalog, units, alignments, MetricsJSONClient(provider))
-        self.assertCountEqual(provider.first_indexes, [0, 4])
+        self.assertCountEqual(provider.first_indexes, [0, 3, 6])
         self.assertEqual(diagnostic["status"], "partial")
-        self.assertEqual(diagnostic["attempted_pair_count"], 8)
-        self.assertEqual(diagnostic["reviewed_pair_count"], 4)
-        self.assertEqual(diagnostic["failed_pair_count"], 4)
-        self.assertEqual(diagnostic["deferred_pair_count"], 1)
+        self.assertEqual(diagnostic["attempted_pair_count"], 9)
+        self.assertEqual(diagnostic["reviewed_pair_count"], 6)
+        self.assertEqual(diagnostic["failed_pair_count"], 3)
+        self.assertEqual(diagnostic["deferred_pair_count"], 3)
         self.assertEqual(diagnostic["attempted_model_call_count"], calls)
-        self.assertEqual(calls, 2)
+        self.assertEqual(calls, 3)
+
+    def test_parallel_429_stops_split_retries_but_keeps_completed_pair(self):
+        rate_limit_seen = Event()
+
+        class ConcurrentRateLimitClient(OpenRouterJSONClient):
+            def __init__(self):
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self.initial_barrier = Barrier(3)
+                self.child_started = Event()
+                self._lock = Lock()
+                self.calls = []
+
+            def generate_json(self, **request):
+                pairs = request["input_data"]["pairs"]
+                first, size = pairs[0]["source_sentence_index"], len(pairs)
+                with self._lock:
+                    self.calls.append((first, size))
+                if size == 3:
+                    self.initial_barrier.wait(timeout=5)
+                if first == 0:
+                    self.assert_child_started()
+                    raise ModelHTTPError(429)
+                if first == 3 and size == 3:
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                if first == 3 and size == 1:
+                    self.child_started.set()
+                    if not rate_limit_seen.wait(timeout=5):
+                        raise AssertionError("429 event was not propagated")
+                return expression_findings(pairs)
+
+            def assert_child_started(self):
+                if not self.child_started.wait(timeout=5):
+                    raise AssertionError("split retry never started")
+
+        source, catalog, units, alignments = expression_fixture(count=12)
+        provider = ConcurrentRateLimitClient()
+        with patch("server.analysis.reader_analysis.Event", return_value=rate_limit_seen):
+            diagnostic, calls = _review_expression_pairs(
+                source, catalog, units, alignments, MetricsJSONClient(provider))
+        self.assertCountEqual(provider.calls, [(0, 3), (3, 3), (6, 3), (3, 1)])
+        self.assertEqual((calls, diagnostic["attempted_model_call_count"]), (4, 4))
+        self.assertEqual(diagnostic["attempted_pair_count"], 9)
+        self.assertEqual(diagnostic["reviewed_pair_count"], 4)
+        self.assertEqual(diagnostic["failed_pair_count"], 5)
+        self.assertEqual(diagnostic["deferred_pair_count"], 3)
+        self.assertEqual(diagnostic["accepted_finding_count"], 4)
+        self.assertEqual(diagnostic["status"], "partial")
+        self.assertEqual([bool(row["expression_differences"])
+                          for row in alignments["A"]["unit_alignments"]],
+                         [False] * 3 + [True] + [False] * 2 + [True] * 3 + [False] * 3)
 
     def test_expression_review_without_candidates_makes_no_model_call(self):
         source, _, _, _ = expression_fixture()
