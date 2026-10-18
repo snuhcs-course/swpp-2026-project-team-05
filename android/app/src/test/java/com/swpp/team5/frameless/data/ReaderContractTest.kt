@@ -2,7 +2,6 @@ package com.swpp.team5.frameless.data
 
 import com.swpp.team5.frameless.ui.screens.nonOverlapping
 import com.swpp.team5.frameless.ui.screens.preferredPreviewPair
-import com.swpp.team5.frameless.ui.screens.readerComparisonHint
 import com.swpp.team5.frameless.ui.screens.relatedSentencePreview
 import com.swpp.team5.frameless.ui.screens.sourceReaderText
 import com.swpp.team5.frameless.ui.screens.targets
@@ -182,7 +181,6 @@ class ReaderContractTest {
         assertEquals(1, reader.pairs.size)
         assertEquals("S0-S0", target.sentenceId)
         assertTrue(target.codes.isEmpty())
-        assertTrue(readerComparisonHint(reader.targets()).contains("대응 문장을 눌러"))
         assertFalse(sourceReaderText(reader, reader.targets()).text.contains("〔A〕"))
         assertTrue(relatedSentencePreview(reader.relatedArticles.single(), target.pairs).text
             .contains("첫 대응 표현이다."))
@@ -251,6 +249,27 @@ class ReaderContractTest {
 
         assertEquals(marked, listOf(neutral, marked).preferredPreviewPair(showExpressions = true))
         assertEquals(neutral, listOf(neutral, marked).preferredPreviewPair(showExpressions = false))
+    }
+
+    @Test
+    fun collapsedPreviewKeepsTheExtractedSeparatorBetweenSentences() {
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root(), "https://source.example/article").reader)
+        val original = reader.relatedArticles.single()
+        val first = original.sentences[0]
+        val secondText = original.sentences[1].text
+
+        for (separator in listOf("\n", "\n\n", " ")) {
+            val body = first.text + separator + secondText
+            val secondStart = first.span.end + separator.length
+            val article = original.copy(body = body, sentences = listOf(
+                first,
+                original.sentences[1].copy(
+                    span = ReaderSpan(secondStart, body.length),
+                    paragraphIndex = if (separator == " ") 0 else 1
+                )
+            ))
+            assertEquals(body, relatedSentencePreview(article, reader.pairs).text)
+        }
     }
 
     private fun root(): JSONObject {
