@@ -212,12 +212,16 @@ internal fun ReaderScreen(
                 SourceLink(onClick = { uriHandler.openUri(url) }, label = "기사 원문 열기")
             }
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
-                Caption("대응 문장 · 눌러 비교")
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
+                    Caption("같은 내용을 다룬 문장 · 눌러 보기")
+                }
                 if (hasExpressionDifferences) {
-                    Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
-                    Caption("표현 차이 A–G")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
+                        Caption("표현 차이 A–G")
+                    }
                 }
             }
             if (reader.i1Stars.isNotEmpty()) {
@@ -372,7 +376,7 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Caption("표현 차이 후보", color = Fl.InkDiff)
+                Caption("다르게 쓴 표현", color = Fl.InkDiff)
                 differences.forEach { difference ->
                     Text(
                         text = "${difference.code} · ${difference.note}".trimEnd(' ', '·'),
@@ -440,6 +444,6 @@ private fun relationLabel(raw: String): String = when (raw) {
     "reframes" -> "다르게 구성한 내용"
     "different_interpretation" -> "다른 해석"
     "same_issue" -> "같은 쟁점"
-    "uncertain" -> "관계 판정 불확실"
+    "uncertain" -> "연결을 확인 중"
     else -> ""
 }
