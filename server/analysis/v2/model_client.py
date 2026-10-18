@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from random import uniform
+from threading import Lock, local
 from time import monotonic, perf_counter, sleep
 from typing import Any
 
@@ -138,6 +139,7 @@ class MetricsJSONClient:
 
     def __init__(self, client: Any, *, deadline_at: float | None = None) -> None:
         self.client, self.deadline_at = client, deadline_at
+        self._metrics_lock = Lock()
         self.attempts: Counter[str] = Counter()
         self.successes: Counter[str] = Counter()
         self.failures: Counter[str] = Counter()
@@ -153,7 +155,13 @@ class MetricsJSONClient:
         # AI-assisted metrics: task names are fixed operation IDs, never model input text.
         raw_name = request.get("name", "")
         name = raw_name if isinstance(raw_name, str) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", raw_name) else "unknown"
-        self.attempts[name] += 1
+        if isinstance(self.client, OpenRouterJSONClient):
+            # The deadline can expire before entering the provider. Never log
+            # an earlier call's usage against this skipped request.
+            self.client.last_call_usage = {}
+            self.client.last_call_finish_reason = None
+        with self._metrics_lock:
+            self.attempts[name] += 1
         started = perf_counter()
         error_type = None
         try:
@@ -166,15 +174,18 @@ class MetricsJSONClient:
                 response = self.client.generate_json(**request)
         except Exception as exc:
             error_type = type(exc).__name__
-            self.failures[name] += 1
+            with self._metrics_lock:
+                self.failures[name] += 1
             raise
         else:
-            self.successes[name] += 1
+            with self._metrics_lock:
+                self.successes[name] += 1
             return response
         finally:
             duration_ms = round((perf_counter() - started) * 1000)
-            self.duration_ms += duration_ms
-            self.task_duration_ms[name] += duration_ms
+            with self._metrics_lock:
+                self.duration_ms += duration_ms
+                self.task_duration_ms[name] += duration_ms
             if isinstance(self.client, OpenRouterJSONClient):
                 usage = getattr(self.client, "last_call_usage", None) or {}
                 finish = getattr(self.client, "last_call_finish_reason", None)
@@ -188,13 +199,14 @@ class MetricsJSONClient:
                           **usage)
 
     def execution_summary(self) -> dict:
-        summary = {"model_calls": sum(self.successes.values()),
-                "task_counts": dict(self.successes), "sdk_retries_included": False,
-                "attempted_calls": sum(self.attempts.values()),
-                "failed_calls": sum(self.failures.values()),
-                "model_duration_ms": self.duration_ms,
-                "task_duration_ms": dict(self.task_duration_ms),
-                "task_failure_counts": dict(self.failures)}
+        with self._metrics_lock:
+            summary = {"model_calls": sum(self.successes.values()),
+                    "task_counts": dict(self.successes), "sdk_retries_included": False,
+                    "attempted_calls": sum(self.attempts.values()),
+                    "failed_calls": sum(self.failures.values()),
+                    "model_duration_ms": self.duration_ms,
+                    "task_duration_ms": dict(self.task_duration_ms),
+                    "task_failure_counts": dict(self.failures)}
         if isinstance(self.client, OpenRouterJSONClient):
             summary["provider_usage"] = self.client.usage_summary()
         return summary
@@ -463,16 +475,36 @@ class OpenRouterJSONClient:
         self.model, self.temperature, self.seed = settings["model"], settings["temperature"], settings["seed"]
         self.task_models = settings["task_models"]
         self._usage_totals: Counter[str] = Counter()
+        self._usage_lock = Lock()
+        self._thread_state = local()
         self._metered_responses = 0
         self._cost_reported_responses = 0
-        self.last_call_usage: dict[str, int | float] = {}
-        self.last_call_finish_reason: str | None = None
         # This client is the only place where the credential is held. It is not
         # copied into settings, snapshots, request metadata, or error messages.
         self._client = httpx.Client(
             headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
             follow_redirects=False, timeout=60.0,
         )
+
+    @property
+    def last_call_usage(self) -> dict[str, int | float]:
+        return getattr(getattr(self, "_thread_state", None), "usage", {})
+
+    @last_call_usage.setter
+    def last_call_usage(self, value: dict[str, int | float]) -> None:
+        if not hasattr(self, "_thread_state"):
+            self._thread_state = local()
+        self._thread_state.usage = value
+
+    @property
+    def last_call_finish_reason(self) -> str | None:
+        return getattr(getattr(self, "_thread_state", None), "finish_reason", None)
+
+    @last_call_finish_reason.setter
+    def last_call_finish_reason(self, value: str | None) -> None:
+        if not hasattr(self, "_thread_state"):
+            self._thread_state = local()
+        self._thread_state.finish_reason = value
 
     def _capture_usage(self, payload: Any) -> None:
         """Keep only provider-reported counts and cost, never prompts or completions."""
@@ -492,28 +524,29 @@ class OpenRouterJSONClient:
             if type(value) is int and 0 <= value <= 1_000_000_000:
                 values["reasoning_tokens"] = value
         cost = raw.get("cost")
-        if type(cost) in (int, float) and 0 <= cost <= 1_000_000 and math.isfinite(cost):
+        has_cost = type(cost) in (int, float) and 0 <= cost <= 1_000_000 and math.isfinite(cost)
+        if has_cost:
             values["reported_cost_usd"] = float(cost)
-            self._cost_reported_responses = getattr(self, "_cost_reported_responses", 0) + 1
         if values:
-            self._metered_responses = getattr(self, "_metered_responses", 0) + 1
-            totals = getattr(self, "_usage_totals", Counter())
-            totals.update(values)
-            self._usage_totals = totals
+            with self._usage_lock:
+                self._metered_responses += 1
+                self._cost_reported_responses += int(has_cost)
+                self._usage_totals.update(values)
             self.last_call_usage = values
 
     def usage_summary(self) -> dict[str, int | float | None]:
-        totals = getattr(self, "_usage_totals", Counter())
-        return {
-            "metered_responses": getattr(self, "_metered_responses", 0),
-            "cost_reported_responses": getattr(self, "_cost_reported_responses", 0),
-            "input_tokens": totals["input_tokens"],
-            "output_tokens": totals["output_tokens"],
-            "total_tokens": totals["total_tokens"],
-            "reasoning_tokens": totals["reasoning_tokens"],
-            "reported_cost_usd": (round(totals["reported_cost_usd"], 8)
-                                  if getattr(self, "_cost_reported_responses", 0) else None),
-        }
+        with self._usage_lock:
+            totals = self._usage_totals
+            return {
+                "metered_responses": self._metered_responses,
+                "cost_reported_responses": self._cost_reported_responses,
+                "input_tokens": totals["input_tokens"],
+                "output_tokens": totals["output_tokens"],
+                "total_tokens": totals["total_tokens"],
+                "reasoning_tokens": totals["reasoning_tokens"],
+                "reported_cost_usd": (round(totals["reported_cost_usd"], 8)
+                                      if self._cost_reported_responses else None),
+            }
 
     def generate_json(
         self,

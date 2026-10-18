@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.ReaderArticle
 import com.swpp.team5.frameless.data.AnalysisStatus
-import com.swpp.team5.frameless.data.ReaderHighlight
 import com.swpp.team5.frameless.data.ReaderPair
 import com.swpp.team5.frameless.data.ReaderResult
 import com.swpp.team5.frameless.data.ReaderSpan
@@ -73,19 +72,24 @@ private val ReaderMarker = Color(0xFFE5D0F2)
 internal data class ReaderTarget(
     val sentenceId: String,
     val span: ReaderSpan,
-    val highlights: List<ReaderHighlight>
+    val pairs: List<ReaderPair>
 ) {
     val key: String get() = "$sentenceId:${span.start}:${span.end}"
-    val pairs: List<ReaderPair> get() = highlights.flatMap { it.pairs }.distinctBy { it.id }
     val codes: List<String> get() = pairs.flatMap { it.expressionDifferences.map { difference -> difference.code } }
         .distinct().sorted()
 }
 
 /** A sentence may carry several claims. Keep one tappable span and show all verified pairs. */
-internal fun ReaderResult.targets(): List<ReaderTarget> = highlights
+internal fun ReaderResult.targets(): List<ReaderTarget> = pairs
     .groupBy { it.sourceSentenceId to it.sourceSpan }
-    .map { (identity, items) -> ReaderTarget(identity.first, identity.second, items) }
+    .map { (identity, items) -> ReaderTarget(identity.first, identity.second, items.distinctBy { it.id }) }
     .sortedWith(compareBy({ it.span.start }, { it.span.end }))
+
+internal fun readerComparisonHint(targets: List<ReaderTarget>): String = when {
+    targets.isEmpty() -> "이번 분석에서 양쪽 원문을 확인한 대응 문장은 없어요."
+    targets.none { it.codes.isNotEmpty() } -> "A–G 표시가 없어도 대응 문장을 눌러 다른 기사와 비교할 수 있어요."
+    else -> "표시된 문장을 누르면 다른 기사의 해당 부분으로 이동해요."
+}
 
 /** Overlapping positions cannot have an unambiguous tap target; keep the first exact sentence. */
 internal fun List<ReaderTarget>.nonOverlapping(): List<ReaderTarget> {
@@ -115,17 +119,18 @@ internal fun sourceReaderText(
                 pop() // style
                 pop() // click annotation
                 active = null
-                if (showExpressions && ending.codes.isNotEmpty()) {
-                    pushStringAnnotation("reader_target", ending.key)
-                    pushStyle(SpanStyle(color = Fl.InkDiff, fontWeight = FontWeight.Bold))
-                    append(" 〔${ending.codes.joinToString("·")}〕")
-                    pop()
-                    pop()
-                }
             }
             starsByEnd[offset]?.forEach {
                 pushStyle(SpanStyle(color = Fl.Danger, fontWeight = FontWeight.Bold))
-                append(" ★")
+                // Keep the star with the sentence ending, before any following paragraph break.
+                append("\u2060★")
+                pop()
+            }
+            if (showExpressions && ending?.codes?.isNotEmpty() == true) {
+                pushStringAnnotation("reader_target", ending.key)
+                pushStyle(SpanStyle(color = Fl.InkDiff, fontWeight = FontWeight.Bold))
+                append(" 〔${ending.codes.joinToString("·")}〕")
+                pop()
                 pop()
             }
             val starting = byStart[offset]
@@ -222,13 +227,8 @@ internal fun ReaderScreen(
             } else if (reader.i1Status == "withheld") {
                 Caption("I1 단독 정보 판정은 근거가 부족해 보류했어요.")
             }
-            if (targets.isEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Caption("이번 분석에서 양쪽 원문을 확인한 대응 문장은 없어요.")
-            } else {
-                Spacer(Modifier.height(8.dp))
-                Caption("표시된 문장을 누르면 다른 기사의 해당 부분으로 이동해요.")
-            }
+            Spacer(Modifier.height(8.dp))
+            Caption(readerComparisonHint(targets))
             Spacer(Modifier.height(22.dp))
             HorizontalDivider(color = Fl.Line)
             Spacer(Modifier.height(20.dp))
@@ -318,7 +318,7 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
     val highlightText = remember(article, page.pairs, showExpressions) {
         relatedReaderText(article, page.pairs, showExpressions)
     }
-    val firstOffset = page.pairs.minOfOrNull { it.relatedSpan.start }
+    val firstOffset = page.pairs.preferredPreviewPair(showExpressions)?.relatedSpan?.start
 
     LaunchedEffect(article.id, firstOffset, layout, viewportHeight, scroll.maxValue, sheetState.currentValue) {
         val offset = firstOffset ?: return@LaunchedEffect
@@ -395,7 +395,7 @@ internal fun relatedSentencePreview(
     pairs: List<ReaderPair>,
     showExpressions: Boolean = true
 ): AnnotatedString = buildAnnotatedString {
-    val pair = pairs.minByOrNull { it.relatedSpan.start } ?: return@buildAnnotatedString
+    val pair = pairs.preferredPreviewPair(showExpressions) ?: return@buildAnnotatedString
     val index = article.sentences.indexOfFirst { it.id == pair.relatedSentenceId }
     if (index < 0) return@buildAnnotatedString
     val sentence = article.sentences[index]
@@ -411,6 +411,11 @@ internal fun relatedSentencePreview(
     }
     article.sentences.getOrNull(index + 1)?.let { append("\n\n"); append(it.text) }
 }
+
+/** An A–G tap opens at its marked counterpart even when a neutral match starts earlier. */
+internal fun List<ReaderPair>.preferredPreviewPair(showExpressions: Boolean): ReaderPair? =
+    minWithOrNull(compareBy<ReaderPair> { if (showExpressions && it.expressionDifferences.isNotEmpty()) 0 else 1 }
+        .thenBy { it.relatedSpan.start })
 
 internal fun relatedReaderText(
     article: ReaderArticle,

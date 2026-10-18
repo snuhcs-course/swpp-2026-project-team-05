@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import unittest
+from collections import Counter
+from threading import Barrier, Lock, local
 from unittest.mock import patch
 
 from server.analysis.reader_analysis import (
@@ -10,7 +12,7 @@ from server.analysis.reader_analysis import (
 )
 from server.analysis.reader_contract import build_reader
 from server.analysis.v2.article_input import structure_article_body
-from server.analysis.v2.model_client import ModelResponseError
+from server.analysis.v2.model_client import MetricsJSONClient, ModelResponseError, OpenRouterJSONClient
 
 
 def article(article_id: str, body: str) -> dict:
@@ -108,6 +110,58 @@ class ReaderClient:
 
 
 class ReaderAnalysisTests(unittest.TestCase):
+    def test_uncached_openrouter_alignments_run_together_with_ordered_results_and_usage(self):
+        class ConcurrentReaderClient(ReaderClient, OpenRouterJSONClient):
+            def __init__(self):
+                ReaderClient.__init__(self)
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self._usage_lock = Lock()
+                self._usage_totals = Counter()
+                self._metered_responses = self._cost_reported_responses = 0
+                self._barrier = Barrier(2)
+                self._active_lock = Lock()
+                self._active = self.max_active = 0
+
+            def generate_json(self, **request):
+                self.last_call_usage = {}
+                self.last_call_finish_reason = None
+                if request["name"] == "related_content_alignment":
+                    with self._active_lock:
+                        self._active += 1
+                        self.max_active = max(self.max_active, self._active)
+                    try:
+                        self._barrier.wait(timeout=5)
+                    finally:
+                        with self._active_lock:
+                            self._active -= 1
+                    tokens = 10 if request["input_data"]["article_id"] == "A" else 20
+                    self._capture_usage({"usage": {"prompt_tokens": tokens,
+                                                    "completion_tokens": 2,
+                                                    "total_tokens": tokens + 2,
+                                                    "cost": tokens / 1000}})
+                    self.last_call_finish_reason = "stop"
+                return ReaderClient.generate_json(self, **request)
+
+        provider = ConcurrentReaderClient()
+        recorder = MetricsJSONClient(provider)
+        result = analyze_reader_content(fixture(), ["A", "B"], client=recorder)
+        self.assertEqual(provider.max_active, 2)
+        self.assertEqual(list(result["article_alignments"]), ["A", "B"])
+        self.assertEqual(result["llm_calls"], 5)
+        summary = recorder.execution_summary()
+        self.assertEqual(summary["attempted_calls"], 5)
+        self.assertEqual(summary["model_calls"], 5)
+        self.assertEqual(summary["provider_usage"]["metered_responses"], 2)
+        self.assertEqual(summary["provider_usage"]["input_tokens"], 30)
+        self.assertAlmostEqual(summary["provider_usage"]["reported_cost_usd"], 0.03)
+        provider.fail_article = "B"
+        failed = analyze_reader_content(fixture(), ["A", "B"], client=MetricsJSONClient(provider))
+        self.assertEqual(list(failed["article_alignments"]), ["A"])
+        self.assertEqual([row["article_id"] for row in failed["article_failures"]], ["B"])
+        self.assertEqual(failed["i1_status"], "withheld")
+
     def test_full_article_alignment_and_source_only_star(self):
         raw = fixture()
         client = ReaderClient()
