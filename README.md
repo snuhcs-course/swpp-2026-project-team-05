@@ -18,6 +18,28 @@ FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를
 
 앱은 기본으로 팀 백엔드에 연결됩니다. 앱 실행을 위해 별도의 API 키나 로컬 서버 설정은 필요하지 않습니다.
 
+### Iteration 2 통합 버전 확인
+
+현재 통합 브랜치는 Android UI v2와 주장별 비교·루브릭 v2를 연결합니다. 기존 공개 백엔드가 아직 v2로 배포되지 않았다면 앱 기본 설정만으로는 이 버전을 확인할 수 없습니다. 로컬에서 확인할 때는 루트의 `.env.example`을 `.env`로 복사하고 개인에게 허용된 Gemini 및 NAVER API HUB 키를 설정한 다음 서버를 실행합니다. 키는 저장소나 APK에 넣지 않습니다.
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+# .env에 Gemini·NAVER API HUB 키 설정
+set -a; source .env; set +a
+.venv/bin/python manage.py runserver
+```
+
+에뮬레이터에서 로컬 서버를 사용할 경우 Android 프로젝트에서 다음처럼 빌드합니다. `10.0.2.2`는 에뮬레이터에서 호스트 컴퓨터로 접속하는 주소입니다.
+
+```sh
+cd android
+./gradlew :app:installDebug -PframelessBackendUrl=http://10.0.2.2:8000
+```
+
+`GET /api/health`의 `analysis_ready`와 실제 기사에 대한 `POST /api/analyze` 응답을 모두 확인해야 분석 서비스 검증이 끝납니다. 오프라인 계약 테스트는 `./gradlew :app:jacocoDebugUnitTestReport :app:assembleDebug`와 `.venv/bin/python manage.py test`로 실행할 수 있습니다. 현재 루브릭은 채택된 I1–I5/A–G를 주장별로 표시하며, 질문별 묶음은 아직 포함하지 않습니다. API 상세와 오류 처리는 [백엔드 개발·배포 안내](docs/backend.md)를 참고하세요.
+
 ## 기술 구성
 
 | 구성 | 기술 |

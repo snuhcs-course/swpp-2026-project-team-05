@@ -17,12 +17,57 @@ from .analysis.article_fetch import validate_article_url
 from .analysis.article_search import analyze_related_articles
 from .analysis.diagnostics import analysis_id, log_event
 from .analysis.model_client import ModelUnavailableError, get_gemini_api_key
+from .analysis.v2_adapter import PipelineContractError, adapt_v2_result
 
 
 logger = logging.getLogger(__name__)
 MAX_BODY_BYTES = 8192
 _analysis_slot = threading.BoundedSemaphore(1)
 REQUIRED_NAVER_KEYS = ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")
+
+
+class PipelineResultError(RuntimeError):
+    """A v2 result that cannot support a comparison response."""
+
+    def __init__(self, code: str, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+
+
+def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
+    """Run the integrated rubric pipeline and preserve the Android API contract."""
+    # AI-assisted Iteration 2 integration; the v2 output is checked by adapter tests.
+    from .analysis.v2.pipeline import run_analysis_pipeline
+
+    raw = run_analysis_pipeline(
+        source_url,
+        max_per_claim=max_related,
+        event_baseline_limit=max_related,
+        max_rubric_articles=max_related,
+        use_cache=False,  # Serverless function files are not persistent storage.
+    )
+    if not isinstance(raw, dict):
+        raise PipelineResultError("analysis_failed", "분석 결과를 읽지 못했어요.")
+    errors = raw.get("errors") if isinstance(raw.get("errors"), list) else []
+    first = next((row for row in errors if isinstance(row, dict)), {})
+    if raw.get("execution_status") == "failed" or not isinstance(raw.get("source_analysis"), dict):
+        raise PipelineResultError(
+            str(first.get("code") or "analysis_failed").lower(),
+            str(first.get("message") or "기사를 분석하지 못했어요. 잠시 후 다시 시도해 주세요."),
+            retryable=bool(first.get("retryable")),
+        )
+    if raw.get("comparison_status") == "unavailable":
+        raise PipelineResultError(
+            "comparison_unavailable",
+            "비교 기사를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+            retryable=bool(first.get("retryable")),
+        )
+    try:
+        return adapt_v2_result(raw, max_related=max_related, requested_url=source_url)
+    except PipelineContractError:
+        logger.exception("V2 result does not satisfy the display contract")
+        raise PipelineResultError("invalid_analysis_result", "분석 결과를 표시하지 못했어요. 잠시 후 다시 시도해 주세요.") from None
 
 
 def _missing_api_keys() -> list[str]:
@@ -112,14 +157,24 @@ def _analyze_request(request):
             503,
         )
 
-    log_event(logger, "request_validated", article_host=urlsplit(url).hostname, max_related=max_related)
+    pipeline_name = os.getenv("FRAMELESS_PIPELINE", "v2").strip().lower()
+    if pipeline_name not in {"v1", "v2"}:
+        return _error("invalid_pipeline_config", "서버 분석 설정을 확인해 주세요.", 503)
+    log_event(logger, "request_validated", article_host=urlsplit(url).hostname,
+              max_related=max_related, pipeline=pipeline_name)
     if not _analysis_slot.acquire(blocking=False):
         response = _error("busy", "다른 기사를 분석 중입니다. 잠시 후 다시 시도해 주세요.", 429)
         response["Retry-After"] = "30"
         return response
     try:
         try:
-            result = analyze_related_articles(url.strip(), max_related=max_related)
+            analysis_function = analyze_related_articles_v2 if pipeline_name == "v2" else analyze_related_articles
+            result = analysis_function(url.strip(), max_related=max_related)
+        except PipelineResultError as exc:
+            response = _error(exc.code, str(exc), 503 if exc.retryable else 502)
+            if exc.retryable:
+                response["Retry-After"] = "30"
+            return response
         except ModelUnavailableError:
             response = _error(
                 "analysis_unavailable",

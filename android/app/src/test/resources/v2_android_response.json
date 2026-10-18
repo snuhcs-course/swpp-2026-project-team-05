@@ -1,0 +1,225 @@
+{
+  "source_analysis": {
+    "core_event": "같은 사건",
+    "claims": [
+      {
+        "claim_id": "C1",
+        "claim": "관객 수가 늘었다",
+        "evidence": {
+          "quote": "관객 수가 늘었다"
+        }
+      },
+      {
+        "claim_id": "C2",
+        "claim": "새 계획이 발표됐다",
+        "evidence": {
+          "quote": "새 계획이 발표됐다"
+        }
+      }
+    ],
+    "title": "입력 기사",
+    "url": "https://news.example.com/source"
+  },
+  "related_articles": [
+    {
+      "article_index": 1,
+      "candidate_id": "A",
+      "title": "A 기사",
+      "url": "https://news.example.com/a"
+    },
+    {
+      "article_index": 2,
+      "candidate_id": "B",
+      "title": "B 기사",
+      "url": "https://news.example.com/b"
+    }
+  ],
+  "comparison": {
+    "issues": [
+      {
+        "claim_id": "C1",
+        "issue": "관객 수가 늘었다",
+        "members": [
+          {
+            "article_index": 0,
+            "title": "입력 기사",
+            "url": "https://news.example.com/source",
+            "source_claim_index": 0,
+            "relation_to_source": "source",
+            "evidence": {
+              "quote": "관객 수가 늘었다"
+            }
+          },
+          {
+            "article_index": 1,
+            "candidate_id": "A",
+            "title": "A 기사",
+            "url": "https://news.example.com/a",
+            "source_claim_index": 0,
+            "relation_to_source": "same",
+            "relation_owner": "uncertain",
+            "speaker": "",
+            "speech_kind": "none",
+            "has_multiple_voices": false,
+            "relation_warning": null,
+            "evidence": {
+              "quote": "A 기사 관객 수가 늘었다"
+            }
+          },
+          {
+            "article_index": 2,
+            "candidate_id": "B",
+            "title": "B 기사",
+            "url": "https://news.example.com/b",
+            "source_claim_index": 0,
+            "relation_to_source": "same_issue",
+            "relation_owner": "uncertain",
+            "speaker": "",
+            "speech_kind": "none",
+            "has_multiple_voices": false,
+            "relation_warning": null,
+            "evidence": {
+              "quote": "B 기사는 다른 수치를 보도했다"
+            }
+          }
+        ]
+      },
+      {
+        "claim_id": "C2",
+        "issue": "새 계획이 발표됐다",
+        "members": [
+          {
+            "article_index": 0,
+            "title": "입력 기사",
+            "url": "https://news.example.com/source",
+            "source_claim_index": 1,
+            "relation_to_source": "source",
+            "evidence": {
+              "quote": "새 계획이 발표됐다"
+            }
+          },
+          {
+            "article_index": 1,
+            "candidate_id": "A",
+            "title": "A 기사",
+            "url": "https://news.example.com/a",
+            "source_claim_index": 1,
+            "relation_to_source": "opposes",
+            "relation_owner": "uncertain",
+            "speaker": "",
+            "speech_kind": "none",
+            "has_multiple_voices": false,
+            "relation_warning": null,
+            "evidence": {
+              "quote": "A 기사는 계획을 부인했다"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "analysis_status": {
+    "status": "ready",
+    "execution_status": "success",
+    "comparison_status": "available",
+    "warnings": [],
+    "errors": []
+  },
+  "rubric": {
+    "version": "0.2.1",
+    "judgment_status": "provisional",
+    "questions": [],
+    "information_differences": [
+      {
+        "code": "I1",
+        "claim_id": "C1",
+        "article_index": 1,
+        "sentence": "A 기사 관객 수가 늘었다",
+        "value": "입력 주장과 대응하는 구절을 찾았어요. 관계: 같은 주장 (발언 주체 확인이 필요한 구절)."
+      },
+      {
+        "code": "I1",
+        "claim_id": "C1",
+        "article_index": 2,
+        "sentence": "B 기사는 다른 수치를 보도했다",
+        "value": "입력 주장과 대응하는 구절을 찾았어요. 관계: 같은 쟁점의 다른 내용 (발언 주체 확인이 필요한 구절)."
+      },
+      {
+        "code": "I2",
+        "claim_id": "C1",
+        "article_index": 1,
+        "sentence": "A 기사 관객 수가 늘었다",
+        "value": "이 기사: 본문, 식별된 본문 문장 2개. 입력 기사: 리드, 식별된 본문 문장 1개."
+      },
+      {
+        "code": "I2",
+        "claim_id": "C1",
+        "article_index": 2,
+        "sentence": "B 기사는 다른 수치를 보도했다",
+        "value": "이 기사: 본문, 식별된 본문 문장 1개. 입력 기사: 리드, 식별된 본문 문장 1개."
+      },
+      {
+        "code": "I3",
+        "claim_id": "C1",
+        "article_index": 1,
+        "sentence": "A 기사는 과거 사례를 설명했다",
+        "value": "과거 사례를 설명했다",
+        "target": null,
+        "polarity": null
+      },
+      {
+        "code": "I5",
+        "claim_id": "C1",
+        "article_index": 2,
+        "sentence": "관계자는 새 기록이라고 말했다",
+        "value": "관계자의 직접 인용",
+        "target": null,
+        "polarity": null
+      }
+    ],
+    "expression_differences": [
+      {
+        "claim_id": "C1",
+        "article_index": 1,
+        "sentence": "관객이 급증했다",
+        "span": "급증",
+        "categories": [
+          {
+            "code": "D",
+            "markedness": 2
+          }
+        ],
+        "baseline": {
+          "source": "outlet",
+          "text": "관객이 늘었다",
+          "article_index": 0
+        },
+        "target": null,
+        "polarity": "none",
+        "status": "provisional",
+        "note": "급증은 늘었다보다 강하다"
+      },
+      {
+        "claim_id": "C1",
+        "article_index": 2,
+        "sentence": "이를 개악이라고 불렀다",
+        "span": "개악",
+        "categories": [
+          {
+            "code": "F",
+            "markedness": null
+          }
+        ],
+        "baseline": {
+          "source": "",
+          "text": "",
+          "article_index": null
+        },
+        "target": null,
+        "polarity": "negative",
+        "status": "needs_review",
+        "note": "잠정 분석이며 추가 검토가 필요해요."
+      }
+    ]
+  }
+}
