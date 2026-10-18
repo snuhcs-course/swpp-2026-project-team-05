@@ -439,6 +439,50 @@ class ReaderAnalysisTests(unittest.TestCase):
         self.assertEqual([row["article_id"] for row in failed["article_failures"]], ["B"])
         self.assertEqual(failed["i1_status"], "withheld")
 
+    def test_three_displayed_articles_align_concurrently_without_changing_result_order(self):
+        class ThreeWayReaderClient(ReaderClient, OpenRouterJSONClient):
+            def __init__(self):
+                ReaderClient.__init__(self)
+                self.model = "synthetic-model"
+                self.task_models = {}
+                self._thread_state = local()
+                self._barrier = Barrier(3)
+                self._lock = Lock()
+                self.active = self.max_active = 0
+                self.completed = []
+
+            def generate_json(self, **request):
+                self.last_call_usage = {}
+                self.last_call_finish_reason = None
+                if request["name"] == "related_content_alignment":
+                    key = request["input_data"]["article_id"]
+                    with self._lock:
+                        self.active += 1
+                        self.max_active = max(self.max_active, self.active)
+                    try:
+                        self._barrier.wait(timeout=5)
+                        if key == "A":
+                            sleep(0.05)
+                        with self._lock:
+                            self.completed.append(key)
+                    finally:
+                        with self._lock:
+                            self.active -= 1
+                return ReaderClient.generate_json(self, **request)
+
+        raw = fixture()
+        raw["search"]["candidates"].append(article(
+            "C", "시청은 새 다리 공사를 시작했다.\n건설업체는 장비를 배치했다."))
+        raw["selection"]["same_event_ids"].append("C")
+        raw["selection"]["independent_same_event_ids"].append("C")
+        serial = analyze_reader_content(raw, ["A", "B", "C"], client=ReaderClient())
+        provider = ThreeWayReaderClient()
+        parallel = analyze_reader_content(raw, ["A", "B", "C"], client=MetricsJSONClient(provider))
+        self.assertEqual(provider.max_active, 3)
+        self.assertEqual(provider.completed[-1], "A")
+        self.assertEqual(list(parallel["article_alignments"]), ["A", "B", "C"])
+        self.assertEqual(parallel, serial)
+
     def test_full_article_alignment_and_source_only_star(self):
         raw = fixture()
         client = ReaderClient()

@@ -701,14 +701,15 @@ def analyze_reader_content(discovery: dict, selected_ids: list[str], *, client: 
                             else _extract_source_units(source, analysis, client))
     alignments, failures = {}, []
     # Each comparison reads the same finished source ledger but never another
-    # comparison's result. Bound concurrent OpenRouter requests to two; the
-    # existing per-call deadline and retry policy still apply independently.
+    # comparison's result. Align the three displayed articles together; the
+    # shared model client still bounds total concurrent calls to four.
+    # Existing per-call deadlines and retries apply independently.
     # Snapshot replay stays serial so recorded request order is stable.
     parallel = (len(selected_ids) > 1 and isinstance(client, MetricsJSONClient)
                 and not isinstance(client, SnapshotJSONClient)
                 and isinstance(client.client, OpenRouterJSONClient))
     if parallel:
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
             for position, key in enumerate(selected_ids, 1):
                 notify(f"5단계 Reader: 비교 기사 {position}/{len(selected_ids)} 본문 정렬")
