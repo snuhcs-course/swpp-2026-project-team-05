@@ -220,10 +220,23 @@ def _extract_yna_article_body(html: str) -> str | None:
     )
     body = []
     for paragraph in paragraphs:
-        text = " ".join(paragraph.text_content().split())
+        # An explicit <br> is a line break within a paragraph. lxml's plain
+        # text_content() joins both sides. Keep HTML source indentation as
+        # ordinary whitespace, but mark real breaks before flattening.
+        raw_text = paragraph.text_content()
+        marker = "\ue000"
+        while marker in raw_text:
+            marker += "\ue000"
+        for line_break in paragraph.xpath(".//br"):
+            line_break.tail = marker + (line_break.tail or "")
+        text = "\n".join(
+            " ".join(segment.split()) for segment in paragraph.text_content().split(marker)
+        ).strip("\n")
         if text and not _YNA_CONTACT.fullmatch(text):
             body.append(text)
-    return "\n".join(body) or None
+    # Each direct <p> is a distinct story paragraph on the page. Keep a blank
+    # line between them in the extracted body; offsets are calculated later.
+    return "\n\n".join(body) or None
 
 
 def fetch_article(url: str) -> dict[str, str]:

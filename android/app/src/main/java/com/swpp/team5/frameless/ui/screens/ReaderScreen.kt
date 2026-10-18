@@ -85,12 +85,6 @@ internal fun ReaderResult.targets(): List<ReaderTarget> = pairs
     .map { (identity, items) -> ReaderTarget(identity.first, identity.second, items.distinctBy { it.id }) }
     .sortedWith(compareBy({ it.span.start }, { it.span.end }))
 
-internal fun readerComparisonHint(targets: List<ReaderTarget>): String = when {
-    targets.isEmpty() -> "이번 분석에서 양쪽 원문을 확인한 대응 문장은 없어요."
-    targets.none { it.codes.isNotEmpty() } -> "A–G 표시가 없어도 대응 문장을 눌러 다른 기사와 비교할 수 있어요."
-    else -> "표시된 문장을 누르면 다른 기사의 해당 부분으로 이동해요."
-}
-
 /** Overlapping positions cannot have an unambiguous tap target; keep the first exact sentence. */
 internal fun List<ReaderTarget>.nonOverlapping(): List<ReaderTarget> {
     var end = 0
@@ -175,8 +169,8 @@ internal fun ReaderScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Caption("FrameLESS  /  기사 읽기")
-                Text("원문에서 비교하기", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                Caption("FrameLESS")
+                Text("기사 읽기", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
             }
             OutlinedPill("새 기사", onClick = onNewArticle)
         }
@@ -188,18 +182,18 @@ internal fun ReaderScreen(
             ) {
                 Caption(
                     when {
-                        !fullReview -> "전문 표현 분석을 완료하지 못했어요."
-                        reader.articleFailureCount > 0 -> "일부 기사 분석을 완료하지 못했어요."
-                        reader.i1Status == "partial" -> "I1 단독 정보 판정을 일부 완료하지 못했어요."
-                        else -> "분석을 일부 완료하지 못했어요."
+                        !fullReview -> "문장 비교가 일부만 끝났어요."
+                        reader.articleFailureCount > 0 -> "일부 기사를 비교하지 못했어요."
+                        reader.i1Status == "partial" -> "별표 표시를 일부 확인하지 못했어요."
+                        else -> "문장 비교가 일부만 끝났어요."
                     },
                     color = Fl.Danger
                 )
-                Caption("아래에는 확인된 문장과 표현만 표시해요. 표시가 없다고 차이가 없다는 뜻은 아니에요.")
+                Caption("확인된 문장만 표시해요. 표시가 없어도 차이가 없다는 뜻은 아니에요.")
             }
         }
         Column(modifier = Modifier.fillMaxSize().verticalScroll(bodyScroll).padding(horizontal = 22.dp, vertical = 24.dp)) {
-            Caption("입력 기사")
+            Caption("기준 기사")
             Spacer(Modifier.height(7.dp))
             Text(
                 reader.sourceArticle.title,
@@ -216,19 +210,21 @@ internal fun ReaderScreen(
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
-                Caption("대응 문장")
+                Caption("대응 문장 · 눌러 비교")
                 Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
                 Caption("표현 차이 A–G")
             }
             if (reader.i1Stars.isNotEmpty()) {
-                Caption("★ 이번 비교 기사에서 확인되지 않은 내용", color = Fl.Danger)
+                Caption("★ 확인한 비교 기사에서 찾지 못한 내용", color = Fl.Danger)
             } else if (reader.i1Status == "not_computed") {
-                Caption("I1 단독 정보는 이번 분석에서 아직 판정하지 않았어요.")
+                Caption("별표 표시는 이번 분석에서 확인하지 않았어요.")
             } else if (reader.i1Status == "withheld") {
-                Caption("I1 단독 정보 판정은 근거가 부족해 보류했어요.")
+                Caption("별표 표시는 근거가 부족해 보류했어요.")
             }
-            Spacer(Modifier.height(8.dp))
-            Caption(readerComparisonHint(targets))
+            if (targets.isEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Caption("연결된 문장을 찾지 못했어요. 차이가 없다는 뜻은 아니에요.")
+            }
             Spacer(Modifier.height(22.dp))
             HorizontalDivider(color = Fl.Line)
             Spacer(Modifier.height(20.dp))
@@ -288,14 +284,14 @@ private fun ReaderComparisonSheet(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("다른 기사의 대응 부분", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("다른 기사", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Caption("${pagerState.currentPage + 1} / ${pages.size}")
             }
             if (pages.size > 1) {
-                Caption("좌우로 넘겨 다른 기사를 보고, 위로 끌어 전문을 읽어보세요.",
+                Caption("좌우로 기사 전환 · 위로 끌어 전문 보기",
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
             } else {
-                Caption("위로 끌어 기사 전문을 읽어보세요.", modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+                Caption("위로 끌어 전문 보기", modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
             }
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = Fl.Line)
@@ -346,7 +342,7 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Caption("표현 차이 후보 · 원문에서 확인한 부분", color = Fl.InkDiff)
+                Caption("표현 차이 후보", color = Fl.InkDiff)
                 differences.forEach { difference ->
                     Text(
                         text = "${difference.code} · ${difference.note}".trimEnd(' ', '·'),
@@ -375,21 +371,19 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
                 }
             }
         } else {
-            Text("기사 속 대응 문장", fontSize = 12.sp, color = Fl.Muted,
-                modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
             Text(
                 text = relatedSentencePreview(article, page.pairs, showExpressions),
                 color = Fl.Ink,
                 fontFamily = Fl.Serif,
                 fontSize = 15.sp,
                 lineHeight = 26.sp,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 18.dp)
             )
         }
     }
 }
 
-/** Put the verified sentence first, so a short bottom sheet does not clip it. */
+/** Put the verified sentence first, retaining the article's real separator before the next. */
 internal fun relatedSentencePreview(
     article: ReaderArticle,
     pairs: List<ReaderPair>,
@@ -399,17 +393,20 @@ internal fun relatedSentencePreview(
     val index = article.sentences.indexOfFirst { it.id == pair.relatedSentenceId }
     if (index < 0) return@buildAnnotatedString
     val sentence = article.sentences[index]
+    val next = article.sentences.getOrNull(index + 1)
+    val end = next?.span?.end?.takeIf { it in sentence.span.end..article.body.length }
+        ?: sentence.span.end
     val start = length
-    append(sentence.text)
-    addStyle(SpanStyle(background = ReaderMatch, textDecoration = TextDecoration.Underline), start, length)
+    append(article.body.substring(sentence.span.start, end))
+    val selectedEnd = start + sentence.span.end - sentence.span.start
+    addStyle(SpanStyle(background = ReaderMatch, textDecoration = TextDecoration.Underline), start, selectedEnd)
     if (showExpressions) pair.expressionDifferences.forEach { difference ->
         val markerStart = start + difference.relatedMarkerSpan.start - sentence.span.start
         val markerEnd = start + difference.relatedMarkerSpan.end - sentence.span.start
-        if (markerStart >= start && markerEnd <= length && markerEnd > markerStart) {
+        if (markerStart >= start && markerEnd <= selectedEnd && markerEnd > markerStart) {
             addStyle(SpanStyle(background = ReaderMarker, fontWeight = FontWeight.Bold), markerStart, markerEnd)
         }
     }
-    article.sentences.getOrNull(index + 1)?.let { append("\n\n"); append(it.text) }
 }
 
 /** An A–G tap opens at its marked counterpart even when a neutral match starts earlier. */
