@@ -176,6 +176,51 @@ class ArticleInputTests(SimpleTestCase):
         self.assertEqual([s["text"] for s in result["sentences"]], ["첫 보도다.", "두 번째 보도다."])
         self.assertEqual([s["paragraph_index"] for s in result["sentences"]], [0, 1])
 
+    def test_prepare_article_rejects_implausibly_long_single_paragraph(self):
+        # The production failure had one 124k-character paragraph and only
+        # 31 detected sentences; this synthetic shape needs no network call.
+        bodies = [
+            ("가" * 4_000 + ". ") * 31,
+            ("가" * 2_000 + ". ") * 20,  # 32k+ with sparse punctuation.
+        ]
+        for body in bodies:
+            with self.subTest(body_chars=len(body)), patch(
+                "server.analysis.v2.article_input.fetch_article", return_value={
+                    "url": SOURCE_URL, "title": "제목", "body": body}):
+                with self.assertRaises(ArticleFetchError) as raised:
+                    prepare_article(SOURCE_URL)
+                self.assertEqual(raised.exception.stage, "extraction_quality")
+                self.assertEqual(make_error_record(raised.exception, stage="candidate_fetch")["code"],
+                                 "ARTICLE_BODY_IMPLAUSIBLE")
+
+    def test_prepare_article_keeps_long_articles_with_normal_structure(self):
+        cases = [
+            ("가" * 600 + ". ") * 60,  # One long paragraph with many sentences.
+            ("가" * 100 + ". ") * 650,  # 64k+ remains valid with dense punctuation.
+            "기자는 “" + ("가" * 600 + ". ") * 60 + "”이라고 말했다.",
+            # Quoted punctuation may be protected from sentence splitting.
+            ("가" * 5_000 + ".\n") * 10,  # Multiple long paragraphs.
+        ]
+        for body in cases:
+            with self.subTest(paragraphs=body.count("\n") + 1), patch(
+                "server.analysis.v2.article_input.fetch_article", return_value={
+                    "url": SOURCE_URL, "title": "제목", "body": body}):
+                self.assertEqual(prepare_article(SOURCE_URL)["body"], body)
+
+    def test_implausible_source_extraction_has_specific_private_stage_logs(self):
+        body = ("ARTICLE_SECRET" * 300 + ". ") * 20
+        with (patch("server.analysis.v2.article_input.fetch_article", return_value={
+                  "url": SOURCE_URL, "title": "제목", "body": body}),
+              self.assertLogs("server.analysis.v2.pipeline", level="WARNING") as captured):
+            result = run_discovery_pipeline(SOURCE_URL, client=StubClient({}))
+        self.assertEqual(result["errors"][0]["code"], "ARTICLE_BODY_IMPLAUSIBLE")
+        logs = "\n".join(captured.output)
+        self.assertIn('"event":"stage_failed"', logs)
+        self.assertIn('"error_code":"ARTICLE_BODY_IMPLAUSIBLE"', logs)
+        self.assertIn("pipeline_stage_failed", logs)
+        self.assertIn("error_code=ARTICLE_BODY_IMPLAUSIBLE", logs)
+        self.assertNotIn("ARTICLE_SECRET", logs)
+
     def test_fetch_article_preserves_metadata_and_extracted_body(self):
         url = "https://n.news.naver.com/article/001/0000001"
         html = ("<html><head><meta property='og:title' content='기사 제목'>"
@@ -939,6 +984,24 @@ class CandidateSearchTests(SimpleTestCase):
         self.assertEqual(result["candidates"][0]["candidate_id"], "A7")
         self.assertEqual(result["candidates"][0]["fetch_attempt_errors"][0]["code"],
                          "ARTICLE_FETCH_FAILED")
+
+    def test_candidate_fetch_retries_alternate_url_after_implausible_extraction(self):
+        first, second = "https://news.example.com/huge", "https://news.example.com/story"
+        metadata = [{"candidate_id": "A4", "urls": [first, second], "title": "대체 제목",
+                     "description": "설명", "search_provided_at": "", "discovered_by_event": True,
+                     "search_matches": []}]
+        bad_body = ("가" * 4_000 + ". ") * 31
+
+        def extracted(url):
+            return {"url": url, "title": "제목", "body": bad_body if url == first else "정상 기사다."}
+
+        with patch("server.analysis.v2.article_input.fetch_article", side_effect=extracted):
+            result = fetch_candidate_articles(metadata)
+        self.assertEqual(result["fetch_failures"], [])
+        self.assertEqual(result["candidates"][0]["candidate_id"], "A4")
+        self.assertEqual(result["candidates"][0]["url"], second)
+        self.assertEqual(result["candidates"][0]["fetch_attempt_errors"][0]["code"],
+                         "ARTICLE_BODY_IMPLAUSIBLE")
 
 
 class CandidateRefillTests(SimpleTestCase):
