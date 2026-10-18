@@ -9,7 +9,15 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .article_fetch import fetch_article
+from .article_fetch import ArticleFetchError, fetch_article
+
+
+# An extracted "paragraph" spanning dozens of pages with very sparse raw
+# punctuation is usually page markup or boilerplate, not article text. Count
+# punctuation before sentence segmentation: quoted interview sentences may
+# legitimately be protected from splitting but must not be rejected here.
+_IMPLAUSIBLE_SINGLE_PARAGRAPH_CHARS = 32_000
+_IMPLAUSIBLE_CHARS_PER_TERMINATOR = 1_000
 
 
 _PROTECTED_SPANS = re.compile(
@@ -94,4 +102,14 @@ def structure_article_body(body: str) -> dict[str, list[dict[str, Any]]]:
 def prepare_article(url: str) -> dict[str, Any]:
     """Collect one article and prepare the numbered input for later LLM stages."""
     article = fetch_article(url)
+    body_chars = len(article["body"])
+    # This uses the same newline rule as structure_article_body() and rejects
+    # only when even the raw punctuation is too sparse for a plausible story.
+    if (body_chars > _IMPLAUSIBLE_SINGLE_PARAGRAPH_CHARS
+            and sum(bool(line.group().strip()) for line in re.finditer(
+                r"[^\r\n]+", article["body"])) == 1
+            and body_chars > _IMPLAUSIBLE_CHARS_PER_TERMINATOR * (
+                1 + sum(1 for _ in _TERMINATORS.finditer(article["body"])))):
+        raise ArticleFetchError("기사 본문 추출 결과에 비정상적으로 긴 단일 문단이 있습니다.",
+                                stage="extraction_quality")
     return {**article, **structure_article_body(article["body"])}

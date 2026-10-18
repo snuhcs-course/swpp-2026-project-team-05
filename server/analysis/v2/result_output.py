@@ -41,6 +41,8 @@ def make_error_record(exc: Exception, *, stage: str, **context) -> dict:
             code, message, retryable = "ARTICLE_RESPONSE_INTERRUPTED", "기사 응답이 도중에 끊어졌습니다.", True
         elif fetch_stage == "extraction":
             code, message = "ARTICLE_BODY_NOT_FOUND", "페이지에서 기사 본문을 찾지 못했습니다."
+        elif fetch_stage == "extraction_quality":
+            code, message = "ARTICLE_BODY_IMPLAUSIBLE", "기사 본문 추출 결과가 비정상적입니다."
         elif fetch_stage == "content_type":
             code, message = "ARTICLE_UNSUPPORTED_CONTENT", "기사 주소가 HTML 페이지를 반환하지 않았습니다."
         elif fetch_stage == "size_limit":
