@@ -11,6 +11,7 @@ import tempfile
 import re
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -26,6 +27,7 @@ from .comparison_selection import select_verified_comparisons
 from .display_selection import select_display_article_ids
 from .llm_analysis import analyze_source_article, rank_comparison_candidates
 from .model_client import (GeminiJSONClient, OpenRouterJSONClient, MetricsJSONClient, SnapshotJSONClient,
+                          KNOWN_TASKS,
                           canonical_json, get_generation_settings, get_openrouter_generation_settings,
                           get_openrouter_api_key, get_missing_configuration)
 from .rubric_analysis import analyze_selected_articles
@@ -74,6 +76,13 @@ LOG_ERROR_CODES = frozenset({
     "SEARCH_FAILED", "SEARCH_HTTP_ERROR", "SEARCH_REDIRECT_BLOCKED", "SEARCH_RESPONSE_INVALID",
     "SEARCH_TIMEOUT",
 })
+LOG_STAGE_NAMES = frozenset({
+    "source_fetch", "source_analysis", "search", "candidate_selection",
+    "candidate_collection", "discovery", "reader_analysis", "rubric_analysis",
+})
+_stage_elapsed_ms: ContextVar[dict[str, int] | None] = ContextVar("stage_elapsed_ms", default=None)
+LOG_TASK_NAMES = KNOWN_TASKS | {"unknown", "source_analysis"} | {
+    "repair_" + name for name in KNOWN_TASKS}
 
 
 def _ensure_budget(deadline_at: float | None) -> None:
@@ -103,14 +112,22 @@ def _timed_stage(stage: str, deadline_at: float | None = None):
         yield
     except Exception as exc:
         error = make_error_record(exc, stage=stage)
+        duration_ms = round((perf_counter() - started) * 1000)
+        elapsed = _stage_elapsed_ms.get()
+        if elapsed is not None and stage in LOG_STAGE_NAMES:
+            elapsed[stage] = elapsed.get(stage, 0) + duration_ms
         log_event(logger, "stage_failed", level=logging.WARNING, stage=stage,
-                  duration_ms=round((perf_counter() - started) * 1000),
+                  duration_ms=duration_ms,
                   error_type=type(exc).__name__, error_code=_safe_error_code(error["code"]))
         raise
     else:
         # A nested operation may catch its own error and return partial data.
+        duration_ms = round((perf_counter() - started) * 1000)
+        elapsed = _stage_elapsed_ms.get()
+        if elapsed is not None and stage in LOG_STAGE_NAMES:
+            elapsed[stage] = elapsed.get(stage, 0) + duration_ms
         log_event(logger, "stage_returned", stage=stage,
-                  duration_ms=round((perf_counter() - started) * 1000))
+                  duration_ms=duration_ms)
 
 
 @contextmanager
@@ -159,6 +176,79 @@ def _log_stage_result(stage: str, result: dict) -> None:
                   stage=stage,
                   execution_status=safe_status,
                   error_codes=codes)
+
+
+def _safe_task_counts(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    return dict(sorted((name, count) for name, count in value.items()
+                       if isinstance(name, str) and name in LOG_TASK_NAMES
+                       and type(count) is int and count >= 0))
+
+
+def _completion_summary(result: dict, stage_elapsed: dict[str, int],
+                        execution: dict | None, duration_ms: int) -> dict:
+    """Summarize existing counters without retaining article or model content."""
+    status = result.get("execution_status")
+    if status not in {"success", "partial", "failed"}:
+        status = "unknown"
+    reasons = set()
+    for error in result.get("errors", []):
+        if isinstance(error, dict):
+            reasons.add(_safe_error_code(error.get("code")))
+    display = result.get("display_selection")
+    if isinstance(display, dict) and display.get("truncated") is True:
+        reasons.add("DISPLAY_SELECTION_TRUNCATED")
+    reader = result.get("reader_analysis")
+    if isinstance(reader, dict):
+        if reader.get("article_failures"):
+            reasons.add("READER_ALIGNMENT_FAILED")
+        if reader.get("i1_status") in {"partial", "withheld"}:
+            reasons.add("READER_I1_INCOMPLETE")
+        expression = reader.get("expression_review")
+        if isinstance(expression, dict) and expression.get("status") in {"partial", "failed"}:
+            reasons.add("READER_EXPRESSION_INCOMPLETE")
+    selection = result.get("selection")
+    verification = {}
+    if isinstance(selection, dict):
+        attempted = selection.get("verification_llm_calls")
+        if type(attempted) is int and attempted >= 0:
+            verification["attempted_call_count"] = attempted
+        detached = selection.get("verification_detached_calls_at_cutoff")
+        if type(detached) is int and detached >= 0:
+            verification["detached_call_count_at_cutoff"] = detached
+        rounds = selection.get("verification_rounds")
+        if isinstance(rounds, list):
+            deferred = set()
+            for row in rounds:
+                ids = row.get("deferred_ids") if isinstance(row, dict) else None
+                if isinstance(ids, list):
+                    deferred.update(candidate_id for candidate_id in ids
+                                    if isinstance(candidate_id, str))
+            verification["deferred_candidate_count"] = len(deferred)
+            if deferred:
+                reasons.add("VERIFICATION_DEFERRED")
+    if status == "partial" and not reasons:
+        reasons.add("UNCLASSIFIED_PARTIAL")
+    summary = {
+        "execution_status": status,
+        "duration_ms": duration_ms,
+        # `discovery` contains its child stages; these numbers are not additive.
+        "stage_elapsed_ms": {stage: stage_elapsed[stage] for stage in sorted(stage_elapsed)
+                             if stage in LOG_STAGE_NAMES and type(stage_elapsed[stage]) is int
+                             and stage_elapsed[stage] >= 0},
+        "partial_reason_codes": sorted(reasons),
+    }
+    if verification:
+        summary["verification"] = verification
+    if isinstance(execution, dict):
+        succeeded = _safe_task_counts(execution.get("task_counts"))
+        failed = _safe_task_counts(execution.get("task_failure_counts"))
+        names = succeeded.keys() | failed.keys()
+        summary["model_task_attempt_counts"] = {
+            name: succeeded.get(name, 0) + failed.get(name, 0) for name in sorted(names)}
+        summary["model_task_elapsed_ms_sum"] = _safe_task_counts(execution.get("task_duration_ms"))
+    return summary
 
 
 def _digest(value: Any) -> str:
@@ -505,8 +595,12 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                           execution_budget_seconds: float | None = None,
                           analysis_profile: str = "legacy") -> dict:
     """Return structured results; uncached calls use a soft 240-second deadline."""
+    started = perf_counter()
+    stage_elapsed: dict[str, int] = {}
+    timing_token = _stage_elapsed_ms.set(stage_elapsed)
     result, stage, owned = _initial_result(url), "input_validation", False
     source_executor, source_future = None, None
+    recorder, execution = None, None
     options = {"max_claims": max_claims, "max_candidates": max_candidates, "max_per_claim": max_per_claim,
                "display_per_query": display_per_query, "event_baseline_limit": event_baseline_limit,
                "verification_batch_size": verification_batch_size}
@@ -664,6 +758,17 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                 client.close()
             except Exception as exc:
                 add_result_error(result, make_error_record(exc, stage="client_close"))
+        try:
+            metrics = execution if execution is not None else (
+                recorder.execution_summary() if recorder is not None else None)
+            log_event(logger, "analysis_completed", **_completion_summary(
+                result, stage_elapsed, metrics, round((perf_counter() - started) * 1000)))
+        except Exception as exc:
+            # Diagnostics must never replace the analysis response.
+            logger.warning("analysis_summary_failed analysis_id=%s error_type=%s",
+                           analysis_id.get(), type(exc).__name__)
+        finally:
+            _stage_elapsed_ms.reset(timing_token)
 
 
 def evaluate_analysis_snapshot(snapshot_path: str | Path, *, client: Any = None,
