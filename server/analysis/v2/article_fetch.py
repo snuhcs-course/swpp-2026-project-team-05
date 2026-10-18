@@ -18,6 +18,7 @@ from urllib.request import HTTPHandler, HTTPSHandler, HTTPRedirectHandler, Proxy
 
 MAX_ARTICLE_BYTES = 4 * 1024 * 1024
 _YNA_HOSTS = frozenset({"yna.co.kr", "www.yna.co.kr"})
+_NAVER_ARTICLE_HOSTS = frozenset({"n.news.naver.com", "news.naver.com"})
 _YNA_CONTACT = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 _YTN_BYLINE = re.compile(r"YTN\s+[^()\n]{1,40}\([\w.+-]+@ytn\.co\.kr\)")
 _YTN_TIP = re.compile(r"※\s*['\"‘]?당신의 제보가 뉴스가 됩니다['\"’]?")
@@ -317,6 +318,93 @@ def _is_ytn_host(hostname: str | None) -> bool:
     return bool(hostname and (hostname == "ytn.co.kr" or hostname.endswith(".ytn.co.kr")))
 
 
+def _extract_naver_article_body(html: str) -> str | None:
+    """Keep explicit breaks in Naver's known text-article layout.
+
+    ``#dic_area`` can contain an editorial summary and a photo before the
+    story. The byline, copyright, toolbar, and ads sit outside it. We accept
+    only text, simple inline markup, paragraphs, breaks, that summary, and the
+    known photo wrapper. Other layouts fall back to Trafilatura rather than
+    risk including controls or silently dropping story blocks.
+    """
+    from lxml import etree, html as lxml_html
+
+    try:
+        document = lxml_html.fromstring(html)
+    except (etree.ParserError, ValueError):
+        return None
+    articles = document.xpath('//*[@id="newsct_article"]/article[@id="dic_area"]')
+    if len(articles) != 1:
+        return None
+    article = articles[0]
+    parent_classes = set((article.getparent().get("class") or "").split())
+    article_classes = set((article.get("class") or "").split())
+    if ("_article_body" not in parent_classes
+            or not {"go_trans", "_article_content"}.issubset(article_classes)):
+        return None
+
+    marker = "\ue000"
+    while marker in article.text_content():
+        marker += "\ue000"
+    pieces: list[str] = []
+    summary_count = 0
+    has_break_or_paragraph = False
+    inline_tags = {"a", "b", "em", "i", "small", "span", "strong", "u"}
+
+    def paragraph_break() -> None:
+        trailing_breaks = 0
+        for piece in reversed(pieces):
+            visible = piece.rstrip()
+            if not visible:
+                continue
+            breaks_here = len(visible) - len(visible.rstrip(marker))
+            trailing_breaks += breaks_here
+            if breaks_here != len(visible) or trailing_breaks >= 2:
+                break
+        if trailing_breaks < 2:
+            pieces.append(marker * (2 - trailing_breaks))
+
+    def collect(node) -> bool:
+        nonlocal summary_count, has_break_or_paragraph
+        if node.text:
+            pieces.append(node.text)
+        for child in node:
+            tag = child.tag
+            if not isinstance(tag, str):
+                pass  # HTML comment; its tail still belongs to the article.
+            else:
+                classes = set((child.get("class") or "").split())
+                if tag == "br" and not classes:
+                    pieces.append(marker)
+                    has_break_or_paragraph = True
+                elif tag in {"span", "figure"} and "end_photo_org" in classes:
+                    pieces.append(marker)  # The omitted photo separates summary and story.
+                elif tag == "strong" and classes == {"media_end_summary"}:
+                    summary_count += 1
+                    if summary_count > 1 or not collect(child):
+                        return False
+                elif tag == "p" and not classes:
+                    paragraph_break()
+                    has_break_or_paragraph = True
+                    if not collect(child):
+                        return False
+                elif tag in inline_tags and not classes:
+                    if not collect(child):
+                        return False
+                else:
+                    return False
+            if tag == "p" and child.tail and child.tail.strip():
+                paragraph_break()
+            if child.tail:
+                pieces.append(child.tail)
+        return True
+
+    if not collect(article) or not has_break_or_paragraph:
+        return None
+    body = "\n".join(" ".join(part.split()) for part in "".join(pieces).split(marker)).strip()
+    return body if len(body) >= 80 else None
+
+
 def fetch_article(url: str) -> dict[str, str]:
     """Return a news page's title and main body from one HTTP(S) request."""
     url = validate_article_url(url)
@@ -364,6 +452,8 @@ def fetch_article(url: str) -> dict[str, str]:
     body = (_extract_yna_article_body(html) if hostname in _YNA_HOSTS else None)
     if not body and _is_ytn_host(hostname):
         body = _extract_ytn_article_body(html)
+    if not body and hostname in _NAVER_ARTICLE_HOSTS:
+        body = _extract_naver_article_body(html)
     if not body:
         body = extract(html, url=url, include_comments=False)
     if not body or not body.strip():
