@@ -563,7 +563,7 @@ private fun IssueDetail(model: ComparisonModel, issue: IssueView, showInput: Boo
         }
     }
 
-    RubricSections(model, issue.rubric)
+    RubricSections(model, issue.rubric, issue.expressionUnverified)
 }
 
 /** 같은 내용 / 다르게 언급된 부분 / 관계 미표시 */
@@ -601,13 +601,19 @@ private fun ClipSections(same: List<Clip>, diff: List<Clip>, other: List<Clip>, 
  * 직접 인용 안의 표현은 표현 차이가 아니라 정보 구성 차이의 I5 인용 정보로만 보여준다 (D1).
  */
 @Composable
-private fun RubricSections(model: ComparisonModel, items: RubricItems) {
+private fun RubricSections(model: ComparisonModel, items: RubricItems, expressionUnverified: Boolean = false) {
     val infoCount = items.informations.size + items.quotedExpressions.size
     if (infoCount > 0) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionTitle("정보 구성", count = infoCount)
             items.informations.sortedBy { it.i.code }.forEach { InformationEvidenceCard(it) }
             items.quotedExpressions.forEach { QuotedExpressionCard(it) }
+        }
+    }
+    if (expressionUnverified) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionTitle("A–G 표현 분석")
+            EmptyState("A–G 미판정 · 이 주장의 표현 근거를 검증하지 못했어요.")
         }
     }
     if (items.expressions.isNotEmpty()) {

@@ -123,6 +123,8 @@ internal data class IssueView(
     val other: List<Clip>,
     /** v1 응답의 미표시 기사. v2는 선택 제외와 미발견을 구분할 수 없어 비운다. */
     val notFound: List<ArticleRef>,
+    /** 이 주장의 A–G 표현 근거를 검증하지 못했다. */
+    val expressionUnverified: Boolean,
     val rubric: RubricItems
 ) {
     val sameOutlets: Int get() = same.map { it.article.articleIndex }.distinct().size
@@ -159,6 +161,7 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
     val inputSentences: List<InputSentence> = buildInputSentences()
 
     private val allExpressions: List<ExpressionItem> = analysis.rubric?.expressions.orEmpty()
+        .filterNot { it.claimId in analysis.rubric?.expressionUnverifiedClaimIds.orEmpty() }
         .map { ExpressionItem(articleOf(it.articleIndex), it) }
     private val allInformations: List<InformationItem> = analysis.rubric?.informations.orEmpty()
         .map { InformationItem(articleOf(it.articleIndex), it) }
@@ -273,6 +276,8 @@ internal class ComparisonModel(val analysis: AnalysisResult) {
             other = clips.filter { kindOf(it.relationRaw) == MatchKind.OTHER },
             notFound = if (analysis.analysisStatus == null) others.filter { it.articleIndex !in covered }
                 else emptyList(),
+            expressionUnverified = issue.claimId != null &&
+                issue.claimId in analysis.rubric?.expressionUnverifiedClaimIds.orEmpty(),
             rubric = splitRubric(infos, exprs)
         )
     }

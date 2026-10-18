@@ -188,4 +188,42 @@ class ComparisonModelTest {
         assertNull(model.issues.first().rubric.expressions.single().e.maxMarkedness)
         assertTrue(model.issues.first().rubric.expressions.single().e.held)
     }
+
+    @Test
+    fun expressionFailureMarksOnlyItsClaimAndWithholdsStaleExpressionCards() {
+        val root = AnalysisApiTest.responseWithMatches()
+        val issues = root.getJSONObject("comparison").getJSONArray("issues")
+        issues.getJSONObject(0).put("claim_id", "C1")
+        issues.getJSONObject(1).put("claim_id", "C2")
+        root.put("rubric", JSONObject("""
+            {
+              "version": "0.2.1",
+              "expression_unverified_claim_ids": ["C1"],
+              "expression_differences": [
+                {
+                  "article_index": 0, "claim_id": "C1",
+                  "sentence": "${AnalysisApiTest.SOURCE_QUOTE}", "span": "늘린다",
+                  "categories": [{"code": "A", "markedness": 2}],
+                  "baseline": {"source": "outlet", "text": "증액한다"},
+                  "polarity": "none", "status": "provisional"
+                },
+                {
+                  "article_index": 0, "claim_id": "C2",
+                  "sentence": "지급은 다음 달 시작된다.", "span": "시작된다",
+                  "categories": [{"code": "A", "markedness": 1}],
+                  "baseline": {"source": "outlet", "text": "진행된다"},
+                  "polarity": "none", "status": "provisional"
+                }
+              ]
+            }
+        """.trimIndent()))
+
+        val model = ComparisonModel(AnalysisApi.parseAnalysis(root, "https://requested.example/article"))
+
+        assertTrue(model.issues[0].expressionUnverified)
+        assertTrue(model.issues[0].rubric.expressions.isEmpty())
+        assertFalse(model.issues[1].expressionUnverified)
+        assertEquals(listOf("시작된다"), model.issues[1].rubric.expressions.map { it.e.span })
+        assertTrue(model.unassignedRubric.isEmpty)
+    }
 }

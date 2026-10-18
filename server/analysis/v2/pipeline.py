@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 import os
 import tempfile
 import re
@@ -25,6 +26,9 @@ from .model_client import (GeminiJSONClient, SnapshotJSONClient, canonical_json,
 from .rubric_analysis import analyze_selected_articles
 from .result_output import (OperationError, make_error_record, add_result_error,
                            make_failure_result, write_json_atomic, resolve_stage_errors)
+
+
+logger = logging.getLogger(__name__)
 
 
 PIPELINE_VERSION = "metadata-select-verify-attribution-diversity-errors-v4"
@@ -107,7 +111,11 @@ def _record_failure(result: dict, exc: Exception, stage: str) -> dict:
             and result.get("completed_stage", 0) >= 4
             and comparison_status in {"available", "no_matches", "not_requested"}):
         result["comparison_status"] = "unavailable"
-    return add_result_error(result, make_error_record(exc, stage=stage),
+    error = make_error_record(exc, stage=stage)
+    # AI-assisted diagnostics: log only fixed stage/code and exception class, never response text.
+    logger.warning("pipeline_stage_failed stage=%s error_type=%s error_code=%s",
+                   stage, type(exc).__name__, error["code"])
+    return add_result_error(result, error,
                             fatal=not isinstance(result.get("source_analysis"), dict))
 
 
@@ -265,6 +273,12 @@ def complete_rubric_analysis(discovery: dict, *, client: Any = None,
                 OperationError("관련 기사 루브릭 근거를 검증하지 못했습니다.",
                                code="RUBRIC_ARTICLE_UNVERIFIED"),
                 stage="rubric_analysis", candidate_id=failure["article_id"]))
+        for failure in rubric.get("expression_failures", []):
+            add_result_error(result, make_error_record(
+                OperationError("주장별 A~G 표현 근거를 검증하지 못했습니다.",
+                               code="RUBRIC_EXPRESSION_UNVERIFIED",
+                               retryable=bool(failure.get("retryable"))),
+                stage="rubric_analysis", claim_id=failure["claim_id"]))
         return _finish_discovery(result)
     except Exception as exc:
         result["rubric_analysis"] = None

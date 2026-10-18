@@ -19,6 +19,7 @@ from .llm_analysis import (
     _relation_schema, _ground_relation_evidence, _relation_summary, RELATION_INSTRUCTIONS,
 )
 from .model_client import GeminiJSONClient, ModelResponseError
+from .result_output import make_error_record
 
 
 logger = logging.getLogger(__name__)
@@ -743,7 +744,8 @@ def organize_expression_by_article(expression: dict, article_ids: list[str]) -> 
             references = [{"compared_article_id": f["article_id"], "evidence": f["baseline_evidence"]}
                           for f in expression["findings"] if f.get("baseline_article_id") == article_id
                           and f["category"] == code and f.get("baseline_evidence")]
-            status = ("observed" if any(f["markedness"] is not None for f in items) else
+            status = ("unverified" if expression["status"] == "unverified" else
+                      "observed" if any(f["markedness"] is not None for f in items) else
                       "needs_review" if items else "validation_failed" if invalid else "excluded" if excluded else
                       "comparison_reference" if references else
                       "insufficient_comparison" if expression["status"] == "no_comparison_pair" else
@@ -753,6 +755,8 @@ def organize_expression_by_article(expression: dict, article_ids: list[str]) -> 
                 reasons = ["no_representative_finding; absence_not_established"]
             elif status == "insufficient_comparison":
                 reasons = ["no_comparison_pair"]
+            elif status == "unverified":
+                reasons = ["claim_expression_unverified"]
             categories[code] = {"category_label": label, "status": status, "items": items,
                                 "excluded": excluded, "reference_evidence": references,
                                  "validation_errors": invalid,
@@ -788,7 +792,7 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
             or not set(related_ids) <= set(selection["same_event_ids"])):
         raise ValueError("분석 기사에는 본문이 있고 동일 사건으로 확인된 후보만 포함할 수 있습니다.")
     articles = {"S0": source, **{key: candidates[key] for key in related_ids}} if claims else {}
-    annotations, claim_results, calls, annotation_failures = {}, [], 0, []
+    annotations, claim_results, calls, annotation_failures, expression_failures = {}, [], 0, [], []
     owned = client is None and bool(claims)
     if owned:
         client = GeminiJSONClient()
@@ -853,8 +857,23 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
                                                                   for name in dict.fromkeys(v["affiliation"] for v in voices if v["affiliation"])}})
             notify(f"5단계 표현 비교: {claim['claim_id']}")
             expression_ids = list(dict.fromkeys(["S0"] + [key for key in selected if key in annotations]))
-            expression = compare_claim_expressions(claim, {key: articles[key] for key in expression_ids},
-                                                   annotations, client=client)
+            try:
+                expression = compare_claim_expressions(claim, {key: articles[key] for key in expression_ids},
+                                                       annotations, client=client)
+            except Exception as exc:
+                # AI-assisted resilience: keep grounded I1-I5 and withhold all A-G for this claim.
+                diagnostic = make_error_record(exc, stage="rubric_analysis")
+                reason = ("validation_failed" if isinstance(exc, ModelResponseError) else
+                          "model_unavailable" if diagnostic["retryable"] else
+                          "processing_failed")
+                logger.warning("rubric_expression_failed claim_id=%s error_type=%s error_code=%s reason=%s",
+                               claim["claim_id"], type(exc).__name__, diagnostic["code"], reason)
+                expression_failures.append({"claim_id": claim["claim_id"], "phase": "claim_expression_A_G",
+                                            "reason": reason, "error_type": type(exc).__name__,
+                                            "retryable": diagnostic["retryable"]})
+                expression = {"status": "unverified", "findings": [], "excluded": [], "llm_calls": 0,
+                              "surface_differences": [], "invalid_findings": [],
+                              "diagnostics": {"reason": "claim_expression_unverified"}}
             calls += expression["llm_calls"]
             for marker in expression["excluded"]:
                 if marker["reason"] == "direct_quote_recorded_in_I5":
@@ -882,13 +901,14 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
                                 "generated_neutral_paraphrase": False, "zero_means_absolute_neutral": False},
             "lead_definition": "LLM이 지정한 리드 근거의 문단 번호를 Python이 대조",
             "judgment_status": "provisional", "aggregate_article_score": False,
-            "annotation_status": "partial" if annotation_failures else "complete",
+            "annotation_status": "partial" if annotation_failures or expression_failures else "complete",
             "count_scope": "LLM이 식별한 구간의 Python 측정; 식별 완전성을 보장하지 않음",
         },
         "articles": {key: {field: article.get(field, "") for field in ("title", "url", "publisher", "published_at")}
                      for key, article in articles.items()},
         "article_annotations": annotations, "event_baseline_ids": baseline_ids,
         "article_annotation_failures": annotation_failures,
+        "expression_failures": expression_failures,
         "claim_analyses": claim_results, "llm_calls": calls,
         "warnings": ["I1 not_found는 전체 수집 본문에서 대응 내용을 찾지 못했다는 뜻이며 누락 의도를 판정하지 않습니다.",
                      "표지성은 실제 비교 원문에 대한 잠정적 상대 판정입니다. F 일방 사용 여부와 기준 표현 결정 방식은 검토가 필요합니다.",
@@ -896,6 +916,9 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
                     + [f"[{row['article_id']}] 루브릭 정보 분석의 원문 근거를 검증하지 못했습니다. "
                        "해당 기사의 I1~I5와 A~G는 미판정이며 앞 단계의 비교 근거만 별도로 표시합니다."
                        for row in annotation_failures]
+                    + [f"[{row['claim_id']}] 표현 분석을 검증하지 못했습니다. "
+                       "이 주장의 A~G는 미판정이며 검증된 I1~I5는 유지합니다."
+                       for row in expression_failures]
                     + [f"[{key}] {d['claim_id']}: 본문 검증과 정보 분석이 불일치하여 판정을 보류하고 기존 원문을 유지했습니다."
                        for key, annotation in annotations.items() for d in annotation.get("coverage_diagnostics", [])]
                     + [f"{row['claim_id']}: 표현 근거 검증에 실패한 {len(row['expression']['invalid_findings'])}건을 제외했습니다."

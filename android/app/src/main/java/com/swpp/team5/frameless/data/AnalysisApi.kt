@@ -325,6 +325,13 @@ internal object AnalysisApi {
             )
         }
 
+        val unverifiedIds = r.optJSONArray("expression_unverified_claim_ids")?.let { ids ->
+            (0 until ids.length()).mapNotNull { index ->
+                (ids.opt(index) as? String)?.takeIf { it.isNotBlank() }
+                    ?: run { dropped++; null }
+            }.toSet()
+        } ?: emptySet()
+
         if (dropped > 0) Log.w(LOG_TAG, "rubric: dropped $dropped malformed item(s)")
         return RubricResult(
             version = r.optString("version"),
@@ -332,6 +339,7 @@ internal object AnalysisApi {
             questions = questions,
             expressions = expressions,
             informations = informations,
+            expressionUnverifiedClaimIds = unverifiedIds,
             droppedCount = dropped
         )
     }

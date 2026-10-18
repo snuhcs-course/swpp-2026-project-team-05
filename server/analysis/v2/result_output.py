@@ -261,6 +261,10 @@ def _append_operation_errors(lines: list[str], result: dict) -> None:
 
 
 def _append_expression(lines: list[str], row: dict, article_id: str, *, prefix: str) -> None:
+    if row["expression"]["status"] == "unverified":
+        # AI-assisted resilience: a failed model step is not evidence of no expression difference.
+        lines.append(f"{prefix}: A~G 근거를 검증하지 못해 미판정 · 차이 없음으로 해석하지 마세요")
+        return
     findings = [f for f in row["expression"]["findings"] if f["article_id"] == article_id]
     if not findings:
         references = list(dict.fromkeys(f["baseline_evidence"]["quote"] for f in row["expression"]["findings"]

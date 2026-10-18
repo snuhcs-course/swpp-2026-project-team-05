@@ -18,7 +18,7 @@ from server.analysis.v2.article_search import (
 )
 from server.analysis.v2.comparison_selection import select_verified_comparisons
 from server.analysis.v2.llm_analysis import verify_candidate_articles
-from server.analysis.v2.model_client import ModelResponseError
+from server.analysis.v2.model_client import ModelResponseError, ModelUnavailableError
 from server.analysis.v2.pipeline import (
     complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
     run_discovery_pipeline,
@@ -565,6 +565,23 @@ class FullRubricPathTests(SimpleTestCase):
                                    "A1": self._information(source=False)}, {"findings": []})
         return discovery, client
 
+    def _two_claim_case(self):
+        discovery, client = self._case()
+        second_claim = deepcopy(discovery["source_analysis"]["claims"][0])
+        second_claim["claim_id"] = "C2"
+        discovery["source_analysis"]["claims"].append(second_claim)
+        second_comparison = deepcopy(discovery["selection"]["claim_comparisons"][0])
+        second_comparison["claim_id"] = "C2"
+        discovery["selection"]["claim_comparisons"].append(second_comparison)
+        second_match = deepcopy(discovery["selection"]["assessments"][0]["claim_matches"][0])
+        second_match["claim_id"] = "C2"
+        discovery["selection"]["assessments"][0]["claim_matches"].append(second_match)
+        for information in client.information.values():
+            second_coverage = deepcopy(information["claim_coverage"][0])
+            second_coverage["claim_id"] = "C2"
+            information["claim_coverage"].append(second_coverage)
+        return discovery, client
+
     def test_full_stage_five_assembles_i1_through_i5_and_a_through_g(self):
         discovery, client = self._case()
         rubric = analyze_selected_articles(discovery, client=client)
@@ -652,6 +669,88 @@ class FullRubricPathTests(SimpleTestCase):
         self.assertEqual(rubric["claim_analyses"][0]["selected_article_ids"], ["A2"])
         self.assertEqual(rubric["claim_analyses"][0]["unverified_article_ids"], ["A1"])
         self.assertEqual(rubric["article_annotation_failures"][0]["article_id"], "A1")
+
+    def test_expression_failure_preserves_information_and_next_claim(self):
+        discovery, client = self._two_claim_case()
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        original = compare_claim_expressions
+
+        def fail_first_claim(claim, articles, annotations, *, client):
+            if claim["claim_id"] == "C1":
+                raise ModelResponseError("SECRET_SENTINEL model output")
+            return original(claim, articles, annotations, client=client)
+
+        with (patch("server.analysis.v2.rubric_analysis.compare_claim_expressions",
+                    side_effect=fail_first_claim),
+              self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured):
+            result = complete_rubric_analysis(discovery, client=client)
+        rubric = result["rubric_analysis"]
+        first, second = rubric["claim_analyses"]
+        self.assertEqual(result["completed_stage"], 5)
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(result["comparison_status"], "available")
+        self.assertEqual(rubric["rubric"]["annotation_status"], "partial")
+        self.assertEqual(result["errors"][0]["code"], "RUBRIC_EXPRESSION_UNVERIFIED")
+        self.assertEqual(result["errors"][0]["claim_id"], "C1")
+        self.assertEqual([row["article_id"] for row in first["information"]["I1"]], ["S0", "A1"])
+        self.assertEqual(first["expression"]["status"], "unverified")
+        self.assertEqual(first["expression"]["findings"], [])
+        self.assertEqual(first["expression_by_article"]["A1"]["A"]["status"], "unverified")
+        self.assertEqual(second["expression"]["status"], "analyzed")
+        self.assertEqual(rubric["expression_failures"][0]["claim_id"], "C1")
+        self.assertIn("A~G 근거를 검증하지 못해 미판정", format_analysis_result(result))
+        self.assertIn("claim_id=C1", captured.output[0])
+        self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output + result["warnings"]))
+
+    def test_expression_transient_errors_remain_retryable_without_logging_exception_text(self):
+        class RateLimitCause(Exception):
+            code = 429
+
+        for failure_kind, error_code in (("unavailable", "MODEL_UNAVAILABLE"),
+                                         ("rate_limit", "MODEL_RATE_LIMITED")):
+            with self.subTest(failure_kind=failure_kind):
+                discovery, client = self._two_claim_case()
+                discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                                 execution_status="success", errors=[], warnings=[])
+                original = compare_claim_expressions
+
+                def fail_first_claim(claim, articles, annotations, *, client):
+                    if claim["claim_id"] == "C1":
+                        if failure_kind == "rate_limit":
+                            raise RuntimeError("SECRET_SENTINEL model response") from RateLimitCause(
+                                "SECRET_SENTINEL provider response")
+                        raise ModelUnavailableError("SECRET_SENTINEL model response")
+                    return original(claim, articles, annotations, client=client)
+
+                with (patch("server.analysis.v2.rubric_analysis.compare_claim_expressions",
+                            side_effect=fail_first_claim),
+                      self.assertLogs("server.analysis.v2.rubric_analysis", level="WARNING") as captured):
+                    result = complete_rubric_analysis(discovery, client=client)
+                self.assertEqual(result["execution_status"], "partial")
+                self.assertEqual(result["errors"][0]["code"], "RUBRIC_EXPRESSION_UNVERIFIED")
+                self.assertTrue(result["errors"][0]["retryable"])
+                self.assertEqual(result["rubric_analysis"]["expression_failures"][0]["reason"],
+                                 "model_unavailable")
+                self.assertEqual(result["rubric_analysis"]["claim_analyses"][1]["expression"]["status"],
+                                 "analyzed")
+                self.assertIn(f"error_code={error_code}", captured.output[0])
+                self.assertNotIn("SECRET_SENTINEL", " ".join(captured.output + result["warnings"] +
+                                                          [str(result["errors"])]))
+
+    def test_pipeline_failure_log_omits_exception_message(self):
+        discovery, client = self._case()
+        discovery.update(completed_stage=4, status="ready", comparison_status="available",
+                         execution_status="success", errors=[], warnings=[])
+        with (patch("server.analysis.v2.pipeline.analyze_selected_articles",
+                    side_effect=ModelResponseError("SECRET_SENTINEL article/model content")),
+              self.assertLogs("server.analysis.v2.pipeline", level="WARNING") as captured):
+            result = complete_rubric_analysis(discovery, client=client)
+        self.assertEqual(result["errors"][0]["code"], "ANALYSIS_RESPONSE_INVALID")
+        self.assertIn("stage=rubric_analysis", captured.output[0])
+        self.assertIn("error_type=ModelResponseError", captured.output[0])
+        self.assertIn("error_code=ANALYSIS_RESPONSE_INVALID", captured.output[0])
+        self.assertNotIn("SECRET_SENTINEL", captured.output[0])
 
     def test_source_annotation_cannot_drop_existing_grounded_claim(self):
         discovery, client = self._case()

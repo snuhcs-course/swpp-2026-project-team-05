@@ -161,6 +161,7 @@ class AdapterTests(SimpleTestCase):
         rubric = adapt_v2_result(pipeline_result(), max_related=2, requested_url=SOURCE_URL)["rubric"]
         self.assertEqual(rubric["questions"], [])  # P3 has not been adopted.
         self.assertEqual(rubric["judgment_status"], "provisional")
+        self.assertEqual(rubric["expression_unverified_claim_ids"], [])
         expressions = rubric["expression_differences"]
         self.assertEqual(expressions[0]["categories"][0]["markedness"], 2)
         self.assertIsNone(expressions[1]["categories"][0]["markedness"])
@@ -189,6 +190,42 @@ class AdapterTests(SimpleTestCase):
         self.assertFalse(any(row["article_index"] == 2 for row in rubric["expression_differences"]))
         self.assertTrue(any(row["article_index"] == 1 and row["code"] == "I1"
                             for row in rubric["information_differences"]))
+
+    def test_failed_claim_expression_withholds_stale_scores_but_keeps_information(self):
+        raw = deepcopy(pipeline_result())
+        later_claim = deepcopy(raw["rubric_analysis"]["claim_analyses"][0])
+        later_claim["claim_id"] = "C2"
+        raw["rubric_analysis"]["claim_analyses"].append(later_claim)
+        raw["rubric_analysis"]["expression_failures"] = [
+            {"claim_id": "C1", "phase": "claim_expression_A_G",
+             "reason": "validation_failed", "error_type": "ModelResponseError"}]
+        raw["warnings"] = ["[C1] A~G는 미판정이며 검증된 I1~I5는 유지합니다."]
+        raw["errors"] = [{"stage": "rubric_analysis", "code": "RUBRIC_EXPRESSION_UNVERIFIED",
+                          "message": "주장별 A~G 표현 근거를 검증하지 못했습니다.", "retryable": False}]
+        # The synthetic raw result deliberately retains stale C1 scores as a defensive contract test.
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        self.assertEqual(result["analysis_status"]["errors"][0]["code"], "RUBRIC_EXPRESSION_UNVERIFIED")
+        self.assertIn("미판정", result["analysis_status"]["warnings"][0])
+        rubric = result["rubric"]
+        self.assertEqual(rubric["expression_unverified_claim_ids"], ["C1"])
+        self.assertTrue(any(row["claim_id"] == "C1" and row["code"] == "I1"
+                            for row in rubric["information_differences"]))
+        self.assertFalse(any(row["claim_id"] == "C1" for row in rubric["expression_differences"]))
+        self.assertTrue(any(row["claim_id"] == "C2" for row in rubric["expression_differences"]))
+
+    def test_unverified_expression_status_without_failure_row_is_partial(self):
+        raw = deepcopy(pipeline_result())
+        claim = raw["rubric_analysis"]["claim_analyses"][0]
+        claim["expression"]["status"] = "unverified"
+
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        self.assertEqual(result["rubric"]["expression_unverified_claim_ids"], ["C1"])
+        self.assertFalse(result["rubric"]["expression_differences"])
+        self.assertTrue(any(row["claim_id"] == "C1" and row["code"] == "I1"
+                            for row in result["rubric"]["information_differences"]))
 
     def test_later_coverage_disagreement_withholds_relation_and_i2(self):
         raw = pipeline_result()

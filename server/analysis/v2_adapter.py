@@ -96,11 +96,22 @@ def _rubric_items(rubric: dict, index_by_id: dict[str, int],
                   withheld_relations: dict[tuple[str, str], dict[str, str]]) -> dict:
     meta = rubric.get("rubric") if isinstance(rubric.get("rubric"), dict) else {}
     information, expression = [], []
+    claim_rows = _rows(rubric.get("claim_analyses", []), "rubric_analysis.claim_analyses")
     failed_articles = list(dict.fromkeys(row.get("article_id") for row in _rows(
         rubric.get("article_annotation_failures", []), "rubric_analysis.article_annotation_failures")
         if isinstance(row.get("article_id"), str)))
     failed_set = set(failed_articles)
-    for claim_row in _rows(rubric.get("claim_analyses", []), "rubric_analysis.claim_analyses"):
+    failed_claims = list(dict.fromkeys(row.get("claim_id") for row in _rows(
+        rubric.get("expression_failures", []), "rubric_analysis.expression_failures")
+        if isinstance(row.get("claim_id"), str) and row.get("claim_id")))
+    for claim_row in claim_rows:
+        expr = claim_row.get("expression")
+        if (isinstance(expr, dict) and expr.get("status") == "unverified"
+                and isinstance(claim_row.get("claim_id"), str) and claim_row["claim_id"]
+                and claim_row["claim_id"] not in failed_claims):
+            failed_claims.append(claim_row["claim_id"])
+    failed_claim_set = set(failed_claims)
+    for claim_row in claim_rows:
         claim_id = claim_row.get("claim_id")
         if not isinstance(claim_id, str):
             continue
@@ -200,6 +211,9 @@ def _rubric_items(rubric: dict, index_by_id: dict[str, int],
                                         "target": item.get("target"), "polarity": item.get("polarity")})
 
         expr = claim_row.get("expression") if isinstance(claim_row.get("expression"), dict) else {}
+        if claim_id in failed_claim_set:
+            # AI-assisted resilience: an A-G failure cannot become a stale scored card.
+            continue
         for item in expr.get("findings", []):
             if (not isinstance(item, dict) or item.get("article_id") not in index_by_id
                     or item.get("article_id") in failed_set):
@@ -235,7 +249,8 @@ def _rubric_items(rubric: dict, index_by_id: dict[str, int],
             })
     return {"version": meta.get("version", "0.2.1"), "judgment_status": "provisional",
             "questions": [], "information_differences": information,
-            "expression_differences": expression}
+            "expression_differences": expression,
+            "expression_unverified_claim_ids": failed_claims}
 
 
 def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
@@ -260,10 +275,15 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
     source_url = source.get("url") or requested_url
     source_title = source.get("title") or source_url
     rubric = raw.get("rubric_analysis")
-    rubric_partial = isinstance(rubric, dict) and bool(rubric.get("article_annotation_failures"))
+    rubric_claims = (_rows(rubric.get("claim_analyses", []), "rubric_analysis.claim_analyses")
+                     if isinstance(rubric, dict) else [])
+    rubric_partial = isinstance(rubric, dict) and bool(
+        rubric.get("article_annotation_failures") or rubric.get("expression_failures")
+        or any(isinstance(row.get("expression"), dict) and row["expression"].get("status") == "unverified"
+               for row in rubric_claims))
     later_i1 = {}
     if isinstance(rubric, dict):
-        for claim_row in _rows(rubric.get("claim_analyses", []), "rubric_analysis.claim_analyses"):
+        for claim_row in rubric_claims:
             fields = claim_row.get("information")
             if isinstance(fields, dict):
                 for row in _rows(fields.get("I1", []), "rubric_analysis.I1"):

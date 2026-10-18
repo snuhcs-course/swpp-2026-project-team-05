@@ -236,6 +236,19 @@ class AnalysisApiTest {
         assertTrue(model.issues[0].rubric.expressions.isEmpty())
     }
 
+    @Test
+    fun parseAnalysis_expressionFailuresKeepOnlyValidClaimIds() {
+        val root = responseWithMatches().put("rubric", JSONObject()
+            .put("version", "0.2.1")
+            .put("expression_unverified_claim_ids", JSONArray()
+                .put("C1").put("C1").put(7).put("")))
+
+        val rubric = AnalysisApi.parseAnalysis(root, "https://requested.example/article").rubric!!
+
+        assertEquals(setOf("C1"), rubric.expressionUnverifiedClaimIds)
+        assertEquals(2, rubric.droppedCount)
+    }
+
     companion object {
         internal const val SOURCE_QUOTE = "정부는 지원 예산을 늘린다고 밝혔다."
 
