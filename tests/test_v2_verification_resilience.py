@@ -1,6 +1,9 @@
 """Synthetic regression checks for bounded candidate verification failures."""
 
 import json
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from threading import Barrier, Event, Lock
 from time import monotonic, sleep
 from unittest.mock import patch
@@ -10,7 +13,7 @@ from django.test import SimpleTestCase
 from server.analysis.v2.comparison_selection import select_verified_comparisons
 from server.analysis.v2.model_client import MetricsJSONClient, OpenRouterJSONClient, SnapshotJSONClient
 from server.analysis.v2.pipeline import run_discovery_pipeline
-from server.analysis.v2.result_output import OperationError
+from server.analysis.v2.result_output import OperationError, make_error_record
 from server.analysis.v2_adapter import adapt_v2_result
 
 
@@ -65,6 +68,154 @@ def _live_metrics_client():
 
 
 class VerificationResilienceTests(SimpleTestCase):
+    def test_next_body_fetch_overlaps_first_verdict_and_is_reused_by_refill(self):
+        next_started, release_fetch = Event(), Event()
+        fetched = []
+
+        def fetch(rows):
+            key = rows[0]["candidate_id"]
+            fetched.append(key)
+            if key == "A2":
+                next_started.set()
+                release_fetch.wait(timeout=3)
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            if key == "A1":
+                self.assertTrue(next_started.wait(timeout=3))
+                release_fetch.set()
+                return {"assessments": [{"candidate_id": key, "event_relation": "different_event",
+                                         "event_evidence": None, "claim_matches": []}]}
+            return {"assessments": [_verified(key)]}
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2")), _ranking(("A1",), ("A2",)),
+                    max_per_claim=1, event_baseline_limit=0, verification_batch_size=1,
+                    client=_live_metrics_client())
+        finally:
+            release_fetch.set()
+
+        self.assertEqual(Counter(fetched), Counter(("A1", "A2")))
+        self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]], ["A1", "A2"])
+        self.assertEqual(result["selection"]["claim_comparisons"][0]["articles"][0]["candidate_id"], "A2")
+        self.assertEqual(result["search"]["fetch_attempt_count"], 2)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], [])
+
+    def test_unused_speculative_fetch_failure_does_not_change_rate_limit_result(self):
+        next_started, release_fetch = Event(), Event()
+        fetched = []
+
+        def fetch(rows):
+            key = rows[0]["candidate_id"]
+            fetched.append(key)
+            if key == "A2":
+                next_started.set()
+                release_fetch.wait(timeout=3)
+                raise RuntimeError("speculative body failure")
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            self.assertTrue(next_started.wait(timeout=3))
+            raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True, http_status=429)
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                started = monotonic()
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2")), _ranking(("A1",), ("A2",)),
+                    max_per_claim=1, event_baseline_limit=0, verification_batch_size=1,
+                    client=_live_metrics_client())
+                elapsed = monotonic() - started
+        finally:
+            release_fetch.set()
+
+        self.assertLess(elapsed, 2.0)
+        self.assertEqual(Counter(fetched), Counter(("A1", "A2")))
+        self.assertEqual(result["search"]["fetch_attempt_count"], 1)
+        self.assertEqual(result["search"]["fetch_failures"], [])
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A2"])
+        self.assertEqual(result["search"]["unused_candidate_ids"], ["A2"])
+
+    def test_queued_speculative_fetch_cancelled_before_start_is_not_discarded(self):
+        started, release_fetch = Event(), Event()
+        fetched = []
+
+        @contextmanager
+        def single_worker_prefetch(enabled, *, max_workers=1):
+            if not enabled:
+                yield None
+                return
+            executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                yield executor
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
+
+        def fetch(rows):
+            key = rows[0]["candidate_id"]
+            fetched.append(key)
+            if key == "A2":
+                started.set()
+                release_fetch.wait(timeout=3)
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            self.assertTrue(started.wait(timeout=3))
+            raise OperationError("한도 초과", code="MODEL_RATE_LIMITED", retryable=True, http_status=429)
+
+        try:
+            with (patch("server.analysis.v2.comparison_selection._prefetch_executor",
+                        side_effect=single_worker_prefetch),
+                  patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+                  patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+                result = select_verified_comparisons(
+                    _article(), _analysis(), _search(("A1", "A2", "A3", "A4")),
+                    _ranking(("A1",), ("A2", "A3", "A4")), max_per_claim=1,
+                    event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
+        finally:
+            release_fetch.set()
+
+        self.assertEqual(fetched, ["A1", "A2"])
+        self.assertEqual(result["search"]["fetch_attempt_count"], 1)
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A2"])
+        self.assertEqual(result["search"]["unused_candidate_ids"], ["A2", "A3", "A4"])
+
+    def test_prefetched_fetch_failure_counts_once_only_when_selected(self):
+        fetched, verified = [], []
+
+        def fetch(rows):
+            key = rows[0]["candidate_id"]
+            fetched.append(key)
+            if key == "A2":
+                failure = make_error_record(OperationError("본문 수집 실패", code="ARTICLE_FETCH_FAILED"),
+                                            stage="candidate_fetch", candidate_id=key)
+                return {"candidates": [], "fetch_failures": [failure]}
+            return _fetch(rows)
+
+        def verify(_source, _analysis, rows, *, client):
+            key = rows[0]["candidate_id"]
+            verified.append(key)
+            return {"assessments": [{"candidate_id": key, "event_relation": "different_event",
+                                     "event_evidence": None, "claim_matches": []}]}
+
+        with (patch("server.analysis.v2.comparison_selection.fetch_candidate_articles", side_effect=fetch),
+              patch("server.analysis.v2.comparison_selection.verify_candidate_articles", side_effect=verify)):
+            result = select_verified_comparisons(
+                _article(), _analysis(), _search(("A1", "A2")), _ranking(("A1",), ("A2",)),
+                max_per_claim=1, event_baseline_limit=0, verification_batch_size=1,
+                client=_live_metrics_client())
+
+        self.assertEqual(Counter(fetched), Counter(("A1", "A2")))
+        self.assertEqual(verified, ["A1"])
+        self.assertEqual(result["search"]["fetch_attempt_count"], 2)
+        self.assertEqual([row["candidate_id"] for row in result["search"]["fetch_failures"]], ["A2"])
+        self.assertEqual(result["search"]["prefetch_discarded_ids"], [])
+
     def test_live_singletons_overlap_but_apply_in_candidate_order(self):
         barrier, lock = Barrier(3), Lock()
         active, maximum, completed = 0, 0, []
@@ -146,7 +297,9 @@ class VerificationResilienceTests(SimpleTestCase):
                 _ranking(("A1",), ("A2", "A3", "A4", "A5")), max_per_claim=1,
                 event_baseline_limit=0, verification_batch_size=1, client=_live_metrics_client())
 
-        self.assertEqual(fetched_batches, [["A1"], ["A2", "A3", "A4"], ["A5"]])
+        self.assertEqual(Counter(key for batch in fetched_batches for key in batch),
+                         Counter(("A1", "A2", "A3", "A4", "A5")))
+        self.assertIn(["A5"], fetched_batches)
         self.assertEqual([row["candidate_id"] for row in result["selection"]["assessments"]],
                          ["A1", "A2", "A3", "A4", "A5"])
         self.assertEqual(result["search"]["fetch_attempt_count"], 5)
@@ -160,7 +313,7 @@ class VerificationResilienceTests(SimpleTestCase):
         def fetch(rows):
             ids = [row["candidate_id"] for row in rows]
             fetched_batches.append(ids)
-            if ids == ["A4", "A5"]:
+            if ids == ["A5"]:
                 next_fetch_started.set()
                 release_fetch.wait(timeout=5)
             return _fetch(rows)
@@ -189,7 +342,8 @@ class VerificationResilienceTests(SimpleTestCase):
         # A4/A5 started before the 429 was known. They never become attempted
         # candidates, and the later A6/A7 batch is not fetched.
         self.assertLess(elapsed, 2.0)
-        self.assertEqual(fetched_batches, [["A1"], ["A2", "A3"], ["A4", "A5"]])
+        self.assertEqual(Counter(key for batch in fetched_batches for key in batch),
+                         Counter(("A1", "A2", "A3", "A4", "A5")))
         self.assertEqual(result["search"]["fetch_attempt_count"], 3)
         self.assertEqual(result["search"]["prefetch_discarded_ids"], ["A4", "A5"])
         self.assertEqual(result["search"]["unused_candidate_ids"], ["A4", "A5", "A6", "A7"])
@@ -201,7 +355,7 @@ class VerificationResilienceTests(SimpleTestCase):
         next_fetch_started, release_fetch, expired = Event(), Event(), Event()
 
         def fetch(rows):
-            if [row["candidate_id"] for row in rows] == ["A4", "A5"]:
+            if [row["candidate_id"] for row in rows] == ["A5"]:
                 next_fetch_started.set()
                 release_fetch.wait(timeout=5)
             return _fetch(rows)
@@ -237,7 +391,7 @@ class VerificationResilienceTests(SimpleTestCase):
         wait_calls = []
 
         def fetch(rows):
-            if [row["candidate_id"] for row in rows] == ["A4", "A5"]:
+            if [row["candidate_id"] for row in rows] == ["A5"]:
                 next_fetch_started.set()
                 release_fetch.wait(timeout=5)
             return _fetch(rows)
