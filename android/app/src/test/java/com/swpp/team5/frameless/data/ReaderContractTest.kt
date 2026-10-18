@@ -4,6 +4,7 @@ import com.swpp.team5.frameless.ui.screens.nonOverlapping
 import com.swpp.team5.frameless.ui.screens.centeredReaderOffset
 import com.swpp.team5.frameless.ui.screens.preferredFocusPair
 import com.swpp.team5.frameless.ui.screens.relatedReaderText
+import com.swpp.team5.frameless.ui.screens.readerTailPadding
 import com.swpp.team5.frameless.ui.screens.sheetInstruction
 import com.swpp.team5.frameless.ui.screens.sourceReaderText
 import com.swpp.team5.frameless.ui.screens.targets
@@ -287,6 +288,8 @@ class ReaderContractTest {
         assertEquals(500, centeredReaderOffset(sentenceCenter = 700f, visibleHeight = 400, maxScroll = 1000))
         assertEquals(0, centeredReaderOffset(sentenceCenter = 50f, visibleHeight = 400, maxScroll = 1000))
         assertEquals(600, centeredReaderOffset(sentenceCenter = 950f, visibleHeight = 400, maxScroll = 600))
+        assertEquals(900, readerTailPadding(viewportHeight = 1000, visibleHeight = 200))
+        assertEquals(500, readerTailPadding(viewportHeight = 1000, visibleHeight = 1000))
     }
 
     private fun root(): JSONObject {

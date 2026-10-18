@@ -274,6 +274,10 @@ internal fun sheetInstruction(pageCount: Int, expanded: Boolean): String = when 
 internal fun centeredReaderOffset(sentenceCenter: Float, visibleHeight: Int, maxScroll: Int): Int =
     (sentenceCenter - visibleHeight / 2f).roundToInt().coerceIn(0, maxScroll)
 
+/** Make even a match near the article's end reachable in a short sheet peek. */
+internal fun readerTailPadding(viewportHeight: Int, visibleHeight: Int): Int =
+    viewportHeight - visibleHeight.coerceIn(0, viewportHeight) / 2
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun ReaderComparisonSheet(
@@ -400,7 +404,9 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
                     lineHeight = 27.sp,
                     onTextLayout = { layout = it }
                 )
-                Spacer(Modifier.height(with(density) { (viewportHeight / 2f).toDp() }))
+                Spacer(Modifier.height(with(density) {
+                    readerTailPadding(viewportHeight, visibleHeight).toDp()
+                }))
             }
         }
     }
