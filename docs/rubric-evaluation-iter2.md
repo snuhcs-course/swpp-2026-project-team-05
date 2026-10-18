@@ -1,5 +1,7 @@
 # FrameLESS 루브릭 구현 평가 — Iteration 2 통합 초안
 
+> **이전 구현 평가 기록:** 아래 본문은 2026-10-18의 I1–I5/A–G 카드 경로를 평가한 스냅샷이다. 2026-10-19 `main`의 Reader는 전문 대응, A–G 하이라이트, 원본 기사 I1 ★를 사용하며 I2–I5를 Reader 주 결과로 만들지 않는다. 현재 범위는 [통합 상태](iteration-2-integration-status.md)와 [전문 분석 설계](analysis-v3-quality-plan.md)를 참고한다. 이 문서의 오래된 실행 시간·부분 실패를 최신 운영 결과로 인용하지 않는다.
+
 **범위 (2026-10-18):** 이 문서는 현재 통합 작업 트리의 코드를 읽고 서영님이 공유한 루브릭 맥락과 대조한 평가다. 운영 API에서 공개 기사 두 URL로 제한된 호출을 했고 부분 실패와 응답 시간은 관찰했지만, 실제 Gemini·NAVER 응답의 의미 정확도나 전체 데모 성공은 확인하지 못했다. 팀 명세 원문은 저장소에 없으므로 아래의 “채택” 표시는 코드가 명시한 적용 범위를 뜻한다. 근거: [`rubric_analysis.py`의 `analyze_selected_articles`](../server/analysis/v2/rubric_analysis.py), [`pipeline.py`의 `run_analysis_pipeline`](../server/analysis/v2/pipeline.py), [`v2_adapter.py`의 `_rubric_items`](../server/analysis/v2_adapter.py), [실제 호출 기록](testing-documentation-iter2.md).
 
 ## 현재 적용 범위와 제품 의도
