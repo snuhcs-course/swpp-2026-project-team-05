@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait, wait as wait_for_verification
 from contextlib import contextmanager
 from typing import Any, Callable
 
@@ -22,6 +22,9 @@ MAX_EXTRA_VERIFIED_CANDIDATES = 6
 # concurrent live calls shorten the long-tail wait without changing which
 # candidates are checked or how their grounded verdicts are applied.
 MAX_PARALLEL_VERIFICATIONS = 3
+# A slow verdict must not hold the next wave idle. At most two calls beyond
+# the original wave may start before that verdict reveals a 429 or deadline.
+MAX_VERIFICATION_SPECULATIVE_CALLS = 2
 # Fetch only a few likely next bodies while the first verdicts run. These
 # downloads never change candidate order or count as attempted until selected.
 MAX_SPECULATIVE_BODY_FETCHES = 3
@@ -262,37 +265,94 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
         apply_verification(ids, outcome)
 
     def verify_singletons(ids: list[str], round_number: int, *, quality_pool: bool = False) -> bool:
-        """Bound independent live calls and preserve ordered decisions."""
+        """Keep three calls busy but apply verdicts only in candidate order."""
         nonlocal verification_calls
-        with ThreadPoolExecutor(max_workers=MAX_PARALLEL_VERIFICATIONS) as executor:
-            for start in range(0, len(ids), MAX_PARALLEL_VERIFICATIONS):
-                if rate_limited or (should_stop and should_stop()):
-                    mark_unverified(ids[start:], "verification_deferred", rate_limit_error or TimeoutError())
-                    return True
-                launched = []
-                wave = ids[start:start + MAX_PARALLEL_VERIFICATIONS]
-                for key in wave:
+        width = MAX_PARALLEL_VERIFICATIONS
+        executor = ThreadPoolExecutor(max_workers=width)
+        running, completed = {}, {}
+        next_launch = next_apply = 0
+        stop_after_index = None
+        stop_error = None
+        stopped_early = False
+
+        def defer_rest() -> bool:
+            nonlocal verification_calls, stopped_early
+            # A future that never started made no model call. Count running or
+            # completed speculative calls, including ones whose verdict is
+            # discarded after a later 429/deadline.
+            for index, future in running.items():
+                if index > stop_after_index and future.cancel():
+                    verification_calls -= 1
+            mark_unverified(ids[next_apply:], "verification_deferred", stop_error or TimeoutError())
+            stopped_early = True
+            return True
+
+        try:
+            while next_apply < len(ids):
+                for index, future in list(running.items()):
+                    if not future.done():
+                        continue
+                    try:
+                        completed[index] = future.result()
+                    except Exception as exc:
+                        completed[index] = exc
+                    del running[index]
+                if stop_after_index is None and (rate_limited or (should_stop and should_stop())):
+                    stop_error = rate_limit_error or TimeoutError()
+                    # A deadline between original waves must not make an
+                    # already speculative next wave part of the answer.
+                    if next_apply and next_apply % width == 0:
+                        stop_after_index = next_apply - 1
+                    else:
+                        stop_after_index = min(next_launch - 1, (next_apply // width + 1) * width - 1)
+                if stop_after_index is not None and next_apply > stop_after_index:
+                    return defer_rest()
+                if next_apply in completed:
+                    index = next_apply
+                    apply_verification([ids[index]], completed.pop(index))
+                    next_apply += 1
+                    if rate_limited and stop_after_index is None:
+                        # Preserve results from the failure's original wave,
+                        # but ignore newer speculative calls and never launch
+                        # another one after the 429 is known.
+                        stop_after_index = min(next_launch - 1, (index // width + 1) * width - 1)
+                        stop_error = rate_limit_error or TimeoutError()
+                    continue
+                while (stop_after_index is None and next_launch < len(ids)
+                       and len(running) < width
+                       and next_launch < (next_apply // width + 1) * width
+                       + MAX_VERIFICATION_SPECULATIVE_CALLS):
                     if should_stop and should_stop():
+                        stop_error = TimeoutError()
+                        if next_apply and next_apply % width == 0:
+                            stop_after_index = next_apply - 1
+                        else:
+                            stop_after_index = min(next_launch - 1, (next_apply // width + 1) * width - 1)
                         break
+                    key = ids[next_launch]
                     label = "추가 사건·주장 검증" if quality_pool else "사건·주장 검증"
                     notify(f"4단계 {round_number}차: {label} [{key}]")
+                    running[next_launch] = executor.submit(verify_response, [key])
                     verification_calls += 1
-                    launched.append((key, executor.submit(verify_response, [key])))
-                # Resolve in input order, even when the second model finishes first.
-                for key, future in launched:
-                    try:
-                        outcome = future.result()
-                    except Exception as exc:
-                        outcome = exc
-                    apply_verification([key], outcome)
-                if len(launched) < len(wave):
-                    mark_unverified(ids[start + len(launched):], "verification_deferred", TimeoutError())
-                    return True
-                if rate_limited:
-                    mark_unverified(ids[start + len(launched):], "verification_deferred",
-                                    rate_limit_error or TimeoutError())
-                    return True
-        return False
+                    next_launch += 1
+                if stop_after_index is not None and next_apply > stop_after_index:
+                    return defer_rest()
+                relevant = [future for index, future in running.items()
+                            if stop_after_index is None or index <= stop_after_index]
+                if not relevant:
+                    raise RuntimeError("검증 중인 후보의 결과가 누락되었습니다.")
+                # Poll only when a soft deadline exists. The quality-pool
+                # prefetch uses `wait` separately, so its deadline semantics
+                # remain unchanged.
+                wait_for_verification(relevant, timeout=0.1 if should_stop else None,
+                                      return_when=FIRST_COMPLETED)
+            return rate_limited
+        finally:
+            # A newer speculative call may already be running when a slow
+            # earlier call reveals 429/deadline. Its result cannot affect the
+            # answer and must not delay the response. At most two such calls
+            # can still incur provider cost after their verdict is discarded.
+            executor.shutdown(wait=not stopped_early, cancel_futures=stopped_early)
 
     while claim_map:
         round_number = len(rounds) + 1
