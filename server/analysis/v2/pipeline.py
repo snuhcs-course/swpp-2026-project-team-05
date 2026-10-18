@@ -18,7 +18,7 @@ from pathlib import Path
 from time import monotonic, perf_counter
 from typing import Any, Callable
 
-from ..diagnostics import analysis_id, log_event
+from ..diagnostics import analysis_id, log_event, submit_with_context
 from .article_fetch import validate_article_url
 from .article_input import prepare_article
 from .article_search import _google_grounding_enabled, search_candidate_metadata
@@ -588,8 +588,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             def after_candidate_search(prepared_source: dict, source_analysis: dict) -> None:
                 nonlocal source_future
                 from ..reader_analysis import _extract_source_units
-                source_future = source_executor.submit(
-                    _extract_source_units, prepared_source, source_analysis, recorder)
+                source_future = submit_with_context(
+                    source_executor, _extract_source_units, prepared_source, source_analysis, recorder)
 
         stage = "discovery"
         with _timed_stage(stage, deadline_at):
