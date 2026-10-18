@@ -1,6 +1,6 @@
 # FrameLESS midterm presentation — speaker outline
 
-**Draft date:** 18 October 2026 (KST). **Deck:** [11 editable slides](midterm-presentation-draft.pptx), [slide preview](midterm-presentation-preview.png). The course notice [S0] calls for an 8-minute English talk, 3-minute Q&A, and slide submission by 19 October 23:59 KST.
+**Draft date:** 18 October 2026 (KST). **Deck:** [11 editable slides](midterm-presentation-draft.pptx), [slide preview](midterm-presentation-preview.png). The course notice [S0] calls for English slides, an 8-minute talk in Korean or English, 3-minute Q&A, and slide submission by 19 October 23:59 KST.
 
 **Main point:** FrameLESS starts with one Korean news article and shows source-linked passages from reports of the same event. Readers inspect differences themselves; the app does not give an article-wide truth or bias score.
 
