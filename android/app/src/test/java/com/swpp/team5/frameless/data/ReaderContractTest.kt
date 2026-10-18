@@ -1,6 +1,9 @@
 package com.swpp.team5.frameless.data
 
 import com.swpp.team5.frameless.ui.screens.nonOverlapping
+import com.swpp.team5.frameless.ui.screens.preferredPreviewPair
+import com.swpp.team5.frameless.ui.screens.readerComparisonHint
+import com.swpp.team5.frameless.ui.screens.relatedSentencePreview
 import com.swpp.team5.frameless.ui.screens.sourceReaderText
 import com.swpp.team5.frameless.ui.screens.targets
 import org.json.JSONArray
@@ -115,6 +118,24 @@ class ReaderContractTest {
     }
 
     @Test
+    fun i1StarStaysWithUtf16SentenceEndBeforeFollowingNewline() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        rawReader.put("i1_status", "complete")
+        rawReader.put("i1_stars", JSONArray().put(JSONObject()
+            .put("source_sentence_id", "S0-S0")
+            .put("source_span", span(0, sourceBody.indexOf('\n')))
+            .put("checked_article_count", 2)
+            .put("observed_count", 0)
+            .put("label", "이번 비교 기사 2건에서는 확인되지 않음")))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        val text = sourceReaderText(reader, reader.targets()).text
+        assertTrue(text.contains("첫 문장 😀이다.\u2060★ 〔A〕\n두 번째 문장이다."))
+        assertFalse(text.contains("😀이다.\n★"))
+    }
+
+    @Test
     fun withheldI1DoesNotShowServerStarPayload() {
         val root = root()
         val reader = root.getJSONObject("reader")
@@ -141,6 +162,95 @@ class ReaderContractTest {
         assertEquals(sourceBody, reader.sourceArticle.body)
         assertTrue(reader.targets().isEmpty())
         assertEquals(sourceBody, sourceReaderText(reader, reader.targets()).text)
+    }
+
+    @Test
+    fun fullReaderWithOnlyVerifiedPairsShowsNeutralTappableSentence() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        val pair = JSONObject(firstPair(root).toString())
+            .put("alignment_scope", "source_content_unit")
+            .put("expression_differences", JSONArray())
+        rawReader.put("version", "0.2")
+            .put("coverage", "all_source_sentences_reviewed")
+            .put("highlights", JSONArray())
+            .put("pairs", JSONArray().put(pair))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        val target = reader.targets().single()
+        assertTrue(reader.highlights.isEmpty())
+        assertEquals(1, reader.pairs.size)
+        assertEquals("S0-S0", target.sentenceId)
+        assertTrue(target.codes.isEmpty())
+        assertTrue(readerComparisonHint(reader.targets()).contains("대응 문장을 눌러"))
+        assertFalse(sourceReaderText(reader, reader.targets()).text.contains("〔A〕"))
+        assertTrue(relatedSentencePreview(reader.relatedArticles.single(), target.pairs).text
+            .contains("첫 대응 표현이다."))
+    }
+
+    @Test
+    fun fullReaderMergesDuplicatePairIdsAndSourceSentenceTargets() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        val highlighted = JSONObject(firstPair(root).toString())
+            .put("alignment_scope", "source_content_unit")
+        firstPair(root).put("alignment_scope", "source_content_unit")
+        val neutral = JSONObject(highlighted.toString())
+            .put("pair_id", "P2")
+            .put("expression_differences", JSONArray())
+        rawReader.put("version", "0.2")
+            .put("pairs", JSONArray().put(highlighted).put(neutral))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        val target = reader.targets().single()
+        assertEquals(2, reader.pairs.size)
+        assertEquals(2, target.pairs.size)
+        assertEquals(listOf("A"), target.codes)
+        assertEquals(1, reader.targets().nonOverlapping().size)
+    }
+
+    @Test
+    fun fullReaderTrustsCanonicalTopLevelPairWhenNestedPairIdConflicts() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        firstPair(root).put("alignment_scope", "source_content_unit")
+        val canonical = JSONObject(firstPair(root).toString())
+            .put("expression_differences", JSONArray())
+        rawReader.put("version", "0.2")
+            .put("pairs", JSONArray().put(canonical))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        assertEquals(1, reader.pairs.size)
+        assertTrue(reader.targets().single().codes.isEmpty())
+    }
+
+    @Test
+    fun invalidTopLevelEvidenceCannotCreateClickableSentence() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        val pair = JSONObject(firstPair(root).toString())
+            .put("alignment_scope", "source_content_unit")
+            .put("expression_differences", JSONArray())
+        pair.getJSONObject("related_evidence_span").put("text", "원문과 다른 텍스트")
+        rawReader.put("version", "0.2")
+            .put("highlights", JSONArray())
+            .put("pairs", JSONArray().put(pair))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        assertTrue(reader.pairs.isEmpty())
+        assertTrue(reader.targets().isEmpty())
+        assertEquals(sourceBody, sourceReaderText(reader, reader.targets()).text)
+    }
+
+    @Test
+    fun markedPairWinsSheetPreviewAgainstEarlierNeutralPair() {
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root(), "https://source.example/article").reader)
+        val marked = reader.pairs.single().copy(relatedSpan = ReaderSpan(15, 20))
+        val neutral = marked.copy(id = "P2", relatedSpan = ReaderSpan(0, 5),
+            expressionDifferences = emptyList())
+
+        assertEquals(marked, listOf(neutral, marked).preferredPreviewPair(showExpressions = true))
+        assertEquals(neutral, listOf(neutral, marked).preferredPreviewPair(showExpressions = false))
     }
 
     private fun root(): JSONObject {

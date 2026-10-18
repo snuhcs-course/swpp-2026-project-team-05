@@ -1,6 +1,7 @@
 """Offline checks for task-level model selection in the v2 pipeline."""
 
 import os
+from time import monotonic
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -138,6 +139,30 @@ class ModelRoutingTests(TestCase):
         self.assertIn('"finish_reason":"stop"', captured.output[0])
         self.assertNotIn("PROMPT_SECRET", str(captured.output) + repr(execution))
         self.assertNotIn("ARTICLE_SECRET", str(captured.output) + repr(execution))
+        recorder.client.close()
+
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
+    @patch("httpx.Client")
+    def test_pre_provider_timeout_does_not_repeat_previous_call_usage(self, constructor):
+        constructor.return_value.post.return_value = SimpleNamespace(
+            status_code=200, content=b"synthetic-envelope",
+            json=lambda: {"choices": [{"message": {"content": '{"ok":true}'},
+                                         "finish_reason": "stop"}],
+                          "usage": {"prompt_tokens": 10, "completion_tokens": 2,
+                                    "total_tokens": 12, "cost": 0.01}},
+        )
+        recorder = MetricsJSONClient(OpenRouterJSONClient())
+        request = {"name": "related_content_alignment", "instructions": "synthetic",
+                   "input_data": {}, "schema": {"type": "object"}}
+        recorder.generate_json(**request)
+        recorder.deadline_at = monotonic() + 0.5
+        with self.assertLogs("server.analysis.v2.model_client", level="INFO") as captured:
+            with self.assertRaises(TimeoutError):
+                recorder.generate_json(**request)
+        self.assertEqual(constructor.return_value.post.call_count, 1)
+        self.assertNotIn('"input_tokens"', captured.output[0])
+        self.assertNotIn('"reported_cost_usd"', captured.output[0])
+        self.assertEqual(recorder.execution_summary()["provider_usage"]["metered_responses"], 1)
         recorder.client.close()
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)

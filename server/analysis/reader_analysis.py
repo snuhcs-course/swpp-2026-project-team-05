@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from typing import Any, Callable
 
@@ -18,7 +19,7 @@ from .v2.llm_analysis import (
     _ground_span, _object_schema, _quote_ranges,
 )
 from .v2.comparison_selection import _body_signature, _same_reporting_text
-from .v2.model_client import ModelResponseError
+from .v2.model_client import MetricsJSONClient, ModelResponseError, OpenRouterJSONClient, SnapshotJSONClient
 
 
 SOURCE_SENTENCE_BATCH = 36
@@ -539,17 +540,40 @@ def analyze_reader_content(discovery: dict, selected_ids: list[str], *, client: 
     notify("5단계 Reader: 원본 전문 내용 단위 추출")
     ledger, units, calls = _extract_source_units(source, analysis, client)
     alignments, failures = {}, []
-    for position, key in enumerate(selected_ids, 1):
-        notify(f"5단계 Reader: 비교 기사 {position}/{len(selected_ids)} 본문 정렬")
-        try:
-            rows, count = _align_article(source, catalog[key], units, key, client)
-        except (RuntimeError, TimeoutError, ValueError) as exc:
-            # Never reveal model responses or article body through diagnostics.
-            failures.append({"article_id": key, "reason": "alignment_failed",
-                             "error_type": type(exc).__name__})
-            continue
-        alignments[key] = {"unit_alignments": rows, "status": "complete"}
-        calls += count
+    # Each comparison reads the same finished source ledger but never another
+    # comparison's result. Bound concurrent OpenRouter requests to two; the
+    # existing per-call deadline and retry policy still apply independently.
+    # Snapshot replay stays serial so recorded request order is stable.
+    parallel = (len(selected_ids) > 1 and isinstance(client, MetricsJSONClient)
+                and not isinstance(client, SnapshotJSONClient)
+                and isinstance(client.client, OpenRouterJSONClient))
+    if parallel:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
+            for position, key in enumerate(selected_ids, 1):
+                notify(f"5단계 Reader: 비교 기사 {position}/{len(selected_ids)} 본문 정렬")
+                futures.append(executor.submit(_align_article, source, catalog[key], units, key, client))
+            for key, future in zip(selected_ids, futures):
+                try:
+                    rows, count = future.result()
+                except (RuntimeError, TimeoutError, ValueError) as exc:
+                    # Never reveal model responses or article body through diagnostics.
+                    failures.append({"article_id": key, "reason": "alignment_failed",
+                                     "error_type": type(exc).__name__})
+                    continue
+                alignments[key] = {"unit_alignments": rows, "status": "complete"}
+                calls += count
+    else:
+        for position, key in enumerate(selected_ids, 1):
+            notify(f"5단계 Reader: 비교 기사 {position}/{len(selected_ids)} 본문 정렬")
+            try:
+                rows, count = _align_article(source, catalog[key], units, key, client)
+            except (RuntimeError, TimeoutError, ValueError) as exc:
+                failures.append({"article_id": key, "reason": "alignment_failed",
+                                 "error_type": type(exc).__name__})
+                continue
+            alignments[key] = {"unit_alignments": rows, "status": "complete"}
+            calls += count
     notify("5단계 Reader: 검증된 문장쌍 A~G 재검토")
     try:
         expression_review, count = _review_expression_pairs(source, catalog, units, alignments, client)

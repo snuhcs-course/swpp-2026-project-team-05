@@ -198,6 +198,9 @@ internal data class ReaderExpressionDifference(
 
 internal data class ReaderPair(
     val id: String,
+    val sourceSentenceId: String,
+    val sourceSpan: ReaderSpan,
+    val sourceEvidenceSpan: ReaderSpan,
     val articleId: String,
     val articleIndex: Int,
     val relatedSentenceId: String,
@@ -234,6 +237,7 @@ internal data class ReaderResult(
     val sourceArticle: ReaderArticle,
     val relatedArticles: List<ReaderArticle>,
     val highlights: List<ReaderHighlight>,
+    val pairs: List<ReaderPair>,
     val i1Stars: List<ReaderI1Star>,
     val i1Status: String,
     val articleFailureCount: Int
