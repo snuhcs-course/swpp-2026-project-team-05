@@ -47,6 +47,9 @@ def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
         max_candidates=8,
         max_per_claim=min(max_related, 2),
         event_baseline_limit=2,
+        # Full article bodies can exhaust the model output budget when grouped.
+        # Verify each Reader candidate separately before selecting comparisons.
+        verification_batch_size=1,
         max_rubric_articles=max_related,
         analysis_profile="reader",
         use_cache=False,  # Serverless function files are not persistent storage.
