@@ -42,10 +42,10 @@ class YnaExtractionTests(TestCase):
 
     def test_line_break_inside_story_paragraph_is_not_flattened(self):
         html = ('<article id="articleWrap"><div class="story-news">'
-                '<p>인용문 첫 줄\n <span>이어서</span><br>인용문 둘째 줄</p><p>다음 문단</p>'
+                '<p>인용문 첫 줄\n <span>이어서</span><br><br>인용문 둘째 줄</p><p>다음 문단</p>'
                 '</div></article>')
         self.assertEqual(_extract_yna_article_body(html),
-                         "인용문 첫 줄 이어서\n인용문 둘째 줄\n\n다음 문단")
+                         "인용문 첫 줄 이어서\n\n인용문 둘째 줄\n\n다음 문단")
 
     def test_fetch_yna_prefers_story_paragraphs_over_generic_extractor(self):
         response = BytesIO(YNA_HTML.encode("utf-8"))

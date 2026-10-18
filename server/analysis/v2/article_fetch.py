@@ -231,8 +231,7 @@ def _extract_yna_article_body(html: str) -> str | None:
             line_break.tail = marker + (line_break.tail or "")
         text = "\n".join(
             " ".join(segment.split()) for segment in paragraph.text_content().split(marker)
-            if segment.strip()
-        )
+        ).strip("\n")
         if text and not _YNA_CONTACT.fullmatch(text):
             body.append(text)
     # Each direct <p> is a distinct story paragraph on the page. Keep a blank
