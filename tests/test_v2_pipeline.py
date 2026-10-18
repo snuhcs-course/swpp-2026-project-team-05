@@ -2,6 +2,7 @@
 
 # AI-assisted Iteration 2 tests use invented articles and never call external services.
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from email.message import Message
 import json
 from pathlib import Path
@@ -18,10 +19,12 @@ from server.analysis.v2.article_search import (
     fetch_candidate_articles, normalize_news_url, search_candidate_metadata,
 )
 from server.analysis.v2.comparison_selection import select_verified_comparisons
-from server.analysis.v2.llm_analysis import analyze_source_article, verify_candidate_articles
+from server.analysis.v2.llm_analysis import (
+    analyze_source_article, prioritize_diverse_candidates, verify_candidate_articles,
+)
 from server.analysis.v2.model_client import ModelResponseError, ModelUnavailableError
 from server.analysis.v2.pipeline import (
-    complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
+    _load_cached_analysis, complete_rubric_analysis, evaluate_analysis_snapshot, run_analysis_pipeline,
     run_discovery_pipeline,
 )
 from server.analysis.v2.result_output import OperationError, format_analysis_result, make_error_record
@@ -264,37 +267,54 @@ class GroundingTests(SimpleTestCase):
                         "selection_basis": ["event_relevance"], "search_query": "시청 새 계획"}],
         }
 
+    @staticmethod
+    def _valid_scope_review():
+        return {
+            "primary_event": "시청의 계획 발표",
+            "primary_anchor": {"scope": "title", "sentence_index": None, "quote": "새 계획 발표"},
+            "proposed_event_relation": "same",
+            "event_queries": [{"query": "시청 새 계획 발표",
+                               "query_anchor": {"scope": "title", "sentence_index": None,
+                                                "quote": "새 계획 발표"}}],
+            "claim_scopes": {"C1": {"scope": "central", "reason": "제목의 계획 발표를 직접 설명한다",
+                                    "scope_evidence": {"sentence_index": 0,
+                                                       "quote": "시청은 새 계획을 발표했다"}}},
+        }
+
     def test_source_schema_failure_retries_once_with_unchanged_article(self):
-        client = SequenceClient([{"core_event": "필수 필드 누락"}, self._valid_source_response()])
+        client = SequenceClient([{"core_event": "필수 필드 누락"}, self._valid_source_response(),
+                                 self._valid_scope_review()])
 
         result = analyze_source_article(article(), client=client)
 
         self.assertEqual(result["claims"][0]["claim_id"], "C1")
         self.assertEqual([request["name"] for request in client.requests],
-                         ["source_event_claims_queries", "repair_source_event_claims_queries"])
+                         ["source_event_claims_queries", "repair_source_event_claims_queries",
+                          "review_source_event_scope"])
         self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
 
     def test_source_invalid_json_output_retries_once_without_reusing_bad_output(self):
         client = SequenceClient([ModelResponseError("SECRET_SENTINEL raw output"),
-                                 self._valid_source_response()])
+                                 self._valid_source_response(), self._valid_scope_review()])
 
         result = analyze_source_article(article(), client=client)
 
         self.assertEqual(result["claims"][0]["claim_id"], "C1")
-        self.assertEqual(len(client.requests), 2)
+        self.assertEqual(len(client.requests), 3)
         self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
         self.assertNotIn("previous_response", client.requests[1]["input_data"])
 
     def test_source_grounding_failure_retries_once_with_unchanged_article(self):
         invalid = self._valid_source_response()
         invalid["claims"][0]["evidence"]["quote"] = "원문에 없는 주장"
-        client = SequenceClient([invalid, self._valid_source_response()])
+        client = SequenceClient([invalid, self._valid_source_response(), self._valid_scope_review()])
 
         result = analyze_source_article(article(), client=client)
 
         self.assertEqual(result["claims"][0]["claim_id"], "C1")
         self.assertEqual([request["name"] for request in client.requests],
-                         ["source_event_claims_queries", "repair_source_event_claims_queries"])
+                         ["source_event_claims_queries", "repair_source_event_claims_queries",
+                          "review_source_event_scope"])
         self.assertEqual(client.requests[0]["input_data"], client.requests[1]["input_data"])
 
     def test_source_schema_then_grounding_failure_never_makes_third_call(self):
@@ -307,10 +327,176 @@ class GroundingTests(SimpleTestCase):
 
         self.assertEqual(len(client.requests), 2)
 
+    def test_scope_review_excludes_grounded_but_separate_second_story(self):
+        body = ("영화 가을이 박스오피스 1위에 올랐다.\n\n"
+                "한편 배우를 괴롭힌 사건이 경찰에 접수됐다.")
+        source = {**article(body=body), "title": "영화 가을 박스오피스 1위",
+                  **structure_article_body(body)}
+        proposed = {
+            "core_event": "영화 가을의 박스오피스 1위",
+            "event_evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"},
+            "event_query": "영화 가을 박스오피스 1위",
+            "claims": [
+                {"claim": "영화 가을이 박스오피스 1위에 올랐다", "claim_kind": "reported_fact",
+                 "speaker": "", "evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"},
+                 "selection_basis": ["event_relevance"], "search_query": "영화 가을 1위"},
+                {"claim": "배우를 괴롭힌 사건이 경찰에 접수됐다", "claim_kind": "reported_fact",
+                 "speaker": "", "evidence": {"sentence_index": 1, "quote": "경찰에 접수됐다"},
+                 "selection_basis": ["event_relevance"], "search_query": "배우 경찰 사건"},
+            ],
+        }
+        review = {
+            "primary_event": "영화 가을의 박스오피스 1위",
+            "primary_anchor": {"scope": "title", "sentence_index": None,
+                               "quote": "영화 가을 박스오피스 1위"},
+            "proposed_event_relation": "same",
+            "event_queries": [{"query": "영화 가을 박스오피스 1위",
+                               "query_anchor": {"scope": "title", "sentence_index": None,
+                                                "quote": "영화 가을 박스오피스 1위"}},
+                              {"query": "영화 가을 흥행 1위",
+                               "query_anchor": {"scope": "body", "sentence_index": 0,
+                                                "quote": "영화 가을이 박스오피스 1위에 올랐다"}}],
+            "claim_scopes": {
+                "C1": {"scope": "central", "reason": "제목의 영화 흥행 결과다",
+                       "scope_evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"}},
+                "C2": {"scope": "separate_topic", "reason": "영화 흥행과 별개의 경찰 사건이다",
+                       "scope_evidence": {"sentence_index": 1, "quote": "경찰에 접수됐다"}},
+            },
+        }
+        client = SequenceClient([proposed, review])
+
+        result = analyze_source_article(source, client=client)
+
+        self.assertEqual([claim["claim"] for claim in result["claims"]],
+                         ["영화 가을이 박스오피스 1위에 올랐다"])
+        self.assertEqual(result["source_scope_review"]["excluded_claim_count"], 1)
+        self.assertEqual(result["source_scope_review"]["claim_decisions"][1]["scope"], "separate_topic")
+        self.assertEqual(result["event_queries"], ["영화 가을 박스오피스 1위", "영화 가을 흥행 1위"])
+
+    def test_scope_review_rejects_unverified_primary_event(self):
+        review = self._valid_scope_review()
+        review["proposed_event_relation"] = "uncertain"
+        client = SequenceClient([self._valid_source_response(), review, review])
+        with self.assertRaises(ModelResponseError):
+            analyze_source_article(article(), client=client)
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "review_source_event_scope",
+                          "repair_review_source_event_scope"])
+
+    def test_invalid_optional_query_anchor_does_not_erase_verified_source_claim(self):
+        review = self._valid_scope_review()
+        review["event_queries"] = [{
+            "query": "다른 화제 검색어",
+            "query_anchor": {"scope": "body", "sentence_index": 1, "quote": "새 계획"},
+        }]
+        client = SequenceClient([self._valid_source_response(), review])
+
+        result = analyze_source_article(article(), client=client)
+
+        self.assertEqual(result["claims"][0]["claim_id"], "C1")
+        self.assertEqual(result["event_queries"], ["새 계획 발표"])
+        self.assertEqual(result["source_scope_review"]["rejected_event_query_count"], 1)
+
+    def test_grounded_primary_event_correction_replans_once(self):
+        body = ("영화 가을이 박스오피스 1위에 올랐다.\n\n"
+                "한편 배우를 괴롭힌 사건이 경찰에 접수됐다.")
+        source = {**article(body=body), "title": "영화 가을 박스오피스 1위",
+                  **structure_article_body(body)}
+        secondary_plan = {
+            "core_event": "배우 관련 경찰 사건", "event_query": "배우 경찰 사건",
+            "event_evidence": {"sentence_index": 1, "quote": "경찰에 접수됐다"},
+            "claims": [{"claim": "배우 관련 사건이 경찰에 접수됐다", "claim_kind": "reported_fact",
+                        "speaker": "", "evidence": {"sentence_index": 1, "quote": "경찰에 접수됐다"},
+                        "selection_basis": ["event_relevance"], "search_query": "배우 경찰 사건"}],
+        }
+        primary_plan = {
+            "core_event": "영화 가을의 박스오피스 1위", "event_query": "영화 가을 1위",
+            "event_evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"},
+            "claims": [{"claim": "영화 가을이 박스오피스 1위에 올랐다", "claim_kind": "reported_fact",
+                        "speaker": "", "evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"},
+                        "selection_basis": ["event_relevance"], "search_query": "영화 가을 1위"}],
+        }
+        review = {
+            "primary_event": "영화 가을의 박스오피스 1위",
+            "primary_anchor": {"scope": "title", "sentence_index": None,
+                               "quote": "영화 가을 박스오피스 1위"},
+            "event_queries": [{"query": "영화 가을 박스오피스 1위",
+                               "query_anchor": {"scope": "title", "sentence_index": None,
+                                                "quote": "영화 가을 박스오피스 1위"}}],
+            "proposed_event_relation": "different",
+            "claim_scopes": {"C1": {"scope": "separate_topic", "reason": "경찰 사건은 영화 흥행과 다르다",
+                                    "scope_evidence": {"sentence_index": 1, "quote": "경찰에 접수됐다"}}},
+        }
+        second_review = deepcopy(review)
+        second_review["proposed_event_relation"] = "same"
+        second_review["claim_scopes"]["C1"] = {
+            "scope": "central", "reason": "제목의 박스오피스 결과다",
+            "scope_evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"}}
+        client = SequenceClient([secondary_plan, review, primary_plan, second_review])
+
+        result = analyze_source_article(source, client=client)
+
+        self.assertEqual(result["core_event"], "영화 가을의 박스오피스 1위")
+        self.assertEqual(result["event_query"], "영화 가을 박스오피스 1위")
+        self.assertEqual([claim["claim"] for claim in result["claims"]],
+                         ["영화 가을이 박스오피스 1위에 올랐다"])
+        self.assertTrue(result["source_scope_review"]["replanned_after_event_correction"])
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "review_source_event_scope",
+                          "replan_source_event_claims_queries", "review_source_event_scope"])
+        self.assertEqual(client.requests[2]["input_data"]["primary_event_hint"]["event"],
+                         "영화 가을의 박스오피스 1위")
+
+    def test_scope_evidence_from_other_topic_cannot_confirm_claim(self):
+        body = ("영화 가을이 박스오피스 1위에 올랐다.\n\n"
+                "한편 배우를 괴롭힌 사건이 경찰에 접수됐다.")
+        source = {**article(body=body), "title": "영화 가을 박스오피스 1위",
+                  **structure_article_body(body)}
+        plan = {
+            "core_event": "영화 가을의 박스오피스 1위", "event_query": "영화 가을 1위",
+            "event_evidence": {"sentence_index": 0, "quote": "박스오피스 1위에 올랐다"},
+            "claims": [{"claim": "배우 관련 사건이 경찰에 접수됐다", "claim_kind": "reported_fact",
+                        "speaker": "", "evidence": {"sentence_index": 1, "quote": "경찰에 접수됐다"},
+                        "selection_basis": ["event_relevance"], "search_query": "배우 경찰 사건"}],
+        }
+        review = {
+            "primary_event": "영화 가을의 박스오피스 1위",
+            "primary_anchor": {"scope": "title", "sentence_index": None,
+                               "quote": "영화 가을 박스오피스 1위"},
+            "event_queries": [{"query": "영화 가을 박스오피스 1위",
+                               "query_anchor": {"scope": "title", "sentence_index": None,
+                                                "quote": "영화 가을 박스오피스 1위"}}],
+            "proposed_event_relation": "same",
+            "claim_scopes": {"C1": {"scope": "central", "reason": "영화 흥행과 관련 있다",
+                                    "scope_evidence": {"sentence_index": 0,
+                                                       "quote": "박스오피스 1위에 올랐다"}}},
+        }
+        client = SequenceClient([plan, review, review])
+
+        with self.assertRaises(ModelResponseError):
+            analyze_source_article(source, client=client)
+
+        self.assertEqual([request["name"] for request in client.requests],
+                         ["source_event_claims_queries", "review_source_event_scope",
+                          "repair_review_source_event_scope"])
+
+    def test_metadata_unrelated_label_remains_recoverable_reserve(self):
+        metadata = [{"candidate_id": key, "title": key, "description": "",
+                     "urls": [f"https://news.example.com/{key}"]} for key in ("A1", "A2", "A3")]
+        profiles = [{"candidate_id": "A1", "relevance": "direct", "focus": "발표"},
+                    {"candidate_id": "A2", "relevance": "context", "focus": "배경"},
+                    {"candidate_id": "A3", "relevance": "unrelated", "focus": ""}]
+
+        ranked = prioritize_diverse_candidates(metadata, profiles)
+
+        self.assertEqual(ranked["ranked_candidate_ids"], ["A1", "A2", "A3"])
+
     def _response(self, *, event_quote, claim_quote):
         return {"assessments": {"A1": {
             "event_relation": "same_event",
             "event_evidence": {"sentence_index": 0, "quote": event_quote},
+            "event_focus": "primary",
+            "focus_evidence": {"sentence_index": 0, "quote": "시청은 새 계획을 발표했다"},
             "claim_matches": {"C1": {"relation": "same",
                                      "evidence": {"sentence_index": 0, "quote": claim_quote},
                                      "relation_evidence": []}},
@@ -355,6 +541,28 @@ class GroundingTests(SimpleTestCase):
         with self.assertRaises(ModelResponseError):
             verify_candidate_articles(article(), source_analysis(), [article("A1")], client=client)
         self.assertEqual(client.calls, 2)  # One fixed-input schema repair, then reject.
+
+    def test_passing_mention_cannot_become_same_event_comparison(self):
+        body = "시청은 가을 축제를 개최했다.\n새 계획도 발표했다고 짧게 언급했다."
+        candidate = {**article("A1", body=body), "title": "시청 가을 축제 개최",
+                     **structure_article_body(body)}
+        client = StubClient({"assessments": {"A1": {
+            "event_relation": "same_event",
+            "event_evidence": {"sentence_index": 1, "quote": "새 계획도 발표했다고"},
+            "event_focus": "passing_mention",
+            "focus_evidence": {"sentence_index": 0, "quote": "가을 축제를 개최했다"},
+            "claim_matches": {"C1": {"relation": "same",
+                                     "evidence": {"sentence_index": 1, "quote": "새 계획도 발표했다고"},
+                                     "relation_evidence": []}},
+        }}})
+
+        assessment = verify_candidate_articles(article(), source_analysis(),
+                                               [candidate], client=client)["assessments"][0]
+
+        self.assertEqual(assessment["event_relation"], "different_event")
+        self.assertEqual(assessment["claim_matches"], [])
+        self.assertIn({"claim_id": None, "reason": "insufficient_event_focus"},
+                      assessment["validation_warnings"])
 
 
 class CandidateSearchTests(SimpleTestCase):
@@ -1004,3 +1212,18 @@ class FullRubricPathTests(SimpleTestCase):
             self.assertEqual(rerun["status"], "ready")
             self.assertEqual(len(rerun_client.calls), 3)
             self.assertEqual(search.call_count, 2)
+
+    def test_cached_analysis_expires_when_news_comparison_is_stale(self):
+        key = "cache-key"
+        with TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / f"{key}.latest.json").write_text(json.dumps({
+                "snapshot_file": f"{key}.{'0' * 64}.json"}), encoding="utf-8")
+            bundle = {"request_key": key, "result": {"reproducibility": {"created_at": ""}}}
+            with patch("server.analysis.v2.pipeline._read_snapshot", return_value=bundle):
+                for age, expected in ((timedelta(seconds=20), bundle),
+                                      (timedelta(minutes=10), None),
+                                      (timedelta(seconds=-20), None)):
+                    bundle["result"]["reproducibility"]["created_at"] = (
+                        datetime.now(timezone.utc) - age).isoformat()
+                    self.assertEqual(_load_cached_analysis(path, key), expected)

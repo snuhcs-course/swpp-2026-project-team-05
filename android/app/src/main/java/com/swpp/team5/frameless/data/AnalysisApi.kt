@@ -190,6 +190,7 @@ internal object AnalysisApi {
             sourceOnlyClaims = sourceOnlyClaims,
             relatedOnlyMembers = relatedOnlyMembers,
             rubric = root.optJSONObject("rubric")?.let { parseRubric(it) },
+            reader = root.optJSONObject("reader")?.let { parseReader(it) },
             analysisStatus = root.optJSONObject("analysis_status")?.let { status ->
                 AnalysisStatus(
                     executionStatus = status.optString("execution_status"),
@@ -198,6 +199,144 @@ internal object AnalysisApi {
                 )
             }
         )
+    }
+
+    /** Reader는 부가 응답이다. 손상된 위치 정보로 원문에 잘못된 하이라이트를 칠하지 않는다. */
+    private fun parseReader(reader: JSONObject): ReaderResult? {
+        if (reader.optString("offset_unit") != "utf16" ||
+            reader.optString("scope") != "extracted_article_text") return null
+        val source = reader.optJSONObject("source_article")?.let { parseReaderArticle(it, expectedIndex = 0) }
+            ?: return null
+        val related = (reader.optJSONArray("related_articles") ?: JSONArray()).objects()
+            .mapNotNull { parseReaderArticle(it) }
+            .filter { it.articleIndex > 0 && it.id != source.id }
+            .distinctBy { it.id }
+        val articlesById = related.associateBy { it.id }
+        val sourceSentences = source.sentences.associateBy { it.id }
+        val version = reader.optString("version")
+        val highlights = (reader.optJSONArray("highlights") ?: JSONArray()).objects().mapNotNull { item ->
+            val claimId = item.optString("claim_id").ifBlank { null }
+            val sourceSentenceId = item.optString("source_sentence_id")
+            val sentence = sourceSentences[sourceSentenceId] ?: return@mapNotNull null
+            val sourceSpan = item.readerSpan("source_span")?.takeIf {
+                it.isWithin(source.body) && it.isWithin(sentence.span)
+            } ?: return@mapNotNull null
+            if (version == "0.1" && claimId == null) return@mapNotNull null
+            val sourceEvidence = item.readerSpan("source_evidence_span")?.takeIf { it.isWithin(sourceSpan) }
+            val pairs = (item.optJSONArray("pairs") ?: JSONArray()).objects().mapNotNull pairLoop@{ p ->
+                val articleId = p.optString("article_id")
+                val article = articlesById[articleId] ?: return@pairLoop null
+                val relatedSentenceId = p.optString("related_sentence_id")
+                val relatedSentence = article.sentences.firstOrNull { it.id == relatedSentenceId }
+                    ?: return@pairLoop null
+                val relatedSpan = p.readerSpan("related_span")?.takeIf {
+                    it.isWithin(article.body) && it.isWithin(relatedSentence.span)
+                } ?: return@pairLoop null
+                if (p.optInt("article_index", -1) != article.articleIndex) return@pairLoop null
+                if (p.optString("source_sentence_id") != sourceSentenceId ||
+                    p.readerSpan("source_span") != sourceSpan) return@pairLoop null
+                val scope = p.optString("alignment_scope")
+                if (scope !in setOf("verified_claim_relation", "equivalent_expression", "source_content_unit"))
+                    return@pairLoop null
+                if (p.readerMarkedSpan("source_evidence_span", source.body)
+                        ?.isWithin(sourceSpan) != true) return@pairLoop null
+                val relatedEvidence = p.readerMarkedSpan("related_evidence_span", article.body)
+                    ?.takeIf { it.isWithin(relatedSpan) } ?: return@pairLoop null
+                val differences = (p.optJSONArray("expression_differences") ?: JSONArray()).objects()
+                    .mapNotNull differenceLoop@{ d ->
+                        val code = d.optString("code")
+                        val sourceMarker = d.readerMarkedSpan("source_marker_span", source.body)
+                            ?.takeIf { it.isWithin(sourceSpan) }
+                        val relatedMarker = d.readerMarkedSpan("related_marker_span", article.body)
+                            ?.takeIf { it.isWithin(relatedSpan) }
+                        if (scope !in setOf("equivalent_expression", "source_content_unit") ||
+                            d.optString("status") != "provisional" ||
+                            code !in EXPRESSION_CODES || sourceMarker == null || relatedMarker == null) {
+                            return@differenceLoop null
+                        }
+                        ReaderExpressionDifference(
+                            code = code,
+                            note = d.optString("note"),
+                            sourceMarkerSpan = sourceMarker,
+                            relatedMarkerSpan = relatedMarker,
+                            status = d.optString("status")
+                        )
+                    }
+                ReaderPair(
+                    id = p.optString("pair_id").ifBlank { "${claimId ?: sourceSentenceId}:$articleId:$relatedSentenceId" },
+                    articleId = articleId,
+                    articleIndex = article.articleIndex,
+                    relatedSentenceId = relatedSentenceId,
+                    relatedSpan = relatedSpan,
+                    relatedEvidenceSpan = relatedEvidence,
+                    relation = p.optString("relation"),
+                    differenceSummary = p.optString("difference_summary"),
+                    expressionDifferences = differences
+                )
+            }.distinctBy { it.id }
+            if (pairs.isEmpty()) return@mapNotNull null
+            if (version == "0.2" && pairs.none { it.expressionDifferences.isNotEmpty() }) return@mapNotNull null
+            ReaderHighlight(claimId, sourceSentenceId, sourceSpan, sourceEvidence, pairs)
+        }
+        val stars = (reader.optJSONArray("i1_stars") ?: JSONArray()).objects().mapNotNull { item ->
+            if (reader.optString("i1_status") !in setOf("complete", "partial")) return@mapNotNull null
+            val sourceSentenceId = item.optString("source_sentence_id")
+            val sentence = sourceSentences[sourceSentenceId] ?: return@mapNotNull null
+            val span = item.readerSpan("source_span")?.takeIf { it.isWithin(sentence.span) }
+                ?: return@mapNotNull null
+            val count = item.optInt("checked_article_count", -1)
+            val observed = item.optInt("observed_count", -1)
+            val label = item.optString("label")
+            if (count <= 0 || observed != 0 || label.isBlank()) return@mapNotNull null
+            ReaderI1Star(sourceSentenceId, span, label, count)
+        }
+        return ReaderResult(
+            version = version,
+            coverage = reader.optString("coverage"),
+            sourceArticle = source,
+            relatedArticles = related,
+            highlights = highlights,
+            i1Stars = stars,
+            i1Status = reader.optString("i1_status"),
+            articleFailureCount = reader.optJSONArray("article_failures")?.length() ?: 0
+        )
+    }
+
+    private fun parseReaderArticle(item: JSONObject, expectedIndex: Int? = null): ReaderArticle? {
+        val id = item.optString("article_id")
+        val index = item.optInt("article_index", -1)
+        val body = item.optString("body")
+        if (id.isBlank() || index < 0 || (expectedIndex != null && index != expectedIndex) || body.isBlank()) return null
+        val sentences = (item.optJSONArray("sentences") ?: JSONArray()).objects().mapNotNull { s ->
+            val sentenceId = s.optString("sentence_id")
+            val span = s.readerDirectSpan()?.takeIf { it.isWithin(body) } ?: return@mapNotNull null
+            val text = s.optString("text")
+            if (sentenceId.isBlank() || text != body.substring(span.start, span.end)) return@mapNotNull null
+            ReaderSentence(sentenceId, span, text, s.optInt("paragraph_index", 0))
+        }.distinctBy { it.id }
+        return ReaderArticle(
+            id = id,
+            articleIndex = index,
+            title = item.optString("title").ifBlank { "기사 원문" },
+            url = item.optString("url").takeIf { it.isHttpUrl() },
+            body = body,
+            sentences = sentences
+        )
+    }
+
+    private fun JSONObject.readerSpan(key: String): ReaderSpan? = optJSONObject(key)?.readerDirectSpan()
+
+    private fun JSONObject.readerMarkedSpan(key: String, body: String): ReaderSpan? {
+        val raw = optJSONObject(key) ?: return null
+        val span = raw.readerDirectSpan()?.takeIf { it.isWithin(body) } ?: return null
+        return span.takeIf { raw.optString("text").isNotBlank() && body.substring(it.start, it.end) == raw.optString("text") }
+    }
+
+    private fun JSONObject.readerDirectSpan(): ReaderSpan? {
+        val start = opt("start") as? Number ?: return null
+        val end = opt("end") as? Number ?: return null
+        if (start.toDouble() != start.toInt().toDouble() || end.toDouble() != end.toInt().toDouble()) return null
+        return ReaderSpan(start.toInt(), end.toInt())
     }
 
     private fun buildLegacyClaims(

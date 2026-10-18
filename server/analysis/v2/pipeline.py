@@ -20,12 +20,13 @@ from typing import Any, Callable
 from ..diagnostics import analysis_id, log_event
 from .article_fetch import validate_article_url
 from .article_input import prepare_article
-from .article_search import search_candidate_metadata
+from .article_search import _google_grounding_enabled, search_candidate_metadata
 from .comparison_selection import select_verified_comparisons
 from .display_selection import select_display_article_ids
 from .llm_analysis import analyze_source_article, rank_comparison_candidates
-from .model_client import (GeminiJSONClient, MetricsJSONClient, SnapshotJSONClient, canonical_json,
-                          get_generation_settings, get_missing_configuration)
+from .model_client import (GeminiJSONClient, OpenRouterJSONClient, MetricsJSONClient, SnapshotJSONClient,
+                          canonical_json, get_generation_settings, get_openrouter_generation_settings,
+                          get_openrouter_api_key, get_missing_configuration)
 from .rubric_analysis import analyze_selected_articles
 from .result_output import (OperationError, make_error_record, add_result_error,
                            make_failure_result, write_json_atomic, resolve_stage_errors)
@@ -34,19 +35,29 @@ from .result_output import (OperationError, make_error_record, add_result_error,
 logger = logging.getLogger(__name__)
 
 
-PIPELINE_VERSION = "metadata-select-verify-attribution-diversity-errors-v5"
+PIPELINE_VERSION = "metadata-select-verify-reader-v6"
 PROMPT_VERSION = "grounded-expression-pairs-v3"
 RUBRIC_VERSION = "0.2.1"
 # AI-assisted integration: use a writable cache path in read-only deployments.
 DEFAULT_CACHE_DIR = Path(os.getenv("FRAMELESS_ANALYSIS_CACHE_DIR") or (Path(tempfile.gettempdir()) / "frameless-analysis-v2"))
 # AI-assisted runtime policy: leave a margin under Vercel's 300-second function limit.
 DEFAULT_UNCACHED_BUDGET_SECONDS = 240.0
+# Source discovery can inspect extra bodies, but the rubric still needs time
+# within Vercel's hard function limit. Stop optional verification early.
+RUBRIC_RESERVE_SECONDS = 75.0
+# Search coverage changes as new articles are published, even when the source
+# article body is unchanged. Never treat a local snapshot as timeless I1 data.
+DEFAULT_CACHE_MAX_AGE_SECONDS = 300.0
 LOG_ERROR_CODES = frozenset({
     "ANALYSIS_RESPONSE_INVALID", "ARTICLE_BODY_NOT_FOUND", "ARTICLE_DNS_FAILED",
     "ARTICLE_FETCH_FAILED", "ARTICLE_HTTP_ERROR", "ARTICLE_RESPONSE_INTERRUPTED",
     "ARTICLE_SIZE_LIMIT", "ARTICLE_TIMEOUT", "ARTICLE_UNSAFE_ADDRESS", "ARTICLE_UNSAFE_PROXY",
     "ARTICLE_UNSUPPORTED_CONTENT", "CACHE_WRITE_FAILED", "CANDIDATE_URL_MISSING",
-    "CONFIGURATION_ERROR", "GEMINI_CONFIGURATION_MISSING", "INPUT_ENCODING_INVALID",
+    "CONFIGURATION_ERROR", "GEMINI_CONFIGURATION_MISSING", "MODEL_CONFIGURATION_MISSING",
+    "GOOGLE_SEARCH_CONFIGURATION_MISSING",
+    "GOOGLE_SEARCH_RESPONSE_INVALID", "GOOGLE_SEARCH_TIMEOUT", "GOOGLE_SEARCH_CONNECTION_FAILED",
+    "GOOGLE_SEARCH_REDIRECT_BLOCKED", "GOOGLE_SEARCH_HTTP_ERROR",
+    "GOOGLE_SEARCH_CONFIGURATION_INVALID", "INPUT_ENCODING_INVALID",
     "INPUT_FILE_NOT_FOUND", "INPUT_FILE_UNREADABLE", "INPUT_JSON_INVALID", "INPUT_RESULT_INVALID",
     "INVALID_INPUT", "MODEL_HTTP_ERROR", "MODEL_RATE_LIMITED", "MODEL_TIMEOUT",
     "MODEL_UNAVAILABLE", "NAVER_CONFIGURATION_MISSING", "OUTPUT_WRITE_FAILED",
@@ -59,6 +70,18 @@ LOG_ERROR_CODES = frozenset({
 def _ensure_budget(deadline_at: float | None) -> None:
     if deadline_at is not None and monotonic() >= deadline_at:
         raise TimeoutError("분석 실행의 소프트 마감시간을 초과했습니다.")
+
+
+def _default_model_settings() -> dict:
+    if get_openrouter_api_key():
+        return {"provider": "openrouter", **get_openrouter_generation_settings()}
+    return {"provider": "gemini", **get_generation_settings()}
+
+
+def _create_model_client(settings: dict):
+    args = {name: settings[name] for name in ("model", "temperature", "seed", "task_models")}
+    return (OpenRouterJSONClient(**args) if settings.get("provider") == "openrouter"
+            else GeminiJSONClient(**args))
 
 
 @contextmanager
@@ -117,6 +140,9 @@ def _analysis_versions() -> dict:
                     "GEMINI_API_KEY", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"} for t in node.targets))]
             source = ast.unparse(tree)
         logic[name] = sha256(source.encode("utf-8")).hexdigest()
+    reader_path = directory.parent / "reader_analysis.py"
+    if reader_path.is_file():
+        logic["reader_analysis.py"] = sha256(reader_path.read_bytes()).hexdigest()
     return {"pipeline": PIPELINE_VERSION, "prompt": PROMPT_VERSION, "rubric": RUBRIC_VERSION,
             "logic_sha256": _digest(logic)}
 
@@ -142,7 +168,11 @@ def _load_cached_analysis(directory: Path, key: str) -> dict | None:
         if not re.fullmatch(re.escape(key) + r"\.[0-9a-f]{64}\.json", filename):
             return None
         bundle = _read_snapshot(directory / filename)
-        return bundle if bundle.get("request_key") == key else None
+        if bundle.get("request_key") != key:
+            return None
+        created = datetime.fromisoformat(bundle["result"]["reproducibility"]["created_at"])
+        age = (datetime.now(timezone.utc) - created).total_seconds()
+        return bundle if 0 <= age <= DEFAULT_CACHE_MAX_AGE_SECONDS else None
     except (OSError, ValueError, KeyError, TypeError):
         return None
 
@@ -168,7 +198,7 @@ def _record_failure(result: dict, exc: Exception, stage: str) -> dict:
     # Android can still show the grounded comparison with a partial notice.
     comparison_status = result.get("comparison_status")
     result["status"] = stage + "_failed"
-    if not (stage in {"rubric_analysis", "cache_save"}
+    if not (stage in {"rubric_analysis", "reader_analysis", "cache_save"}
             and result.get("completed_stage", 0) >= 4
             and comparison_status in {"available", "no_matches", "not_requested"}):
         result["comparison_status"] = "unavailable"
@@ -240,9 +270,9 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         result.update(source_article=source, completed_stage=1)
         stage = "configuration"
         if client is None:
-            if "GEMINI_API_KEY" in get_missing_configuration():
-                raise OperationError("Gemini API 키를 설정해 주세요.", code="GEMINI_CONFIGURATION_MISSING")
-            client = GeminiJSONClient()
+            if "MODEL_API_KEY" in get_missing_configuration():
+                raise OperationError("모델 API 키를 설정해 주세요.", code="MODEL_CONFIGURATION_MISSING")
+            client = _create_model_client(_default_model_settings())
             owned = True
         stage = "source_analysis"
         notify("2/4 LLM 호출 1: 핵심 사건·주장·검색어 생성")
@@ -270,14 +300,16 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         result["candidate_ranking"] = ranking
         stage = "candidate_collection"
         with _timed_stage(stage, _deadline_at):
+            remaining = max(0.0, _deadline_at - monotonic()) if _deadline_at is not None else 0.0
+            rubric_reserve = min(RUBRIC_RESERVE_SECONDS, remaining * 0.5)
             verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
                                                    max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
                                                    verification_batch_size=verification_batch_size, client=client,
                                                    progress=notify,
-                                                   should_stop=(lambda: monotonic() >= _deadline_at)
+                                                   should_stop=(lambda: monotonic() >= _deadline_at - rubric_reserve)
                                                    if _deadline_at is not None else None)
         collection, selection = verified["search"], verified["selection"]
-        warnings = []
+        warnings = list(selection.get("warnings", []))
         if any(query["status"] == "search_failed" for query in collection["queries"]):
             warnings.append("일부 검색어의 검색에 실패했습니다. queries의 status를 확인하세요.")
         if collection["fetch_failures"]:
@@ -357,9 +389,35 @@ def complete_rubric_analysis(discovery: dict, *, client: Any = None,
         return _record_failure(result, exc, "rubric_analysis")
 
 
+def complete_reader_analysis(discovery: dict, *, client: Any = None,
+                             progress: Callable[[str], None] | None = None) -> dict:
+    """Analyze full displayed articles while preserving verified discovery on failure."""
+    result = deepcopy(discovery)
+    if result.get("completed_stage") != 4:
+        return result
+    try:
+        from ..reader_analysis import analyze_reader_content
+
+        selected = result.get("display_selection", {}).get("selected_article_ids")
+        if not isinstance(selected, list):
+            selected = select_display_article_ids(
+                result["selection"], 3, result["search"]["candidates"])
+        reader = analyze_reader_content(result, selected, client=client, progress=progress)
+        result.update(completed_stage=5, reader_analysis=reader,
+                      warnings=list(result.get("warnings", [])) + list(reader.get("warnings", [])))
+        if (reader.get("article_failures") or reader.get("i1_status") not in {"complete", "no_candidates"}
+                or reader.get("expression_review", {}).get("status") in {"failed", "partial"}):
+            result["execution_status"] = "partial"
+        return result
+    except Exception as exc:
+        result["reader_analysis"] = None
+        return _record_failure(result, exc, "reader_analysis")
+
+
 def _limit_discovery_for_display(discovery: dict, limit: int) -> dict:
     """Bound expensive rubric calls to the same verified articles Android shows."""
-    selected = select_display_article_ids(discovery["selection"], limit)
+    selected = select_display_article_ids(discovery["selection"], limit,
+                                          discovery["search"]["candidates"])
     keep = set(selected)
     selection = discovery["selection"]
     original = {article["candidate_id"] for row in selection["claim_comparisons"]
@@ -392,7 +450,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                           use_cache: bool = True, force_refresh: bool = False,
                           cache_dir: str | Path | None = None,
                           max_rubric_articles: int | None = None,
-                          execution_budget_seconds: float | None = None) -> dict:
+                          execution_budget_seconds: float | None = None,
+                          analysis_profile: str = "legacy") -> dict:
     """Return structured results; uncached calls use a soft 240-second deadline."""
     result, stage, owned = _initial_result(url), "input_validation", False
     options = {"max_claims": max_claims, "max_candidates": max_candidates, "max_per_claim": max_per_claim,
@@ -405,6 +464,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
         if max_rubric_articles is not None and (type(max_rubric_articles) is not int or
                                                 not 1 <= max_rubric_articles <= 3):
             raise ValueError("max_rubric_articles must be an integer between 1 and 3")
+        if analysis_profile not in {"legacy", "reader"}:
+            raise ValueError("analysis_profile must be legacy or reader")
         if type(use_cache) is not bool or type(force_refresh) is not bool:
             raise ValueError("use_cache·force_refresh must be bool")
         if execution_budget_seconds is not None and (
@@ -423,12 +484,25 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             source = prepare_article(url)
         result.update(source_article=source, completed_stage=1)
         stage = "configuration"
-        settings = (get_generation_settings() if client is None else get_generation_settings(
-            getattr(client, "model", "injected:" + type(client).__qualname__),
-            temperature=getattr(client, "temperature", None), seed=getattr(client, "seed", None)))
+        if client is None:
+            settings = _default_model_settings()
+        else:
+            provider = getattr(client, "provider", "injected")
+            settings_function = (get_openrouter_generation_settings if provider == "openrouter"
+                                 else get_generation_settings)
+            settings = {"provider": provider, **settings_function(
+                getattr(client, "model", "injected:" + type(client).__name__),
+                temperature=getattr(client, "temperature", None), seed=getattr(client, "seed", None),
+                task_models=getattr(client, "task_models", {}))}
         versions = _analysis_versions()
         source_hash = _digest(source)
-        cache_options = {**options, "max_rubric_articles": max_rubric_articles}
+        cache_options = {**options, "max_rubric_articles": max_rubric_articles,
+                         "analysis_profile": analysis_profile}
+        google_grounding = _google_grounding_enabled()
+        grounded_model = (os.getenv("GOOGLE_GROUNDED_SEARCH_MODEL", "").strip() or "gemini-3.8-flash") if google_grounding else None
+        cache_options["google_grounded_search"] = {"enabled": google_grounding,
+                                                   "model": grounded_model if grounded_model and re.fullmatch(
+                                                       r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", grounded_model) else None}
         if execution_budget_seconds is not None:
             cache_options["execution_budget_seconds"] = float(execution_budget_seconds)
         key = _digest({"source_sha256": source_hash, "settings": settings, "versions": versions, "options": cache_options})
@@ -445,9 +519,9 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                 notify("저장된 동일 입력·설정의 분석 재사용 (LLM·검색 호출 없음)")
                 return result
         if client is None:
-            if "GEMINI_API_KEY" in get_missing_configuration():
-                raise OperationError("Gemini API 키를 설정해 주세요.", code="GEMINI_CONFIGURATION_MISSING")
-            client = GeminiJSONClient(**settings)
+            if "MODEL_API_KEY" in get_missing_configuration():
+                raise OperationError("모델 API 키를 설정해 주세요.", code="MODEL_CONFIGURATION_MISSING")
+            client = _create_model_client(settings)
             owned = True
         recorder = (SnapshotJSONClient(client, settings, deadline_at=deadline_at) if use_cache
                     else MetricsJSONClient(client, deadline_at=deadline_at))
@@ -463,9 +537,11 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
         if discovery["completed_stage"] == 4:
             if max_rubric_articles is not None:
                 discovery = _limit_discovery_for_display(discovery, max_rubric_articles)
-            stage = "rubric_analysis"
+            stage = "reader_analysis" if analysis_profile == "reader" else "rubric_analysis"
             with _timed_stage(stage, deadline_at):
-                result = complete_rubric_analysis(discovery, client=recorder, progress=progress)
+                result = (complete_reader_analysis(discovery, client=recorder, progress=progress)
+                          if analysis_profile == "reader" else
+                          complete_rubric_analysis(discovery, client=recorder, progress=progress))
             _log_stage_result(stage, result)
         stage = "cache_save"
         execution = recorder.execution_summary()
@@ -519,15 +595,23 @@ def evaluate_analysis_snapshot(snapshot_path: str | Path, *, client: Any = None,
     from jsonschema import ValidationError, validate
     bundle = _read_snapshot(Path(snapshot_path))
     original = bundle["settings"]
-    settings = get_generation_settings(original["model"],
+    provider = original.get("provider", "gemini")
+    settings_function = (get_openrouter_generation_settings if provider == "openrouter"
+                         else get_generation_settings)
+    settings = {"provider": provider, **settings_function(original["model"],
         temperature=original["temperature"] if temperature is None else temperature,
-        seed=original["seed"] if seed is None else seed)
+        seed=original["seed"] if seed is None else seed,
+        task_models=original.get("task_models", {}))}
     owned, notify = client is None, progress or (lambda _: None)
     if client is not None and any(getattr(client, name, settings[name]) != settings[name]
                                   for name in ("model", "temperature", "seed")):
         raise ValueError("평가 클라이언트의 모델·temperature·seed가 지정한 평가 설정과 다릅니다.")
+    if client is not None and hasattr(client, "task_models") and client.task_models != settings["task_models"]:
+        raise ValueError("평가 클라이언트의 작업별 모델 설정이 지정한 평가 설정과 다릅니다.")
+    if client is not None and hasattr(client, "provider") and client.provider != provider:
+        raise ValueError("평가 클라이언트의 모델 제공자가 지정한 평가 설정과 다릅니다.")
     if owned:
-        client = GeminiJSONClient(**settings)
+        client = _create_model_client(settings)
     rows = []
     try:
         for index, record in enumerate(bundle["requests"], 1):

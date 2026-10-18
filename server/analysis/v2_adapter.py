@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .reader_contract import build_reader
 from .v2.display_selection import select_display_article_ids
 
 
@@ -70,7 +71,7 @@ def _article_ids(raw: dict, max_related: int) -> tuple[list[str], dict[str, dict
     for key in baseline:
         if not isinstance(key, str) or key not in catalog or key not in verified:
             raise PipelineContractError("baseline article is not a verified same-event candidate")
-    return select_display_article_ids(selection, max_related), catalog
+    return select_display_article_ids(selection, max_related, candidates), catalog
 
 
 def _position_summary(row: dict) -> str:
@@ -385,4 +386,7 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
     }
     if isinstance(rubric, dict):
         result["rubric"] = _rubric_items(rubric, index_by_id, withheld_relations)
+    reader = build_reader(raw, selected_ids, catalog, index_by_id, withheld_relations)
+    if reader is not None:
+        result["reader"] = reader
     return result
