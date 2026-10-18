@@ -596,7 +596,11 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             _log_stage_result(failed_stage, discovery)
         _log_stage_result(stage, discovery)
         result = discovery
-        if discovery["completed_stage"] == 4:
+        # Reader annotations cannot be displayed when discovery has no usable
+        # comparison. Keep the search failure intact and avoid another model call.
+        reader_unavailable = (analysis_profile == "reader"
+                              and discovery.get("comparison_status") == "unavailable")
+        if discovery["completed_stage"] == 4 and not reader_unavailable:
             if max_rubric_articles is not None:
                 discovery = _limit_discovery_for_display(discovery, max_rubric_articles)
             stage = "reader_analysis" if analysis_profile == "reader" else "rubric_analysis"

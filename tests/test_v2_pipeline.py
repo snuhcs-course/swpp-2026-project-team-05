@@ -369,6 +369,55 @@ class StageBudgetTests(SimpleTestCase):
         self.assertEqual(result["completed_stage"], 4)
         self.assertEqual(result["execution_status"], "success")
 
+    def test_unavailable_discovery_skips_reader_and_preserves_search_failure(self):
+        raw = object.__new__(OpenRouterJSONClient)
+        raw.model, raw.task_models = "synthetic-model", {}
+        raw.temperature, raw.seed = 1.0, None
+        raw.usage_summary = lambda: {}
+        raw.generate_json = lambda **_request: self.fail("Reader model must not be called")
+        failure = make_error_record(OperationError("NAVER quota", code="SEARCH_HTTP_ERROR",
+                                                   http_status=429), stage="search",
+                                    query="시청 새 계획 발표", provider="naver")
+        discovery = {"completed_stage": 4, "status": "search_failed",
+                     "comparison_status": "unavailable", "execution_status": "partial",
+                     "errors": [failure], "warnings": ["검색 실패"],
+                     "source_article": article(), "source_analysis": source_analysis(),
+                     "search": {"queries": [{"query": "시청 새 계획 발표", "status": "search_failed"}],
+                                "metadata_candidates": [], "candidates": [], "fetch_failures": [],
+                                "search_status": "failed", "errors": [failure]},
+                     "selection": {"same_event_ids": [], "event_baseline_ids": [],
+                                   "assessments": [], "claim_comparisons": []}}
+        with (patch("server.analysis.v2.pipeline.prepare_article", return_value=article()),
+              patch("server.analysis.v2.pipeline.run_discovery_pipeline", return_value=discovery) as discover,
+              patch("server.analysis.v2.pipeline.complete_reader_analysis") as reader,
+              patch("server.analysis.reader_analysis._extract_source_units") as source_units):
+            result = run_analysis_pipeline(SOURCE_URL, client=raw, use_cache=False,
+                                           analysis_profile="reader")
+        self.assertIsNotNone(discover.call_args.kwargs["_after_candidate_search"])
+        reader.assert_not_called()
+        source_units.assert_not_called()
+        self.assertEqual(result["status"], "search_failed")
+        self.assertEqual(result["comparison_status"], "unavailable")
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(result["errors"], [failure])
+        self.assertEqual(result["search"]["search_status"], "failed")
+        self.assertEqual(result["reproducibility"]["execution"]["model_calls"], 0)
+
+    def test_reader_still_runs_for_no_matches_and_not_requested(self):
+        for comparison_status in ("no_matches", "not_requested"):
+            discovery = {"completed_stage": 4, "status": "no_candidates",
+                         "comparison_status": comparison_status, "execution_status": "success",
+                         "errors": [], "warnings": [], "source_article": article(),
+                         "source_analysis": source_analysis(), "search": {"candidates": []}}
+            with (self.subTest(comparison_status=comparison_status),
+                  patch("server.analysis.v2.pipeline.prepare_article", return_value=article()),
+                  patch("server.analysis.v2.pipeline.run_discovery_pipeline", return_value=discovery),
+                  patch("server.analysis.v2.pipeline.complete_reader_analysis",
+                        return_value=discovery) as reader):
+                run_analysis_pipeline(SOURCE_URL, client=object(), use_cache=False,
+                                      analysis_profile="reader")
+            reader.assert_called_once()
+
     def test_failed_prefetch_preserves_verified_discovery_as_partial(self):
         future = Future()
         future.set_exception(TimeoutError("synthetic provider timeout"))
