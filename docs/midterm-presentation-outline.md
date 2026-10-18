@@ -18,7 +18,7 @@
 | 8. Current UI preview | 1:30 | Show the clearly labeled synthetic screen. Point to the quote and original link, then state that live service and human source review remain pending [S3]. |
 | 9. Team and integration status | 0:50 | Credit each person's work. Draft PR #10 connects the pieces; it is not merged or live-verified [S7, S8]. |
 | 10. Before we call it a demo | 0:35 | Run one real v2 request, inspect cited passages, then record the same result on Android [S3, S9]. |
-| 11. AI in the workflow | 0:30 | AI helped draft this integration; code tests exposed assumptions. Human review must judge the comparisons. Confirm teammates’ own examples before speaking for them [S10]. |
+| 11. AI in the workflow | 0:30 | AI helped draft this integration. Review found a relation mismatch between two cards, which we fixed and covered with a regression test. Human review must judge the comparisons. Confirm teammates’ own examples before speaking for them [S10]. |
 
 The timings total **8:00**. Speaker notes in the deck contain source links and reminders; keep them out of the visible slides. If a verified live recording becomes available, shorten the narration on slide 8 and use the 1:30 slot for the clip.
 
