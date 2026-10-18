@@ -18,6 +18,7 @@ from .article_fetch import validate_article_url
 from .article_input import prepare_article
 from .article_search import search_candidate_metadata
 from .comparison_selection import select_verified_comparisons
+from .display_selection import select_display_article_ids
 from .llm_analysis import analyze_source_article, rank_comparison_candidates
 from .model_client import (GeminiJSONClient, SnapshotJSONClient, canonical_json,
                           get_generation_settings, get_missing_configuration)
@@ -41,7 +42,7 @@ def _analysis_versions() -> dict:
     """Invalidate saved results when analysis logic changes, without hashing API keys."""
     directory = Path(__file__).resolve().parent
     logic = {}
-    for name in ("pipeline.py", "llm_analysis.py", "rubric_analysis.py", "comparison_selection.py",
+    for name in ("pipeline.py", "display_selection.py", "llm_analysis.py", "rubric_analysis.py", "comparison_selection.py",
                  "article_input.py", "article_fetch.py", "article_search.py", "model_client.py", "result_output.py"):
         source = (directory / name).read_text(encoding="utf-8-sig")
         if name == "model_client.py":
@@ -125,7 +126,8 @@ def _finish_discovery(result: dict) -> dict:
         ):
             add_result_error(result, make_error_record(OperationError("이전 실행에서 해당 검색어의 검색에 실패했습니다.",
                              code="SEARCH_FAILED"), stage="search", query=query.get("query", "")))
-    result["execution_status"] = "partial" if result["errors"] else "success"
+    result["execution_status"] = "partial" if (result["errors"] or
+        result.get("display_selection", {}).get("truncated")) else "success"
     if not result["source_analysis"]["claims"]:
         result["status"], result["comparison_status"] = "no_claims", "not_requested"
     elif collection.get("search_status") == "failed":
@@ -263,12 +265,41 @@ def complete_rubric_analysis(discovery: dict, *, client: Any = None,
         return _record_failure(result, exc, "rubric_analysis")
 
 
+def _limit_discovery_for_display(discovery: dict, limit: int) -> dict:
+    """Bound expensive rubric calls to the same verified articles Android shows."""
+    selected = select_display_article_ids(discovery["selection"], limit)
+    keep = set(selected)
+    selection = discovery["selection"]
+    original = {article["candidate_id"] for row in selection["claim_comparisons"]
+                for article in row["articles"]} | set(selection["event_baseline_ids"])
+    omitted = sorted(original - keep)
+    for row in selection["claim_comparisons"]:
+        row["articles"] = [article for article in row["articles"] if article["candidate_id"] in keep]
+    selection["event_baseline_ids"] = [key for key in selection["event_baseline_ids"] if key in keep]
+    uncovered = [row["claim_id"] for row in selection["claim_comparisons"]
+                 if not row["articles"] and row["claim_id"] not in selection.get("exhausted_claim_ids", [])]
+    discovery["display_selection"] = {
+        "article_limit": limit, "selected_article_ids": selected,
+        "omitted_article_ids": omitted, "claims_without_displayed_comparison": uncovered,
+        "truncated": bool(omitted),
+    }
+    if omitted:
+        discovery.setdefault("warnings", []).append(
+            f"화면에 표시할 수 있는 비교 기사 {limit}개를 우선 분석했습니다. "
+            "나머지 검증 기사와 그에 연결된 주장 비교는 표시·루브릭 분석에서 제외했습니다.")
+        if uncovered:
+            discovery["warnings"].append(
+                "표시 기사 제한으로 비교 근거가 사라진 입력 주장: " + ", ".join(uncovered))
+    return discovery
+
+
 def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int = 20,
                           max_per_claim: int = 3, display_per_query: int = 10,
                           event_baseline_limit: int = 5, verification_batch_size: int = 3,
                           client: Any = None, progress: Callable[[str], None] | None = None,
                           use_cache: bool = True, force_refresh: bool = False,
-                          cache_dir: str | Path | None = None) -> dict:
+                          cache_dir: str | Path | None = None,
+                          max_rubric_articles: int | None = None) -> dict:
     """Return success, partial data or a structured failure for every operation."""
     result, stage, owned = _initial_result(url), "input_validation", False
     options = {"max_claims": max_claims, "max_candidates": max_candidates, "max_per_claim": max_per_claim,
@@ -278,6 +309,9 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
     try:
         url = validate_article_url(url)
         _validate_pipeline_options(options)
+        if max_rubric_articles is not None and (type(max_rubric_articles) is not int or
+                                                not 1 <= max_rubric_articles <= 3):
+            raise ValueError("max_rubric_articles must be an integer between 1 and 3")
         if type(use_cache) is not bool or type(force_refresh) is not bool:
             raise ValueError("use_cache·force_refresh must be bool")
         stage = "source_fetch"
@@ -290,7 +324,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
             temperature=getattr(client, "temperature", None), seed=getattr(client, "seed", None)))
         versions = _analysis_versions()
         source_hash = _digest(source)
-        key = _digest({"source_sha256": source_hash, "settings": settings, "versions": versions, "options": options})
+        cache_options = {**options, "max_rubric_articles": max_rubric_articles}
+        key = _digest({"source_sha256": source_hash, "settings": settings, "versions": versions, "options": cache_options})
         directory = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
         if use_cache and not force_refresh:
             bundle = _load_cached_analysis(directory, key)
@@ -311,6 +346,8 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
                                            _prepared_source=source)
         result = discovery
         if discovery["completed_stage"] == 4:
+            if max_rubric_articles is not None:
+                discovery = _limit_discovery_for_display(discovery, max_rubric_articles)
             stage = "rubric_analysis"
             result = complete_rubric_analysis(discovery, client=recorder, progress=progress)
         stage = "cache_save"

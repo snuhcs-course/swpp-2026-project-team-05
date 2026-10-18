@@ -3,13 +3,16 @@
 # AI-assisted Iteration 2 tests; all article content here is synthetic.
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
 from django.test import Client, SimpleTestCase
 
 from server.analysis.v2_adapter import PipelineContractError, adapt_v2_result
-from server.analysis.v2.pipeline import complete_rubric_analysis
+from server.analysis.v2.display_selection import select_display_article_ids
+from server.analysis.v2.pipeline import (_finish_discovery, _limit_discovery_for_display,
+                                         complete_rubric_analysis, run_analysis_pipeline)
 
 
 SOURCE_URL = "https://news.example.com/source"
@@ -94,6 +97,47 @@ def pipeline_result():
 
 
 class AdapterTests(SimpleTestCase):
+    def test_display_selection_covers_distinct_claims_before_repeated_matches(self):
+        selection = {"event_baseline_ids": ["E"], "claim_comparisons": [
+            {"claim_id": "C1", "articles": [{"candidate_id": "A"}, {"candidate_id": "D"}]},
+            {"claim_id": "C2", "articles": [{"candidate_id": "A"}, {"candidate_id": "D"}]},
+            {"claim_id": "C3", "articles": [{"candidate_id": "B"}, {"candidate_id": "D"}]},
+            {"claim_id": "C4", "articles": [{"candidate_id": "C"}]},
+        ]}
+        # A and D have more repeated matches, but C is the only C4 evidence.
+        self.assertEqual(select_display_article_ids(selection, 2), ["D", "C"])
+
+    def test_limited_rubric_scope_and_partial_status_are_explicit(self):
+        raw = deepcopy(pipeline_result())
+        raw["source_analysis"]["claims"].append(
+            {"claim_id": "C3", "claim": "세 번째 주장", "evidence": {"quote": "세 번째 주장"}})
+        raw["selection"]["claim_comparisons"].append({"claim_id": "C3", "articles": [
+            {"candidate_id": "C", "relation": "same", "evidence": {"quote": "C 기사 세 번째 주장"}}]})
+        raw["selection"]["event_baseline_ids"] = []
+        limited = _limit_discovery_for_display(raw, 1)
+        self.assertEqual(limited["display_selection"]["selected_article_ids"], ["A"])
+        self.assertEqual(limited["display_selection"]["claims_without_displayed_comparison"], ["C3"])
+        self.assertEqual([len(row["articles"]) for row in limited["selection"]["claim_comparisons"]], [1, 1, 0])
+        self.assertEqual(_finish_discovery(limited)["execution_status"], "partial")
+        self.assertIn("C3", " ".join(limited["warnings"]))
+
+    @patch("server.analysis.v2.pipeline.prepare_article")
+    @patch("server.analysis.v2.pipeline.run_discovery_pipeline")
+    @patch("server.analysis.v2.pipeline.complete_rubric_analysis")
+    def test_full_pipeline_limits_articles_before_rubric_call(self, rubric, discovery, prepare):
+        raw = pipeline_result()
+        raw["completed_stage"] = 4
+        discovery.return_value = raw
+        prepare.return_value = raw["source_article"]
+        rubric.side_effect = lambda stage_four, **_kwargs: stage_four
+        result = run_analysis_pipeline(SOURCE_URL, client=object(), use_cache=False, max_rubric_articles=1)
+        seen = rubric.call_args.args[0]
+        self.assertEqual(seen["display_selection"]["selected_article_ids"], ["A"])
+        self.assertEqual([article["candidate_id"] for row in seen["selection"]["claim_comparisons"]
+                          for article in row["articles"]], ["A", "A"])
+        self.assertEqual(seen["selection"]["event_baseline_ids"], [])
+        self.assertTrue(result["display_selection"]["truncated"])
+
     def test_android_golden_fixture_matches_python_adapter(self):
         fixture = Path(__file__).resolve().parents[1] / "android/app/src/test/resources/v2_android_response.json"
         self.assertEqual(
@@ -138,8 +182,23 @@ class AdapterTests(SimpleTestCase):
         member = result["comparison"]["issues"][0]["members"][2]
         self.assertEqual(member["relation_to_source"], "uncertain")
         self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        withheld_i1 = next(row for row in result["rubric"]["information_differences"]
+                           if row["code"] == "I1" and row["claim_id"] == "C1" and row["article_index"] == 2)
+        self.assertIn("보류", withheld_i1["value"])
+        self.assertEqual(withheld_i1["sentence"], "B 기사는 다른 수치를 보도했다")
         self.assertFalse(any(row["code"] == "I2" and row["article_index"] == 2
                              for row in result["rubric"]["information_differences"]))
+
+    def test_conflicting_found_relations_are_withheld_in_issue_and_i1(self):
+        raw = pipeline_result()
+        raw["rubric_analysis"]["claim_analyses"][0]["information"]["I1"][1]["relation"] = "opposes"
+        result = adapt_v2_result(raw, max_related=2, requested_url=SOURCE_URL)
+        member = result["comparison"]["issues"][0]["members"][1]
+        self.assertEqual(member["relation_to_source"], "uncertain")
+        i1 = next(row for row in result["rubric"]["information_differences"]
+                  if row["code"] == "I1" and row["claim_id"] == "C1" and row["article_index"] == 1)
+        self.assertIn("보류", i1["value"])
+        self.assertNotIn("반박", i1["value"])
 
     def test_no_match_baseline_later_found_is_displayed_as_unresolved(self):
         raw = pipeline_result()
@@ -155,6 +214,30 @@ class AdapterTests(SimpleTestCase):
         self.assertEqual(member["relation_to_source"], "uncertain")
         self.assertEqual(result["analysis_status"]["comparison_status"], "available")
         self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        i1 = next(row for row in result["rubric"]["information_differences"]
+                  if row["code"] == "I1" and row["claim_id"] == "C1" and row["article_index"] == 1)
+        self.assertIn("보류", i1["value"])
+        self.assertNotIn("같은 쟁점", i1["value"])
+
+    def test_later_found_passage_in_other_claims_display_article_is_not_hidden(self):
+        raw = pipeline_result()
+        raw["selection"]["event_baseline_ids"] = []
+        raw["selection"]["claim_comparisons"][0]["articles"] = []
+        raw["selection"]["claim_comparisons"][1]["articles"] = [{
+            "candidate_id": "C", "title": "C 기사", "url": "https://news.example.com/c",
+            "relation": "same", "evidence": {"quote": "C 기사는 새 계획을 보도했다"}}]
+        raw["rubric_analysis"]["claim_analyses"][0]["information"]["I1"].append(
+            {"article_id": "C", "presence": "found", "relation": "same_issue",
+             "evidence": [{"quote": "C 기사는 관객 수의 다른 면을 보도했다"}]})
+        result = adapt_v2_result(raw, max_related=1, requested_url=SOURCE_URL)
+        member = result["comparison"]["issues"][0]["members"][1]
+        self.assertEqual(member["candidate_id"], "C")
+        self.assertEqual(member["relation_to_source"], "uncertain")
+        self.assertEqual(member["evidence"]["quote"], "C 기사는 관객 수의 다른 면을 보도했다")
+        self.assertEqual(result["analysis_status"]["execution_status"], "partial")
+        i1 = next(row for row in result["rubric"]["information_differences"]
+                  if row["code"] == "I1" and row["claim_id"] == "C1" and row["article_index"] == 1)
+        self.assertIn("보류", i1["value"])
 
     def test_partial_rubric_failure_preserves_verified_comparison(self):
         raw = pipeline_result()
@@ -196,6 +279,14 @@ class IntegratedApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["comparison"]["issues"][0]["claim_id"], "C1")
         analyze.assert_called_once_with(SOURCE_URL, max_related=2)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_v2_limits_rubric_to_displayed_article_count(self, pipeline):
+        from server.views import analyze_related_articles_v2
+        pipeline.return_value = pipeline_result()
+        result = analyze_related_articles_v2(SOURCE_URL, max_related=2)
+        self.assertEqual(len(result["related_articles"]), 2)
+        self.assertEqual(pipeline.call_args.kwargs["max_rubric_articles"], 2)
 
     @patch("server.views.analyze_related_articles_v2")
     def test_v2_unavailable_is_not_reported_as_no_matches(self, analyze):

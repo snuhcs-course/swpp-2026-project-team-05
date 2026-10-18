@@ -804,7 +804,10 @@ def analyze_selected_articles(discovery: dict, *, client: Any = None,
             ):
                 raise ModelResponseError("입력 기사 정보 분석이 기존 핵심 주장 원문 근거와 일치하지 않습니다.")
             selected = [a["candidate_id"] for a in comparisons[claim["claim_id"]]["articles"]]
-            information_ids = list(dict.fromkeys(["S0"] + selected + baseline_ids))
+            # Each annotated article was checked against every source claim.
+            # Preserve those observations even when the early claim selector
+            # chose the article for a different claim.
+            information_ids = list(articles)
             information = {f"I{i}": [] for i in range(1, 6)}
             for key in information_ids:
                 annotation = annotations[key]

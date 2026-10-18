@@ -44,6 +44,7 @@ def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
         source_url,
         max_per_claim=max_related,
         event_baseline_limit=max_related,
+        max_rubric_articles=max_related,
         use_cache=False,  # Serverless function files are not persistent storage.
     )
     if not isinstance(raw, dict):

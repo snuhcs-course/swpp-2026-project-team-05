@@ -7,8 +7,9 @@ does not turn an unselected article into a negative match or invent P3 questions
 # AI-assisted integration code (Iteration 2); review with contract tests before use.
 from __future__ import annotations
 
-from collections import Counter
 from typing import Any
+
+from .v2.display_selection import select_display_article_ids
 
 
 class PipelineContractError(ValueError):
@@ -57,7 +58,6 @@ def _article_ids(raw: dict, max_related: int) -> tuple[list[str], dict[str, dict
         raise PipelineContractError("verified article IDs are missing")
     verified = set(same_event)
     comparisons = _rows(selection.get("claim_comparisons"), "selection.claim_comparisons")
-    first_seen, counts = {}, Counter()
     for row in comparisons:
         seen_for_claim = set()
         for article in _rows(row.get("articles"), "claim_comparisons.articles"):
@@ -67,14 +67,10 @@ def _article_ids(raw: dict, max_related: int) -> tuple[list[str], dict[str, dict
             if key in seen_for_claim:
                 raise PipelineContractError("duplicate article in one claim comparison")
             seen_for_claim.add(key)
-            first_seen.setdefault(key, len(first_seen))
-            counts[key] += 1
     for key in baseline:
         if not isinstance(key, str) or key not in catalog or key not in verified:
             raise PipelineContractError("baseline article is not a verified same-event candidate")
-        first_seen.setdefault(key, len(first_seen))
-    ordered = sorted(first_seen, key=lambda key: (-counts[key], first_seen[key]))
-    return ordered[:max_related], catalog
+    return select_display_article_ids(selection, max_related), catalog
 
 
 def _position_summary(row: dict) -> str:
@@ -96,7 +92,8 @@ def _position_summary(row: dict) -> str:
     return place
 
 
-def _rubric_items(rubric: dict, index_by_id: dict[str, int]) -> dict:
+def _rubric_items(rubric: dict, index_by_id: dict[str, int],
+                  withheld_relations: dict[tuple[str, str], dict[str, str]]) -> dict:
     meta = rubric.get("rubric") if isinstance(rubric.get("rubric"), dict) else {}
     information, expression = [], []
     for claim_row in _rows(rubric.get("claim_analyses", []), "rubric_analysis.claim_analyses"):
@@ -118,7 +115,14 @@ def _rubric_items(rubric: dict, index_by_id: dict[str, int]) -> dict:
             relation = row.get("relation", "uncertain")
             evidence = next((_quote(e) for e in row.get("evidence", []) if _quote(e)), "")
             evidence = evidence or _quote(row.get("headline_evidence"))
-            if presence == "not_found":
+            withheld = withheld_relations.get((claim_id, key))
+            if withheld:
+                evidence = evidence or withheld["evidence"]
+                if withheld["reason"] == "stage_disagreement":
+                    value = "초기 검증과 후속 정보 분석의 관계 판정이 달라 보류했어요. 대응 원문은 확인해 주세요."
+                else:
+                    value = "후속 정보 분석에서 대응 구절을 찾았지만 초기 비교에서 확인되지 않아 관계 판정을 보류했어요."
+            elif presence == "not_found":
                 value = "수집한 기사 본문에서 이 입력 주장에 대응하는 구절을 찾지 못했어요. 누락 의도는 판정하지 않아요."
             elif presence == "found":
                 owner = row.get("relation_owner")
@@ -250,6 +254,7 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
                     later_i1[(claim_row.get("claim_id"), row.get("article_id"))] = row
     issues = []
     downgraded = False
+    withheld_relations: dict[tuple[str, str], dict[str, str]] = {}
     for index, claim in enumerate(claims):
         claim_id = claim["claim_id"]
         source_quote = _quote(claim.get("evidence"))
@@ -276,6 +281,10 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
                 or later.get("relation") != earlier_relation
             )
             downgraded |= disagreement
+            if disagreement:
+                withheld_relations[(claim_id, key)] = {
+                    "reason": "stage_disagreement", "evidence": evidence,
+                }
             members.append({"article_index": index_by_id[key],
                             "candidate_id": key,
                             "title": article.get("title") or candidate.get("title") or key,
@@ -288,11 +297,11 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
                             "has_multiple_voices": article.get("has_multiple_voices", False),
                             "relation_warning": "후속 분석에서 관계를 확인하지 못했어요." if disagreement else None,
                             "evidence": {"quote": evidence}})
-        # The full-article annotation can find a grounded passage in a verified
-        # event baseline that the earlier claim selector did not accept. Expose
-        # the passage as unresolved rather than falsely reporting no match.
+        # The full-article annotation can find a grounded passage in any
+        # displayed article that the earlier claim selector did not accept.
+        # Expose it as unresolved rather than falsely reporting no match.
         for key in selected_ids:
-            if key in selected_for_claim or key not in selection["event_baseline_ids"]:
+            if key in selected_for_claim:
                 continue
             later = later_i1.get((claim_id, key))
             if not later or later.get("presence") != "found":
@@ -303,6 +312,9 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
                 continue
             candidate = catalog[key]
             downgraded = True
+            withheld_relations[(claim_id, key)] = {
+                "reason": "later_found", "evidence": evidence,
+            }
             members.append({"article_index": index_by_id[key], "candidate_id": key,
                             "title": candidate.get("title") or key, "url": candidate.get("url") or "",
                             "source_claim_index": index, "relation_to_source": "uncertain",
@@ -336,5 +348,5 @@ def adapt_v2_result(raw: dict, *, max_related: int, requested_url: str) -> dict:
                             "warnings": warnings, "errors": safe_errors},
     }
     if isinstance(rubric, dict):
-        result["rubric"] = _rubric_items(rubric, index_by_id)
+        result["rubric"] = _rubric_items(rubric, index_by_id, withheld_relations)
     return result
