@@ -161,6 +161,43 @@ class ModelRoutingTests(TestCase):
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
     @patch("httpx.Client")
+    def test_gemini_verifier_bounds_reasoning_without_changing_output_or_reader_tasks(self, constructor):
+        constructor.return_value.post.return_value = SimpleNamespace(
+            status_code=200, content=b"synthetic-envelope",
+            json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
+        )
+        client = OpenRouterJSONClient()
+        request = {"instructions": "synthetic", "input_data": {}, "schema": {"type": "object"},
+                   "max_output_tokens": 16384}
+        client.generate_json(name="verify_selected_candidate_bodies", **request)
+        client.generate_json(name="repair_verify_selected_candidate_bodies", **request)
+        client.generate_json(name="related_content_alignment", **request)
+        sent = [call.kwargs["json"] for call in constructor.return_value.post.call_args_list]
+        self.assertEqual([body.get("reasoning") for body in sent],
+                         [{"effort": "medium"}, {"effort": "medium"}, None])
+        self.assertEqual([body["max_tokens"] for body in sent], [16384] * 3)
+        self.assertTrue(all(body["provider"]["require_parameters"] for body in sent))
+        client.close()
+
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
+    @patch("httpx.Client")
+    def test_gemini_verifier_reasoning_respects_remaining_deadline(self, constructor):
+        constructor.return_value.post.return_value = SimpleNamespace(
+            status_code=200, content=b"synthetic-envelope",
+            json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
+        )
+        client = OpenRouterJSONClient()
+        client.generate_json(name="verify_selected_candidate_bodies", instructions="synthetic",
+                             input_data={}, schema={"type": "object"}, max_output_tokens=16384,
+                             timeout_budget_ms=22000)
+        call = constructor.return_value.post.call_args
+        self.assertEqual(call.kwargs["json"]["reasoning"], {"effort": "medium"})
+        self.assertLessEqual(call.kwargs["timeout"], 22.0)
+        self.assertGreater(call.kwargs["timeout"], 0)
+        client.close()
+
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
+    @patch("httpx.Client")
     def test_length_without_content_is_still_classified_as_truncation(self, constructor):
         constructor.return_value.post.return_value = SimpleNamespace(
             status_code=200, content=b"synthetic-envelope",

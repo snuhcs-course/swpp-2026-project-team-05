@@ -201,6 +201,27 @@ class OpenRouterExaSearchTests(TestCase):
                          [("naver", "search_failed"), ("openrouter_exa", "searched")])
         self.assertEqual([row["provider"] for row in result["errors"]], ["naver"])
 
+    def test_partial_naver_failure_with_no_candidate_reaches_exa(self):
+        queries = ["청계천 수질 조사", "청계천 수질 발표"]
+
+        def partial_naver(query, _display):
+            if query == queries[0]:
+                return []
+            raise OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=partial_naver),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.get_openrouter_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.search_google_grounded_news",
+                    side_effect=OperationError("Google quota", code="GOOGLE_SEARCH_HTTP_ERROR", http_status=429)),
+              patch("server.analysis.v2.article_search.search_openrouter_exa_news", return_value=[EXA_ROW]) as exa):
+            result = search_candidate_metadata(SOURCE, {**ANALYSIS, "event_queries": queries})
+        self.assertEqual(result["metadata_candidates"][0]["urls"], [EXA_ROW["link"]])
+        self.assertEqual([error["provider"] for error in result["errors"]],
+                         ["naver", "google_grounding"])
+        exa.assert_called_once()
+
     def test_exa_error_codes_survive_discovery_stage_logging(self):
         codes = ["OPENROUTER_SEARCH_CONFIGURATION_MISSING", "OPENROUTER_SEARCH_CONFIGURATION_INVALID",
                  "OPENROUTER_SEARCH_RESPONSE_INVALID", "OPENROUTER_SEARCH_CITATIONS_MISSING",

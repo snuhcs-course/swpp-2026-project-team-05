@@ -614,6 +614,14 @@ class OpenRouterJSONClient:
             "provider": {"require_parameters": True},
             "max_tokens": max_output_tokens,
         }
+        # This verifier only decides whether a fetched report covers the same
+        # event and grounded claims. Gemini's default thinking can consume the
+        # entire completion budget before it emits the short JSON verdict.
+        # Keep reasoning enabled, but ask for a bounded middle level here;
+        # the later Reader tasks retain their own default reasoning depth.
+        if (task_name == "verify_selected_candidate_bodies"
+                and re.match(r"^google/gemini-3\.(?:[6-9]|[1-9][0-9])(?:-|$)", routed_model)):
+            request["reasoning"] = {"effort": "medium"}
         if self.seed is not None:
             request["seed"] = self.seed
         # Gemini 3.6+ can ignore or reject sampling controls even through a
