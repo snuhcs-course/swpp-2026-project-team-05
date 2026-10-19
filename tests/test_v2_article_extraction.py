@@ -9,6 +9,7 @@ from server.analysis.v2.article_fetch import (
     _extract_naver_article_body,
     _extract_yna_article_body,
     _extract_ytn_article_body,
+    _strip_thefact_footer,
     _strip_ytn_footer,
     fetch_article,
 )
@@ -168,6 +169,29 @@ class YtnExtractionTests(TestCase):
             article = fetch_article("https://www.ytn.co.kr.example.com/story")
         self.assertEqual(article["body"], generic_body)
         generic_extract.assert_called_once()
+
+
+class TheFactExtractionTests(TestCase):
+    def test_terminal_tip_block_is_removed_without_changing_story(self):
+        story = ("첫 문단은 임명 사실을 알립니다.\n"
+                 "둘째 문단은 청문회 의견을 전합니다.")
+        raw = (story + "\nhoney@tf.co.kr\n"
+               "- 발로 뛰는 <더팩트>는 24시간 여러분의 제보를 기다립니다.\n"
+               "- · 카카오톡: '더팩트제보' 검색\n"
+               "- · 이메일: jebo@tf.co.kr\n"
+               "- · 뉴스 홈페이지: https://talk.tf.co.kr/bbs/report/write")
+        response = BytesIO(b"<html><head><title>Example</title></head><body></body></html>")
+        response.headers = Message()
+        response.headers.add_header("Content-Type", "text/html; charset=utf-8")
+        with (patch("server.analysis.v2.article_fetch.build_opener") as build,
+              patch("trafilatura.extract", return_value=raw)):
+            build.return_value.open.return_value = response
+            article = fetch_article("https://news.tf.co.kr/read/ptoday/example.htm")
+        self.assertEqual(article["body"], story)
+        self.assertEqual(_strip_thefact_footer(story + "\nhoney@tf.co.kr"),
+                         story + "\nhoney@tf.co.kr")
+        self.assertEqual(_strip_thefact_footer(raw + "\n후속 기사 문단입니다."),
+                         raw + "\n후속 기사 문단입니다.")
 
 
 NAVER_BODY = (

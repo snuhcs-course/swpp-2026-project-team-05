@@ -26,6 +26,9 @@ _YTN_COPYRIGHT = re.compile(
     r"(?:\[저작권자\(c\)\s*YTN\b.*\]|Copyright\s*\(c\)\s*YTN\b.*)",
     re.IGNORECASE,
 )
+_THEFACT_HOSTS = frozenset({"news.tf.co.kr", "www.tf.co.kr"})
+_THEFACT_AUTHOR_EMAIL = re.compile(r"[\w.+-]+@tf\.co\.kr", re.IGNORECASE)
+_THEFACT_TIP = "발로 뛰는 <더팩트>는 24시간 여러분의 제보를 기다립니다."
 
 
 class ArticleFetchError(RuntimeError):
@@ -285,6 +288,42 @@ def _strip_ytn_footer(body: str) -> str:
     return body.strip()
 
 
+def _thefact_tip_detail(line: str) -> bool:
+    """Recognize the site's fixed tip links, not arbitrary article sentences."""
+    detail = line.strip().lstrip("-· ").strip()
+    return (detail.startswith("카카오톡: '더팩트제보'")
+            or detail.casefold() == "이메일: jebo@tf.co.kr"
+            or detail.startswith("뉴스 홈페이지: https://talk.tf.co.kr/")
+            or detail.startswith("네이버 메인 더팩트 구독하고")
+            or detail.startswith("그곳이 알고싶냐?"))
+
+
+def _strip_thefact_footer(body: str) -> str:
+    """Remove only a verified terminal tip block and its adjacent author email.
+
+    Trafilatura includes The Fact's ``dl.botJebo`` in otherwise good article
+    extraction. Require its exact heading and tip email within a short final
+    run. A standalone reporter email, a quoted heading, or an unexpected line
+    after the heading is left intact rather than risking lost story text.
+    """
+    lines = body.splitlines(keepends=True)
+    nonblank = [(index, line.strip()) for index, line in enumerate(lines) if line.strip()]
+    for position in range(max(0, len(nonblank) - 12), len(nonblank)):
+        index, line = nonblank[position]
+        if line.lstrip("- ").strip() != _THEFACT_TIP:
+            continue
+        details = [text for _, text in nonblank[position + 1:]]
+        if (not details
+                or not all(_thefact_tip_detail(text) for text in details)
+                or not any(text.lstrip("-· ").strip().casefold() ==
+                           "이메일: jebo@tf.co.kr" for text in details)):
+            continue
+        if position and _THEFACT_AUTHOR_EMAIL.fullmatch(nonblank[position - 1][1]):
+            index = nonblank[position - 1][0]
+        return "".join(lines[:index]).rstrip()
+    return body.strip()
+
+
 def _extract_ytn_article_body(html: str) -> str | None:
     """Read YTN's article container without its adjacent text ads.
 
@@ -462,6 +501,8 @@ def fetch_article(url: str) -> dict[str, str]:
     parser.feed(html)
     if _is_ytn_host(hostname) or parser.publisher.casefold() == "ytn":
         body = _strip_ytn_footer(body)
+    if hostname in _THEFACT_HOSTS:
+        body = _strip_thefact_footer(body)
     if not body.strip():
         raise ArticleFetchError("HTML에서 기사 본문을 찾지 못했습니다.", stage="extraction")
     title = parser.meta_title or unescape(parser.page_title).strip()
