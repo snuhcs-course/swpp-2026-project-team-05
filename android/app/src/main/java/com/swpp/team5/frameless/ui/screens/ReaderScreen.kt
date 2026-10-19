@@ -68,7 +68,6 @@ import kotlinx.coroutines.android.awaitFrame
 import kotlin.math.roundToInt
 
 /** The source article remains intact. Badges are UI annotations outside its quoted sentences. */
-private val ReaderMatch = Color(0xFFDBECEB)
 private val ReaderExpression = Color(0xFFE9E1F5)
 private val ReaderMarker = Color(0xFFE5D0F2)
 
@@ -82,8 +81,9 @@ internal data class ReaderTarget(
         .distinct().sorted()
 }
 
-/** A sentence may carry several claims. Keep one tappable span and show all verified pairs. */
+/** Only A–G evidence is a visible tap target. Neutral alignments remain in reader.pairs. */
 internal fun ReaderResult.targets(): List<ReaderTarget> = pairs
+    .filter { it.expressionDifferences.isNotEmpty() }
     .groupBy { it.sourceSentenceId to it.sourceSpan }
     .map { (identity, items) -> ReaderTarget(identity.first, identity.second, items.distinctBy { it.id }) }
     .sortedWith(compareBy({ it.span.start }, { it.span.end }))
@@ -105,7 +105,9 @@ internal fun sourceReaderText(
     targets: List<ReaderTarget>,
     showExpressions: Boolean = true
 ): AnnotatedString {
-    val byStart = targets.associateBy { it.span.start }
+    val byStart = if (showExpressions) {
+        targets.filter { it.codes.isNotEmpty() }.associateBy { it.span.start }
+    } else emptyMap()
     val starsByEnd = reader.i1Stars.groupBy { it.sourceSpan.end }
     val body = reader.sourceArticle.body
     return buildAnnotatedString {
@@ -123,7 +125,7 @@ internal fun sourceReaderText(
                 append("\u2060★")
                 pop()
             }
-            if (showExpressions && ending?.codes?.isNotEmpty() == true) {
+            if (ending?.codes?.isNotEmpty() == true) {
                 pushStringAnnotation("reader_target", ending.key)
                 pushStyle(SpanStyle(color = Fl.InkDiff, fontWeight = FontWeight.Bold))
                 append(" 〔${ending.codes.joinToString("·")}〕")
@@ -135,7 +137,7 @@ internal fun sourceReaderText(
                 active = starting
                 pushStringAnnotation("reader_target", starting.key)
                 pushStyle(SpanStyle(
-                    background = if (showExpressions && starting.codes.isNotEmpty()) ReaderExpression else ReaderMatch,
+                    background = ReaderExpression,
                     textDecoration = TextDecoration.Underline
                 ))
             }
@@ -151,9 +153,10 @@ internal fun ReaderScreen(
     onNewArticle: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
-    val targets = remember(reader) { reader.targets().nonOverlapping() }
     val showExpressions = analysisStatus?.executionStatus != "failed"
-    val hasExpressionDifferences = showExpressions && targets.any { it.codes.isNotEmpty() }
+    val targets = remember(reader, showExpressions) {
+        if (showExpressions) reader.targets().nonOverlapping() else emptyList()
+    }
     val fullReview = reader.version == "0.2" && reader.coverage == "all_source_sentences_reviewed"
     val partial = analysisStatus?.executionStatus in setOf("partial", "failed") ||
         reader.articleFailureCount > 0 || reader.i1Status == "partial"
@@ -212,16 +215,10 @@ internal fun ReaderScreen(
                 SourceLink(onClick = { uriHandler.openUri(url) }, label = "기사 원문 열기")
             }
             Spacer(Modifier.height(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (targets.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(" ", modifier = Modifier.background(ReaderMatch, RoundedCornerShape(3.dp)).width(16.dp))
-                    Caption("같은 내용을 다룬 문장 · 눌러 보기")
-                }
-                if (hasExpressionDifferences) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
-                        Caption("표현 차이 A–G")
-                    }
+                    Text(" ", modifier = Modifier.background(ReaderExpression, RoundedCornerShape(3.dp)).width(16.dp))
+                    Caption("표현 차이 A–G · 눌러 비교 기사 보기")
                 }
             }
             if (reader.i1Stars.isNotEmpty()) {
@@ -233,7 +230,7 @@ internal fun ReaderScreen(
             }
             if (targets.isEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                Caption("연결된 문장을 찾지 못했어요. 차이가 없다는 뜻은 아니에요.")
+                Caption("이번 분석에서 표시할 A–G 표현 차이가 없어요.")
             }
             Spacer(Modifier.height(22.dp))
             HorizontalDivider(color = Fl.Line)
@@ -260,7 +257,7 @@ internal fun ReaderScreen(
 
     selected?.let { target ->
         key(target.key) {
-            ReaderComparisonSheet(reader, target, showExpressions, onDismiss = { selected = null })
+            ReaderComparisonSheet(reader, target, onDismiss = { selected = null })
         }
     }
 }
@@ -287,7 +284,6 @@ internal fun readerTailPadding(viewportHeight: Int, visibleHeight: Int): Int =
 private fun ReaderComparisonSheet(
     reader: ReaderResult,
     target: ReaderTarget,
-    showExpressions: Boolean,
     onDismiss: () -> Unit
 ) {
     val pages = remember(reader, target) {
@@ -319,7 +315,7 @@ private fun ReaderComparisonSheet(
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = Fl.Line)
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { pageIndex ->
-                RelatedArticlePage(pages[pageIndex], sheetState, showExpressions)
+                RelatedArticlePage(pages[pageIndex], sheetState)
             }
         }
     }
@@ -327,19 +323,19 @@ private fun ReaderComparisonSheet(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showExpressions: Boolean) {
+private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
     val uriHandler = LocalUriHandler.current
     val density = LocalDensity.current
     val windowView = LocalView.current.rootView
     val article = page.article
     val scroll = rememberScrollState()
-    val firstOffset = page.pairs.preferredFocusPair(showExpressions)?.relatedSpan?.start
+    val firstOffset = page.pairs.preferredFocusPair()?.relatedSpan?.start
     var layout by remember(article.id, page.pairs) { mutableStateOf<TextLayoutResult?>(null) }
     var viewportHeight by remember(article.id) { mutableIntStateOf(0) }
     var visibleHeight by remember(article.id) { mutableIntStateOf(0) }
     var initialFocusApplied by remember(article.id, firstOffset) { mutableStateOf(false) }
-    val highlightText = remember(article, page.pairs, showExpressions) {
-        relatedReaderText(article, page.pairs, showExpressions)
+    val highlightText = remember(article, page.pairs) {
+        relatedReaderText(article, page.pairs)
     }
 
     LaunchedEffect(article.id, firstOffset, layout, visibleHeight, viewportHeight,
@@ -367,9 +363,9 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
         article.url?.let { url -> SourceLink(onClick = { uriHandler.openUri(url) }, label = "원문 링크") }
         val relation = page.pairs.map { it.relation }.distinct().joinToString(" · ") { relationLabel(it) }
         if (relation.isNotBlank()) Caption(relation, modifier = Modifier.padding(vertical = 5.dp))
-        val differences = if (showExpressions) page.pairs.flatMap { it.expressionDifferences }.distinctBy {
+        val differences = page.pairs.flatMap { it.expressionDifferences }.distinctBy {
             listOf(it.code, it.note, it.sourceMarkerSpan.start, it.relatedMarkerSpan.start)
-        } else emptyList()
+        }
         if (differences.isNotEmpty()) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
@@ -416,21 +412,19 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState, showEx
     }
 }
 
-/** An A–G tap focuses its marked counterpart even when a neutral match starts earlier. */
-internal fun List<ReaderPair>.preferredFocusPair(showExpressions: Boolean): ReaderPair? =
-    minWithOrNull(compareBy<ReaderPair> { if (showExpressions && it.expressionDifferences.isNotEmpty()) 0 else 1 }
-        .thenBy { it.relatedSpan.start })
+/** An A–G tap focuses its marked counterpart even when neutral pairs are present. */
+internal fun List<ReaderPair>.preferredFocusPair(): ReaderPair? =
+    filter { it.expressionDifferences.isNotEmpty() }.minByOrNull { it.relatedSpan.start }
 
 internal fun relatedReaderText(
     article: ReaderArticle,
-    pairs: List<ReaderPair>,
-    showExpressions: Boolean = true
+    pairs: List<ReaderPair>
 ): AnnotatedString = buildAnnotatedString {
     append(article.body)
-    pairs.forEach { pair ->
-        addStyle(SpanStyle(background = ReaderMatch, textDecoration = TextDecoration.Underline),
+    pairs.filter { it.expressionDifferences.isNotEmpty() }.forEach { pair ->
+        addStyle(SpanStyle(background = ReaderExpression, textDecoration = TextDecoration.Underline),
             pair.relatedSpan.start, pair.relatedSpan.end)
-        pair.expressionDifferences.takeIf { showExpressions }.orEmpty().forEach { difference ->
+        pair.expressionDifferences.forEach { difference ->
             addStyle(SpanStyle(background = ReaderMarker, fontWeight = FontWeight.Bold),
                 difference.relatedMarkerSpan.start, difference.relatedMarkerSpan.end)
         }
