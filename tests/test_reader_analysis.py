@@ -9,7 +9,7 @@ from time import monotonic, sleep
 from unittest.mock import patch
 
 from server.analysis.reader_analysis import (
-    analyze_reader_content, _alignment_chunk, _extract_source_units, _neutral_a_pair,
+    analyze_reader_content, _align_article, _alignment_chunk, _extract_source_units, _neutral_a_pair,
     _review_absence, _review_expression_pairs, _safe_expression_marker,
 )
 from server.analysis.reader_contract import build_reader
@@ -154,6 +154,176 @@ class ReaderClient:
 
 
 class ReaderAnalysisTests(unittest.TestCase):
+    def test_same_event_supporting_sentences_feed_expression_and_i1_but_separate_event_does_not(self):
+        source = article("S0", "시청은 새 다리 공사를 시작했다.\n주민들은 공사 일정에 반발했다.\n"
+                         "시청은 야간 작업을 허용했다.\n인근 체육관은 지난해 문을 열었다.")
+        related_a = article("A", "시청은 새 다리 공사를 시작했다.\n주민들은 공사 일정에 거세게 반발했다.")
+        related_b = article("B", "시청은 새 다리 공사를 시작했다.\n주민들은 공사 일정에 반발했다.")
+        raw = {"source_article": source,
+               "source_analysis": {"core_event": "시청의 새 다리 공사", "claims": [{
+                   "claim_id": "C1", "claim": "시청이 새 다리 공사를 시작했다",
+                   "evidence": {"sentence_index": 0, "quote": source["sentences"][0]["text"]}}]},
+               "selection": {"same_event_ids": ["A", "B"],
+                             "independent_same_event_ids": ["A", "B"],
+                             "duplicate_article_groups": [], "source_duplicate_article_ids": []},
+               "search": {"candidates": [related_a, related_b]}}
+
+        class SupportingClient:
+            def generate_json(self, **request):
+                name, data = request["name"], request["input_data"]
+                if name == "source_content_units":
+                    scopes = ("central", "supporting", "supporting", "separate")
+                    return {"sentences": [{
+                        "sentence_index": item["sentence_index"], "scope": scopes[item["sentence_index"]],
+                        "units": [] if item["sentence_index"] == 3 else [{
+                            "content": item["text"], "kind": "reported_fact",
+                            "evidence": {"sentence_index": item["sentence_index"], "quote": item["text"]},
+                        }],
+                    } for item in data["article"]["sentences"]]}
+                if name == "related_content_alignment":
+                    key = data["article_id"]
+                    rows = []
+                    for unit in data["source_units"]:
+                        index = unit["source_evidence"]["sentence_index"]
+                        observed = index in (0, 1)
+                        related = related_a if key == "A" else related_b
+                        rows.append({
+                            "unit_id": unit["unit_id"], "relation": "same" if observed else "absent",
+                            "related_evidence": ({"sentence_index": index,
+                                                  "quote": related["sentences"][index]["text"]}
+                                                 if observed else None),
+                            "difference_summary": "반발의 정도가 다르다" if key == "A" and index == 1 else "",
+                            "expression_differences": ([{
+                                "code": "D", "source_marker": {"sentence_index": 1, "quote": "반발했다"},
+                                "related_marker": {"sentence_index": 1, "quote": "거세게 반발했다"},
+                                "note": "반발의 정도를 더 강하게 썼다", "voice": "reporter",
+                            }] if key == "A" and index == 1 else []),
+                        })
+                    return {"unit_alignments": rows}
+                if name == "i1_absence_review":
+                    return {"checks": [{"unit_id": unit["unit_id"], "article_checks": {
+                        key: {"status": "absent", "evidence": None} for key in data["articles"]}}
+                        for unit in data["source_units"]]}
+                if name == "expression_pair_A_G":
+                    return {"findings": []}
+                raise AssertionError(name)
+
+        result = analyze_reader_content(raw, ["A", "B"], client=SupportingClient())
+        self.assertEqual([row["scope"] for row in result["source_sentence_ledger"]],
+                         ["central", "supporting", "supporting", "separate"])
+        self.assertEqual([unit["source_evidence"]["sentence_index"] for unit in result["source_units"]],
+                         [0, 1, 2])
+        self.assertEqual(result["i1_status"], "complete")
+        self.assertEqual([star["source_evidence"]["sentence_index"] for star in result["i1_stars"]], [2])
+        raw["reader_analysis"] = result
+        reader = build_reader(raw, ["A", "B"], {"A": related_a, "B": related_b},
+                              {"S0": 0, "A": 1, "B": 2}, {})
+        self.assertEqual([row["source_span"]["start"] for row in reader["highlights"]],
+                         [reader["source_article"]["sentences"][1]["start"]])
+        self.assertEqual(reader["highlights"][0]["categories"], ["D"])
+        self.assertEqual(reader["i1_stars"][0]["source_span"]["start"],
+                         reader["source_article"]["sentences"][2]["start"])
+        self.assertFalse(any(row["unit_ids"] for row in result["source_sentence_ledger"][3:]))
+
+    def test_source_chunk_boundary_passes_neighbor_context_without_output_ids(self):
+        source, analysis = self._source_unit_case(10)
+
+        class ContextClient:
+            def __init__(self):
+                self.requests = []
+
+            def generate_json(self, **request):
+                self.requests.append(request)
+                return ReaderAnalysisTests._source_unit_response(request)
+
+        client = ContextClient()
+        ledger, units, _ = _extract_source_units(source, analysis, client)
+        self.assertEqual([row["sentence_index"] for row in ledger], list(range(10)))
+        self.assertEqual(len(units), 10)
+        self.assertEqual([[row["sentence_index"] for row in request["input_data"]["article"]["sentences"]]
+                          for request in client.requests], [list(range(5)), list(range(5, 10))])
+        self.assertEqual([[row["sentence_index"] for row in request["input_data"]["context_sentences"]]
+                          for request in client.requests], [[5, 6], [3, 4]])
+        self.assertEqual([request["schema"]["properties"]["sentences"]["items"]
+                          ["properties"]["sentence_index"]["enum"] for request in client.requests],
+                         [list(range(5)), list(range(5, 10))])
+
+    def test_supporting_scope_without_grounded_unit_cannot_silently_pass(self):
+        source = article("S0", "시청은 새 다리 공사를 시작했다.\n시청은 야간 작업을 허용했다.")
+        analysis = {"core_event": "시청의 새 다리 공사", "claims": [{
+            "claim": "시청이 공사를 시작했다",
+            "evidence": {"sentence_index": 0, "quote": source["sentences"][0]["text"]}}]}
+
+        class EmptySupportingClient:
+            def __init__(self):
+                self.calls = []
+
+            def generate_json(self, **request):
+                self.calls.append(request["name"])
+                return {"sentences": [{
+                    "sentence_index": 0, "scope": "central", "units": [{
+                        "content": source["sentences"][0]["text"], "kind": "reported_fact",
+                        "evidence": {"sentence_index": 0, "quote": source["sentences"][0]["text"]},
+                    }]}, {"sentence_index": 1, "scope": "supporting", "units": []}]}
+
+        client = EmptySupportingClient()
+        with self.assertRaises(ModelResponseError):
+            _extract_source_units(source, analysis, client)
+        self.assertEqual(client.calls, ["source_content_units", "repair_source_content_units"])
+
+    def test_alignment_truncation_splits_units_and_keeps_complete_article(self):
+        source, catalog, units, _ = expression_fixture(4)
+        units = [{**unit, "kind": "reported_fact"} for unit in units]
+        related = catalog["A"]
+
+        class TruncatingClient:
+            def __init__(self):
+                self.batch_sizes = []
+
+            def generate_json(self, **request):
+                chosen = request["input_data"]["source_units"]
+                self.batch_sizes.append(len(chosen))
+                if len(chosen) == 4:
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                return {"unit_alignments": [{
+                    "unit_id": unit["unit_id"], "relation": "same",
+                    "related_evidence": {"sentence_index": index, "quote": related["sentences"][index]["text"]},
+                    "difference_summary": "", "expression_differences": [],
+                } for unit in chosen for index in [unit["source_evidence"]["sentence_index"]]]}
+
+        client = TruncatingClient()
+        rows, calls = _align_article(source, related, units, "A", client)
+        self.assertEqual((calls, client.batch_sizes), (3, [4, 2, 2]))
+        self.assertEqual([row["unit_id"] for row in rows], [unit["unit_id"] for unit in units])
+
+    def test_single_unit_alignment_truncation_retries_larger_then_fails_closed(self):
+        source, catalog, units, _ = expression_fixture(1)
+        unit = {**units[0], "kind": "reported_fact"}
+        related = catalog["A"]
+
+        class LargerOutputClient:
+            def __init__(self, *, always_truncate=False):
+                self.limits = []
+                self.always_truncate = always_truncate
+
+            def generate_json(self, **request):
+                self.limits.append(request["max_output_tokens"])
+                if self.always_truncate or request["max_output_tokens"] == 8192:
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                return {"unit_alignments": [{
+                    "unit_id": unit["unit_id"], "relation": "same",
+                    "related_evidence": {"sentence_index": 0, "quote": related["sentences"][0]["text"]},
+                    "difference_summary": "", "expression_differences": [],
+                }]}
+
+        recovered = LargerOutputClient()
+        rows, calls = _align_article(source, related, [unit], "A", recovered)
+        self.assertEqual((len(rows), calls, recovered.limits), (1, 2, [8192, 16384]))
+        failed = LargerOutputClient(always_truncate=True)
+        with self.assertRaises(ModelResponseTruncatedError):
+            _align_article(source, related, [unit], "A", failed)
+        self.assertEqual(failed.limits, [8192, 16384])
+
     def test_prefetched_source_units_preserve_reader_result_without_repeating_call(self):
         baseline = analyze_reader_content(fixture(), ["A", "B"], client=ReaderClient())
         discovery = fixture()
