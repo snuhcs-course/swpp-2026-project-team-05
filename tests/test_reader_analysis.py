@@ -855,13 +855,90 @@ class ReaderAnalysisTests(unittest.TestCase):
         self.assertEqual(client.requests, [])
         self.assertEqual(calls, 0)
 
-    def test_title_only_possible_match_withholds_star(self):
+    def test_shared_headline_number_does_not_preempt_full_title_review(self):
         raw = fixture()
-        raw["search"]["candidates"][0]["title"] = "새 다리 예산 100억원"
-        result = analyze_reader_content(raw, ["A", "B"], client=ReaderClient())
+        raw["search"]["candidates"][0]["title"] = "시청, 다른 공사에 과태료 100억원"
+        client = ReaderClient()
+        result = analyze_reader_content(raw, ["A", "B"], client=client)
+        self.assertEqual(len(result["i1_stars"]), 1)
+        self.assertEqual(result["i1_status"], "complete")
+        self.assertIn("i1_absence_review", client.calls)
+
+    def test_grounded_title_observation_resolves_candidate_without_star(self):
+        raw = fixture()
+        raw["search"]["candidates"][0]["title"] = "새 다리 예산은 100억원이다"
+
+        class TitleObservedClient(ReaderClient):
+            def generate_json(self, **request):
+                if request["name"] == "i1_absence_review":
+                    unit = request["input_data"]["source_units"][0]
+                    return {"checks": [{"unit_id": unit["unit_id"], "article_checks": {
+                        "A": {"status": "observed", "evidence": {
+                            "scope": "title", "sentence_index": None, "quote": "예산은 100억원이다"}},
+                        "B": {"status": "absent", "evidence": None},
+                    }}]}
+                return super().generate_json(**request)
+
+        result = analyze_reader_content(raw, ["A", "B"], client=TitleObservedClient())
+        self.assertEqual(result["i1_stars"], [])
+        self.assertEqual(result["i1_status"], "complete")
+
+    def test_related_only_is_reviewed_for_atomic_content_absence(self):
+        class RelatedOnlyClient(ReaderClient):
+            def generate_json(self, **request):
+                response = super().generate_json(**request)
+                if request["name"] == "related_content_alignment" and request["input_data"]["article_id"] == "A":
+                    row = response["unit_alignments"][1]
+                    row["relation"] = "related_only"
+                    row["related_evidence"] = {"sentence_index": 1, "quote": "주민은 기대한다고 말했다"}
+                return response
+
+        client = RelatedOnlyClient()
+        result = analyze_reader_content(fixture(), ["A", "B"], client=client)
+        self.assertEqual(len(result["i1_stars"]), 1)
+        self.assertEqual(result["i1_status"], "complete")
+        self.assertIn("i1_absence_review", client.calls)
+
+    def test_first_pass_uncertain_cannot_become_star_or_complete(self):
+        class UncertainClient(ReaderClient):
+            def generate_json(self, **request):
+                response = super().generate_json(**request)
+                if request["name"] == "related_content_alignment" and request["input_data"]["article_id"] == "A":
+                    response["unit_alignments"][1]["relation"] = "uncertain"
+                return response
+
+        result = analyze_reader_content(fixture(), ["A", "B"], client=UncertainClient())
         self.assertEqual(result["i1_stars"], [])
         self.assertEqual(result["i1_status"], "partial")
-        self.assertEqual(len(result["i1_title_ambiguous_unit_ids"]), 1)
+
+    def test_absence_review_chunks_and_salvages_valid_single_units(self):
+        raw = fixture()
+        source = raw["source_article"]
+        related = {row["candidate_id"]: row for row in raw["search"]["candidates"]}
+        units = [{"unit_id": f"u{i}", "content": f"새 다리 예산 항목 {i}",
+                  "source_evidence": {"sentence_index": 1, "quote": "예산은 100억원이다"}}
+                 for i in range(3)]
+
+        class ChunkClient:
+            def __init__(self):
+                self.batches = []
+
+            def generate_json(self, **request):
+                ids = [row["unit_id"] for row in request["input_data"]["source_units"]]
+                self.batches.append(ids)
+                if ids == ["u0", "u1"]:
+                    raise ModelResponseTruncatedError("synthetic output limit")
+                if ids == ["u1"]:
+                    raise TimeoutError("synthetic missing unit")
+                return {"checks": [{"unit_id": key, "article_checks": {
+                    article_id: {"status": "absent", "evidence": None} for article_id in related}}
+                    for key in ids]}
+
+        client = ChunkClient()
+        checks, calls = _review_absence(source, related, units, [["A"], ["B"]], client)
+        self.assertEqual(set(checks), {"u0", "u2"})
+        self.assertEqual(calls, 4)
+        self.assertEqual(client.batches, [["u0", "u1"], ["u0"], ["u1"], ["u2"]])
 
     def test_absence_review_accepts_grounded_title_evidence_as_observed(self):
         raw = fixture()
