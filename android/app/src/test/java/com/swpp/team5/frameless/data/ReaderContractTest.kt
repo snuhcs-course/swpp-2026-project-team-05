@@ -5,6 +5,7 @@ import com.swpp.team5.frameless.ui.screens.centeredReaderOffset
 import com.swpp.team5.frameless.ui.screens.preferredFocusPair
 import com.swpp.team5.frameless.ui.screens.relatedReaderText
 import com.swpp.team5.frameless.ui.screens.readerTailPadding
+import com.swpp.team5.frameless.ui.screens.readerDifferenceHeading
 import com.swpp.team5.frameless.ui.screens.sheetInstruction
 import com.swpp.team5.frameless.ui.screens.sourceReaderText
 import com.swpp.team5.frameless.ui.screens.targets
@@ -39,7 +40,7 @@ class ReaderContractTest {
     }
 
     @Test
-    fun rejectsFalseMarkerButKeepsVerifiedSentencePair() {
+    fun rejectsFalseMarkerAndKeepsNeutralAlignmentInternal() {
         val root = root()
         val marker = firstDifference(root).getJSONObject("related_marker_span")
         marker.put("start", relatedBody.length + 1)
@@ -47,6 +48,8 @@ class ReaderContractTest {
 
         assertEquals(1, reader.highlights.size)
         assertTrue(reader.highlights.single().pairs.single().expressionDifferences.isEmpty())
+        assertEquals(1, reader.pairs.size)
+        assertTrue(reader.targets().isEmpty())
         assertFalse(sourceReaderText(reader, reader.targets()).text.contains("〔A〕"))
     }
 
@@ -120,6 +123,33 @@ class ReaderContractTest {
     }
 
     @Test
+    fun starOnlyResultShowsI1WithoutMakingNeutralAlignmentTappable() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        val neutral = JSONObject(firstPair(root).toString())
+            .put("alignment_scope", "source_content_unit")
+            .put("expression_differences", JSONArray())
+        rawReader.put("version", "0.2")
+            .put("coverage", "all_source_sentences_reviewed")
+            .put("highlights", JSONArray())
+            .put("pairs", JSONArray().put(neutral))
+            .put("i1_status", "complete")
+            .put("i1_stars", JSONArray().put(JSONObject()
+                .put("source_sentence_id", "S0-S1")
+                .put("source_span", span(sourceBody.indexOf("두 번째"), sourceBody.length))
+                .put("checked_article_count", 2)
+                .put("observed_count", 0)
+                .put("label", "이번 비교 기사 2건에서는 확인되지 않음")))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        assertEquals(1, reader.pairs.size)
+        assertTrue(reader.targets().isEmpty())
+        val text = sourceReaderText(reader, reader.targets())
+        assertEquals("$sourceBody\u2060★", text.text)
+        assertTrue(text.getStringAnnotations("reader_target", 0, text.length).isEmpty())
+    }
+
+    @Test
     fun i1StarStaysWithUtf16SentenceEndBeforeFollowingNewline() {
         val root = root()
         val rawReader = root.getJSONObject("reader")
@@ -167,7 +197,7 @@ class ReaderContractTest {
     }
 
     @Test
-    fun fullReaderWithOnlyVerifiedPairsShowsNeutralTappableSentence() {
+    fun fullReaderWithOnlyNeutralPairsShowsUnannotatedSourceAndNoTapTarget() {
         val root = root()
         val rawReader = root.getJSONObject("reader")
         val pair = JSONObject(firstPair(root).toString())
@@ -179,13 +209,16 @@ class ReaderContractTest {
             .put("pairs", JSONArray().put(pair))
 
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
-        val target = reader.targets().single()
         assertTrue(reader.highlights.isEmpty())
         assertEquals(1, reader.pairs.size)
-        assertEquals("S0-S0", target.sentenceId)
-        assertTrue(target.codes.isEmpty())
-        assertFalse(sourceReaderText(reader, reader.targets()).text.contains("〔A〕"))
-        assertEquals(relatedBody, relatedReaderText(reader.relatedArticles.single(), target.pairs).text)
+        assertTrue(reader.targets().isEmpty())
+        val sourceText = sourceReaderText(reader, reader.targets())
+        assertEquals(sourceBody, sourceText.text)
+        assertTrue(sourceText.spanStyles.isEmpty())
+        assertTrue(sourceText.getStringAnnotations("reader_target", 0, sourceText.length).isEmpty())
+        val relatedText = relatedReaderText(reader.relatedArticles.single(), reader.pairs)
+        assertEquals(relatedBody, relatedText.text)
+        assertTrue(relatedText.spanStyles.isEmpty())
     }
 
     @Test
@@ -204,9 +237,37 @@ class ReaderContractTest {
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
         val target = reader.targets().single()
         assertEquals(2, reader.pairs.size)
-        assertEquals(2, target.pairs.size)
+        assertEquals(1, target.pairs.size)
         assertEquals(listOf("A"), target.codes)
         assertEquals(1, reader.targets().nonOverlapping().size)
+    }
+
+    @Test
+    fun oneAgSentenceKeepsMultipleMarkedArticlesButSkipsNeutralArticle() {
+        val root = root()
+        val rawReader = root.getJSONObject("reader")
+        val marked = JSONObject(firstPair(root).toString())
+            .put("alignment_scope", "source_content_unit")
+        val secondMarked = JSONObject(marked.toString())
+            .put("pair_id", "P2")
+            .put("article_id", "R2")
+            .put("article_index", 2)
+            .put("related_sentence_id", "R2-S0")
+        val neutral = JSONObject(marked.toString())
+            .put("pair_id", "P3")
+            .put("expression_differences", JSONArray())
+        rawReader.put("version", "0.2")
+            .put("highlights", JSONArray())
+            .put("pairs", JSONArray().put(marked).put(secondMarked).put(neutral))
+            .getJSONArray("related_articles")
+            .put(article("R2", 2, "두 번째 비교 기사", "https://related.example/second", relatedBody))
+
+        val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        assertEquals(3, reader.pairs.size)
+        val target = reader.targets().single()
+        assertEquals(listOf(1, 2), target.pairs.map { it.articleIndex })
+        assertEquals(listOf("A"), target.codes)
+        assertTrue(sourceReaderText(reader, reader.targets()).text.contains("〔A〕"))
     }
 
     @Test
@@ -221,7 +282,7 @@ class ReaderContractTest {
 
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
         assertEquals(1, reader.pairs.size)
-        assertTrue(reader.targets().single().codes.isEmpty())
+        assertTrue(reader.targets().isEmpty())
     }
 
     @Test
@@ -249,8 +310,10 @@ class ReaderContractTest {
         val neutral = marked.copy(id = "P2", relatedSpan = ReaderSpan(0, 5),
             expressionDifferences = emptyList())
 
-        assertEquals(marked, listOf(neutral, marked).preferredFocusPair(showExpressions = true))
-        assertEquals(neutral, listOf(neutral, marked).preferredFocusPair(showExpressions = false))
+        assertEquals(marked, listOf(neutral, marked).preferredFocusPair())
+        assertNull(listOf(neutral).preferredFocusPair())
+        val relatedText = relatedReaderText(reader.relatedArticles.single(), listOf(neutral, marked))
+        assertEquals(2, relatedText.spanStyles.size)
     }
 
     @Test
@@ -281,6 +344,15 @@ class ReaderContractTest {
         assertEquals("좌우로 다른 기사 보기 · 위로 끌어 펼치기",
             sheetInstruction(pageCount = 2, expanded = false))
         assertEquals("좌우로 다른 기사 보기", sheetInstruction(pageCount = 2, expanded = true))
+    }
+
+    @Test
+    fun readerDifferenceHeadingsMatchBackendRubricCategories() {
+        assertEquals(listOf(
+            "A · 인용·보도 동사", "B · 인용명사·발언 명명", "C · 행위·사건 서술어",
+            "D · 정도·수량 수식어", "E · 평가·감정 수식어", "F · 명명·일방적 용어",
+            "G · 양태·확신·범주화"
+        ), ('A'..'G').map { readerDifferenceHeading(it.toString()) })
     }
 
     @Test
