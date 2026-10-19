@@ -196,6 +196,29 @@ class ModelRoutingTests(TestCase):
         self.assertGreater(call.kwargs["timeout"], 0)
         client.close()
 
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key",
+                           "OPENROUTER_VERIFIER_REASONING_EFFORT": "low"}, clear=True)
+    @patch("httpx.Client")
+    def test_low_verifier_reasoning_is_opt_in_and_reader_unchanged(self, constructor):
+        constructor.return_value.post.return_value = SimpleNamespace(
+            status_code=200, content=b"synthetic-envelope",
+            json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
+        )
+        client = OpenRouterJSONClient()
+        request = {"instructions": "synthetic", "input_data": {}, "schema": {"type": "object"}}
+        client.generate_json(name="verify_selected_candidate_bodies", **request)
+        client.generate_json(name="related_content_alignment", **request)
+        sent = [call.kwargs["json"] for call in constructor.return_value.post.call_args_list]
+        self.assertEqual(sent[0]["reasoning"], {"effort": "low"})
+        self.assertNotIn("reasoning", sent[1])
+        client.close()
+
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key",
+                           "OPENROUTER_VERIFIER_REASONING_EFFORT": "none"}, clear=True)
+    def test_verifier_reasoning_cannot_be_disabled(self):
+        with self.assertRaises(ValueError):
+            OpenRouterJSONClient()
+
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
     @patch("httpx.Client")
     def test_length_without_content_is_still_classified_as_truncation(self, constructor):
