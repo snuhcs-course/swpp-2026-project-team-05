@@ -296,6 +296,33 @@ class ReaderAnalysisTests(unittest.TestCase):
         self.assertEqual((calls, client.batch_sizes), (3, [4, 2, 2]))
         self.assertEqual([row["unit_id"] for row in rows], [unit["unit_id"] for unit in units])
 
+    def test_34_source_units_require_two_complete_batches_for_each_related_article(self):
+        source, catalog, units, _ = expression_fixture(34)
+        catalog["B"] = article("B", catalog["A"]["body"])
+        units = [{**unit, "kind": "reported_fact"} for unit in units]
+
+        class BatchClient:
+            def __init__(self):
+                self.batches = []
+
+            def generate_json(self, **request):
+                data = request["input_data"]
+                chosen = data["source_units"]
+                self.batches.append((data["article_id"], len(chosen)))
+                related = catalog[data["article_id"]]
+                return {"unit_alignments": [{
+                    "unit_id": unit["unit_id"], "relation": "same",
+                    "related_evidence": {"sentence_index": unit["source_evidence"]["sentence_index"],
+                                         "quote": related["sentences"][unit["source_evidence"]["sentence_index"]]["text"]},
+                    "difference_summary": "", "expression_differences": [],
+                } for unit in chosen]}
+
+        client = BatchClient()
+        for key in ("A", "B"):
+            rows, calls = _align_article(source, catalog[key], units, key, client)
+            self.assertEqual((len(rows), calls), (34, 2))
+        self.assertEqual(client.batches, [("A", 18), ("A", 16), ("B", 18), ("B", 16)])
+
     def test_single_unit_alignment_truncation_retries_larger_then_fails_closed(self):
         source, catalog, units, _ = expression_fixture(1)
         unit = {**units[0], "kind": "reported_fact"}

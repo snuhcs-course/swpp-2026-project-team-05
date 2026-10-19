@@ -112,7 +112,9 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
                                 max_per_claim: int = 3, event_baseline_limit: int = 5,
                                 verification_batch_size: int = 3, client: Any = None,
                                 progress: Callable[[str], None] | None = None,
-                                should_stop: Callable[[], bool] | None = None) -> dict:
+                                should_stop: Callable[[], bool] | None = None,
+                                minimum_independent_before_stop: int = 0,
+                                hard_should_stop: Callable[[], bool] | None = None) -> dict:
     """Verify candidates in ranked order, warming a bounded set of likely next bodies."""
     live_singletons = (verification_batch_size == 1 and isinstance(client, MetricsJSONClient)
                        and not isinstance(client, SnapshotJSONClient)
@@ -121,7 +123,9 @@ def select_verified_comparisons(source: dict, analysis: dict, metadata_search: d
         return _select_verified_comparisons(
             source, analysis, metadata_search, ranking, max_per_claim=max_per_claim,
             event_baseline_limit=event_baseline_limit, verification_batch_size=verification_batch_size,
-            client=client, progress=progress, should_stop=should_stop, body_executor=body_executor)
+            client=client, progress=progress, should_stop=should_stop,
+            minimum_independent_before_stop=minimum_independent_before_stop,
+            hard_should_stop=hard_should_stop, body_executor=body_executor)
 
 
 def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: dict, ranking: dict, *,
@@ -129,6 +133,8 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                                  verification_batch_size: int, client: Any,
                                  progress: Callable[[str], None] | None,
                                  should_stop: Callable[[], bool] | None,
+                                 minimum_independent_before_stop: int,
+                                 hard_should_stop: Callable[[], bool] | None,
                                  body_executor: ThreadPoolExecutor | None) -> dict:
     """Confirm ranked candidates and return the existing search/selection structures.
 
@@ -139,6 +145,7 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
     for value, lower, upper, name in (
         (max_per_claim, 1, 3, "max_per_claim"), (event_baseline_limit, 0, 20, "event_baseline_limit"),
         (verification_batch_size, 1, 5, "verification_batch_size"),
+        (minimum_independent_before_stop, 0, 3, "minimum_independent_before_stop"),
     ):
         if type(value) is not int or not lower <= value <= upper:
             raise ValueError(f"{name}은 {lower}~{upper}의 정수여야 합니다.")
@@ -167,6 +174,24 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
     detached_verification_calls = 0
     rate_limited = False
     rate_limit_error: Exception | None = None
+    requested_stop = should_stop
+
+    def should_stop() -> bool:
+        # Prefer the full Reader reserve once two independently reported
+        # articles are grounded. If that is impossible, the later hard cutoff
+        # still leaves a smaller Reader window and records the shortfall.
+        if hard_should_stop and hard_should_stop():
+            return True
+        if not requested_stop or not requested_stop():
+            return False
+        if minimum_independent_before_stop == 0:
+            return True
+        independent, _, _ = _independent_same_event_ids(
+            source, metadata, articles, assessed, set(claim_map))
+        return len(independent) >= minimum_independent_before_stop
+
+    if requested_stop is None and hard_should_stop is None:
+        should_stop = None
     # A singleton verdict depends only on the source and that candidate body.
     # Recorded/replay and injected clients retain the original serial order.
     parallel_singletons = body_executor is not None
@@ -295,6 +320,35 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
             stopped_early = True
             return True
 
+        def finish_at_deadline() -> bool:
+            """Keep completed verdicts, but never await an in-flight wave.
+
+            A provider response can outlive its per-operation HTTP timeout, so
+            waiting for the original four-call wave can consume the Reader's
+            reserved time. Every unfinished candidate is explicitly deferred.
+            """
+            nonlocal verification_calls, detached_verification_calls, stopped_early
+            for index in range(next_apply, len(ids)):
+                future = running.get(index)
+                if future is not None and future.done():
+                    try:
+                        completed[index] = future.result()
+                    except Exception as exc:
+                        completed[index] = exc
+                    del running[index]
+                    future = None
+                if index in completed:
+                    apply_verification([ids[index]], completed.pop(index))
+                else:
+                    if future is not None:
+                        if future.cancel():
+                            verification_calls -= 1
+                        else:
+                            detached_verification_calls += 1
+                    mark_unverified([ids[index]], "verification_deferred", TimeoutError())
+            stopped_early = True
+            return True
+
         try:
             while next_apply < len(ids):
                 for index, future in list(running.items()):
@@ -305,7 +359,9 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                     except Exception as exc:
                         completed[index] = exc
                     del running[index]
-                if stop_after_index is None and (rate_limited or (should_stop and should_stop())):
+                if should_stop and should_stop():
+                    return finish_at_deadline()
+                if stop_after_index is None and rate_limited:
                     stop_error = rate_limit_error or TimeoutError()
                     # A deadline between original waves must not make an
                     # already speculative next wave part of the answer.

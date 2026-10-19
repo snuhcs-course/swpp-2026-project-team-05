@@ -48,6 +48,10 @@ DEFAULT_UNCACHED_BUDGET_SECONDS = 240.0
 # Source discovery can inspect extra bodies, but the rubric still needs time
 # within Vercel's hard function limit. Stop optional verification early.
 RUBRIC_RESERVE_SECONDS = 75.0
+# A long source article can create more than one alignment batch per related
+# article, followed by the independent I1 and expression reviews. The observed
+# 25-unit/three-article Reader needed 80 seconds before expression review.
+READER_RESERVE_SECONDS = 120.0
 # Leave room for candidate ranking, body verification, and the reader after an
 # outage-only Google search. The search call itself is capped at 30 seconds.
 GOOGLE_FALLBACK_POST_SEARCH_RESERVE_SECONDS = 30.0
@@ -535,7 +539,8 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
                            client: Any = None, progress: Callable[[str], None] | None = None,
                            _prepared_source: dict | None = None,
                            _deadline_at: float | None = None,
-                           _after_candidate_search: Callable[[dict, dict], None] | None = None) -> dict:
+                           _after_candidate_search: Callable[[dict, dict], None] | None = None,
+                           _reader_reserve_seconds: float | None = None) -> dict:
     """Return discovery or available data with structured operation errors."""
     result, stage, owned = _initial_result(url), "input_validation", False
     notify = progress or (lambda message: None)
@@ -571,10 +576,12 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         if analysis["claims"]:
             notify("3/4 네이버 검색·URL 중복 제거 (제목·설명만 수집)")
             with _timed_stage(stage, _deadline_at):
+                stage_reserve = (_reader_reserve_seconds if _reader_reserve_seconds is not None
+                                 else RUBRIC_RESERVE_SECONDS)
                 metadata_search = search_candidate_metadata(source, analysis, max_candidates=max_candidates,
                                                              display_per_query=display_per_query,
                                                              google_fallback_deadline_at=(
-                                                                 _deadline_at - RUBRIC_RESERVE_SECONDS
+                                                                 _deadline_at - stage_reserve
                                                                  - GOOGLE_FALLBACK_POST_SEARCH_RESERVE_SECONDS
                                                                  if _deadline_at is not None else None))
         result["search"].update(metadata_search)
@@ -593,16 +600,26 @@ def run_discovery_pipeline(url: str, *, max_claims: int = 5, max_candidates: int
         stage = "candidate_collection"
         with _timed_stage(stage, _deadline_at):
             remaining = max(0.0, _deadline_at - monotonic()) if _deadline_at is not None else 0.0
-            rubric_reserve = min(RUBRIC_RESERVE_SECONDS, remaining * 0.5)
-            with _scoped_model_deadline(client, _deadline_at - rubric_reserve
+            # Reader needs two batches for a 34-unit source, then time for I1
+            # and A~G recall. Reserve its full window while retaining up to a
+            # short initial verifier window if earlier stages ran unusually long.
+            reader_profile = _reader_reserve_seconds is not None
+            stage_reserve = (min(_reader_reserve_seconds, max(0.0, remaining - 20.0))
+                             if reader_profile else min(RUBRIC_RESERVE_SECONDS, remaining * 0.5))
+            hard_reserve = (min(RUBRIC_RESERVE_SECONDS, remaining * 0.5)
+                            if reader_profile else stage_reserve)
+            with _scoped_model_deadline(client, _deadline_at - hard_reserve
                                         if _deadline_at is not None else None) as verification_client:
                 verified = select_verified_comparisons(source, analysis, metadata_search, ranking,
                                                        max_per_claim=max_per_claim, event_baseline_limit=event_baseline_limit,
                                                        verification_batch_size=verification_batch_size,
                                                        client=verification_client,
                                                        progress=notify,
-                                                       should_stop=(lambda: monotonic() >= _deadline_at - rubric_reserve)
-                                                       if _deadline_at is not None else None)
+                                                       should_stop=(lambda: monotonic() >= _deadline_at - stage_reserve)
+                                                       if _deadline_at is not None else None,
+                                                       minimum_independent_before_stop=2 if reader_profile else 0,
+                                                       hard_should_stop=(lambda: monotonic() >= _deadline_at - hard_reserve)
+                                                       if reader_profile and _deadline_at is not None else None)
         collection, selection = verified["search"], verified["selection"]
         warnings = list(selection.get("warnings", []))
         if any(query["status"] == "search_failed" for query in collection["queries"]):
@@ -845,7 +862,9 @@ def run_analysis_pipeline(url: str, *, max_claims: int = 5, max_candidates: int 
         with _timed_stage(stage, deadline_at):
             discovery = run_discovery_pipeline(url, **options, client=recorder, progress=progress,
                                                _prepared_source=source, _deadline_at=deadline_at,
-                                               _after_candidate_search=after_candidate_search)
+                                               _after_candidate_search=after_candidate_search,
+                                               _reader_reserve_seconds=(READER_RESERVE_SECONDS
+                                                                        if analysis_profile == "reader" else None))
         for failed_stage in ("source_analysis", "search", "candidate_selection",
                              "candidate_fetch", "candidate_collection"):
             _log_stage_result(failed_stage, discovery)
