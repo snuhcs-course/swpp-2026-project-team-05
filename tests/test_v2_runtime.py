@@ -240,6 +240,127 @@ class RuntimeTests(SimpleTestCase):
         self.assertNotIn("PROMPT_SECRET", encoded)
         self.assertNotIn("URL_SECRET", encoded)
 
+    def test_completion_summary_counts_reader_funnel_and_projected_markers_without_content(self):
+        def article(article_id, body):
+            sentences = []
+            offset = 0
+            for index, text in enumerate(body.split("\n")):
+                sentences.append({"sentence_index": index, "paragraph_index": index,
+                                  "start": offset, "end": offset + len(text), "text": text})
+                offset += len(text) + 1
+            return {"candidate_id": article_id, "url": f"https://{article_id}.example/ARTICLE_SECRET",
+                    "title": "ARTICLE_SECRET", "body": body, "sentences": sentences}
+
+        source = article("source", "ARTICLE_SECRET 강조했다.\n별도 발표가 있었다.")
+        first = source["sentences"][0]
+        second = source["sentences"][1]
+        a = article("A", "상대는 말했다.")
+        b = article("B", "다른 내용이다.")
+
+        def evidence(sentence, quote):
+            start = sentence["start"] + sentence["text"].index(quote)
+            return {"scope": "body", "sentence_index": sentence["sentence_index"],
+                    "start": start, "end": start + len(quote), "quote": quote}
+
+        source_mark = evidence(first, "강조했다")
+        related_mark = evidence(a["sentences"][0], "말했다")
+        source_evidence = evidence(first, first["text"])
+        second_evidence = evidence(second, second["text"])
+        related_evidence = evidence(a["sentences"][0], a["sentences"][0]["text"])
+        result = {
+            "execution_status": "success", "errors": [], "source_article": source,
+            "search": {"candidates": [a, b]},
+            "display_selection": {"selected_article_ids": ["A", "B"]},
+            "reader_analysis": {
+                "source_sentence_ledger": [
+                    {"sentence_index": 0, "scope": "central", "unit_ids": ["u1"]},
+                    {"sentence_index": 1, "scope": "central", "unit_ids": ["u2"]}],
+                "source_units": [
+                    {"unit_id": "u1", "content": "ARTICLE_SECRET", "source_evidence": source_evidence},
+                    {"unit_id": "u2", "content": "별도 발표", "source_evidence": second_evidence}],
+                "article_alignments": {
+                    "A": {"unit_alignments": [
+                        {"unit_id": "u1", "relation": "same", "related_evidence": related_evidence,
+                         "expression_differences": [
+                             {"code": "A", "source_marker": source_mark, "related_marker": related_mark,
+                              "note": "구체적 보도동사 차이"},
+                             {"code": "B", "source_marker": source_mark, "related_marker": related_mark,
+                              "note": "추가 검토의 차이"}]},
+                        {"unit_id": "u2", "relation": "related_only",
+                         "related_evidence": evidence(b["sentences"][0], b["sentences"][0]["text"]),
+                         "expression_differences": []}]},
+                    "B": {"unit_alignments": [
+                        {"unit_id": "u1", "relation": "absent", "related_evidence": None,
+                         "expression_differences": []},
+                        {"unit_id": "u2", "relation": "absent", "related_evidence": None,
+                         "expression_differences": []}]},
+                },
+                "expression_review": {"eligible_pair_count": 1, "reviewed_pair_count": 1,
+                                      "attempted_pair_count": 1, "accepted_finding_count": 1,
+                                      "withheld_finding_count": 2, "deferred_pair_count": 0,
+                                      "omitted_pair_count": 0},
+                "independent_article_groups": [["A"], ["B"]],
+                "i1_stars": [{"unit_id": "u2", "status": "distinctive_in_checked_articles",
+                              "checked_article_count": 2, "source_evidence": second_evidence}],
+                "i1_review_unresolved_unit_ids": [], "i1_title_ambiguous_unit_ids": [],
+                "i1_status": "complete", "article_failures": [],
+            },
+        }
+        original = deepcopy(result)
+        summary = _completion_summary(result, {}, None, 1000)
+        self.assertEqual(result, original)
+        funnel = summary["reader_funnel"]
+        self.assertEqual(funnel["source_sentence_scopes"],
+                         {"central": 2, "supporting": 0, "separate": 0, "non_content": 0})
+        self.assertEqual((funnel["source_unit_count"], funnel["aligned_unit_count"],
+                          funnel["observed_unit_alignment_count"]), (2, 4, 1))
+        self.assertEqual((funnel["expression_alignment_finding_count"],
+                          funnel["expression_final_finding_count"]), (1, 2))
+        self.assertEqual(funnel["expression_review"]["withheld_finding_count"], 2)
+        self.assertEqual(funnel["i1"]["first_pass_absence_review_candidate_count"], 1)
+        self.assertEqual(funnel["reader_output"],
+                         {"pair_count": 1, "highlight_count": 1, "star_count": 1})
+        encoded = json.dumps(summary)
+        for secret in ("ARTICLE_SECRET", "https://", "u1", "u2"):
+            self.assertNotIn(secret, encoded)
+
+        result["reader_analysis"]["i1_stars"] = []
+        result["reader_analysis"]["i1_review_unresolved_unit_ids"] = []
+        # A separate review may find the content in a title/body: first-pass
+        # candidate count remains one even though no star or unresolved ID does.
+        observed_on_recheck = _completion_summary(result, {}, None, 1000)["reader_funnel"]["i1"]
+        self.assertEqual((observed_on_recheck["first_pass_absence_review_candidate_count"],
+                          observed_on_recheck["star_count"],
+                          observed_on_recheck["unresolved_unit_count"]), (1, 0, 0))
+
+        result["reader_analysis"]["article_alignments"]["B"]["unit_alignments"][1]["relation"] = "uncertain"
+        result["reader_analysis"]["i1_review_unresolved_unit_ids"] = ["u2"]
+        first_pass_uncertain = _completion_summary(result, {}, None, 1000)["reader_funnel"]["i1"]
+        self.assertEqual(first_pass_uncertain["first_pass_absence_review_candidate_count"], 0)
+        self.assertEqual(first_pass_uncertain["first_pass_uncertain_unit_count"], 1)
+
+    def test_completion_summary_keeps_safe_reader_counts_when_projection_is_malformed(self):
+        result = {"execution_status": "partial", "errors": [],
+                  "display_selection": {"selected_article_ids": []},
+                  "search": {"candidates": []}, "source_article": None,
+                  "reader_analysis": {"source_sentence_ledger": [
+                      {"scope": "supporting", "text": "ARTICLE_SECRET"}],
+                      "source_units": [], "article_alignments": {},
+                      "i1_stars": [], "i1_review_unresolved_unit_ids": [],
+                      "i1_title_ambiguous_unit_ids": []}}
+        summary = _completion_summary(result, {}, None, 1000)
+        self.assertEqual(summary["reader_funnel"]["source_sentence_scopes"]["supporting"], 1)
+        self.assertEqual(summary["reader_funnel"]["source_unit_count"], 0)
+        self.assertNotIn("reader_output", summary["reader_funnel"])
+        self.assertNotIn("ARTICLE_SECRET", json.dumps(summary))
+
+        result["reader_analysis"]["source_sentence_ledger"] = [{"scope": ["ARTICLE_SECRET"]}]
+        malformed = _completion_summary(result, {}, None, 1000)
+        self.assertEqual(malformed["execution_status"], "partial")
+        self.assertEqual(malformed["reader_funnel"]["source_sentence_scopes"],
+                         {"central": 0, "supporting": 0, "separate": 0, "non_content": 0})
+        self.assertNotIn("ARTICLE_SECRET", json.dumps(malformed))
+
     def test_completion_summary_logs_failed_stage_without_model_client(self):
         with (patch("server.analysis.v2.pipeline.prepare_article",
                     side_effect=OperationError("ARTICLE_SECRET", code="ARTICLE_TIMEOUT")),
