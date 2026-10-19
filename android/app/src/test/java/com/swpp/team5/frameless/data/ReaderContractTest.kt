@@ -85,12 +85,10 @@ class ReaderContractTest {
         firstPair(root).put("alignment_scope", "source_content_unit")
             .put("relation", "reframes")
             .put("difference_summary", "같은 발표를 독자 관점에서 구성")
-        reader.put("i1_stars", JSONArray().put(JSONObject()
-            .put("source_sentence_id", "S0-S1")
-            .put("source_span", span(sourceBody.indexOf("두 번째"), sourceBody.length))
-            .put("checked_article_count", 2)
-            .put("observed_count", 0)
-            .put("label", "이번 비교 기사 2건에서는 확인되지 않음")))
+        reader.put("i1_stars", JSONArray().put(verifiedStar(
+            "S0-S1", sourceBody.indexOf("두 번째"), sourceBody.length,
+            sourceBody.indexOf("두 번째"), sourceBody.indexOf("두 번째") + "두 번째".length,
+            "두 번째 문장의 특정 내용")))
 
         val parsed = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
         assertEquals("all_source_sentences_reviewed", parsed.coverage)
@@ -99,6 +97,10 @@ class ReaderContractTest {
         assertEquals("같은 발표를 독자 관점에서 구성", parsed.highlights.single().pairs.single().differenceSummary)
         assertEquals(1, parsed.i1Stars.size)
         assertEquals(2, parsed.i1Stars.single().checkedArticleCount)
+        assertEquals("두 번째 문장의 특정 내용", parsed.i1Stars.single().evidence.single().content)
+        assertEquals("두 번째", parsed.i1Stars.single().evidence.single().sourceEvidenceSpan.let {
+            sourceBody.substring(it.start, it.end)
+        })
         assertTrue(sourceReaderText(parsed, parsed.targets()).text.contains("★"))
     }
 
@@ -109,12 +111,10 @@ class ReaderContractTest {
         reader.put("version", "0.2")
         reader.put("coverage", "all_source_sentences_reviewed")
         reader.put("i1_status", "partial")
-        reader.put("i1_stars", JSONArray().put(JSONObject()
-            .put("source_sentence_id", "S0-S1")
-            .put("source_span", span(sourceBody.indexOf("두 번째"), sourceBody.length))
-            .put("checked_article_count", 2)
-            .put("observed_count", 0)
-            .put("label", "이번 비교 기사 2건에서는 확인되지 않음")))
+        reader.put("i1_stars", JSONArray().put(verifiedStar(
+            "S0-S1", sourceBody.indexOf("두 번째"), sourceBody.length,
+            sourceBody.indexOf("두 번째"), sourceBody.indexOf("두 번째") + "두 번째".length,
+            "두 번째 문장의 특정 내용")))
 
         val parsed = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
         assertEquals("partial", parsed.i1Status)
@@ -134,12 +134,10 @@ class ReaderContractTest {
             .put("highlights", JSONArray())
             .put("pairs", JSONArray().put(neutral))
             .put("i1_status", "complete")
-            .put("i1_stars", JSONArray().put(JSONObject()
-                .put("source_sentence_id", "S0-S1")
-                .put("source_span", span(sourceBody.indexOf("두 번째"), sourceBody.length))
-                .put("checked_article_count", 2)
-                .put("observed_count", 0)
-                .put("label", "이번 비교 기사 2건에서는 확인되지 않음")))
+            .put("i1_stars", JSONArray().put(verifiedStar(
+                "S0-S1", sourceBody.indexOf("두 번째"), sourceBody.length,
+                sourceBody.indexOf("두 번째"), sourceBody.indexOf("두 번째") + "두 번째".length,
+                "두 번째 문장의 특정 내용")))
 
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
         assertEquals(1, reader.pairs.size)
@@ -147,6 +145,8 @@ class ReaderContractTest {
         val text = sourceReaderText(reader, reader.targets())
         assertEquals("$sourceBody\u2060★", text.text)
         assertTrue(text.getStringAnnotations("reader_target", 0, text.length).isEmpty())
+        val starOffset = text.text.indexOf('★')
+        assertEquals("S0-S1", text.getStringAnnotations("i1_star", starOffset, starOffset + 1).single().item)
     }
 
     @Test
@@ -154,17 +154,40 @@ class ReaderContractTest {
         val root = root()
         val rawReader = root.getJSONObject("reader")
         rawReader.put("i1_status", "complete")
-        rawReader.put("i1_stars", JSONArray().put(JSONObject()
-            .put("source_sentence_id", "S0-S0")
-            .put("source_span", span(0, sourceBody.indexOf('\n')))
-            .put("checked_article_count", 2)
-            .put("observed_count", 0)
-            .put("label", "이번 비교 기사 2건에서는 확인되지 않음")))
+        rawReader.put("i1_stars", JSONArray().put(verifiedStar(
+            "S0-S0", 0, sourceBody.indexOf('\n'),
+            sourceBody.indexOf("😀"), sourceBody.indexOf("😀") + "😀".length,
+            "이모지 문구")))
 
         val reader = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
-        val text = sourceReaderText(reader, reader.targets()).text
-        assertTrue(text.contains("첫 문장 😀이다.\u2060★ 〔A〕\n두 번째 문장이다."))
-        assertFalse(text.contains("😀이다.\n★"))
+        val text = sourceReaderText(reader, reader.targets())
+        assertTrue(text.text.contains("첫 문장 😀이다.\u2060★ 〔A〕\n두 번째 문장이다."))
+        assertFalse(text.text.contains("😀이다.\n★"))
+        val starOffset = text.text.indexOf('★')
+        assertEquals("S0-S0", text.getStringAnnotations("i1_star", starOffset, starOffset + 1).single().item)
+        assertTrue(text.getStringAnnotations("reader_target", starOffset, starOffset + 1).isEmpty())
+        assertEquals(1, text.getStringAnnotations("reader_target", sourceBody.indexOf("😀"),
+            sourceBody.indexOf("😀") + 1).size)
+    }
+
+    @Test
+    fun malformedOrMissingDistinctiveEvidenceDoesNotShowMisleadingWholeSentenceStar() {
+        val sentenceStart = sourceBody.indexOf("두 번째")
+        val valid = verifiedStar("S0-S1", sentenceStart, sourceBody.length,
+            sentenceStart, sentenceStart + "두 번째".length, "특정 내용")
+        val root = root()
+        val reader = root.getJSONObject("reader")
+        reader.put("i1_status", "complete")
+        val missing = JSONObject(valid.toString())
+        missing.remove("distinctive_contents")
+        reader.put("i1_stars", JSONArray().put(missing))
+        assertTrue(requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader).i1Stars.isEmpty())
+
+        valid.getJSONArray("source_evidence_spans").getJSONObject(0).put("text", "다른 문구")
+        reader.put("i1_stars", JSONArray().put(valid))
+        val parsed = requireNotNull(AnalysisApi.parseAnalysis(root, "https://source.example/article").reader)
+        assertTrue(parsed.i1Stars.isEmpty())
+        assertFalse(sourceReaderText(parsed, parsed.targets()).text.contains("★"))
     }
 
     @Test
@@ -432,6 +455,17 @@ class ReaderContractTest {
     private fun span(start: Int, end: Int): JSONObject = JSONObject().put("start", start).put("end", end)
     private fun markedSpan(start: Int, end: Int, body: String): JSONObject =
         span(start, end).put("text", body.substring(start, end))
+    private fun verifiedStar(
+        sentenceId: String, sentenceStart: Int, sentenceEnd: Int,
+        evidenceStart: Int, evidenceEnd: Int, content: String
+    ): JSONObject = JSONObject()
+        .put("source_sentence_id", sentenceId)
+        .put("source_span", span(sentenceStart, sentenceEnd))
+        .put("checked_article_count", 2)
+        .put("observed_count", 0)
+        .put("label", "이번 비교 기사 2건에서는 확인되지 않음")
+        .put("distinctive_contents", JSONArray().put(content))
+        .put("source_evidence_spans", JSONArray().put(markedSpan(evidenceStart, evidenceEnd, sourceBody)))
     private fun firstPair(root: JSONObject): JSONObject = root.getJSONObject("reader")
         .getJSONArray("highlights").getJSONObject(0).getJSONArray("pairs").getJSONObject(0)
     private fun firstDifference(root: JSONObject): JSONObject = firstPair(root)
