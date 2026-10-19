@@ -322,6 +322,35 @@ class StageBudgetTests(SimpleTestCase):
         self.assertEqual(recorder.deadline_at, deadline)
         self.assertEqual(search.call_args.kwargs["google_fallback_deadline_at"], deadline - 105)
 
+    def test_reader_reserves_full_multi_batch_alignment_and_review_window(self):
+        deadline = monotonic() + 240
+        recorder = MetricsJSONClient(object(), deadline_at=deadline)
+        metadata_search = {**empty_search(), "metadata_candidates": [{"candidate_id": "A1"}]}
+        captured = []
+
+        def select(_source, _analysis, _metadata, _ranking, **kwargs):
+            captured.append(kwargs)
+            return {"search": {**metadata_search, "candidates": [], "fetch_failures": []},
+                    "selection": {"event_baseline_ids": [], "same_event_ids": [],
+                                  "assessments": [], "claim_comparisons": []}}
+
+        with (patch("server.analysis.v2.pipeline.analyze_source_article", return_value=source_analysis()),
+              patch("server.analysis.v2.pipeline.search_candidate_metadata", return_value=metadata_search) as search,
+              patch("server.analysis.v2.pipeline.rank_comparison_candidates", return_value={"claim_candidates": []}),
+              patch("server.analysis.v2.pipeline.select_verified_comparisons", side_effect=select)):
+            result = run_discovery_pipeline(SOURCE_URL, client=recorder, _prepared_source=article(),
+                                            _deadline_at=deadline, _reader_reserve_seconds=120)
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(captured[0]["client"].deadline_at, deadline - 75)
+        self.assertEqual(captured[0]["minimum_independent_before_stop"], 2)
+        with patch("server.analysis.v2.pipeline.monotonic", return_value=deadline - 119):
+            self.assertTrue(captured[0]["should_stop"]())
+            self.assertFalse(captured[0]["hard_should_stop"]())
+        with patch("server.analysis.v2.pipeline.monotonic", return_value=deadline - 74):
+            self.assertTrue(captured[0]["hard_should_stop"]())
+        self.assertEqual(recorder.deadline_at, deadline)
+        self.assertEqual(search.call_args.kwargs["google_fallback_deadline_at"], deadline - 150)
+
     def test_verification_workers_keep_reserve_without_shortening_source_worker(self):
         raw = object.__new__(OpenRouterJSONClient)
         raw.model, raw.task_models = "synthetic-model", {}
