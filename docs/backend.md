@@ -49,6 +49,8 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 
 이어 같은 기사 재시도 `43635d9499e5`는 Android logcat에 08:49:52 KST HTTP 200으로 기록됐고, Reader가 원시 문장 쌍 15/15개를 파싱했습니다. 원시 하이라이트는 0개였습니다. 앱의 관련 기사 시트 이동·확장·스크롤은 실제 화면에서 확인됐습니다. PR #43 완료 요약은 이 재시도에 대해 **178.970초**, `discovery` **113.411초**(내부 `candidate_collection` **80.302초**), Reader 분석 **65.383초**, 검증 8건·연기 0건을 기록했습니다. 실행은 `partial`이었고 `SEARCH_HTTP_ERROR`와 `GOOGLE_SEARCH_HTTP_ERROR`가 있었습니다. 이 실행은 120초 목표를 넘었으며 앞 요청의 118.6초를 재시도의 시간으로 사용하지 않습니다. 두 요청의 후보와 조건이 같았는지 확인하지 않아 속도 회귀도 단정하지 않습니다.
 
+두 `c8cb5ae` 요청의 안전한 운영 진단에서는 NAVER 검색 6회와 Google grounded search가 HTTP 429를 반환했습니다. Exa 대체 검색 경로는 동작했고 후보 8건에 대한 검증 호출 8회가 기록됐습니다. HTTP 429는 공급자 제한 응답이라는 사실만 확인하며, 정확한 할당량·요금 원인은 이 로그만으로 단정하지 않습니다.
+
 ## Vercel 운영 배포
 
 기존 프로젝트는 [frameless-team05-api](https://vercel.com/kim-seungmins-projects/frameless-team05-api)이고, `vercel.json`이 서울 리전의 Django 함수를 설정합니다. 함수 실행 시간은 최대 300초로 설정했습니다.
@@ -69,7 +71,7 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 | `ENABLE_GOOGLE_GROUNDED_SEARCH` | 선택적 Google Search 후보 발견. 기본 꺼짐 |
 | `GOOGLE_GROUNDED_SEARCH_MODEL` | 선택적 검색 모델. 기본 `gemini-3.8-flash` |
 
-2026년 10월 18일 `main`의 Iteration 2 통합 코드를 이 프로젝트에 수동 배포했습니다. 이후 `c8cb5ae`(PR #43 진단 추가)를 운영 배포 `dpl_DXs23uScGDwNdJ7wy2QrwUaHLVHH`로 갱신했고 `/api/health`는 HTTP 200, `analysis_ready=true`였습니다. 이 배포의 분석 요청 `7cd3876ac7f7`은 위와 같이 응답했지만 부분 결과였고 새 Android 시트의 동작은 확인하지 못했습니다. 앞 절의 244.599초 기록은 이전 `53a5118` 배포의 것입니다. Git 자동 연결은 확인되지 않았으므로 **`main`에 푸시한 것만으로 운영 백엔드가 갱신됐다고 가정하지 마세요.** Vercel 프로젝트 관리 권한이 있는 계정으로 로그인한 뒤 저장소 루트에서 연결하고 수동 배포합니다.
+2026년 10월 18일 `main`의 Iteration 2 통합 코드를 이 프로젝트에 수동 배포했습니다. 이후 `c8cb5ae`(PR #43 진단 추가)를 운영 배포 `dpl_DXs23uScGDwNdJ7wy2QrwUaHLVHH`로 갱신했고 `/api/health`는 HTTP 200, `analysis_ready=true`였습니다. 이 배포의 첫 Android 요청 `7cd3876ac7f7`은 부분 결과로 응답했지만 시트는 확인하지 못했고, 두 번째 `43635d9499e5`에서는 관련 기사 시트 이동·확장·스크롤을 실제 화면에서 확인했습니다. 앞 절의 244.599초 기록은 이전 `53a5118` 배포의 것입니다. Git 자동 연결은 확인되지 않았으므로 **`main`에 푸시한 것만으로 운영 백엔드가 갱신됐다고 가정하지 마세요.** Vercel 프로젝트 관리 권한이 있는 계정으로 로그인한 뒤 저장소 루트에서 연결하고 수동 배포합니다.
 
 ```sh
 npx vercel link --project frameless-team05-api --scope kim-seungmins-projects
