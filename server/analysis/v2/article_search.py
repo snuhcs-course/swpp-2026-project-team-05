@@ -574,13 +574,19 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     # then consume responses in query-plan order for stable candidate IDs/ranks.
     with ThreadPoolExecutor(max_workers=min(4, len(queries))) as executor:
         query_results = list(executor.map(run_query, queries))
-    # A successful empty NAVER response is not an API outage. When NAVER is
-    # unavailable, try Google first, then one Exa search only if Google failed
-    # or yielded no usable citation URL. Normal Google success adds no cost.
+    # An empty NAVER response alone is not an API outage. If a query or sort
+    # failed and the successful responses contain no external article URL,
+    # however, there is still no candidate to verify. Try Google then one Exa
+    # search in that case, just as when every NAVER query failed.
     naver_results = [(items, failure) for record, (items, failure) in zip(queries, query_results)
                      if record.get("provider", "naver") == "naver"]
-    naver_total_failure = bool(naver_results) and all(failure is not None for _, failure in naver_results)
-    if not google_parallel and naver_total_failure:
+    naver_has_candidate = any(normalize_news_url(url) not in source_keys
+                              for items, failure in naver_results if failure is None
+                              for item in items or [] for url in _valid_urls(item))
+    naver_fallback_needed = (bool(naver_results) and not naver_has_candidate
+                             and any(failure is not None or getattr(items, "sort_errors", [])
+                                     for items, failure in naver_results))
+    if not google_parallel and naver_fallback_needed:
         remaining = (_GOOGLE_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
                      google_fallback_deadline_at - monotonic() - 1.0)
         timeout_seconds = min(_GOOGLE_SEARCH_TIMEOUT_SECONDS, remaining)
@@ -600,7 +606,7 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
             query_results.append(outcome)
     google_results = [(items, failure) for record, (items, failure) in zip(queries, query_results)
                       if record.get("provider") == "google_grounding"]
-    if naver_total_failure and not any(items for items, failure in google_results if failure is None):
+    if naver_fallback_needed and not any(items for items, failure in google_results if failure is None):
         remaining = (_OPENROUTER_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
                      google_fallback_deadline_at - monotonic() - 1.0)
         timeout_seconds = min(_OPENROUTER_SEARCH_TIMEOUT_SECONDS, remaining)
