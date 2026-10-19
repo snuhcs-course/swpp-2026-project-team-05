@@ -250,17 +250,26 @@ internal object AnalysisApi {
         // highlights repeat its A–G subset and cannot override a conflicting pair ID.
         val pairs = (if (version == "0.2") topLevelPairs + highlights.flatMap { it.pairs }
             else highlights.flatMap { it.pairs } + topLevelPairs).distinctBy { it.id }
-        val stars = (reader.optJSONArray("i1_stars") ?: JSONArray()).objects().mapNotNull { item ->
-            if (reader.optString("i1_status") !in setOf("complete", "partial")) return@mapNotNull null
+        val stars = (reader.optJSONArray("i1_stars") ?: JSONArray()).objects().mapNotNull star@{ item ->
+            if (reader.optString("i1_status") !in setOf("complete", "partial")) return@star null
             val sourceSentenceId = item.optString("source_sentence_id")
-            val sentence = sourceSentences[sourceSentenceId] ?: return@mapNotNull null
+            val sentence = sourceSentences[sourceSentenceId] ?: return@star null
             val span = item.readerSpan("source_span")?.takeIf { it.isWithin(sentence.span) }
-                ?: return@mapNotNull null
+                ?: return@star null
             val count = item.optInt("checked_article_count", -1)
             val observed = item.optInt("observed_count", -1)
-            val label = item.optString("label")
-            if (count <= 0 || observed != 0 || label.isBlank()) return@mapNotNull null
-            ReaderI1Star(sourceSentenceId, span, label, count)
+            if (count <= 0 || observed != 0) return@star null
+            val contents = item.optJSONArray("distinctive_contents") ?: return@star null
+            val rawSpans = item.optJSONArray("source_evidence_spans") ?: return@star null
+            if (contents.length() == 0 || contents.length() != rawSpans.length()) return@star null
+            val evidence = (0 until contents.length()).map { index ->
+                val content = (contents.opt(index) as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: return@star null
+                val marked = rawSpans.optJSONObject(index)?.readerMarkedSpan(source.body)
+                    ?.takeIf { it.isWithin(span) } ?: return@star null
+                ReaderI1Evidence(content, marked)
+            }
+            ReaderI1Star(sourceSentenceId, span, count, evidence)
         }
         return ReaderResult(
             version = version,
@@ -370,8 +379,12 @@ internal object AnalysisApi {
 
     private fun JSONObject.readerMarkedSpan(key: String, body: String): ReaderSpan? {
         val raw = optJSONObject(key) ?: return null
-        val span = raw.readerDirectSpan()?.takeIf { it.isWithin(body) } ?: return null
-        return span.takeIf { raw.optString("text").isNotBlank() && body.substring(it.start, it.end) == raw.optString("text") }
+        return raw.readerMarkedSpan(body)
+    }
+
+    private fun JSONObject.readerMarkedSpan(body: String): ReaderSpan? {
+        val span = readerDirectSpan()?.takeIf { it.isWithin(body) } ?: return null
+        return span.takeIf { optString("text").isNotBlank() && body.substring(it.start, it.end) == optString("text") }
     }
 
     private fun JSONObject.readerDirectSpan(): ReaderSpan? {

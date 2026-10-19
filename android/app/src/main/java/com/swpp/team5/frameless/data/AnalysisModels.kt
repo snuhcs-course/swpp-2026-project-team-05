@@ -225,12 +225,18 @@ internal data class ReaderHighlight(
     }.distinct().sorted()
 }
 
-/** 별표는 검증된 서버 항목이 있을 때만 표시한다. */
+/** I1의 내용과 이 내용이 실제로 인용된 원문 구간. */
+internal data class ReaderI1Evidence(
+    val content: String,
+    val sourceEvidenceSpan: ReaderSpan
+)
+
+/** 별표는 검증된 서버 항목과 원문 근거가 모두 있을 때만 표시한다. */
 internal data class ReaderI1Star(
     val sourceSentenceId: String,
     val sourceSpan: ReaderSpan,
-    val label: String,
-    val checkedArticleCount: Int
+    val checkedArticleCount: Int,
+    val evidence: List<ReaderI1Evidence>
 )
 
 internal data class ReaderResult(

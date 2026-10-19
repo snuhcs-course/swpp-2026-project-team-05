@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.ReaderArticle
 import com.swpp.team5.frameless.data.AnalysisStatus
+import com.swpp.team5.frameless.data.ReaderI1Star
 import com.swpp.team5.frameless.data.ReaderPair
 import com.swpp.team5.frameless.data.ReaderResult
 import com.swpp.team5.frameless.data.ReaderSpan
@@ -120,10 +121,12 @@ internal fun sourceReaderText(
                 pop() // click annotation
                 active = null
             }
-            starsByEnd[offset]?.forEach {
+            starsByEnd[offset]?.forEach { star ->
+                pushStringAnnotation("i1_star", star.sourceSentenceId)
                 pushStyle(SpanStyle(color = Fl.Danger, fontWeight = FontWeight.Bold))
                 // Keep the star with the sentence ending, before any following paragraph break.
                 append("\u2060★")
+                pop()
                 pop()
             }
             if (ending?.codes?.isNotEmpty() == true) {
@@ -163,11 +166,12 @@ internal fun ReaderScreen(
         sourceReaderText(reader, targets, showExpressions)
     }
     var selected by remember(reader) { mutableStateOf<ReaderTarget?>(null) }
+    var selectedStar by remember(reader) { mutableStateOf<ReaderI1Star?>(null) }
     var bodyLayout by remember(reader) { mutableStateOf<TextLayoutResult?>(null) }
     val currentBodyLayout = rememberUpdatedState(bodyLayout)
     val bodyScroll = rememberScrollState()
 
-    BackHandler(enabled = selected == null, onBack = onNewArticle)
+    BackHandler(enabled = selected == null && selectedStar == null, onBack = onNewArticle)
 
     Column(modifier = Modifier.fillMaxSize().background(Fl.Card)) {
         Row(
@@ -213,7 +217,7 @@ internal fun ReaderScreen(
                 }
             }
             if (reader.i1Stars.isNotEmpty()) {
-                Caption("★ 확인한 비교 기사에서 찾지 못한 내용", color = Fl.Danger)
+                Caption("★ 문장 속 두드러진 내용 · 별표를 눌러 보기", color = Fl.Danger)
             } else if (reader.i1Status == "not_computed") {
                 Caption("별표 표시는 이번 분석에서 확인하지 않았어요.")
             } else if (reader.i1Status == "withheld") {
@@ -228,12 +232,20 @@ internal fun ReaderScreen(
             Spacer(Modifier.height(20.dp))
             Text(
                 text = body,
-                modifier = Modifier.fillMaxWidth().pointerInput(body, targets) {
+                modifier = Modifier.fillMaxWidth().pointerInput(body, targets, reader.i1Stars) {
                     detectTapGestures { position: Offset ->
                         val offset = currentBodyLayout.value?.getOffsetForPosition(position) ?: return@detectTapGestures
+                        val starId = body.getStringAnnotations("i1_star", offset, (offset + 1).coerceAtMost(body.length))
+                            .firstOrNull()?.item
+                        if (starId != null) {
+                            selectedStar = reader.i1Stars.firstOrNull { it.sourceSentenceId == starId }
+                            selected = null
+                            return@detectTapGestures
+                        }
                         val key = body.getStringAnnotations("reader_target", offset, (offset + 1).coerceAtMost(body.length))
                             .firstOrNull()?.item ?: return@detectTapGestures
                         selected = targets.firstOrNull { it.key == key }
+                        selectedStar = null
                     }
                 },
                 fontSize = 16.sp,
@@ -251,9 +263,51 @@ internal fun ReaderScreen(
             ReaderComparisonSheet(reader, target, onDismiss = { selected = null })
         }
     }
+    selectedStar?.let { star ->
+        key(star.sourceSentenceId) {
+            ReaderI1Sheet(reader, star, onDismiss = { selectedStar = null })
+        }
+    }
 }
 
 private data class RelatedPage(val article: ReaderArticle, val pairs: List<ReaderPair>)
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun ReaderI1Sheet(reader: ReaderResult, star: ReaderI1Star, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Fl.Card,
+        contentColor = Fl.Ink
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("★ 이번 비교에서 두드러진 내용", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+            Caption("별표는 문장 전체가 아니라 아래 내용에만 해당해요.")
+            star.evidence.forEach { evidence ->
+                Column(
+                    modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Text(evidence.content, fontSize = 15.sp, lineHeight = 23.sp,
+                        fontWeight = FontWeight.SemiBold, color = Fl.Ink)
+                    Caption("기사 원문")
+                    Text(reader.sourceArticle.body.substring(
+                        evidence.sourceEvidenceSpan.start, evidence.sourceEvidenceSpan.end),
+                        fontSize = 14.sp, lineHeight = 22.sp, fontFamily = Fl.Serif, color = Fl.Ink2)
+                }
+            }
+            Caption("이번에 확인한 비교 기사 ${star.checkedArticleCount}건에서는 같은 내용을 찾지 못했어요.")
+            Caption("확인한 기사 범위의 관찰이에요. 사실 여부나 다른 모든 기사를 판정한 결과는 아니에요.")
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
 
 internal fun sheetInstruction(pageCount: Int, expanded: Boolean): String = when {
     pageCount > 1 && expanded -> "좌우로 다른 기사 보기"
