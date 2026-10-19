@@ -163,7 +163,9 @@ internal data class InformationDifference(
 internal data class AnalysisStatus(
     val executionStatus: String,
     val comparisonStatus: String,
-    val warnings: List<String>
+    val warnings: List<String>,
+    /** Server error stages let the Reader explain a partial search without blaming sentence review. */
+    val errorStages: Set<String> = emptySet()
 )
 
 /** Reader의 위치는 각 기사 body 문자열의 UTF-16 인덱스, 끝은 포함하지 않는다. */

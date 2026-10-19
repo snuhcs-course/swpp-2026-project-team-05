@@ -203,7 +203,10 @@ internal object AnalysisApi {
                 AnalysisStatus(
                     executionStatus = status.optString("execution_status"),
                     comparisonStatus = status.optString("comparison_status"),
-                    warnings = (status.optJSONArray("warnings") ?: JSONArray()).strings()
+                    warnings = (status.optJSONArray("warnings") ?: JSONArray()).strings(),
+                    errorStages = (status.optJSONArray("errors") ?: JSONArray()).objects()
+                        .mapNotNull { it.optString("stage").trim().takeIf(String::isNotEmpty) }
+                        .toSet()
                 )
             }
         )

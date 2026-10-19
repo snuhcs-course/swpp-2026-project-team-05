@@ -158,9 +158,7 @@ internal fun ReaderScreen(
     val targets = remember(reader, showExpressions) {
         if (showExpressions) reader.targets().nonOverlapping() else emptyList()
     }
-    val fullReview = reader.version == "0.2" && reader.coverage == "all_source_sentences_reviewed"
-    val partial = analysisStatus?.executionStatus in setOf("partial", "failed") ||
-        reader.articleFailureCount > 0 || reader.i1Status == "partial"
+    val statusNotice = readerStatusNotice(reader, analysisStatus)
     val body = remember(reader, targets, showExpressions) {
         sourceReaderText(reader, targets, showExpressions)
     }
@@ -183,21 +181,13 @@ internal fun ReaderScreen(
             OutlinedPill("새 기사", onClick = onNewArticle)
         }
         HRule()
-        if (!fullReview || partial) {
+        if (statusNotice != null) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(Fl.Inset).padding(horizontal = 18.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Caption(
-                    when {
-                        !fullReview -> "문장 비교가 일부만 끝났어요."
-                        reader.articleFailureCount > 0 -> "일부 기사를 비교하지 못했어요."
-                        reader.i1Status == "partial" -> "별표 표시를 일부 확인하지 못했어요."
-                        else -> "문장 비교가 일부만 끝났어요."
-                    },
-                    color = Fl.Danger
-                )
-                Caption("확인된 문장만 표시해요. 표시가 없어도 차이가 없다는 뜻은 아니에요.")
+                Caption(statusNotice.headline, color = Fl.Danger)
+                Caption(statusNotice.detail)
             }
         }
         Column(modifier = Modifier.fillMaxSize().verticalScroll(bodyScroll).padding(horizontal = 22.dp, vertical = 24.dp)) {
