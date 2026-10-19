@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.ReaderArticle
 import com.swpp.team5.frameless.data.AnalysisStatus
+import com.swpp.team5.frameless.data.ReaderExpressionDifference
 import com.swpp.team5.frameless.data.ReaderI1Star
 import com.swpp.team5.frameless.data.ReaderPair
 import com.swpp.team5.frameless.data.ReaderResult
@@ -72,6 +73,31 @@ import kotlin.math.roundToInt
 /** The source article remains intact. Badges are UI annotations outside its quoted sentences. */
 private val ReaderExpression = Color(0xFFE9E1F5)
 private val ReaderMarker = Color(0xFFE5D0F2)
+
+/** One article can align multiple content units to the same wording contrast. */
+private fun List<ReaderExpressionDifference>.forComparisonSheet(): List<ReaderExpressionDifference> {
+    val displayed = mutableListOf<ReaderExpressionDifference>()
+    for (difference in this) {
+        val repeated = displayed.indexOfFirst { earlier ->
+            earlier.code == difference.code &&
+                earlier.sourceMarkerSpan.start < difference.sourceMarkerSpan.end &&
+                difference.sourceMarkerSpan.start < earlier.sourceMarkerSpan.end &&
+                earlier.relatedMarkerSpan.start < difference.relatedMarkerSpan.end &&
+                difference.relatedMarkerSpan.start < earlier.relatedMarkerSpan.end
+        }
+        if (repeated < 0) {
+            displayed.add(difference)
+        } else {
+            // Prefer a concrete, shorter explanation for the same marked words.
+            val previous = displayed[repeated]
+            if (difference.note.isNotBlank() &&
+                (previous.note.isBlank() || difference.note.trim().length < previous.note.trim().length)) {
+                displayed[repeated] = difference
+            }
+        }
+    }
+    return displayed
+}
 
 internal data class ReaderTarget(
     val sentenceId: String,
@@ -408,9 +434,7 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
         article.url?.let { url -> SourceLink(onClick = { uriHandler.openUri(url) }, label = "원문 링크") }
         val relation = page.pairs.map { it.relation }.distinct().joinToString(" · ") { relationLabel(it) }
         if (relation.isNotBlank()) Caption(relation, modifier = Modifier.padding(vertical = 5.dp))
-        val differences = page.pairs.flatMap { it.expressionDifferences }.distinctBy {
-            listOf(it.code, it.note, it.sourceMarkerSpan.start, it.relatedMarkerSpan.start)
-        }
+        val differences = page.pairs.flatMap { it.expressionDifferences }.forComparisonSheet()
         if (differences.isNotEmpty()) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
