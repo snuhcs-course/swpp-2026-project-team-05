@@ -186,6 +186,159 @@ def _safe_task_counts(value: object) -> dict[str, int]:
                        and type(count) is int and count >= 0))
 
 
+def _reader_funnel_summary(result: dict) -> dict | None:
+    """Count Reader decisions without logging article content or generated IDs.
+
+    This is diagnostic-only. An incomplete or malformed Reader result must not
+    suppress the existing completion event or change the API response.
+    """
+    reader = result.get("reader_analysis")
+    if not isinstance(reader, dict):
+        return None
+
+    def count(value: object) -> int | None:
+        length = len(value) if isinstance(value, list) else None
+        return length if length is not None and length <= 1_000_000 else None
+
+    def number(value: object) -> int | None:
+        return value if type(value) is int and 0 <= value <= 1_000_000 else None
+
+    try:
+        funnel: dict[str, Any] = {}
+        ledger = reader.get("source_sentence_ledger")
+        ledger_count = count(ledger)
+        if ledger_count is not None:
+            funnel["source_sentence_count"] = ledger_count
+            scopes = {scope: 0 for scope in ("central", "supporting", "separate", "non_content")}
+            for row in ledger:
+                scope = row.get("scope") if isinstance(row, dict) else None
+                if isinstance(scope, str) and scope in scopes:
+                    scopes[scope] += 1
+            funnel["source_sentence_scopes"] = scopes
+        units = reader.get("source_units")
+        unit_count = count(units)
+        if unit_count is not None:
+            funnel["source_unit_count"] = unit_count
+
+        alignments = reader.get("article_alignments")
+        final_findings = 0
+        if isinstance(alignments, dict):
+            aligned_articles = aligned_units = observed_units = 0
+            for article in alignments.values():
+                if not isinstance(article, dict) or not isinstance(article.get("unit_alignments"), list):
+                    continue
+                aligned_articles += 1
+                for row in article["unit_alignments"]:
+                    if not isinstance(row, dict):
+                        continue
+                    aligned_units += 1
+                    relation = row.get("relation")
+                    observed_units += isinstance(relation, str) and relation in {"same", "refutes", "reframes"}
+                    differences = row.get("expression_differences")
+                    if isinstance(differences, list):
+                        final_findings += len(differences)
+            for key, value in (("aligned_article_count", aligned_articles),
+                               ("aligned_unit_count", aligned_units),
+                               ("observed_unit_alignment_count", observed_units),
+                               ("expression_final_finding_count", final_findings)):
+                safe = number(value)
+                if safe is not None:
+                    funnel[key] = safe
+
+        review = reader.get("expression_review")
+        if isinstance(review, dict):
+            keys = ("eligible_pair_count", "reviewed_pair_count", "attempted_pair_count",
+                    "accepted_finding_count", "withheld_finding_count", "deferred_pair_count",
+                    "omitted_pair_count")
+            counters = {key: safe for key in keys if (safe := number(review.get(key))) is not None}
+            if counters:
+                funnel["expression_review"] = counters
+            accepted = counters.get("accepted_finding_count")
+            if ("expression_final_finding_count" in funnel and accepted is not None
+                    and accepted <= funnel["expression_final_finding_count"]):
+                # The recall review appends accepted findings to the alignment rows.
+                funnel["expression_alignment_finding_count"] = (
+                    funnel["expression_final_finding_count"] - accepted)
+
+        groups = reader.get("independent_article_groups")
+        stars = reader.get("i1_stars")
+        unresolved = reader.get("i1_review_unresolved_unit_ids")
+        title_ambiguous = reader.get("i1_title_ambiguous_unit_ids")
+        i1 = {}
+        for key, value in (("independent_article_group_count", groups),
+                           ("star_count", stars), ("unresolved_unit_count", unresolved),
+                           ("title_ambiguous_unit_count", title_ambiguous)):
+            safe = count(value)
+            if safe is not None:
+                i1[key] = safe
+        # Mirror the current I1 funnel's eligibility condition. Its unresolved
+        # list also contains first-pass uncertainty, so list lengths alone would
+        # overcount candidates sent to the independent absence review.
+        try:
+            display = result.get("display_selection")
+            selected = display.get("selected_article_ids") if isinstance(display, dict) else None
+            failures = reader.get("article_failures")
+            if (isinstance(units, list) and isinstance(groups, list) and len(groups) >= 2
+                    and isinstance(failures, list) and not failures
+                    and isinstance(selected, list) and selected
+                    and isinstance(alignments, dict) and all(key in alignments for key in selected)):
+                by_article = {}
+                for article_id in selected:
+                    rows = alignments[article_id]["unit_alignments"]
+                    by_article[article_id] = {row["unit_id"]: row["relation"] for row in rows}
+                    if len(by_article[article_id]) != len(rows):
+                        raise ValueError("duplicate unit alignment")
+                candidate_count = uncertain_count = 0
+                for unit in units:
+                    relations = [by_article[article_id][unit["unit_id"]]
+                                 for group in groups for article_id in group]
+                    if all(relation in {"absent", "related_only"} for relation in relations):
+                        candidate_count += 1
+                    elif ("uncertain" in relations and
+                          not any(relation in {"same", "refutes", "reframes"} for relation in relations)):
+                        uncertain_count += 1
+                if number(candidate_count) is not None:
+                    i1["first_pass_absence_review_candidate_count"] = candidate_count
+                if number(uncertain_count) is not None:
+                    i1["first_pass_uncertain_unit_count"] = uncertain_count
+        except (KeyError, TypeError, ValueError):
+            pass  # A malformed partial result has no reliable candidate count.
+        if i1:
+            funnel["i1"] = i1
+
+        # Project the same full Reader contract used by the API. Only counts are
+        # kept, and a broken partial result is simply omitted from telemetry.
+        display = result.get("display_selection")
+        search = result.get("search")
+        selected = display.get("selected_article_ids") if isinstance(display, dict) else None
+        candidates = search.get("candidates") if isinstance(search, dict) else None
+        try:
+            if (isinstance(selected, list) and len(selected) <= 3
+                    and all(isinstance(key, str) and key for key in selected)
+                    and isinstance(candidates, list)):
+                catalog = {row["candidate_id"]: row for row in candidates
+                           if isinstance(row, dict) and isinstance(row.get("candidate_id"), str)}
+                if all(key in catalog for key in selected):
+                    from ..reader_contract import build_reader
+                    index_by_id = {"S0": 0, **{key: index for index, key in enumerate(selected, 1)}}
+                    projected = build_reader(result, selected, catalog, index_by_id, {})
+                    if isinstance(projected, dict):
+                        final = {}
+                        for key, value in (("pair_count", projected.get("pairs")),
+                                           ("highlight_count", projected.get("highlights")),
+                                           ("star_count", projected.get("i1_stars"))):
+                            safe = count(value)
+                            if safe is not None:
+                                final[key] = safe
+                        if final:
+                            funnel["reader_output"] = final
+        except Exception:
+            pass  # Keep earlier safe counters if a partial result cannot project.
+        return funnel
+    except Exception:
+        return {}  # Logging must never replace an otherwise usable analysis.
+
+
 def _completion_summary(result: dict, stage_elapsed: dict[str, int],
                         execution: dict | None, duration_ms: int) -> dict:
     """Summarize existing counters without retaining article or model content."""
@@ -241,6 +394,9 @@ def _completion_summary(result: dict, stage_elapsed: dict[str, int],
     }
     if verification:
         summary["verification"] = verification
+    reader_funnel = _reader_funnel_summary(result)
+    if reader_funnel:
+        summary["reader_funnel"] = reader_funnel
     if isinstance(execution, dict):
         succeeded = _safe_task_counts(execution.get("task_counts"))
         failed = _safe_task_counts(execution.get("task_failure_counts"))
