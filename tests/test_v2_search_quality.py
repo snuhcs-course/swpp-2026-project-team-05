@@ -348,6 +348,27 @@ class SearchQualityTests(TestCase):
         self.assertEqual(result["metadata_candidates"][0]["title"], "grounded 기사")
         google.assert_called_once()
 
+    def test_source_origin_alias_does_not_suppress_partial_failure_fallback(self):
+        source_origin = "https://news.example.com/source-origin"
+
+        def partial_search(query, _display):
+            if query == "source aliases":
+                return [{**_row("alias", "sim"), "link": source_origin},
+                        {**_row("source", "sim"), "link": SOURCE["url"],
+                         "originallink": source_origin}]
+            raise OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)
+
+        with (patch.dict("os.environ", {"ENABLE_GOOGLE_GROUNDED_SEARCH": "0"}),
+              patch("server.analysis.v2.article_search.search_naver_news", side_effect=partial_search),
+              patch("server.analysis.v2.article_search.get_gemini_api_key", return_value="synthetic-key"),
+              patch("server.analysis.v2.article_search.search_google_grounded_news",
+                    return_value=[{**_row("grounded", ""), "search_provider": "google_grounding"}]) as google):
+            result = search_candidate_metadata(SOURCE, {"event_query": "source aliases",
+                                                        "event_queries": ["source aliases", "failed query"],
+                                                        "claims": []})
+        self.assertEqual([row["title"] for row in result["metadata_candidates"]], ["grounded 기사"])
+        google.assert_called_once()
+
     def test_google_fallback_skips_short_deadline_and_bounds_request_timeout(self):
         analysis = {"event_query": "청계천 수질 조사", "claims": []}
         naver_error = OperationError("NAVER quota", code="SEARCH_HTTP_ERROR", http_status=429)

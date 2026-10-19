@@ -580,9 +580,18 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     # search in that case, just as when every NAVER query failed.
     naver_results = [(items, failure) for record, (items, failure) in zip(queries, query_results)
                      if record.get("provider", "naver") == "naver"]
-    naver_has_candidate = any(normalize_news_url(url) not in source_keys
-                              for items, failure in naver_results if failure is None
-                              for item in items or [] for url in _valid_urls(item))
+    naver_key_groups = [{normalize_news_url(url) for url in _valid_urls(item)}
+                        for items, failure in naver_results if failure is None
+                        for item in items or []]
+    # A NAVER result can expose both the source's NAVER URL and an external
+    # originallink. Treat the whole URL group as the source, including aliases
+    # discovered through another result, before deciding fallback is unnecessary.
+    source_aliases = set(source_keys)
+    for _ in naver_key_groups:
+        for keys in naver_key_groups:
+            if keys & source_aliases:
+                source_aliases.update(keys)
+    naver_has_candidate = any(keys and not keys & source_aliases for keys in naver_key_groups)
     naver_fallback_needed = (bool(naver_results) and not naver_has_candidate
                              and any(failure is not None or getattr(items, "sort_errors", [])
                                      for items, failure in naver_results))
