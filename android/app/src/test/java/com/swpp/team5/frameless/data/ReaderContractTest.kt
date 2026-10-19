@@ -5,6 +5,7 @@ import com.swpp.team5.frameless.ui.screens.centeredReaderOffset
 import com.swpp.team5.frameless.ui.screens.preferredFocusPair
 import com.swpp.team5.frameless.ui.screens.relatedReaderText
 import com.swpp.team5.frameless.ui.screens.readerTailPadding
+import com.swpp.team5.frameless.ui.screens.readerDifferenceHeading
 import com.swpp.team5.frameless.ui.screens.sheetInstruction
 import com.swpp.team5.frameless.ui.screens.sourceReaderText
 import com.swpp.team5.frameless.ui.screens.targets
@@ -343,6 +344,15 @@ class ReaderContractTest {
         assertEquals("좌우로 다른 기사 보기 · 위로 끌어 펼치기",
             sheetInstruction(pageCount = 2, expanded = false))
         assertEquals("좌우로 다른 기사 보기", sheetInstruction(pageCount = 2, expanded = true))
+    }
+
+    @Test
+    fun readerDifferenceHeadingsMatchBackendRubricCategories() {
+        assertEquals(listOf(
+            "A · 인용·보도 동사", "B · 인용명사·발언 명명", "C · 행위·사건 서술어",
+            "D · 정도·수량 수식어", "E · 평가·감정 수식어", "F · 명명·일방적 용어",
+            "G · 양태·확신·범주화"
+        ), ('A'..'G').map { readerDifferenceHeading(it.toString()) })
     }
 
     @Test

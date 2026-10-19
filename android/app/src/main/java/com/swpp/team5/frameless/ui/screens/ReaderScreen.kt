@@ -59,6 +59,7 @@ import com.swpp.team5.frameless.data.AnalysisStatus
 import com.swpp.team5.frameless.data.ReaderPair
 import com.swpp.team5.frameless.data.ReaderResult
 import com.swpp.team5.frameless.data.ReaderSpan
+import com.swpp.team5.frameless.ui.components.RubricLabels
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.HRule
@@ -370,16 +371,27 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Caption("다르게 쓴 표현", color = Fl.InkDiff)
                 differences.forEach { difference ->
-                    Text(
-                        text = "${difference.code} · ${difference.note}".trimEnd(' ', '·'),
-                        color = Fl.InkDiff,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = readerDifferenceHeading(difference.code),
+                            color = Fl.InkDiff,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                        if (difference.note.isNotBlank()) {
+                            Text(
+                                text = difference.note.trim(),
+                                color = Fl.Ink2,
+                                fontSize = 12.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -411,6 +423,10 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
         }
     }
 }
+
+/** Shared with the legacy rubric cards so the Reader names match the backend categories. */
+internal fun readerDifferenceHeading(code: String): String =
+    RubricLabels.expression[code]?.let { "$code · $it" } ?: code
 
 /** An A–G tap focuses its marked counterpart even when neutral pairs are present. */
 internal fun List<ReaderPair>.preferredFocusPair(): ReaderPair? =
