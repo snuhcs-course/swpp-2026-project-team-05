@@ -509,6 +509,10 @@ class OpenRouterJSONClient:
             model, temperature=temperature, seed=seed, task_models=task_models)
         self.model, self.temperature, self.seed = settings["model"], settings["temperature"], settings["seed"]
         self.task_models = settings["task_models"]
+        verifier_effort = os.getenv("OPENROUTER_VERIFIER_REASONING_EFFORT", "medium").strip().lower() or "medium"
+        if verifier_effort not in {"low", "medium"}:
+            raise ValueError("OpenRouter 후보 본문 검증의 추론 수준은 low 또는 medium이어야 합니다.")
+        self.verifier_reasoning_effort = verifier_effort
         self._usage_totals: Counter[str] = Counter()
         self._usage_lock = Lock()
         self._thread_state = local()
@@ -617,11 +621,12 @@ class OpenRouterJSONClient:
         # This verifier only decides whether a fetched report covers the same
         # event and grounded claims. Gemini's default thinking can consume the
         # entire completion budget before it emits the short JSON verdict.
-        # Keep reasoning enabled, but ask for a bounded middle level here;
-        # the later Reader tasks retain their own default reasoning depth.
+        # The medium default preserves verification depth. Low is an explicit
+        # opt-in for measured A/B runs; Gemini thinking levels are relative,
+        # not a guaranteed reasoning-token budget. Reader tasks are unchanged.
         if (task_name == "verify_selected_candidate_bodies"
                 and re.match(r"^google/gemini-3\.(?:[6-9]|[1-9][0-9])(?:-|$)", routed_model)):
-            request["reasoning"] = {"effort": "medium"}
+            request["reasoning"] = {"effort": self.verifier_reasoning_effort}
         if self.seed is not None:
             request["seed"] = self.seed
         # Gemini 3.6+ can ignore or reject sampling controls even through a

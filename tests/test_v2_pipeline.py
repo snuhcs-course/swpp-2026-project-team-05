@@ -901,6 +901,29 @@ class GroundingTests(SimpleTestCase):
         self.assertEqual(client.requests[0]["name"], "verify_selected_candidate_bodies")
         self.assertEqual(client.requests[0]["max_output_tokens"], 16384)
 
+    def test_verifier_keeps_source_evidence_but_omits_discovery_metadata(self):
+        source, candidate = article(), article("A1")
+        analysis = source_analysis()
+        analysis["event_queries"] = ["SEARCH_ONLY_MARKER"]
+        analysis["source_scope_review"] = {"notes": "SCOPE_ONLY_MARKER"}
+        analysis["claims"][0]["selection_basis"] = ["SELECTION_ONLY_MARKER"]
+        client = SequenceClient([ModelResponseTruncatedError("synthetic stop")])
+
+        with self.assertRaises(ModelResponseTruncatedError):
+            verify_candidate_articles(source, analysis, [candidate], client=client)
+
+        sent = client.requests[0]["input_data"]
+        self.assertEqual(sent["source"]["sentences"][0]["text"], source["body"])
+        self.assertEqual(sent["candidates"][0]["sentences"][0]["text"], candidate["body"])
+        self.assertEqual(sent["analysis"], {
+            "core_event": analysis["core_event"],
+            "claims": [{key: analysis["claims"][0][key] for key in
+                        ("claim_id", "claim", "claim_kind", "speaker", "evidence")}],
+        })
+        self.assertNotIn("SEARCH_ONLY_MARKER", repr(sent))
+        self.assertNotIn("SCOPE_ONLY_MARKER", repr(sent))
+        self.assertNotIn("SELECTION_ONLY_MARKER", repr(sent))
+
     def test_passing_mention_cannot_become_same_event_comparison(self):
         body = "시청은 가을 축제를 개최했다.\n새 계획도 발표했다고 짧게 언급했다."
         candidate = {**article("A1", body=body), "title": "시청 가을 축제 개최",

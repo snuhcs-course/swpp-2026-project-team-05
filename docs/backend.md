@@ -65,6 +65,7 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | NAVER API HUB 키 |
 | `OPENROUTER_QUALITY_MODEL` | 의미 판정 모델. 기본 `google/gemini-3.8-flash` |
 | `OPENROUTER_METADATA_MODEL` | 후보 제목·설명 순위 모델. 기본 `google/gemini-3.1-flash-lite` |
+| `OPENROUTER_VERIFIER_REASONING_EFFORT` | Gemini 3.6+ 후보 본문 검증의 사고 수준. 기본 `medium`, 비교 실험용 `low` 허용. 사고 토큰의 정확한 상한은 아님 |
 | `OPENROUTER_SEED` | 재현성 실험에서만 명시. 기본 요청에는 보내지 않음 |
 | `GEMINI_QUALITY_MODEL` | 의미 판정 모델. 기본 `gemini-3.8-flash` |
 | `GEMINI_METADATA_MODEL` | 후보 제목·설명 순위 모델. 기본 `gemini-3.1-flash-lite` |
