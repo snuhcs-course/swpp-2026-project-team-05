@@ -237,6 +237,21 @@ class AnalysisApiTest {
     }
 
     @Test
+    fun parseAnalysis_preservesStructuredFailureStagesForHonestReaderStatus() {
+        val root = responseWithMatches().put("analysis_status", JSONObject()
+            .put("execution_status", "partial")
+            .put("comparison_status", "available")
+            .put("errors", JSONArray()
+                .put(JSONObject().put("stage", "search").put("code", "SEARCH_FAILED"))
+                .put(JSONObject().put("stage", "search"))
+                .put(JSONObject().put("stage", " "))))
+
+        val status = AnalysisApi.parseAnalysis(root, "https://requested.example/article").analysisStatus!!
+
+        assertEquals(setOf("search"), status.errorStages)
+    }
+
+    @Test
     fun parseAnalysis_expressionFailuresKeepOnlyValidClaimIds() {
         val root = responseWithMatches().put("rubric", JSONObject()
             .put("version", "0.2.1")
