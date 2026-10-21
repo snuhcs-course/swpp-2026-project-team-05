@@ -114,12 +114,24 @@ internal data class ReaderTarget(
         .distinct().sorted()
 }
 
-/** Only A–G evidence is a visible tap target. Neutral alignments remain in reader.pairs. */
-internal fun ReaderResult.targets(): List<ReaderTarget> = pairs
-    .filter { it.expressionDifferences.isNotEmpty() }
-    .groupBy { it.sourceSentenceId to it.sourceSpan }
-    .map { (identity, items) -> ReaderTarget(identity.first, identity.second, items.distinctBy { it.id }) }
-    .sortedWith(compareBy({ it.span.start }, { it.span.end }))
+/**
+ * Only sentences with A–G evidence are visible tap targets. Once tapped, show
+ * every verified article alignment for that sentence so the reader can swipe
+ * between outlets, including an outlet whose corresponding wording is neutral.
+ */
+internal fun ReaderResult.targets(): List<ReaderTarget> {
+    val pairsBySentence = pairs.groupBy { it.sourceSentenceId }
+    return pairs.filter { it.expressionDifferences.isNotEmpty() }
+        .groupBy { it.sourceSentenceId }
+        .map { (sentenceId, expressionPairs) ->
+            val span = ReaderSpan(
+                start = expressionPairs.minOf { it.sourceSpan.start },
+                end = expressionPairs.maxOf { it.sourceSpan.end }
+            )
+            ReaderTarget(sentenceId, span, pairsBySentence.getValue(sentenceId).distinctBy { it.id })
+        }
+        .sortedWith(compareBy({ it.span.start }, { it.span.end }))
+}
 
 /** Overlapping positions cannot have an unambiguous tap target; keep the first exact sentence. */
 internal fun List<ReaderTarget>.nonOverlapping(): List<ReaderTarget> {
