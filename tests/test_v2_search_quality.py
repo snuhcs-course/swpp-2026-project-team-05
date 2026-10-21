@@ -108,7 +108,7 @@ class SearchQualityTests(TestCase):
                 "event_queries": queries, "claims": [{"claim_id": "C1", "search_query": claim_query}]},
                 max_candidates=8, event_reserve=3)
         slugs = [row["urls"][0].rsplit("/", 1)[-1] for row in result["metadata_candidates"]]
-        self.assertEqual(slugs, ["event-0-0", "event-1-0", "event-2-0", "web-specific",
+        self.assertEqual(slugs, ["web-specific", "event-0-0", "event-1-0", "event-2-0",
                                  "claim-specific", "event-0-1", "event-1-1", "event-2-1"])
         self.assertEqual([row["candidate_id"] for row in result["metadata_candidates"]],
                          [f"A{index}" for index in range(1, 9)])
