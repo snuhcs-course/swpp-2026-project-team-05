@@ -3,6 +3,7 @@ package com.swpp.team5.frameless.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
@@ -31,8 +33,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +72,7 @@ import com.swpp.team5.frameless.ui.theme.HRule
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.SourceLink
 import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /** The source article remains intact. Badges are UI annotations outside its quoted sentences. */
@@ -336,9 +341,9 @@ private fun ReaderI1Sheet(reader: ReaderResult, star: ReaderI1Star, onDismiss: (
 }
 
 internal fun sheetInstruction(pageCount: Int, expanded: Boolean): String = when {
-    pageCount > 1 && expanded -> "좌우로 다른 기사 보기"
+    pageCount > 1 && expanded -> "좌우로 다른 기사 보기 · 손잡이를 아래로 끌어 접기"
     pageCount > 1 -> "좌우로 다른 기사 보기 · 위로 끌어 펼치기"
-    expanded -> ""
+    expanded -> "손잡이를 아래로 끌어 중간 높이로 접기"
     else -> "위로 끌어 펼치기"
 }
 
@@ -365,12 +370,48 @@ private fun ReaderComparisonSheet(
     if (pages.isEmpty()) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val pagerState = rememberPagerState(pageCount = { pages.size })
+    val sheetScope = rememberCoroutineScope()
+    var handleDragDistance by remember { mutableFloatStateOf(0f) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         // Once fully expanded, upward drags belong exclusively to the article body.
         // Competing sheet and body scroll consumption made the sheet oscillate near its top.
         sheetGesturesEnabled = sheetState.currentValue != SheetValue.Expanded,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .pointerInput(sheetState.currentValue) {
+                        val threshold = 24.dp.toPx()
+                        detectVerticalDragGestures(
+                            onDragStart = { handleDragDistance = 0f },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                handleDragDistance += dragAmount
+                            },
+                            onDragEnd = {
+                                when {
+                                    handleDragDistance > threshold &&
+                                        sheetState.currentValue == SheetValue.Expanded -> {
+                                        sheetScope.launch { sheetState.partialExpand() }
+                                    }
+                                    handleDragDistance < -threshold &&
+                                        sheetState.currentValue == SheetValue.PartiallyExpanded -> {
+                                        sheetScope.launch { sheetState.expand() }
+                                    }
+                                }
+                                handleDragDistance = 0f
+                            },
+                            onDragCancel = { handleDragDistance = 0f }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
         containerColor = Fl.Card,
         contentColor = Fl.Ink
     ) {
