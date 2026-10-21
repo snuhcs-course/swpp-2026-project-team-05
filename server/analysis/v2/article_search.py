@@ -668,15 +668,20 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     naver_fallback_needed = (bool(naver_results) and not naver_has_candidate
                              and any(failure is not None or getattr(items, "sort_errors", [])
                                      for items, failure in naver_results))
-    # The handoff demo used Exa citations after the NAVER provider failed.
-    # Preserve that discovery behavior: Exa nominates URLs only, while the
-    # existing full-text same-event and evidence checks remain authoritative.
+    # The handoff demo used Exa citations for its successful comparison set.
+    # Exa nominates URLs only, while the existing full-text same-event and
+    # evidence checks remain authoritative.
     exa_results = []
-    if naver_fallback_needed:
+    # Exa is an independent discovery source, not merely an outage fallback.
+    # A successful NAVER response can still be dominated by keyword-near but
+    # different-event articles.  Always add one Exa citation search when the
+    # request budget and OpenRouter configuration allow it; downstream body
+    # verification remains the authority on same-event eligibility.
+    if get_openrouter_api_key():
         remaining = (_OPENROUTER_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
                      google_fallback_deadline_at - monotonic() - 1.0)
         timeout_seconds = min(_OPENROUTER_SEARCH_TIMEOUT_SECONDS, remaining)
-        if timeout_seconds >= _OPENROUTER_FALLBACK_MIN_TIMEOUT_SECONDS and get_openrouter_api_key():
+        if timeout_seconds >= _OPENROUTER_FALLBACK_MIN_TIMEOUT_SECONDS:
             record = {"query": _reviewed_event_queries(analysis)[0],
                       "sources": [{"scope": "event", "claim_id": None}],
                       "provider": "openrouter_exa"}
