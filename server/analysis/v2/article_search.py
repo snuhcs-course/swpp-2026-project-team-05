@@ -534,14 +534,18 @@ def _select_candidate_metadata(pool: list[dict], claim_ids: list[str], limit: in
                 added = True
         if not added:
             break
-    selected = event_order[:min(reserve, limit)]
     # When enabled, preserve a small quota for independently found web results.
     # Full-body verification will decide whether these are actually same-event.
     grounded = [item for item in pool if any(match.get("provider") in {"google_grounding", "openrouter_exa"}
                                              for match in item["search_matches"])]
+    grounded_quota = min(2, len(grounded), limit)
+    # Reserve the web quota before filling event-search slots. Otherwise a
+    # small verification budget is exhausted by NAVER rows and the independent
+    # Exa results that rescued the handoff demo never reach body verification.
+    selected = event_order[:min(reserve, max(0, limit - grounded_quota))]
     grounded_added = 0
     for item in grounded:
-        if len(selected) >= limit or grounded_added >= 2:
+        if len(selected) >= limit or grounded_added >= grounded_quota:
             break
         if item not in selected:
             selected.append(item)
