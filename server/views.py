@@ -29,7 +29,6 @@ from .result_cache import cache_key, load_result, save_result
 logger = logging.getLogger(__name__)
 MAX_BODY_BYTES = 8192
 _analysis_slot = threading.BoundedSemaphore(1)
-REQUIRED_NAVER_KEYS = ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")
 
 
 class PipelineResultError(RuntimeError):
@@ -97,7 +96,6 @@ def _missing_api_keys() -> list[str]:
     if not direct_gemini and (pipeline_name == "v1" or not openrouter):
         missing.append("GOOGLE_API_KEY or GEMINI_API_KEY" if pipeline_name == "v1" else
                        "OPENROUTER_API_KEY or GOOGLE_API_KEY or GEMINI_API_KEY")
-    missing.extend(key for key in REQUIRED_NAVER_KEYS if not os.getenv(key, "").strip())
     return missing
 
 

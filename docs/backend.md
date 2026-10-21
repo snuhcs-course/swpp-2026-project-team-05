@@ -5,20 +5,20 @@ Android 앱은 기본적으로 `https://frameless-team05-api.vercel.app`을 사�
 
 ## 로컬 실행
 
-Vercel과 로컬 모두 Python 3.12를 권장합니다. `.env`에는 팀 OpenRouter 키와 NAVER API HUB 키를 넣습니다. 직접 Gemini API 키는 OpenRouter를 쓰지 않는 로컬 실행의 대체 경로입니다. `NAVER_CLIENT_ID`와 `NAVER_CLIENT_SECRET`은 일반 NAVER Developers Open API가 아닌 [NAVER API HUB 뉴스 검색](https://api.ncloud-docs.com/docs/naver-api-hub-search-news)용입니다.
+Vercel과 로컬 모두 Python 3.12를 권장합니다. `.env`에는 팀 OpenRouter 키를 넣습니다. 직접 Gemini API 키는 OpenRouter를 쓰지 않는 로컬 실행의 대체 경로입니다. `NAVER_CLIENT_ID`와 `NAVER_CLIENT_SECRET`은 선택 사항이며, 있으면 [NAVER API HUB 뉴스 검색](https://api.ncloud-docs.com/docs/naver-api-hub-search-news)을 먼저 사용합니다. 키가 없거나 인증이 거부되면 공개 Google News RSS로 후보를 찾고, 이후 동일한 전문 검증을 진행합니다.
 
 ```sh
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# .env에 OPENROUTER_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET 입력
+# .env에 OPENROUTER_API_KEY 입력; NAVER_CLIENT_ID·NAVER_CLIENT_SECRET은 선택
 chmod 600 .env
 set -a; source .env; set +a
 python manage.py runserver
 ```
 
-서버 주소는 `http://127.0.0.1:8000`입니다. 실제 분석에는 모델 키 한 개와 NAVER 자격 증명 두 개가 필요하지만, 키가 없어도 서버 시작과 입력 검증은 가능합니다. 비밀값과 `.env`는 Git·Android 앱에 넣지 않습니다.
+서버 주소는 `http://127.0.0.1:8000`입니다. 실제 분석에는 모델 키 한 개가 필요합니다. NAVER 자격 증명은 선택 사항입니다. 비밀값과 `.env`는 Git·Android 앱에 넣지 않습니다.
 
 ## API
 
@@ -29,7 +29,7 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
   -d '{"url":"https://n.news.naver.com/article/057/0001971678","max_related":3}'
 ```
 
-`GET /api/health`의 `analysis_ready: true`는 OpenRouter 또는 직접 Gemini 키와 NAVER 키가 설정됐다는 뜻입니다. 빠진 키는 `missing_configuration`에 표시됩니다. 키 존재만 확인하며 모델 접근 권한이나 남은 크레딧까지 보장하지 않습니다.
+`GET /api/health`의 `analysis_ready: true`는 OpenRouter 또는 직접 Gemini 키가 설정됐다는 뜻입니다. 빠진 필수 키는 `missing_configuration`에 표시됩니다. 키 존재만 확인하며 모델 접근 권한이나 남은 크레딧까지 보장하지 않습니다.
 
 `POST /api/analyze`는 JSON 객체의 `url`을 받습니다. `max_related`는 생략 가능하며 범위는 1~3입니다. 성공 응답에는 `source_analysis`, `related_articles`, `comparison`, `analysis_status`, 추출 전문과 문장 위치를 담은 `reader`가 들어갑니다. Reader 분석은 I1과 A–G에 집중합니다. 검증하지 못한 문장이나 비교 기사는 별표·표현 차이를 만들어 표시하지 않으며, `analysis_status.execution_status=partial`일 때 앱은 분석 미완료를 알려야 합니다. 검색 실패와 분석 실패는 비교 결과 없음으로 표시하지 않고 오류를 반환합니다. `FRAMELESS_PIPELINE=v2`가 기본이며 `v1`은 로컬에서 Iteration 1 동작을 재현할 때 `FRAMELESS_ALLOW_LEGACY_V1=1`을 함께 설정해야 합니다. 운영 서버는 `v1` 요청을 거부합니다. 오류는 `{"error":{"code":"...","message":"..."}}` 형식입니다. 분석 중에는 동일 프로세스의 다른 요청에 429와 `Retry-After`를 반환합니다. 기사 URL은 공개 HTTP(S) 도메인이어야 하며 localhost, IP 주소, 별도 포트는 허용하지 않습니다.
 
@@ -87,7 +87,7 @@ python manage.py migrate
 | `DATABASE_URL` | PostgreSQL 결과 캐시·앱 분석 기록. Supabase Transaction pooler URI, 서버 전용 |
 | `OPENROUTER_API_KEY` | 팀 OpenRouter 키, 있으면 우선 사용 |
 | `GOOGLE_API_KEY` | 직접 Gemini API 대체 경로, 선택 |
-| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | NAVER API HUB 키 |
+| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | 선택: NAVER API HUB 키. 없거나 인증 거부 시 Google News RSS 사용 |
 | `OPENROUTER_QUALITY_MODEL` | 의미 판정 모델. 기본 `google/gemini-3.8-flash` |
 | `OPENROUTER_METADATA_MODEL` | 후보 제목·설명 순위 모델. 기본 `google/gemini-3.1-flash-lite` |
 | `OPENROUTER_VERIFIER_REASONING_EFFORT` | Gemini 3.6+ 후보 본문 검증의 사고 수준. 기본 `medium`, 비교 실험용 `low` 허용. 사고 토큰의 정확한 상한은 아님 |

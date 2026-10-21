@@ -585,12 +585,17 @@ def _has_external_candidate(results: list[tuple[list[dict] | None, RuntimeError 
     return any(keys and not keys & aliases for keys in key_groups)
 
 
-def _naver_authentication_failed(results: list[tuple[list[dict] | None, RuntimeError | None]]) -> bool:
-    """Recognize rejected credentials without treating rate limits as authentication failures."""
+def _naver_rss_fallback_needed(results: list[tuple[list[dict] | None, RuntimeError | None]]) -> bool:
+    """Use public discovery only when NAVER is unconfigured or rejects credentials.
+
+    Quota and transient upstream failures keep the paid/provider fallback path;
+    they must not turn a temporary provider outage into a silent behavior change.
+    """
     for items, failure in results:
         failures = ([failure] if failure is not None else []) + [
             error for _sort, error in getattr(items, "sort_errors", [])]
-        if any(getattr(error, "http_status", None) in {401, 403} for error in failures):
+        if any(getattr(error, "code", None) == "NAVER_CONFIGURATION_MISSING" or
+               getattr(error, "http_status", None) in {401, 403} for error in failures):
             return True
     return False
 
@@ -663,11 +668,11 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     naver_fallback_needed = (bool(naver_results) and not naver_has_candidate
                              and any(failure is not None or getattr(items, "sort_errors", [])
                                      for items, failure in naver_results))
-    # The public RSS fallback specifically covers a rejected NAVER credential.
-    # It avoids a paid model search but cannot relax the downstream same-event
-    # and full-text evidence requirements.
+    # Public RSS makes discovery available when NAVER is not configured or
+    # rejects its credential. It cannot relax downstream same-event or
+    # full-text evidence requirements.
     rss_results = []
-    if naver_fallback_needed and _naver_authentication_failed(naver_results):
+    if naver_fallback_needed and _naver_rss_fallback_needed(naver_results):
         record = {"query": _reviewed_event_queries(analysis)[0],
                   "sources": [{"scope": "event", "claim_id": None}],
                   "provider": "google_news_rss"}
