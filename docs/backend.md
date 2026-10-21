@@ -35,11 +35,11 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 
 분석 응답의 `X-Analysis-ID` 헤더를 [Vercel Logs](https://vercel.com/kim-seungmins-projects/frameless-team05-api/logs)의 `analysis_id`로 검색하면 한 요청의 단계별 소요 시간, 고정 오류 코드, 모델 작업별 호출 시간·성공·실패 수를 확인할 수 있습니다. OpenRouter가 응답에 제공한 토큰 수와 비용은 합산되며, 사용량이 빠진 응답은 0달러로 간주하지 않습니다. Android Logcat의 `FrameLESS.Analysis` 태그에도 응답 상태와 같은 ID가 기록됩니다. 현재 `c8cb5ae`의 `analysis_completed` 이벤트는 실행 상태, 허용된 단계 시간, 고정된 부분 실패 코드, 후보 검증 수, 모델 작업별 횟수·시간만 요약합니다. `discovery`에는 하위 단계가 포함되므로 단계 시간은 더하지 않습니다. 로그에는 기사 본문, 프롬프트, 모델 응답, API 키를 기록하지 않습니다. 모델 서비스의 일시적인 5xx 오류는 제한적으로 재시도하며, 끝내 실패하면 `503 analysis_unavailable`과 `Retry-After`를 반환합니다. 429는 서버 대기 지시와 실행 기한을 지키며 최대 두 번 재시도합니다. 서버 지시가 60초를 넘거나 일일 할당량 초과가 확인되면 현재 요청에서 재시도하지 않습니다.
 
-운영 API는 기사·프롬프트·모델 응답의 전체 스냅샷을 저장하지 않고 호출 횟수, 소요 시간과 제공자 사용량만 집계합니다. 기사 URL 수집은 DNS의 모든 주소를 공개 IP로 확인한 뒤 해당 주소에 직접 연결하므로, 로컬 네트워크가 직접 연결을 막고 프록시만 허용하면 수집이 실패할 수 있습니다. 이 코드는 컴퓨터의 프록시 설정을 변경하지 않습니다. API에는 인스턴스 간 공유되는 호출량 제한이 없습니다.
+운영 API는 프롬프트·모델 응답의 전체 스냅샷을 저장하지 않고 호출 횟수, 소요 시간과 제공자 사용량만 집계합니다. `DATABASE_URL`을 설정하면 최종 API 응답을 PostgreSQL에 짧게 저장합니다. 동일 URL·설정의 완전한 결과는 5분, 부분 결과는 1분 동안 다른 Vercel 인스턴스에서도 재사용합니다. 응답에는 기사 내용이 포함되므로 DB 접속 정보는 서버에만 보관합니다. DB가 없거나 일시적으로 실패하면 분석은 그대로 진행합니다. 기사 URL 수집은 DNS의 모든 주소를 공개 IP로 확인한 뒤 해당 주소에 직접 연결하므로, 로컬 네트워크가 직접 연결을 막고 프록시만 허용하면 수집이 실패할 수 있습니다. 이 코드는 컴퓨터의 프록시 설정을 변경하지 않습니다. API에는 인스턴스 간 공유되는 호출량 제한이 없습니다.
 
 분석 품질 브랜치는 팀 OpenRouter 키가 있으면 이를 우선 사용합니다. 중심 사건·후보 본문·루브릭 작업에는 기본적으로 `google/gemini-3.8-flash`, 제목·설명 순위에는 `google/gemini-3.1-flash-lite`를 사용합니다. `OPENROUTER_QUALITY_MODEL`과 `OPENROUTER_METADATA_MODEL`로 각각 변경할 수 있습니다. 직접 Gemini 키만 있을 때는 `GEMINI_QUALITY_MODEL`과 `GEMINI_METADATA_MODEL`이 적용됩니다. 팀 키의 한도는 $100이며 추가 충전이 없으므로 실험 전후 `/api/v1/key` 또는 팀 Slack의 `/usage 5`로 잔액을 확인합니다. 배포 전 **운영 환경의 실제 모델 키**로 같은 기사 한 건을 끝까지 시험해야 합니다. Google Search grounding을 두 번째 후보 발견 경로로 시험하려면 직접 Gemini 키와 `ENABLE_GOOGLE_GROUNDED_SEARCH=1`이 필요합니다. 이 호출은 OpenRouter 예산과 별개의 Gemini 할당량을 쓰고, 오류가 나면 네이버 검색 결과를 계속 사용합니다. 기본값은 꺼짐입니다. 검색어와 결과는 판정 근거가 아니라 본문 수집 후보입니다.
 
-함수 실행 제한 300초 아래에서 분석의 소프트 실행 예산은 기본 240초입니다. 운영 API는 대표 검색 주장 최대 3개·검색 후보 최대 8건을 사용하고, 확인된 비교 기사에서 전문 내용 단위 정렬과 A–G 분석을 수행합니다. 8건 설정을 고른 근거인 과거 실기사 시도에서는 12건이 240초를 넘고 8건이 124초에 완료됐습니다. **이는 현재 운영 지연 시간의 보장이 아닙니다.** 아래의 `53a5118` 실측은 244.599초였습니다. 후보 본문 검증은 남은 예산 중 Reader 몫을 남기고 중단될 수 있습니다. 로컬 스냅샷 캐시는 성공 결과도 최대 300초만 재사용합니다. 운영 Django 경로는 서버리스 파일 저장소를 공유 캐시로 사용하지 않으므로 캐시를 사용하지 않습니다. 사용량 제한이 지속되면 검증한 기사만 결과에 남기고 부분 실패를 표시합니다.
+함수 실행 제한 300초 아래에서 분석의 소프트 실행 예산은 기본 240초입니다. 운영 API는 대표 검색 주장 최대 3개·검색 후보 최대 8건을 사용하고, 확인된 비교 기사에서 전문 내용 단위 정렬과 A–G 분석을 수행합니다. 8건 설정을 고른 근거인 과거 실기사 시도에서는 12건이 240초를 넘고 8건이 124초에 완료됐습니다. **이는 현재 운영 지연 시간의 보장이 아닙니다.** 아래의 `53a5118` 실측은 244.599초였습니다. 후보 본문 검증은 남은 예산 중 Reader 몫을 남기고 중단될 수 있습니다. 로컬 스냅샷 캐시는 성공 결과도 최대 300초만 재사용합니다. 운영 Django 경로는 서버리스 파일 저장소를 공유 캐시로 사용하지 않고 PostgreSQL 결과 캐시를 선택적으로 사용합니다. 사용량 제한이 지속되면 검증한 기사만 결과에 남기고 부분 실패를 표시합니다.
 
 ### 운영 실측 예시와 해석
 
@@ -51,6 +51,19 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 
 두 `c8cb5ae` 요청의 안전한 운영 진단에서는 NAVER 검색 6회와 Google grounded search가 HTTP 429를 반환했습니다. Exa 대체 검색 경로는 동작했고 후보 8건에 대한 검증 호출 8회가 기록됐습니다. HTTP 429는 공급자 제한 응답이라는 사실만 확인하며, 정확한 할당량·요금 원인은 이 로그만으로 단정하지 않습니다.
 
+## PostgreSQL 결과 캐시 설정
+
+개인 Supabase 프로젝트 `frameless-team05`의 **Transaction pooler** URI(포트 6543)를 사용합니다. 서울 리전 프로젝트이며 Data API는 꺼두었습니다. URI의 비밀번호는 URL 인코딩하고, `DATABASE_URL`은 로컬 비밀 파일과 Vercel 서버 환경변수에만 둡니다. Android 앱과 Git에는 넣지 않습니다. 마이그레이션은 새 프로젝트에 한 번 실행합니다.
+
+```sh
+export DATABASE_URL='postgresql://postgres.PROJECT_REF:ENCODED_PASSWORD@POOLER_HOST:6543/postgres'
+python manage.py migrate
+```
+
+그 다음 Vercel의 `DATABASE_URL`을 같은 URI로 설정하고 백엔드를 재배포합니다. 캐시가 켜진 요청의 응답 헤더는 `X-Analysis-Cache: MISS` 또는 `HIT`입니다. 같은 URL이라도 모델 설정이나 분석 코드가 바뀌면 다른 키를 사용합니다. 캐시는 입력 기사를 새로 가져오지 않으므로 완전한 결과도 5분 후 다시 분석합니다. 새 URL의 첫 분석 속도는 줄이지 않으며, 반복 분석의 지연과 모델 비용을 줄이는 첫 단계입니다.
+
+스키마는 `server/models.py`와 `server/migrations/`에서 관리합니다. 현재 테이블은 캐시 키를 기본키로, 만료 시각을 인덱스로 두고 결과를 JSONB에 저장합니다. 스키마를 바꿀 때는 새 마이그레이션을 만들어 검토하고 DB에 적용한 뒤 코드를 배포하며, 이미 적용한 마이그레이션은 수정하지 않습니다. 만료된 행은 다음 저장 시 삭제되므로 조회 가능 기간과 물리적 보관 기간은 다를 수 있습니다. 데이터가 늘면 정기 삭제 작업을 별도로 운영해야 합니다. 장기 보관할 기사·사용자 데이터는 이 임시 캐시 테이블과 분리합니다.
+
 ## Vercel 운영 배포
 
 기존 프로젝트는 [frameless-team05-api](https://vercel.com/kim-seungmins-projects/frameless-team05-api)이고, `vercel.json`이 서울 리전의 Django 함수를 설정합니다. 함수 실행 시간은 최대 300초로 설정했습니다.
@@ -60,6 +73,7 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 | `DJANGO_ENV=production` | 운영 모드 |
 | `DJANGO_ALLOWED_HOSTS=.vercel.app` | 허용 호스트 |
 | `DJANGO_SECRET_KEY` | Django 비밀키 |
+| `DATABASE_URL` | 선택적 PostgreSQL 결과 캐시. Supabase Transaction pooler URI, 서버 전용 |
 | `OPENROUTER_API_KEY` | 팀 OpenRouter 키, 있으면 우선 사용 |
 | `GOOGLE_API_KEY` | 직접 Gemini API 대체 경로, 선택 |
 | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | NAVER API HUB 키 |

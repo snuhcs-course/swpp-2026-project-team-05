@@ -1,6 +1,7 @@
 """Settings for the article analysis API."""
 
 import os
+from urllib.parse import unquote, urlsplit
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -19,13 +20,38 @@ ALLOWED_HOSTS = (
 )
 
 ROOT_URLCONF = "server.urls"
-INSTALLED_APPS = []
+INSTALLED_APPS = ["server"]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-DATABASES = {}
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if DATABASE_URL:
+    parsed_database = urlsplit(DATABASE_URL)
+    if parsed_database.scheme not in {"postgres", "postgresql"} or not parsed_database.hostname:
+        raise ImproperlyConfigured("DATABASE_URL must be a PostgreSQL connection URL")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed_database.path.lstrip("/")) or "postgres",
+            "USER": unquote(parsed_database.username or ""),
+            "PASSWORD": unquote(parsed_database.password or ""),
+            "HOST": parsed_database.hostname,
+            "PORT": parsed_database.port or 5432,
+            # Vercel functions should not hold database sessions between requests.
+            "CONN_MAX_AGE": 0,
+            "DISABLE_SERVER_SIDE_CURSORS": True,
+            "OPTIONS": {
+                "sslmode": "require",
+                "connect_timeout": 5,
+                # Supabase transaction pooling does not support prepared statements.
+                "prepare_threshold": None,
+            },
+        }
+    }
+else:
+    DATABASES = {}
 TEMPLATES = []
 WSGI_APPLICATION = "server.wsgi.application"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 8192

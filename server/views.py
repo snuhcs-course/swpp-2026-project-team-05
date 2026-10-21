@@ -19,6 +19,7 @@ from .analysis.article_search import analyze_related_articles
 from .analysis.diagnostics import analysis_id, log_event
 from .analysis.model_client import ModelUnavailableError, get_gemini_api_key
 from .analysis.v2_adapter import PipelineContractError, adapt_v2_result
+from .result_cache import cache_key, load_result, save_result
 
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,12 @@ def _analyze_request(request):
         return _error("invalid_pipeline_config", "이 서버에서는 v1 분석을 사용할 수 없습니다.", 503)
     log_event(logger, "request_validated", article_host=urlsplit(url).hostname,
               max_related=max_related, pipeline=pipeline_name)
+    result_cache_key = cache_key(url, max_related) if pipeline_name == "v2" else None
+    cached = load_result(result_cache_key)
+    if cached is not None:
+        response = JsonResponse(cached, json_dumps_params={"ensure_ascii": False})
+        response["X-Analysis-Cache"] = "HIT"
+        return response
     if not _analysis_slot.acquire(blocking=False):
         response = _error("busy", "다른 기사를 분석 중입니다. 잠시 후 다시 시도해 주세요.", 429)
         response["Retry-After"] = "30"
@@ -218,4 +225,8 @@ def _analyze_request(request):
             return _error("analysis_failed", "기사를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)
     finally:
         _analysis_slot.release()
-    return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
+    save_result(result_cache_key, url.strip(), result)
+    response = JsonResponse(result, json_dumps_params={"ensure_ascii": False})
+    if result_cache_key:
+        response["X-Analysis-Cache"] = "MISS"
+    return response
