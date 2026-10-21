@@ -78,6 +78,7 @@ import kotlin.math.roundToInt
 /** The source article remains intact. Badges are UI annotations outside its quoted sentences. */
 private val ReaderExpression = Color(0xFFE9E1F5)
 private val ReaderMarker = Color(0xFFE5D0F2)
+private val ReaderAlignment = Color(0xFFF1F0EC)
 
 /** One article can align multiple content units to the same wording contrast. */
 private fun List<ReaderExpressionDifference>.forComparisonSheet(): List<ReaderExpressionDifference> {
@@ -377,7 +378,11 @@ private fun ReaderComparisonSheet(
     val pages = remember(reader, target) {
         target.pairs.groupBy { it.articleId }.mapNotNull { (id, pairs) ->
             reader.article(id)?.let { RelatedPage(it, pairs) }
-        }.sortedBy { it.article.articleIndex }
+        }.sortedWith(
+            compareByDescending<RelatedPage> { page ->
+                page.pairs.any { it.expressionDifferences.isNotEmpty() }
+            }.thenBy { it.article.articleIndex }
+        )
     }
     if (pages.isEmpty()) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -518,6 +523,20 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
                     }
                 }
             }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Caption("같은 내용을 다룬 기사")
+                Text(
+                    "이 기사에서는 선택한 표현 차이가 확인되지 않았어요. 대응하는 문장을 함께 보여줘요.",
+                    color = Fl.Ink2,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = Fl.Line)
@@ -563,6 +582,9 @@ internal fun relatedReaderText(
     pairs: List<ReaderPair>
 ): AnnotatedString = buildAnnotatedString {
     append(article.body)
+    pairs.forEach { pair ->
+        addStyle(SpanStyle(background = ReaderAlignment), pair.relatedSpan.start, pair.relatedSpan.end)
+    }
     pairs.filter { it.expressionDifferences.isNotEmpty() }.forEach { pair ->
         addStyle(SpanStyle(background = ReaderExpression, textDecoration = TextDecoration.Underline),
             pair.relatedSpan.start, pair.relatedSpan.end)
