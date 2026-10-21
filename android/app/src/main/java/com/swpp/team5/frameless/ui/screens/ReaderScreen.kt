@@ -368,6 +368,9 @@ private fun ReaderComparisonSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        // Once fully expanded, upward drags belong exclusively to the article body.
+        // Competing sheet and body scroll consumption made the sheet oscillate near its top.
+        sheetGesturesEnabled = sheetState.currentValue != SheetValue.Expanded,
         containerColor = Fl.Card,
         contentColor = Fl.Ink
     ) {
@@ -485,7 +488,9 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
                     onTextLayout = { layout = it }
                 )
                 Spacer(Modifier.height(with(density) {
-                    readerTailPadding(viewportHeight, visibleHeight).toDp()
+                    // Keep content height stable while the expanded sheet body scrolls.
+                    if (sheetState.currentValue == SheetValue.Expanded) 0.dp
+                    else readerTailPadding(viewportHeight, visibleHeight).toDp()
                 }))
             }
         }
