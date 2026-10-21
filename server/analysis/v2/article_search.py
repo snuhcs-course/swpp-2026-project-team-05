@@ -18,6 +18,7 @@ from time import monotonic, sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+from xml.etree import ElementTree
 
 from .model_client import (_checked_model_name, get_gemini_api_key, get_naver_credentials,
                            get_openrouter_api_key, OPENROUTER_COMPLETIONS_URL,
@@ -28,6 +29,7 @@ from .result_output import OperationError, make_error_record
 
 
 _NEWS_SEARCH_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+_GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"
 _GOOGLE_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
 _GOOGLE_SEARCH_TIMEOUT_SECONDS = 30.0
 _GOOGLE_FALLBACK_MIN_TIMEOUT_SECONDS = 5.0
@@ -170,6 +172,55 @@ def search_naver_news(query: str, display: int = 10) -> list[dict]:
     # Interleave instead of appending: metadata selection reserves the first event
     # candidates, and a long relevance page should not crowd out recent reporting.
     return _SearchRows([item for pair in zip_longest(*pages) for item in pair if item is not None], errors)
+
+
+def search_google_news_rss(query: str, display: int = 10) -> list[dict]:
+    """Find public news candidates when the configured NAVER credential is rejected.
+
+    This is discovery only: each URL still passes the normal public-URL guard,
+    full-text extraction, same-event verification, and evidence alignment steps.
+    """
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("검색어가 비어 있습니다.")
+    if type(display) is not int or not 1 <= display <= 100:
+        raise ValueError("display는 1~100의 정수여야 합니다.")
+    request = Request(_GOOGLE_NEWS_RSS_URL + "?" + urlencode({
+        "q": query.strip(), "hl": "ko", "gl": "KR", "ceid": "KR:ko",
+    }), headers={"Accept": "application/rss+xml, application/xml", "User-Agent": "FrameLESS/1.0"})
+    try:
+        with build_opener().open(request, timeout=10) as response:
+            raw = response.read(1_000_001)
+        if len(raw) > 1_000_000:
+            raise OperationError("Google News 검색 응답이 너무 큽니다.",
+                                 code="GOOGLE_NEWS_RSS_RESPONSE_INVALID")
+        root = ElementTree.fromstring(raw)
+    except HTTPError as exc:
+        logger.warning("google_news_rss_http_error upstream_status=%d", exc.code)
+        raise OperationError(f"Google News 검색이 실패했습니다 (HTTP {exc.code}).",
+                             code="GOOGLE_NEWS_RSS_HTTP_ERROR", http_status=exc.code,
+                             retryable=exc.code == 408 or exc.code >= 500) from exc
+    except (ElementTree.ParseError, UnicodeError) as exc:
+        raise OperationError("Google News 검색 API가 올바른 RSS 응답을 반환하지 않았습니다.",
+                             code="GOOGLE_NEWS_RSS_RESPONSE_INVALID", retryable=True) from exc
+    except (URLError, OSError, HTTPException) as exc:
+        timeout = isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError)
+        raise OperationError("Google News 검색 시간이 초과됐습니다." if timeout else
+                             "Google News 검색에 연결하지 못했거나 응답이 끊어졌습니다.",
+                             code="GOOGLE_NEWS_RSS_TIMEOUT" if timeout else
+                                  "GOOGLE_NEWS_RSS_CONNECTION_FAILED", retryable=True) from exc
+    rows = []
+    for item in root.findall("./channel/item")[:display]:
+        title = _plain_text(item.findtext("title") or "")
+        link = unescape((item.findtext("link") or "").strip())
+        if not title or not link:
+            continue
+        rows.append({"title": title[:300],
+                     "description": _plain_text(item.findtext("description") or "")[:600],
+                     "link": link, "originallink": "",
+                     "search_provided_at": (item.findtext("pubDate") or "").strip(),
+                     "search_provider": "google_news_rss"})
+    logger.info("google_news_rss_response candidate_count=%d", len(rows))
+    return rows
 
 
 def _google_grounding_enabled() -> bool:
@@ -465,7 +516,8 @@ def _select_candidate_metadata(pool: list[dict], claim_ids: list[str], limit: in
     """Share event slots across query variants before claim and web allocations."""
     event_queues = [[item for item in pool if any(
         match.get("scope") == "event" and match.get("query") == query
-        and match.get("provider") == "naver" for match in item["search_matches"])]
+        and match.get("provider") in {"naver", "google_news_rss"}
+        for match in item["search_matches"])]
         for query in event_queries]
     event_order, event_seen = [], set()
     event_positions = [0] * len(event_queues)
@@ -519,6 +571,30 @@ def _select_candidate_metadata(pool: list[dict], claim_ids: list[str], limit: in
     return selected
 
 
+def _has_external_candidate(results: list[tuple[list[dict] | None, RuntimeError | None]],
+                            source_aliases: set[str]) -> bool:
+    """Return whether successful discovery rows contain a URL other than the source."""
+    key_groups = [{normalize_news_url(url) for url in _valid_urls(item)}
+                  for items, failure in results if failure is None
+                  for item in items or []]
+    aliases = set(source_aliases)
+    for _ in key_groups:
+        for keys in key_groups:
+            if keys & aliases:
+                aliases.update(keys)
+    return any(keys and not keys & aliases for keys in key_groups)
+
+
+def _naver_authentication_failed(results: list[tuple[list[dict] | None, RuntimeError | None]]) -> bool:
+    """Recognize rejected credentials without treating rate limits as authentication failures."""
+    for items, failure in results:
+        failures = ([failure] if failure is not None else []) + [
+            error for _sort, error in getattr(items, "sort_errors", [])]
+        if any(getattr(error, "http_status", None) in {401, 403} for error in failures):
+            return True
+    return False
+
+
 def _fetch_candidate(item: dict) -> tuple[dict | None, dict | None]:
     attempts = []
     for url in item["urls"]:
@@ -563,9 +639,12 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     def run_query(record: dict) -> tuple[list[dict] | None, RuntimeError | None]:
         provider = record.get("provider", "naver")
         try:
-            items = (search_google_grounded_news(source, analysis, max_urls=min(10, max_candidates))
-                     if provider == "google_grounding" else
-                     search_naver_news(record["query"], display_per_query))
+            if provider == "google_grounding":
+                items = search_google_grounded_news(source, analysis, max_urls=min(10, max_candidates))
+            elif provider == "google_news_rss":
+                items = search_google_news_rss(record["query"], display_per_query)
+            else:
+                items = search_naver_news(record["query"], display_per_query)
         except RuntimeError as exc:
             return None, exc
         return items, None
@@ -580,22 +659,27 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     # search in that case, just as when every NAVER query failed.
     naver_results = [(items, failure) for record, (items, failure) in zip(queries, query_results)
                      if record.get("provider", "naver") == "naver"]
-    naver_key_groups = [{normalize_news_url(url) for url in _valid_urls(item)}
-                        for items, failure in naver_results if failure is None
-                        for item in items or []]
-    # A NAVER result can expose both the source's NAVER URL and an external
-    # originallink. Treat the whole URL group as the source, including aliases
-    # discovered through another result, before deciding fallback is unnecessary.
-    source_aliases = set(source_keys)
-    for _ in naver_key_groups:
-        for keys in naver_key_groups:
-            if keys & source_aliases:
-                source_aliases.update(keys)
-    naver_has_candidate = any(keys and not keys & source_aliases for keys in naver_key_groups)
+    naver_has_candidate = _has_external_candidate(naver_results, source_keys)
     naver_fallback_needed = (bool(naver_results) and not naver_has_candidate
                              and any(failure is not None or getattr(items, "sort_errors", [])
                                      for items, failure in naver_results))
-    if not google_parallel and naver_fallback_needed:
+    # The public RSS fallback specifically covers a rejected NAVER credential.
+    # It avoids a paid model search but cannot relax the downstream same-event
+    # and full-text evidence requirements.
+    rss_results = []
+    if naver_fallback_needed and _naver_authentication_failed(naver_results):
+        record = {"query": _reviewed_event_queries(analysis)[0],
+                  "sources": [{"scope": "event", "claim_id": None}],
+                  "provider": "google_news_rss"}
+        try:
+            outcome = (search_google_news_rss(record["query"], display_per_query), None)
+        except RuntimeError as exc:
+            outcome = (None, exc)
+        queries.append(record)
+        query_results.append(outcome)
+        rss_results.append(outcome)
+    rss_has_candidate = _has_external_candidate(rss_results, source_keys)
+    if not google_parallel and naver_fallback_needed and not rss_has_candidate:
         remaining = (_GOOGLE_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
                      google_fallback_deadline_at - monotonic() - 1.0)
         timeout_seconds = min(_GOOGLE_SEARCH_TIMEOUT_SECONDS, remaining)
@@ -615,7 +699,8 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
             query_results.append(outcome)
     google_results = [(items, failure) for record, (items, failure) in zip(queries, query_results)
                       if record.get("provider") == "google_grounding"]
-    if naver_fallback_needed and not any(items for items, failure in google_results if failure is None):
+    if (naver_fallback_needed and not rss_has_candidate and
+            not any(items for items, failure in google_results if failure is None)):
         remaining = (_OPENROUTER_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
                      google_fallback_deadline_at - monotonic() - 1.0)
         timeout_seconds = min(_OPENROUTER_SEARCH_TIMEOUT_SECONDS, remaining)
