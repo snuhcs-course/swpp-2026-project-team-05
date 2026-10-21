@@ -905,6 +905,8 @@ def verify_candidate_articles(source: dict, analysis: dict, candidates: list[dic
         instructions=(
             "제목·설명으로 미리 고른 후보의 전체 본문을 검증합니다. 이번 작업에서는 기사를 선택하지 않습니다. "
             "모든 후보 ID와 모든 주장 ID를 필수 키로 반환합니다. 입력 기사와 같은 구체적 사건인지 확인하세요. "
+            "verified_primary_event가 있으면 이는 입력 기사 제목·리드에서 별도로 검증한 사건 범위입니다. "
+            "후보의 본문과 대조해 같은 사건인지 판정하되, 이 범위를 단순히 같은 인물·넓은 주제로 축소하지 마세요. "
             "같은 인물·넓은 주제만 같거나 별개 시점의 사건이면 different_event, 판정 불가면 uncertain입니다. "
             "같은 구체적 사건의 다른 평가·반박도 same_event일 수 있습니다. 기사 안의 단순한 한 줄 언급은 "
             "비교할 실질 보도가 아닙니다. event_focus는 기사의 주된 보도 primary, 별도 문장·문단에서 "
@@ -932,6 +934,11 @@ def verify_candidate_articles(source: dict, analysis: dict, candidates: list[dic
                                     ("claim_id", "claim", "claim_kind", "speaker", "evidence")}
                                    for claim in analysis["claims"]],
                     },
+                    "verified_primary_event": (
+                        {"event": analysis["source_scope_review"].get("primary_event", ""),
+                         "anchor": analysis["source_scope_review"].get("primary_anchor")}
+                        if isinstance(analysis.get("source_scope_review"), dict) else None
+                    ),
                     "candidates": candidate_inputs},
     )
     assessments = []

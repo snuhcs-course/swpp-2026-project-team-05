@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import unicodedata
+from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait, wait as wait_for_verification
 from contextlib import contextmanager
+import logging
 from typing import Any, Callable
 
-from ..diagnostics import submit_with_context
+from ..diagnostics import log_event, submit_with_context
 from .article_search import fetch_candidate_articles
 from .llm_analysis import COMPARABLE_RELATIONS, prioritize_diverse_candidates, verify_candidate_articles
 from .model_client import (MetricsJSONClient, ModelResponseError, ModelResponseTruncatedError,
                            OpenRouterJSONClient, SnapshotJSONClient)
 from .result_output import make_error_record
+
+
+logger = logging.getLogger(__name__)
 
 
 # The first metadata hits are a starting point, not the final quality ranking.
@@ -733,6 +738,21 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
     same_event_ids = [row["candidate_id"] for row in metadata
                       if row["candidate_id"] in set(independent_ids) | selected_ids]
     ordered_assessments = [assessed[m["candidate_id"]] for m in metadata if m["candidate_id"] in assessed]
+    # Keep the operational diagnosis useful without logging article text, URLs,
+    # model output, or any candidate-specific judgment.  This distinguishes a
+    # retrieval failure from a verifier that rejected every fetched candidate.
+    log_event(
+        logger,
+        "candidate_verification_summary",
+        attempted_candidate_count=len(attempted_ids),
+        fetched_candidate_count=len(articles),
+        event_relation_counts=dict(Counter(
+            row.get("event_relation", "unverified") for row in ordered_assessments)),
+        event_focus_counts=dict(Counter(
+            row.get("event_focus", "unverified") for row in ordered_assessments)),
+        same_event_with_grounded_claim_count=sum(
+            bool(_grounded_matches(row, set(claim_map))) for row in ordered_assessments),
+    )
     selection = {
         "assessments": ordered_assessments,
         "same_event_ids": same_event_ids,
