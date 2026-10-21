@@ -46,7 +46,7 @@ def cache_key(source_url: str, max_related: int) -> str | None:
             "max_related": max_related,
             "code": _code_fingerprint(),
             "model": _default_model_settings(),
-            "verifier_reasoning_effort": os.getenv("OPENROUTER_VERIFIER_REASONING_EFFORT", "medium"),
+            "verifier_reasoning_effort": os.getenv("OPENROUTER_VERIFIER_REASONING_EFFORT", "low"),
             "google_grounded_search": os.getenv("ENABLE_GOOGLE_GROUNDED_SEARCH", ""),
             "google_grounded_search_model": os.getenv("GOOGLE_GROUNDED_SEARCH_MODEL", ""),
         }

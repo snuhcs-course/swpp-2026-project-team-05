@@ -161,7 +161,7 @@ class ModelRoutingTests(TestCase):
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key"}, clear=True)
     @patch("httpx.Client")
-    def test_gemini_verifier_bounds_reasoning_without_changing_output_or_reader_tasks(self, constructor):
+    def test_gemini_evidence_stages_use_low_reasoning_without_changing_judgment_tasks(self, constructor):
         constructor.return_value.post.return_value = SimpleNamespace(
             status_code=200, content=b"synthetic-envelope",
             json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
@@ -171,11 +171,14 @@ class ModelRoutingTests(TestCase):
                    "max_output_tokens": 16384}
         client.generate_json(name="verify_selected_candidate_bodies", **request)
         client.generate_json(name="repair_verify_selected_candidate_bodies", **request)
+        client.generate_json(name="source_content_units", **request)
         client.generate_json(name="related_content_alignment", **request)
+        client.generate_json(name="expression_pair_A_G", **request)
         sent = [call.kwargs["json"] for call in constructor.return_value.post.call_args_list]
         self.assertEqual([body.get("reasoning") for body in sent],
-                         [{"effort": "medium"}, {"effort": "medium"}, None])
-        self.assertEqual([body["max_tokens"] for body in sent], [16384] * 3)
+                         [{"effort": "low"}, {"effort": "low"}, {"effort": "low"},
+                          {"effort": "low"}, None])
+        self.assertEqual([body["max_tokens"] for body in sent], [16384] * 5)
         self.assertTrue(all(body["provider"]["require_parameters"] for body in sent))
         client.close()
 
@@ -191,7 +194,7 @@ class ModelRoutingTests(TestCase):
                              input_data={}, schema={"type": "object"}, max_output_tokens=16384,
                              timeout_budget_ms=22000)
         call = constructor.return_value.post.call_args
-        self.assertEqual(call.kwargs["json"]["reasoning"], {"effort": "medium"})
+        self.assertEqual(call.kwargs["json"]["reasoning"], {"effort": "low"})
         self.assertLessEqual(call.kwargs["timeout"], 22.0)
         self.assertGreater(call.kwargs["timeout"], 0)
         client.close()
@@ -199,7 +202,7 @@ class ModelRoutingTests(TestCase):
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key",
                            "OPENROUTER_VERIFIER_REASONING_EFFORT": "low"}, clear=True)
     @patch("httpx.Client")
-    def test_low_verifier_reasoning_is_opt_in_and_reader_unchanged(self, constructor):
+    def test_low_verifier_reasoning_matches_alignment_default(self, constructor):
         constructor.return_value.post.return_value = SimpleNamespace(
             status_code=200, content=b"synthetic-envelope",
             json=lambda: {"choices": [{"message": {"content": '{}'}, "finish_reason": "stop"}]},
@@ -210,7 +213,7 @@ class ModelRoutingTests(TestCase):
         client.generate_json(name="related_content_alignment", **request)
         sent = [call.kwargs["json"] for call in constructor.return_value.post.call_args_list]
         self.assertEqual(sent[0]["reasoning"], {"effort": "low"})
-        self.assertNotIn("reasoning", sent[1])
+        self.assertEqual(sent[1]["reasoning"], {"effort": "low"})
         client.close()
 
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-test-key",

@@ -45,6 +45,13 @@ QUALITY_TASKS = frozenset({
 })
 METADATA_TASKS = frozenset({"rank_claim_candidates_from_metadata"})
 KNOWN_TASKS = QUALITY_TASKS | METADATA_TASKS
+# These stages transform or align already supplied evidence. Low reasoning is
+# enough for their bounded schemas and prevents adaptive thinking from using
+# the completion budget before JSON is emitted. Final A-G and I1 judgments are
+# intentionally absent so the model keeps its full adaptive reasoning there.
+LOW_REASONING_TASKS = frozenset({
+    "source_content_units", "verify_selected_candidate_bodies", "related_content_alignment",
+})
 
 
 GEMINI_TEMPERATURE = 1.0
@@ -509,7 +516,7 @@ class OpenRouterJSONClient:
             model, temperature=temperature, seed=seed, task_models=task_models)
         self.model, self.temperature, self.seed = settings["model"], settings["temperature"], settings["seed"]
         self.task_models = settings["task_models"]
-        verifier_effort = os.getenv("OPENROUTER_VERIFIER_REASONING_EFFORT", "medium").strip().lower() or "medium"
+        verifier_effort = os.getenv("OPENROUTER_VERIFIER_REASONING_EFFORT", "low").strip().lower() or "low"
         if verifier_effort not in {"low", "medium"}:
             raise ValueError("OpenRouter 후보 본문 검증의 추론 수준은 low 또는 medium이어야 합니다.")
         self.verifier_reasoning_effort = verifier_effort
@@ -618,15 +625,13 @@ class OpenRouterJSONClient:
             "provider": {"require_parameters": True},
             "max_tokens": max_output_tokens,
         }
-        # This verifier only decides whether a fetched report covers the same
-        # event and grounded claims. Gemini's default thinking can consume the
-        # entire completion budget before it emits the short JSON verdict.
-        # The medium default preserves verification depth. Low is an explicit
-        # opt-in for measured A/B runs; Gemini thinking levels are relative,
-        # not a guaranteed reasoning-token budget. Reader tasks are unchanged.
-        if (task_name == "verify_selected_candidate_bodies"
+        # Bound only evidence transformation and alignment. Final A-G and I1
+        # judgment tasks retain Gemini's adaptive reasoning for quality.
+        if (task_name in LOW_REASONING_TASKS
                 and re.match(r"^google/gemini-3\.(?:[6-9]|[1-9][0-9])(?:-|$)", routed_model)):
-            request["reasoning"] = {"effort": self.verifier_reasoning_effort}
+            effort = (self.verifier_reasoning_effort
+                      if task_name == "verify_selected_candidate_bodies" else "low")
+            request["reasoning"] = {"effort": effort}
         if self.seed is not None:
             request["seed"] = self.seed
         # Gemini 3.6+ can ignore or reject sampling controls even through a
