@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import Client, SimpleTestCase, override_settings
@@ -11,6 +12,7 @@ from server.analysis.article_fetch import _PublicRedirectHandler, validate_artic
 from server.analysis.model_client import ModelUnavailableError
 from server.analysis.diagnostics import analysis_stage
 from server.analysis.v2_adapter import PipelineContractError
+from server.analysis_history import HistoryUnavailableError
 from server.views import PipelineResultError, analyze_related_articles_v2
 
 
@@ -255,6 +257,136 @@ class DiagnosticsTests(SimpleTestCase):
         self.assertIn('"stage":"synthetic_stage"', captured.output[0])
         self.assertNotIn("private article body", captured.output[0])
         self.assertIsNone(captured.records[0].exc_info)
+
+
+class AccountApiTests(SimpleTestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = SimpleNamespace(id="user-1", username="reader", is_developer=False)
+
+    @patch("server.views.user_from_request", return_value=None)
+    def test_account_and_history_endpoints_require_authentication(self, user_from_request):
+        paths = (
+            "/api/auth/me",
+            "/api/analyses",
+            "/api/analyses/00000000-0000-0000-0000-000000000001",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(response.json()["error"]["code"], "authentication_required")
+        self.assertEqual(user_from_request.call_count, len(paths))
+
+    @patch("server.views.user_from_request")
+    def test_me_returns_the_authenticated_account(self, user_from_request):
+        user_from_request.return_value = self.user
+
+        response = self.client.get("/api/auth/me")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "id": "user-1", "username": "reader", "is_developer": False,
+        })
+        user_from_request.assert_called_once()
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.list_analysis_records", return_value=[{"source_title": "A"}])
+    def test_history_list_uses_authenticated_owner_and_requested_limit(
+        self, list_records, user_from_request
+    ):
+        user_from_request.return_value = self.user
+
+        response = self.client.get("/api/analyses?limit=7")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"analyses": [{"source_title": "A"}]})
+        list_records.assert_called_once_with(self.user, 7)
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.list_analysis_records")
+    def test_history_list_rejects_invalid_limits_before_reading(self, list_records, user_from_request):
+        user_from_request.return_value = self.user
+        for limit in ("abc", "0", "51"):
+            with self.subTest(limit=limit):
+                response = self.client.get(f"/api/analyses?limit={limit}")
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"]["code"], "invalid_limit")
+        list_records.assert_not_called()
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.list_analysis_records", side_effect=HistoryUnavailableError)
+    def test_history_list_database_failure_is_retryable(self, list_records, user_from_request):
+        user_from_request.return_value = self.user
+
+        response = self.client.get("/api/analyses")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "history_unavailable")
+        list_records.assert_called_once_with(self.user, 20)
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.load_analysis_record", return_value=None)
+    def test_detail_not_found_does_not_expose_other_accounts(self, load_record, user_from_request):
+        user_from_request.return_value = self.user
+        record_id = "00000000-0000-0000-0000-000000000001"
+
+        response = self.client.get(f"/api/analyses/{record_id}")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["error"]["code"], "analysis_not_found")
+        self.assertIs(load_record.call_args.args[0], self.user)
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.load_analysis_record", side_effect=HistoryUnavailableError)
+    def test_detail_database_failure_returns_safe_retryable_error(self, load_record, user_from_request):
+        user_from_request.return_value = self.user
+        record_id = "00000000-0000-0000-0000-000000000001"
+
+        response = self.client.get(f"/api/analyses/{record_id}")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "history_unavailable")
+        self.assertIs(load_record.call_args.args[0], self.user)
+
+    @patch("server.views.authenticate", return_value=None)
+    def test_login_rejects_missing_or_incorrect_credentials(self, authenticate):
+        missing = self.client.post(
+            "/api/auth/login", data=json.dumps({"username": " "}),
+            content_type="application/json",
+        )
+        incorrect = self.client.post(
+            "/api/auth/login", data=json.dumps({"username": "reader", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(incorrect.status_code, 401)
+        self.assertEqual(authenticate.call_count, 1)
+
+    @patch("server.views.owner_key_for_request", return_value="legacy-owner")
+    @patch("server.views.claim_legacy_history", return_value=2)
+    @patch("server.views.create_session", return_value=("opaque-token", SimpleNamespace(expires_at="later")))
+    @patch("server.views.authenticate")
+    def test_login_returns_token_and_claims_legacy_history(
+        self, authenticate, create_session, claim_history, owner_key
+    ):
+        authenticate.return_value = self.user
+        response = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"username": " reader ", "password": "pass"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "token": "opaque-token", "expires_at": "later", "claimed_records": 2,
+            "user": {"id": "user-1", "username": "reader", "is_developer": False},
+        })
+        authenticate.assert_called_once_with("reader", "pass")
+        create_session.assert_called_once_with(self.user)
+        claim_history.assert_called_once_with(self.user, "legacy-owner")
+        owner_key.assert_called_once()
 
 
 class V2EndpointAdapterTests(SimpleTestCase):
