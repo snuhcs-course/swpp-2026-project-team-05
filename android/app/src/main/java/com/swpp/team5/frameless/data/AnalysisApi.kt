@@ -28,12 +28,13 @@ internal object AnalysisApi {
     private val ABSENCE_REASONS = setOf("timing_impossible", "format", "editorial", "unknown")
     private val RELEVANCES = setOf("issue_relevant", "peripheral")
 
-    suspend fun analyze(articleUrl: String, clientId: String? = null): AnalysisResult = withContext(Dispatchers.IO) {
+    suspend fun analyze(articleUrl: String, clientId: String? = null, accessToken: String? = null): AnalysisResult = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyze").openConnection() as HttpURLConnection)
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             clientId?.let { connection.setRequestProperty("X-FrameLESS-Client-ID", it) }
+            accessToken?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             connection.connectTimeout = 10_000
             connection.readTimeout = 600_000
             connection.doOutput = true
@@ -73,11 +74,11 @@ internal object AnalysisApi {
         }
     }
 
-    suspend fun listHistory(clientId: String): List<AnalysisHistoryItem> = withContext(Dispatchers.IO) {
+    suspend fun listHistory(accessToken: String): List<AnalysisHistoryItem> = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyses?limit=20").openConnection() as HttpURLConnection)
         try {
             connection.requestMethod = "GET"
-            connection.setRequestProperty("X-FrameLESS-Client-ID", clientId)
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 20_000
             val json = readJsonResponse(connection)
@@ -103,11 +104,11 @@ internal object AnalysisApi {
         }
     }
 
-    suspend fun loadHistory(recordId: String, clientId: String): AnalysisResult = withContext(Dispatchers.IO) {
+    suspend fun loadHistory(recordId: String, accessToken: String): AnalysisResult = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyses/$recordId").openConnection() as HttpURLConnection)
         try {
             connection.requestMethod = "GET"
-            connection.setRequestProperty("X-FrameLESS-Client-ID", clientId)
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 20_000
             val json = readJsonResponse(connection)
@@ -135,6 +136,26 @@ internal object AnalysisApi {
             throw IllegalStateException(message ?: "분석 기록 요청이 실패했어요. (HTTP $status)")
         }
         return json
+    }
+
+    suspend fun login(username: String, password: String, clientId: String): AppSession = withContext(Dispatchers.IO) {
+        val connection = (URL("$BASE_URL/api/auth/login").openConnection() as HttpURLConnection)
+        try {
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.setRequestProperty("X-FrameLESS-Client-ID", clientId)
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 20_000
+            connection.doOutput = true
+            connection.outputStream.use { it.write(JSONObject().put("username", username).put("password", password).toString().toByteArray(Charsets.UTF_8)) }
+            val json = readJsonResponse(connection)
+            val token = json.optString("token")
+            val savedUsername = json.optJSONObject("user")?.optString("username").orEmpty()
+            if (token.isBlank() || savedUsername.isBlank()) throw IllegalStateException("로그인 응답을 읽지 못했어요.")
+            AppSession(savedUsername, token)
+        } catch (error: IOException) {
+            throw IllegalStateException(networkErrorMessage(error))
+        } finally { connection.disconnect() }
     }
 
     internal fun networkErrorMessage(error: IOException): String = when (error) {

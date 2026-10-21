@@ -17,11 +17,40 @@ class CachedAnalysis(models.Model):
         db_table = "frameless_cached_analysis"
 
 
-class AnalysisRecord(models.Model):
-    """The latest usable analysis of one source URL for one app installation."""
+class UserAccount(models.Model):
+    """A small first-party account, deliberately independent of Django admin."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # The API receives a random installation ID; only its SHA-256 digest is stored.
+    username = models.CharField(max_length=64, unique=True)
+    password_hash = models.CharField(max_length=256)
+    is_developer = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "frameless_user_account"
+
+
+class AuthSession(models.Model):
+    """Only a SHA-256 digest of a bearer token is kept in PostgreSQL."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(UserAccount, on_delete=models.CASCADE, related_name="sessions")
+    token_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        db_table = "frameless_auth_session"
+
+
+class AnalysisRecord(models.Model):
+    """The latest usable analysis of one source URL for an account."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(UserAccount, null=True, blank=True, on_delete=models.CASCADE,
+                             related_name="analysis_records")
+    # Used only to claim records created before account login was added.
     owner_key = models.CharField(max_length=64)
     source_url = models.URLField(max_length=2048)
     source_url_hash = models.CharField(max_length=64)

@@ -9,7 +9,7 @@ from uuid import UUID
 from django.db import DatabaseError
 
 from .analysis.diagnostics import log_event
-from .models import AnalysisRecord
+from .models import AnalysisRecord, UserAccount
 
 
 logger = logging.getLogger("server.views")
@@ -31,9 +31,13 @@ def owner_key_for_request(request) -> str | None:
     return sha256(client_id.encode("utf-8")).hexdigest()
 
 
-def save_analysis_record(owner_key: str | None, source_url: str, result: dict) -> str | None:
-    """Upsert a usable result for this installation and URL without blocking analysis."""
-    if not owner_key:
+def account_owner_key(user: UserAccount) -> str:
+    return sha256(f"user:{user.id}".encode("utf-8")).hexdigest()
+
+
+def save_analysis_record(user: UserAccount | None, source_url: str, result: dict) -> str | None:
+    """Upsert a usable result for an authenticated account without blocking analysis."""
+    if not user:
         return None
     status = result.get("analysis_status")
     if not isinstance(status, dict) or status.get("comparison_status") not in {"available", "no_matches"}:
@@ -49,9 +53,10 @@ def save_analysis_record(owner_key: str | None, source_url: str, result: dict) -
         return None
     try:
         record, _ = AnalysisRecord.objects.update_or_create(
-            owner_key=owner_key,
+            owner_key=account_owner_key(user),
             source_url_hash=sha256(source_url.encode("utf-8")).hexdigest(),
             defaults={
+                "user": user,
                 "source_url": source_url,
                 "source_title": title,
                 "result": result,
@@ -67,11 +72,11 @@ def save_analysis_record(owner_key: str | None, source_url: str, result: dict) -
         return None
 
 
-def list_analysis_records(owner_key: str, limit: int) -> list[dict]:
+def list_analysis_records(user: UserAccount, limit: int) -> list[dict]:
     """Return lightweight history rows; the full JSON is fetched per selection."""
     try:
         return list(
-            AnalysisRecord.objects.filter(owner_key=owner_key)
+            AnalysisRecord.objects.filter(user=user)
             .values("id", "source_url", "source_title", "execution_status", "result_version",
                     "created_at", "updated_at")[:limit]
         )
@@ -81,13 +86,46 @@ def list_analysis_records(owner_key: str, limit: int) -> list[dict]:
         raise HistoryUnavailableError from exc
 
 
-def load_analysis_record(owner_key: str, record_id: UUID) -> dict | None:
+def load_analysis_record(user: UserAccount, record_id: UUID) -> dict | None:
     try:
         return (
-            AnalysisRecord.objects.filter(owner_key=owner_key, id=record_id)
+            AnalysisRecord.objects.filter(user=user, id=record_id)
             .values("result").first()
         )
     except DatabaseError as exc:
         log_event(logger, "analysis_history_load_failed", level=logging.WARNING,
                   error_type=type(exc).__name__)
         raise HistoryUnavailableError from exc
+
+
+def claim_legacy_history(user: UserAccount, legacy_owner_key: str | None) -> int:
+    """Attach pre-login per-installation results to the account on its first login."""
+    if not legacy_owner_key:
+        return 0
+    try:
+        records = list(AnalysisRecord.objects.filter(user__isnull=True, owner_key=legacy_owner_key))
+        account_key = account_owner_key(user)
+        claimed = 0
+        for record in records:
+            conflict = AnalysisRecord.objects.filter(
+                owner_key=account_key, source_url_hash=record.source_url_hash
+            ).exclude(id=record.id).first()
+            if conflict:
+                if record.updated_at > conflict.updated_at:
+                    conflict.source_url = record.source_url
+                    conflict.source_title = record.source_title
+                    conflict.result = record.result
+                    conflict.execution_status = record.execution_status
+                    conflict.result_version = record.result_version
+                    conflict.save()
+                record.delete()
+            else:
+                record.user = user
+                record.owner_key = account_key
+                record.save(update_fields=["user", "owner_key", "updated_at"])
+                claimed += 1
+        return claimed
+    except DatabaseError as exc:
+        log_event(logger, "analysis_history_claim_failed", level=logging.WARNING,
+                  error_type=type(exc).__name__)
+        return 0

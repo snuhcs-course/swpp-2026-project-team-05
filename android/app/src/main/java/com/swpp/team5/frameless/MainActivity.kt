@@ -7,8 +7,11 @@ import androidx.activity.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.swpp.team5.frameless.data.AnalysisRepository
+import com.swpp.team5.frameless.data.AnalysisHistoryIdentity
+import com.swpp.team5.frameless.data.AuthRepository
 import com.swpp.team5.frameless.ui.FrameLESSApp
 import com.swpp.team5.frameless.ui.viewmodel.AnalysisViewModel
+import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
 
 /** 앱 시작만 담당한다. 화면과 상태는 ui 패키지에 있다. */
 class MainActivity : ComponentActivity() {
@@ -19,9 +22,15 @@ class MainActivity : ComponentActivity() {
                 AnalysisViewModel(AnalysisRepository(applicationContext)) as T
         }
     }
+    private val authViewModel: AuthViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                AuthViewModel(AuthRepository(applicationContext), AnalysisHistoryIdentity.clientId(applicationContext)) as T
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { FrameLESSApp(viewModel) }
+        setContent { FrameLESSApp(viewModel, authViewModel) }
     }
 }

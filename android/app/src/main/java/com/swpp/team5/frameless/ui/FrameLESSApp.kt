@@ -14,18 +14,25 @@ import androidx.compose.ui.Modifier
 import com.swpp.team5.frameless.ui.screens.ComparisonScreen
 import com.swpp.team5.frameless.ui.screens.ImportScreen
 import com.swpp.team5.frameless.ui.screens.LoadingScreen
+import com.swpp.team5.frameless.ui.screens.LoginScreen
 import com.swpp.team5.frameless.ui.screens.ReaderScreen
 import com.swpp.team5.frameless.ui.screens.RestoringScreen
 import com.swpp.team5.frameless.ui.state.AnalysisUiState
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.viewmodel.AnalysisViewModel
+import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
 
 /** 전체 화면 전환: 입력 → 분석 중 → 비교 */
 @Composable
-internal fun FrameLESSApp(vm: AnalysisViewModel) {
+internal fun FrameLESSApp(vm: AnalysisViewModel, auth: AuthViewModel) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                if (!auth.isLoggedIn) {
+                    LoginScreen(auth.username, auth.password, auth.isLoading, auth.error,
+                        onUsername = { auth.username = it }, onPassword = { auth.password = it }, onLogin = auth::login)
+                    return@Box
+                }
                 LaunchedEffect(Unit) { vm.refreshHistory() }
                 when (val state = vm.uiState) {
                     AnalysisUiState.Idle, is AnalysisUiState.Error -> ImportScreen(

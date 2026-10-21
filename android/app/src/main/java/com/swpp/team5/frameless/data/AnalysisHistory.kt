@@ -32,10 +32,14 @@ internal object AnalysisHistoryIdentity {
 /** Keeps Android identity storage out of UI and HTTP parsing code. */
 internal class AnalysisRepository(context: Context) {
     private val clientId = AnalysisHistoryIdentity.clientId(context.applicationContext)
+    private val auth = AuthRepository(context)
 
-    suspend fun analyze(url: String): AnalysisResult = AnalysisApi.analyze(url, clientId)
+    private fun token(): String = auth.currentSession()?.token
+        ?: throw IllegalStateException("로그인 후 사용할 수 있어요.")
 
-    suspend fun listHistory(): List<AnalysisHistoryItem> = AnalysisApi.listHistory(clientId)
+    suspend fun analyze(url: String): AnalysisResult = AnalysisApi.analyze(url, clientId, token())
 
-    suspend fun loadHistory(recordId: String): AnalysisResult = AnalysisApi.loadHistory(recordId, clientId)
+    suspend fun listHistory(): List<AnalysisHistoryItem> = AnalysisApi.listHistory(token())
+
+    suspend fun loadHistory(recordId: String): AnalysisResult = AnalysisApi.loadHistory(recordId, token())
 }

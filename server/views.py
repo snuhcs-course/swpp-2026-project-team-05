@@ -20,8 +20,9 @@ from .analysis.diagnostics import analysis_id, log_event
 from .analysis.model_client import ModelUnavailableError, get_gemini_api_key
 from .analysis.v2_adapter import PipelineContractError, adapt_v2_result
 from .analysis_history import (HistoryUnavailableError, MAX_HISTORY_ITEMS,
-                               list_analysis_records, load_analysis_record,
+                               claim_legacy_history, list_analysis_records, load_analysis_record,
                                owner_key_for_request, save_analysis_record)
+from .authentication import authenticate, create_session, user_from_request
 from .result_cache import cache_key, load_result, save_result
 
 
@@ -109,6 +110,24 @@ def _error(code: str, message: str, status: int) -> JsonResponse:
     )
 
 
+def _json_body(request) -> tuple[dict, JsonResponse | None]:
+    if request.content_type != "application/json":
+        return {}, _error("invalid_content_type", "Content-Type은 application/json이어야 합니다.", 415)
+    try:
+        body = request.body
+    except RequestDataTooBig:
+        return {}, _error("request_too_large", "요청 본문이 너무 큽니다.", 413)
+    if len(body) > MAX_BODY_BYTES:
+        return {}, _error("request_too_large", "요청 본문이 너무 큽니다.", 413)
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return {}, _error("invalid_json", "올바른 JSON 본문을 보내주세요.", 400)
+    if not isinstance(payload, dict):
+        return {}, _error("invalid_request", "JSON 객체를 보내주세요.", 400)
+    return payload, None
+
+
 @require_GET
 def health(request):
     missing = _missing_api_keys()
@@ -119,16 +138,46 @@ def health(request):
     })
 
 
-def _history_owner_or_error(request) -> tuple[str | None, JsonResponse | None]:
-    owner_key = owner_key_for_request(request)
-    if owner_key:
-        return owner_key, None
-    return None, _error("invalid_client_id", "분석 기록을 위해 앱 식별 정보가 필요합니다.", 400)
+def _history_user_or_error(request):
+    user = user_from_request(request)
+    if user:
+        return user, None
+    return None, _error("authentication_required", "로그인 후 분석 기록을 사용할 수 있습니다.", 401)
+
+
+@csrf_exempt
+@require_POST
+def login(request):
+    body, error = _json_body(request)
+    if error:
+        return error
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    if not username or not password:
+        return _error("invalid_credentials", "아이디와 비밀번호를 입력해 주세요.", 400)
+    user = authenticate(username, password)
+    if user is None:
+        return _error("invalid_credentials", "아이디 또는 비밀번호가 올바르지 않습니다.", 401)
+    token, session = create_session(user)
+    claimed = claim_legacy_history(user, owner_key_for_request(request))
+    return JsonResponse({"token": token, "expires_at": session.expires_at,
+                         "user": {"id": str(user.id), "username": user.username,
+                                  "is_developer": user.is_developer},
+                         "claimed_records": claimed}, json_dumps_params={"ensure_ascii": False})
+
+
+@require_GET
+def me(request):
+    user, error = _history_user_or_error(request)
+    if error:
+        return error
+    return JsonResponse({"id": str(user.id), "username": user.username,
+                         "is_developer": user.is_developer})
 
 
 @require_GET
 def analyses(request):
-    owner_key, error = _history_owner_or_error(request)
+    user, error = _history_user_or_error(request)
     if error:
         return error
     raw_limit = request.GET.get("limit", "20")
@@ -139,7 +188,7 @@ def analyses(request):
     if not 1 <= limit <= MAX_HISTORY_ITEMS:
         return _error("invalid_limit", f"limit은 1에서 {MAX_HISTORY_ITEMS} 사이여야 합니다.", 400)
     try:
-        rows = list_analysis_records(owner_key, limit)
+        rows = list_analysis_records(user, limit)
     except HistoryUnavailableError:
         return _error("history_unavailable", "분석 기록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 503)
     return JsonResponse({"analyses": rows}, json_dumps_params={"ensure_ascii": False})
@@ -147,11 +196,11 @@ def analyses(request):
 
 @require_GET
 def analysis_detail(request, record_id):
-    owner_key, error = _history_owner_or_error(request)
+    user, error = _history_user_or_error(request)
     if error:
         return error
     try:
-        row = load_analysis_record(owner_key, record_id)
+        row = load_analysis_record(user, record_id)
     except HistoryUnavailableError:
         return _error("history_unavailable", "분석 기록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 503)
     if row is None:
@@ -191,20 +240,9 @@ def analyze(request):
 
 
 def _analyze_request(request):
-    if request.content_type != "application/json":
-        return _error("invalid_content_type", "Content-Type은 application/json이어야 합니다.", 415)
-    try:
-        body = request.body
-    except RequestDataTooBig:
-        return _error("request_too_large", "요청 본문이 너무 큽니다.", 413)
-    if len(body) > MAX_BODY_BYTES:
-        return _error("request_too_large", "요청 본문이 너무 큽니다.", 413)
-    try:
-        payload = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return _error("invalid_json", "올바른 JSON 본문을 보내주세요.", 400)
-    if not isinstance(payload, dict):
-        return _error("invalid_request", "JSON 객체를 보내주세요.", 400)
+    payload, error = _json_body(request)
+    if error:
+        return error
 
     url = payload.get("url")
     if not isinstance(url, str) or len(url) > 2048:
@@ -236,11 +274,11 @@ def _analyze_request(request):
     log_event(logger, "request_validated", article_host=urlsplit(url).hostname,
               max_related=max_related, pipeline=pipeline_name)
     source_url = url.strip()
-    history_owner = owner_key_for_request(request)
+    history_user = user_from_request(request)
     result_cache_key = cache_key(source_url, max_related) if pipeline_name == "v2" else None
     cached = load_result(result_cache_key)
     if cached is not None:
-        record_id = save_analysis_record(history_owner, source_url, cached)
+        record_id = save_analysis_record(history_user, source_url, cached)
         response = JsonResponse(cached, json_dumps_params={"ensure_ascii": False})
         response["X-Analysis-Cache"] = "HIT"
         if record_id:
@@ -274,7 +312,7 @@ def _analyze_request(request):
     finally:
         _analysis_slot.release()
     save_result(result_cache_key, source_url, result)
-    record_id = save_analysis_record(history_owner, source_url, result)
+    record_id = save_analysis_record(history_user, source_url, result)
     response = JsonResponse(result, json_dumps_params={"ensure_ascii": False})
     if result_cache_key:
         response["X-Analysis-Cache"] = "MISS"
