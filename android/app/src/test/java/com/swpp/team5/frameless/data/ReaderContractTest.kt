@@ -361,12 +361,14 @@ class ReaderContractTest {
     }
 
     @Test
-    fun sheetInstructionsOnlyOfferToExpandWhileCollapsed() {
+    fun sheetInstructionsMatchExpandedState() {
         assertEquals("위로 끌어 펼치기", sheetInstruction(pageCount = 1, expanded = false))
-        assertEquals("", sheetInstruction(pageCount = 1, expanded = true))
+        assertEquals("손잡이를 아래로 끌어 중간 높이로 접기",
+            sheetInstruction(pageCount = 1, expanded = true))
         assertEquals("좌우로 다른 기사 보기 · 위로 끌어 펼치기",
             sheetInstruction(pageCount = 2, expanded = false))
-        assertEquals("좌우로 다른 기사 보기", sheetInstruction(pageCount = 2, expanded = true))
+        assertEquals("좌우로 다른 기사 보기 · 손잡이를 아래로 끌어 접기",
+            sheetInstruction(pageCount = 2, expanded = true))
     }
 
     @Test
