@@ -11,10 +11,19 @@ from urllib.parse import urlsplit
 def _publisher(article: dict) -> str:
     name = article.get("publisher", "")
     if isinstance(name, str) and name.strip():
-        return unicodedata.normalize("NFKC", name).strip().casefold()
+        return re.sub(r"[^0-9a-z가-힣]", "", unicodedata.normalize("NFKC", name).casefold())
     url = article.get("url")
     host = urlsplit(url if isinstance(url, str) else "").hostname or ""
     return host.removeprefix("www.").casefold()
+
+
+def _same_publisher(first: str, second: str) -> bool:
+    if not first or not second:
+        return False
+    if first == second:
+        return True
+    shorter, longer = sorted((first, second), key=len)
+    return len(shorter) >= 4 and shorter in longer
 
 
 def _body_grams(article: dict) -> set[str]:
@@ -62,7 +71,12 @@ def select_display_article_ids(selection: dict, limit: int,
     def diversity(group: tuple[str, ...]) -> tuple[int, int]:
         if not candidate_articles:
             return (0, 0)
-        independent = len({publishers[key] for key in group if publishers.get(key)})
+        publisher_groups = []
+        for key in group:
+            publisher = publishers.get(key, "")
+            if publisher and not any(_same_publisher(publisher, seen) for seen in publisher_groups):
+                publisher_groups.append(publisher)
+        independent = len(publisher_groups)
         distinct_pairs = 0
         for left, right in combinations(group, 2):
             a, b = grams.get(left, set()), grams.get(right, set())
@@ -76,7 +90,8 @@ def select_display_article_ids(selection: dict, limit: int,
     else:
         chosen = max(combinations(candidates, limit), key=lambda group: (
             len(set().union(*(claims_by_article.get(key, set()) for key in group))),
-            *diversity(group),
+            diversity(group)[1],
+            diversity(group)[0],
             sum(mentions.get(key, 0) for key in group),
             sum(key in baseline_ids for key in group),
             -sum(first_seen[key] for key in group),

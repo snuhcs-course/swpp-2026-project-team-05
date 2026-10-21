@@ -7,7 +7,9 @@ from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait, wait as wait_for_verification
 from contextlib import contextmanager
 import logging
+import re
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from ..diagnostics import log_event, submit_with_context
 from .article_search import fetch_candidate_articles
@@ -61,6 +63,34 @@ def _body_signature(article: dict) -> tuple[int, frozenset[str]] | None:
     return len(compact), frozenset(compact[index:index + 7] for index in range(len(compact) - 6))
 
 
+def _publisher_identity(article: dict) -> tuple[str, str]:
+    """Normalize outlet name and host without treating a news portal as the outlet."""
+    raw_name = article.get("publisher")
+    name = (re.sub(r"[^0-9a-z가-힣]", "", unicodedata.normalize("NFKC", raw_name).casefold())
+            if isinstance(raw_name, str) else "")
+    raw_url = article.get("url")
+    host = (urlsplit(raw_url if isinstance(raw_url, str) else "").hostname or "")
+    host = host.removeprefix("www.").casefold()
+    if host == "naver.com" or host.endswith(".naver.com"):
+        host = ""
+    return name, host
+
+
+def _same_publisher(first: dict, second: dict) -> bool:
+    """Recognize the same outlet and obvious named outlet variants."""
+    first_name, first_host = _publisher_identity(first)
+    second_name, second_host = _publisher_identity(second)
+    if first_host and second_host and first_host == second_host:
+        return True
+    if first_name and second_name:
+        if first_name == second_name:
+            return True
+        shorter, longer = sorted((first_name, second_name), key=len)
+        if len(shorter) >= 4 and shorter in longer:
+            return True
+    return False
+
+
 def _same_reporting_text(first: tuple[int, frozenset[str]] | None,
                          second: tuple[int, frozenset[str]] | None) -> bool:
     if first is None or second is None:
@@ -100,6 +130,11 @@ def _independent_same_event_ids(source: dict, metadata: list[dict], articles: di
     source_signature = _body_signature(source)
     source_duplicates = [key for key in ids if _same_reporting_text(signatures[key], source_signature)]
     ids = [key for key in ids if key not in source_duplicates]
+    # Comparisons should come from other newsrooms. Keep a same-publisher row
+    # only as a fallback when discovery found no verified external outlet.
+    external_ids = [key for key in ids if not _same_publisher(source, articles[key])]
+    if external_ids:
+        ids = external_ids
     groups: list[list[str]] = []
     for key in ids:
         group = next((group for group in groups if _same_reporting_text(signatures[key], signatures[group[0]])), None)
@@ -696,9 +731,16 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
         source, metadata, articles, assessed, set(claim_map))
     duplicate_groups = [group for group in body_groups if len(group) > 1]
     duplicate_to_group = {key: group for group in body_groups for key in group}
-    event_baseline_ids = [key for key in independent_ids if
-                          any(metadata_map[member].get("discovered_by_event")
-                              for member in duplicate_to_group.get(key, [key]))][:event_baseline_limit]
+    baseline_candidates = [key for key in independent_ids if
+                           any(metadata_map[member].get("discovered_by_event")
+                               for member in duplicate_to_group.get(key, [key]))]
+    event_baseline_ids = []
+    while baseline_candidates and len(event_baseline_ids) < event_baseline_limit:
+        distinct = [key for key in baseline_candidates if all(
+            not _same_publisher(articles[key], articles[picked]) for picked in event_baseline_ids)]
+        key = (distinct or baseline_candidates)[0]
+        event_baseline_ids.append(key)
+        baseline_candidates.remove(key)
     final_comparisons = []
     for claim_id, claim in claim_map.items():
         queue_order = {key: position for position, key in enumerate(queues[claim_id])}
@@ -713,22 +755,23 @@ def _select_verified_comparisons(source: dict, analysis: dict, metadata_search: 
                     len(_grounded_matches(assessed[key], set(claim_map))),
                     assessed[key].get("event_focus") == "primary",
                     -queue_order.get(key, len(metadata)))))
-        selected, covered_claims, publishers = [], set(), set()
+        selected, covered_claims = [], set()
         while candidates and len(selected) < max_per_claim:
             def quality(key: str) -> tuple[int, int, int, int, int, int]:
                 matches = _grounded_matches(assessed[key], set(claim_map))
-                publisher = str(articles[key].get("publisher") or metadata_map[key].get("publisher") or "").casefold().strip()
                 relation = matches[claim_id]["relation"]
                 relation_weight = 2 if relation in {"same", "opposes"} else 1 if relation == "different_interpretation" else 0
-                return (len(set(matches) - covered_claims), int(publisher not in publishers),
+                return (len(set(matches) - covered_claims), int(all(
+                            not _same_publisher(articles[key], articles[picked]) for picked in selected)),
                         int(assessed[key].get("event_focus") == "primary"), relation_weight,
                         -queue_order.get(key, len(metadata)), -next(index for index, row in enumerate(metadata)
                                                                if row["candidate_id"] == key))
-            key = max(candidates, key=quality)
+            distinct = [key for key in candidates if all(
+                not _same_publisher(articles[key], articles[picked]) for picked in selected)]
+            key = max(distinct or candidates, key=quality)
             candidates.remove(key)
             selected.append(key)
             covered_claims.update(_grounded_matches(assessed[key], set(claim_map)))
-            publishers.add(str(articles[key].get("publisher") or metadata_map[key].get("publisher") or "").casefold().strip())
         final_comparisons.append({"claim_id": claim_id, "claim": claim["claim"],
                                   "articles": [_comparison_article(key, articles[key],
                                                _grounded_matches(assessed[key], set(claim_map))[claim_id])
