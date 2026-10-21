@@ -78,7 +78,6 @@ import kotlin.math.roundToInt
 /** The source article remains intact. Badges are UI annotations outside its quoted sentences. */
 private val ReaderExpression = Color(0xFFE9E1F5)
 private val ReaderMarker = Color(0xFFE5D0F2)
-private val ReaderAlignment = Color(0xFFF1F0EC)
 
 /** One article can align multiple content units to the same wording contrast. */
 private fun List<ReaderExpressionDifference>.forComparisonSheet(): List<ReaderExpressionDifference> {
@@ -116,12 +115,11 @@ internal data class ReaderTarget(
 }
 
 /**
- * Only sentences with A–G evidence are visible tap targets. Once tapped, show
- * every verified article alignment for that sentence so the reader can swipe
- * between outlets, including an outlet whose corresponding wording is neutral.
+ * Only sentences with A–G evidence are visible tap targets. Group all verified
+ * differences for the same source sentence so multiple differing outlets can
+ * be swiped, while neutral alignments remain outside the comparison sheet.
  */
 internal fun ReaderResult.targets(): List<ReaderTarget> {
-    val pairsBySentence = pairs.groupBy { it.sourceSentenceId }
     return pairs.filter { it.expressionDifferences.isNotEmpty() }
         .groupBy { it.sourceSentenceId }
         .map { (sentenceId, expressionPairs) ->
@@ -129,7 +127,7 @@ internal fun ReaderResult.targets(): List<ReaderTarget> {
                 start = expressionPairs.minOf { it.sourceSpan.start },
                 end = expressionPairs.maxOf { it.sourceSpan.end }
             )
-            ReaderTarget(sentenceId, span, pairsBySentence.getValue(sentenceId).distinctBy { it.id })
+            ReaderTarget(sentenceId, span, expressionPairs.distinctBy { it.id })
         }
         .sortedWith(compareBy({ it.span.start }, { it.span.end }))
 }
@@ -523,20 +521,6 @@ private fun RelatedArticlePage(page: RelatedPage, sheetState: SheetState) {
                     }
                 }
             }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Caption("같은 내용을 다룬 기사")
-                Text(
-                    "이 기사에서는 선택한 표현 차이가 확인되지 않았어요. 대응하는 문장을 함께 보여줘요.",
-                    color = Fl.Ink2,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                )
-            }
         }
         Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = Fl.Line)
@@ -582,9 +566,6 @@ internal fun relatedReaderText(
     pairs: List<ReaderPair>
 ): AnnotatedString = buildAnnotatedString {
     append(article.body)
-    pairs.forEach { pair ->
-        addStyle(SpanStyle(background = ReaderAlignment), pair.relatedSpan.start, pair.relatedSpan.end)
-    }
     pairs.filter { it.expressionDifferences.isNotEmpty() }.forEach { pair ->
         addStyle(SpanStyle(background = ReaderExpression, textDecoration = TextDecoration.Underline),
             pair.relatedSpan.start, pair.relatedSpan.end)
