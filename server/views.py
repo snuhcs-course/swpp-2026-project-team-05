@@ -48,7 +48,10 @@ def analyze_related_articles_v2(source_url: str, max_related: int = 3) -> dict:
     raw = run_analysis_pipeline(
         source_url,
         max_claims=3,
-        max_candidates=8,
+        # The Reader presents at most three related articles. Four candidates
+        # retain one alternate after full-text verification without spending a
+        # serverless request on five unused article bodies.
+        max_candidates=4,
         max_per_claim=min(max_related, 2),
         event_baseline_limit=2,
         # Full article bodies can exhaust the model output budget when grouped.
