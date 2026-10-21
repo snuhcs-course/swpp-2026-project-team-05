@@ -19,6 +19,9 @@ from .analysis.article_search import analyze_related_articles
 from .analysis.diagnostics import analysis_id, log_event
 from .analysis.model_client import ModelUnavailableError, get_gemini_api_key
 from .analysis.v2_adapter import PipelineContractError, adapt_v2_result
+from .analysis_history import (HistoryUnavailableError, MAX_HISTORY_ITEMS,
+                               list_analysis_records, load_analysis_record,
+                               owner_key_for_request, save_analysis_record)
 from .result_cache import cache_key, load_result, save_result
 
 
@@ -116,6 +119,46 @@ def health(request):
     })
 
 
+def _history_owner_or_error(request) -> tuple[str | None, JsonResponse | None]:
+    owner_key = owner_key_for_request(request)
+    if owner_key:
+        return owner_key, None
+    return None, _error("invalid_client_id", "분석 기록을 위해 앱 식별 정보가 필요합니다.", 400)
+
+
+@require_GET
+def analyses(request):
+    owner_key, error = _history_owner_or_error(request)
+    if error:
+        return error
+    raw_limit = request.GET.get("limit", "20")
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        return _error("invalid_limit", "limit은 정수여야 합니다.", 400)
+    if not 1 <= limit <= MAX_HISTORY_ITEMS:
+        return _error("invalid_limit", f"limit은 1에서 {MAX_HISTORY_ITEMS} 사이여야 합니다.", 400)
+    try:
+        rows = list_analysis_records(owner_key, limit)
+    except HistoryUnavailableError:
+        return _error("history_unavailable", "분석 기록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 503)
+    return JsonResponse({"analyses": rows}, json_dumps_params={"ensure_ascii": False})
+
+
+@require_GET
+def analysis_detail(request, record_id):
+    owner_key, error = _history_owner_or_error(request)
+    if error:
+        return error
+    try:
+        row = load_analysis_record(owner_key, record_id)
+    except HistoryUnavailableError:
+        return _error("history_unavailable", "분석 기록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 503)
+    if row is None:
+        return _error("analysis_not_found", "분석 기록을 찾을 수 없습니다.", 404)
+    return JsonResponse(row["result"], json_dumps_params={"ensure_ascii": False})
+
+
 @csrf_exempt  # The JSON API does not use cookie-based authentication.
 @require_POST
 def analyze(request):
@@ -192,11 +235,16 @@ def _analyze_request(request):
         return _error("invalid_pipeline_config", "이 서버에서는 v1 분석을 사용할 수 없습니다.", 503)
     log_event(logger, "request_validated", article_host=urlsplit(url).hostname,
               max_related=max_related, pipeline=pipeline_name)
-    result_cache_key = cache_key(url, max_related) if pipeline_name == "v2" else None
+    source_url = url.strip()
+    history_owner = owner_key_for_request(request)
+    result_cache_key = cache_key(source_url, max_related) if pipeline_name == "v2" else None
     cached = load_result(result_cache_key)
     if cached is not None:
+        record_id = save_analysis_record(history_owner, source_url, cached)
         response = JsonResponse(cached, json_dumps_params={"ensure_ascii": False})
         response["X-Analysis-Cache"] = "HIT"
+        if record_id:
+            response["X-Analysis-Record-ID"] = record_id
         return response
     if not _analysis_slot.acquire(blocking=False):
         response = _error("busy", "다른 기사를 분석 중입니다. 잠시 후 다시 시도해 주세요.", 429)
@@ -205,7 +253,7 @@ def _analyze_request(request):
     try:
         try:
             analysis_function = analyze_related_articles_v2 if pipeline_name == "v2" else analyze_related_articles
-            result = analysis_function(url.strip(), max_related=max_related)
+            result = analysis_function(source_url, max_related=max_related)
         except PipelineResultError as exc:
             response = _error(exc.code, str(exc), 503 if exc.retryable else 502)
             if exc.retryable:
@@ -225,8 +273,11 @@ def _analyze_request(request):
             return _error("analysis_failed", "기사를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)
     finally:
         _analysis_slot.release()
-    save_result(result_cache_key, url.strip(), result)
+    save_result(result_cache_key, source_url, result)
+    record_id = save_analysis_record(history_owner, source_url, result)
     response = JsonResponse(result, json_dumps_params={"ensure_ascii": False})
     if result_cache_key:
         response["X-Analysis-Cache"] = "MISS"
+    if record_id:
+        response["X-Analysis-Record-ID"] = record_id
     return response

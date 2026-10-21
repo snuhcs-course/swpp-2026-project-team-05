@@ -16,6 +16,9 @@ internal sealed interface AnalysisUiState {
     /** 분석 중. step: 0 사건 파악, 1 보도 찾기, 2 문장 비교 */
     data class Loading(val url: String, val step: Int) : AnalysisUiState
 
+    /** 저장된 JSON을 받아 현재 Reader/비교 화면으로 되돌리는 중 */
+    data class Restoring(val url: String) : AnalysisUiState
+
     /** 분석 성공 */
     data class Success(val model: ComparisonModel) : AnalysisUiState
 

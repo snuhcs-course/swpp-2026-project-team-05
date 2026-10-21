@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.swpp.team5.frameless.data.AnalysisApi
+import com.swpp.team5.frameless.data.AnalysisHistoryItem
+import com.swpp.team5.frameless.data.AnalysisRepository
 import com.swpp.team5.frameless.data.AnalysisResult
 import com.swpp.team5.frameless.ui.state.AnalysisUiState
 import com.swpp.team5.frameless.ui.state.ComparisonModel
@@ -26,11 +28,21 @@ import kotlinx.coroutines.launch
  * analyze 함수를 생성자로 받아 테스트에서 가짜 응답을 넣을 수 있다.
  */
 internal class AnalysisViewModel(
-    private val analyzeArticle: suspend (String) -> AnalysisResult
+    private val analyzeArticle: suspend (String) -> AnalysisResult,
+    private val listHistory: suspend () -> List<AnalysisHistoryItem> = { emptyList() },
+    private val loadHistory: suspend (String) -> AnalysisResult = {
+        throw IllegalStateException("저장된 분석을 불러올 수 없어요.")
+    }
 ) : ViewModel() {
 
     /** viewModels() 기본 팩토리용 */
     constructor() : this({ url -> AnalysisApi.analyze(url) })
+
+    constructor(repository: AnalysisRepository) : this(
+        analyzeArticle = repository::analyze,
+        listHistory = repository::listHistory,
+        loadHistory = repository::loadHistory
+    )
 
     var url by mutableStateOf("")
         private set
@@ -40,8 +52,11 @@ internal class AnalysisViewModel(
         private set
     var selection by mutableStateOf(ComparisonSelection())
         private set
+    var history by mutableStateOf(AnalysisHistoryState())
+        private set
 
     private var job: Job? = null
+    private var historyJob: Job? = null
 
     private val model: ComparisonModel? get() = (uiState as? AnalysisUiState.Success)?.model
 
@@ -71,6 +86,7 @@ internal class AnalysisViewModel(
                 val model = ComparisonModel(analyzeArticle(trimmed))
                 selection = ComparisonSelection(group = if (model.groupCount > 0) 0 else OTHERS_GROUP)
                 uiState = AnalysisUiState.Success(model)
+                refreshHistory()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -93,6 +109,41 @@ internal class AnalysisViewModel(
         urlError = null
         selection = ComparisonSelection()
         uiState = AnalysisUiState.Idle
+        refreshHistory()
+    }
+
+    fun refreshHistory() {
+        historyJob?.cancel()
+        history = history.copy(isLoading = true, error = null)
+        historyJob = viewModelScope.launch {
+            try {
+                history = AnalysisHistoryState(items = listHistory())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                history = AnalysisHistoryState(
+                    error = error.message ?: "분석 기록을 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun openHistory(item: AnalysisHistoryItem) {
+        job?.cancel()
+        uiState = AnalysisUiState.Restoring(item.sourceUrl)
+        job = viewModelScope.launch {
+            try {
+                val model = ComparisonModel(loadHistory(item.id))
+                selection = ComparisonSelection(group = if (model.groupCount > 0) 0 else OTHERS_GROUP)
+                uiState = AnalysisUiState.Success(model)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                uiState = AnalysisUiState.Error(
+                    error.message ?: "저장된 분석을 불러오지 못했어요. 다시 시도해 주세요."
+                )
+            }
+        }
     }
 
     /* ---------------- 비교 화면 선택 ---------------- */
@@ -135,6 +186,13 @@ internal class AnalysisViewModel(
         selection = selection.copy(showDespiteNoMatch = true)
     }
 }
+
+/** Import screen's independently reloadable recent-analysis section. */
+internal data class AnalysisHistoryState(
+    val items: List<AnalysisHistoryItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
 
 private fun isValidArticleUrl(url: String): Boolean {
     val uri = Uri.parse(url)

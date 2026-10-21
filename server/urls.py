@@ -2,10 +2,12 @@
 
 from django.urls import path
 
-from .views import analyze, health
+from .views import analysis_detail, analyses, analyze, health
 
 
 urlpatterns = [
     path("api/health", health),
     path("api/analyze", analyze),
+    path("api/analyses", analyses),
+    path("api/analyses/<uuid:record_id>", analysis_detail),
 ]

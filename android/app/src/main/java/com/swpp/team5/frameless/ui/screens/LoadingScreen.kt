@@ -79,3 +79,29 @@ internal fun LoadingScreen(url: String, step: Int) {
         }
     }
 }
+
+/** Saved analyses do not run inference again; this only loads their stored result. */
+@Composable
+internal fun RestoringScreen(url: String) {
+    Box(modifier = Modifier.fillMaxSize().padding(20.dp), contentAlignment = Alignment.Center) {
+        FlCard(modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth()) {
+            Column(modifier = Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                BrandRow()
+                Text(
+                    text = "저장한 분석을\n불러오고 있어요",
+                    fontFamily = Fl.Serif,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    lineHeight = 30.sp,
+                    color = Fl.Ink
+                )
+                Caption(url)
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    color = Fl.Accent,
+                    trackColor = Fl.Line
+                )
+            }
+        }
+    }
+}

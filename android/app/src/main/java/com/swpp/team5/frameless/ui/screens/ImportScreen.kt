@@ -1,6 +1,7 @@
 package com.swpp.team5.frameless.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,12 @@ import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.FlCard
+import com.swpp.team5.frameless.data.AnalysisHistoryItem
+import com.swpp.team5.frameless.ui.viewmodel.AnalysisHistoryState
+import java.net.URI
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** 기사 URL 입력 화면 */
 @Composable
@@ -40,8 +48,11 @@ internal fun ImportScreen(
     url: String,
     urlError: String?,
     requestError: String?,
+    history: AnalysisHistoryState,
     onUrlChange: (String) -> Unit,
-    onAnalyze: () -> Unit
+    onAnalyze: () -> Unit,
+    onOpenHistory: (AnalysisHistoryItem) -> Unit,
+    onRefreshHistory: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -114,6 +125,13 @@ internal fun ImportScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+            AnalysisHistorySection(
+                history = history,
+                onOpenHistory = onOpenHistory,
+                onRefreshHistory = onRefreshHistory
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
             listOf(
                 "어느 언론사가 옳은지 판정하지 않아요",
                 "점수나 정치 성향 라벨을 붙이지 않아요",
@@ -127,6 +145,96 @@ internal fun ImportScreen(
             }
         }
     }
+}
+
+@Composable
+private fun AnalysisHistorySection(
+    history: AnalysisHistoryState,
+    onOpenHistory: (AnalysisHistoryItem) -> Unit,
+    onRefreshHistory: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("최근 분석", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Fl.Ink)
+        Text(
+            "새로고침",
+            modifier = Modifier.clickable(onClick = onRefreshHistory).padding(4.dp),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = Fl.Accent
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    when {
+        history.isLoading && history.items.isEmpty() -> {
+            Caption("이전 분석을 불러오는 중이에요.")
+        }
+        history.error != null -> {
+            Text(
+                text = "이전 분석을 불러오지 못했어요. 다시 시도해 주세요.",
+                modifier = Modifier.clickable(onClick = onRefreshHistory),
+                fontSize = 13.sp,
+                color = Fl.Muted
+            )
+        }
+        history.items.isEmpty() -> {
+            Caption("아직 저장된 분석이 없어요.")
+        }
+        else -> {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                history.items.forEach { item ->
+                    AnalysisHistoryItemRow(item = item, onClick = { onOpenHistory(item) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalysisHistoryItemRow(item: AnalysisHistoryItem, onClick: () -> Unit) {
+    FlCard(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Text(
+                text = item.sourceTitle.ifBlank { displayHistoryHost(item.sourceUrl) },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Fl.Ink
+            )
+            Spacer(modifier = Modifier.height(5.dp))
+            Text(
+                text = "${displayHistoryHost(item.sourceUrl)} · ${displayHistoryTime(item.updatedAt)} · ${historyStatusLabel(item.executionStatus)}",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 12.sp,
+                color = Fl.Muted
+            )
+        }
+    }
+}
+
+private fun displayHistoryHost(url: String): String = try {
+    URI(url).host?.removePrefix("www.") ?: url
+} catch (_: Exception) {
+    url
+}
+
+private fun displayHistoryTime(raw: String): String = try {
+    OffsetDateTime.parse(raw).format(DateTimeFormatter.ofPattern("M월 d일 · HH:mm", Locale.KOREAN))
+} catch (_: Exception) {
+    "이전 분석"
+}
+
+private fun historyStatusLabel(status: String): String = when (status) {
+    "partial" -> "일부 결과"
+    else -> "분석 완료"
 }
 
 /** 로고 줄: 형광 띠가 들어간 작은 렌즈 표시 + FrameLESS */

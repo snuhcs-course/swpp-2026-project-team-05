@@ -28,11 +28,12 @@ internal object AnalysisApi {
     private val ABSENCE_REASONS = setOf("timing_impossible", "format", "editorial", "unknown")
     private val RELEVANCES = setOf("issue_relevant", "peripheral")
 
-    suspend fun analyze(articleUrl: String): AnalysisResult = withContext(Dispatchers.IO) {
+    suspend fun analyze(articleUrl: String, clientId: String? = null): AnalysisResult = withContext(Dispatchers.IO) {
         val connection = (URL("$BASE_URL/api/analyze").openConnection() as HttpURLConnection)
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            clientId?.let { connection.setRequestProperty("X-FrameLESS-Client-ID", it) }
             connection.connectTimeout = 10_000
             connection.readTimeout = 600_000
             connection.doOutput = true
@@ -70,6 +71,70 @@ internal object AnalysisApi {
         } finally {
             connection.disconnect()
         }
+    }
+
+    suspend fun listHistory(clientId: String): List<AnalysisHistoryItem> = withContext(Dispatchers.IO) {
+        val connection = (URL("$BASE_URL/api/analyses?limit=20").openConnection() as HttpURLConnection)
+        try {
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("X-FrameLESS-Client-ID", clientId)
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 20_000
+            val json = readJsonResponse(connection)
+            val items = json.optJSONArray("analyses") ?: JSONArray()
+            (0 until items.length()).mapNotNull { index ->
+                val item = items.optJSONObject(index) ?: return@mapNotNull null
+                val id = item.optString("id")
+                val sourceUrl = item.optString("source_url")
+                val title = item.optString("source_title")
+                if (id.isBlank() || sourceUrl.isBlank() || title.isBlank()) return@mapNotNull null
+                AnalysisHistoryItem(
+                    id = id,
+                    sourceUrl = sourceUrl,
+                    sourceTitle = title,
+                    executionStatus = item.optString("execution_status"),
+                    updatedAt = item.optString("updated_at")
+                )
+            }
+        } catch (error: IOException) {
+            throw IllegalStateException(networkErrorMessage(error))
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    suspend fun loadHistory(recordId: String, clientId: String): AnalysisResult = withContext(Dispatchers.IO) {
+        val connection = (URL("$BASE_URL/api/analyses/$recordId").openConnection() as HttpURLConnection)
+        try {
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("X-FrameLESS-Client-ID", clientId)
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 20_000
+            val json = readJsonResponse(connection)
+            val sourceUrl = json.optJSONObject("source_analysis")?.optString("url").orEmpty()
+            parseAnalysis(json, sourceUrl)
+        } catch (error: IOException) {
+            throw IllegalStateException(networkErrorMessage(error))
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun readJsonResponse(connection: HttpURLConnection): JSONObject {
+        val status = connection.responseCode
+        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+        val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+        val json = try {
+            JSONObject(body)
+        } catch (_: Exception) {
+            throw IllegalStateException("서버 응답을 읽지 못했어요. (HTTP $status)")
+        }
+        if (status !in 200..299) {
+            val error = json.optJSONObject("error")
+            val message = error?.optString("message")?.takeIf { it.isNotBlank() }
+            throw IllegalStateException(message ?: "분석 기록 요청이 실패했어요. (HTTP $status)")
+        }
+        return json
     }
 
     internal fun networkErrorMessage(error: IOException): String = when (error) {
