@@ -668,11 +668,34 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
     naver_fallback_needed = (bool(naver_results) and not naver_has_candidate
                              and any(failure is not None or getattr(items, "sort_errors", [])
                                      for items, failure in naver_results))
-    # Public RSS makes discovery available when NAVER is not configured or
-    # rejects its credential. It cannot relax downstream same-event or
-    # full-text evidence requirements.
+    # The handoff demo used Exa citations after the NAVER provider failed.
+    # Preserve that discovery behavior: Exa nominates URLs only, while the
+    # existing full-text same-event and evidence checks remain authoritative.
+    exa_results = []
+    if naver_fallback_needed:
+        remaining = (_OPENROUTER_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
+                     google_fallback_deadline_at - monotonic() - 1.0)
+        timeout_seconds = min(_OPENROUTER_SEARCH_TIMEOUT_SECONDS, remaining)
+        if timeout_seconds >= _OPENROUTER_FALLBACK_MIN_TIMEOUT_SECONDS and get_openrouter_api_key():
+            record = {"query": _reviewed_event_queries(analysis)[0],
+                      "sources": [{"scope": "event", "claim_id": None}],
+                      "provider": "openrouter_exa"}
+            try:
+                outcome = (search_openrouter_exa_news(
+                    source, analysis, max_urls=min(10, max_candidates),
+                    timeout_seconds=timeout_seconds), None)
+            except RuntimeError as exc:
+                outcome = (None, exc)
+            queries.append(record)
+            query_results.append(outcome)
+            exa_results.append(outcome)
+    exa_has_candidate = _has_external_candidate(exa_results, source_keys)
+
+    # Public RSS is the last credential-free discovery fallback. It cannot
+    # relax downstream same-event or full-text evidence requirements.
     rss_results = []
-    if naver_fallback_needed and _naver_rss_fallback_needed(naver_results):
+    if (naver_fallback_needed and not exa_has_candidate and
+            _naver_rss_fallback_needed(naver_results)):
         record = {"query": _reviewed_event_queries(analysis)[0],
                   "sources": [{"scope": "event", "claim_id": None}],
                   "provider": "google_news_rss"}
@@ -684,7 +707,8 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
         query_results.append(outcome)
         rss_results.append(outcome)
     rss_has_candidate = _has_external_candidate(rss_results, source_keys)
-    if not google_parallel and naver_fallback_needed and not rss_has_candidate:
+    if (not google_parallel and naver_fallback_needed and
+            not exa_has_candidate and not rss_has_candidate):
         remaining = (_GOOGLE_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
                      google_fallback_deadline_at - monotonic() - 1.0)
         timeout_seconds = min(_GOOGLE_SEARCH_TIMEOUT_SECONDS, remaining)
@@ -704,23 +728,6 @@ def search_candidate_metadata(source: dict, analysis: dict, *, max_candidates: i
             query_results.append(outcome)
     google_results = [(items, failure) for record, (items, failure) in zip(queries, query_results)
                       if record.get("provider") == "google_grounding"]
-    if (naver_fallback_needed and not rss_has_candidate and
-            not any(items for items, failure in google_results if failure is None)):
-        remaining = (_OPENROUTER_SEARCH_TIMEOUT_SECONDS if google_fallback_deadline_at is None else
-                     google_fallback_deadline_at - monotonic() - 1.0)
-        timeout_seconds = min(_OPENROUTER_SEARCH_TIMEOUT_SECONDS, remaining)
-        if timeout_seconds >= _OPENROUTER_FALLBACK_MIN_TIMEOUT_SECONDS and get_openrouter_api_key():
-            record = {"query": _reviewed_event_queries(analysis)[0],
-                      "sources": [{"scope": "event", "claim_id": None}],
-                      "provider": "openrouter_exa"}
-            try:
-                items = search_openrouter_exa_news(source, analysis, max_urls=min(10, max_candidates),
-                                                  timeout_seconds=timeout_seconds)
-                outcome = (items, None)
-            except RuntimeError as exc:
-                outcome = (None, exc)
-            queries.append(record)
-            query_results.append(outcome)
     errors, succeeded = [], 0
     for record, (items, failure) in zip(queries, query_results):
         provider = record.get("provider", "naver")

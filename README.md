@@ -21,7 +21,7 @@ FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를
 
 ### Iteration 2 통합 버전 확인
 
-`main`은 Android Reader와 Django 분석 API를 연결합니다. 앱은 기본으로 `https://frameless-team05-api.vercel.app`을 사용합니다. 운영 백엔드는 수동 배포하므로 Git 커밋만으로 배포를 확인할 수 없습니다. 실제 분석은 기사와 모델 응답에 따라 몇 분 걸리거나 부분 결과가 될 수 있습니다. 데모에 쓸 URL·APK·백엔드 리비전은 함께 확인하세요. 로컬 백엔드에는 팀에서 허용한 OpenRouter 키가 필요합니다. NAVER API HUB 키는 있으면 우선 검색에 쓰며, 없거나 인증이 거부되면 Google News RSS로 후보를 찾습니다. 직접 Gemini 키는 대체 모델 경로로 쓸 수 있습니다. 키는 저장소나 APK에 넣지 않습니다.
+`main`은 Android Reader와 Django 분석 API를 연결합니다. 앱은 기본으로 `https://frameless-team05-api.vercel.app`을 사용합니다. 운영 백엔드는 수동 배포하므로 Git 커밋만으로 배포를 확인할 수 없습니다. 실제 분석은 기사와 모델 응답에 따라 몇 분 걸리거나 부분 결과가 될 수 있습니다. 데모에 쓸 URL·APK·백엔드 리비전은 함께 확인하세요. 로컬 백엔드에는 팀에서 허용한 OpenRouter 키가 필요합니다. NAVER API HUB 키는 있으면 우선 검색에 쓰며, 없거나 인증이 거부되면 OpenRouter Exa 웹 검색으로 후보를 찾습니다. Exa도 실패하면 Google News RSS를 사용합니다. 직접 Gemini 키는 대체 모델 경로로 쓸 수 있습니다. 키는 저장소나 APK에 넣지 않습니다.
 
 ```sh
 python3.12 -m venv .venv
@@ -47,7 +47,7 @@ cd android
 | --- | --- |
 | Android 앱 | Kotlin, Jetpack Compose |
 | 분석 API | Python, Django |
-| 관련 기사 검색·분석 | NAVER API HUB 또는 Google News RSS, OpenRouter/Gemini |
+| 관련 기사 검색·분석 | NAVER API HUB 또는 OpenRouter Exa·Google News RSS, OpenRouter/Gemini |
 
 ## 문서
 

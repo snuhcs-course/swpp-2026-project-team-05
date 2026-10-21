@@ -5,7 +5,7 @@ Android 앱은 기본적으로 `https://frameless-team05-api.vercel.app`을 사�
 
 ## 로컬 실행
 
-Vercel과 로컬 모두 Python 3.12를 권장합니다. `.env`에는 팀 OpenRouter 키를 넣습니다. 직접 Gemini API 키는 OpenRouter를 쓰지 않는 로컬 실행의 대체 경로입니다. `NAVER_CLIENT_ID`와 `NAVER_CLIENT_SECRET`은 선택 사항이며, 있으면 [NAVER API HUB 뉴스 검색](https://api.ncloud-docs.com/docs/naver-api-hub-search-news)을 먼저 사용합니다. 키가 없거나 인증이 거부되면 공개 Google News RSS로 후보를 찾고, 이후 동일한 전문 검증을 진행합니다.
+Vercel과 로컬 모두 Python 3.12를 권장합니다. `.env`에는 팀 OpenRouter 키를 넣습니다. 직접 Gemini API 키는 OpenRouter를 쓰지 않는 로컬 실행의 대체 경로입니다. `NAVER_CLIENT_ID`와 `NAVER_CLIENT_SECRET`은 선택 사항이며, 있으면 [NAVER API HUB 뉴스 검색](https://api.ncloud-docs.com/docs/naver-api-hub-search-news)을 먼저 사용합니다. 키가 없거나 인증이 거부되면 OpenRouter Exa 웹 검색으로 후보를 찾고, Exa도 실패하면 공개 Google News RSS를 사용합니다. 이후 후보는 모두 동일한 전문 검증을 진행합니다.
 
 ```sh
 python3.12 -m venv .venv
@@ -87,7 +87,7 @@ python manage.py migrate
 | `DATABASE_URL` | PostgreSQL 결과 캐시·앱 분석 기록. Supabase Transaction pooler URI, 서버 전용 |
 | `OPENROUTER_API_KEY` | 팀 OpenRouter 키, 있으면 우선 사용 |
 | `GOOGLE_API_KEY` | 직접 Gemini API 대체 경로, 선택 |
-| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | 선택: NAVER API HUB 키. 없거나 인증 거부 시 Google News RSS 사용 |
+| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | 선택: NAVER API HUB 키. 없거나 인증 거부 시 OpenRouter Exa, 이후 Google News RSS 사용 |
 | `OPENROUTER_QUALITY_MODEL` | 의미 판정 모델. 기본 `google/gemini-3.8-flash` |
 | `OPENROUTER_METADATA_MODEL` | 후보 제목·설명 순위 모델. 기본 `google/gemini-3.1-flash-lite` |
 | `OPENROUTER_VERIFIER_REASONING_EFFORT` | Gemini 3.6+ 후보 본문 검증의 사고 수준. 기본 `medium`, 비교 실험용 `low` 허용. 사고 토큰의 정확한 상한은 아님 |
