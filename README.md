@@ -19,6 +19,30 @@ FrameLESS는 뉴스 기사 URL을 입력받아 같은 사건을 다룬 보도를
 
 앱은 기본으로 팀 백엔드에 연결됩니다. 앱 실행을 위해 별도의 API 키나 로컬 서버 설정은 필요하지 않습니다.
 
+## Iteration 2 Working Demo
+
+### How to run the demo
+
+1. 이 브랜치를 clone합니다: `git clone -b iteration-2-demo https://github.com/snuhcs-course/swpp-2026-project-team-05.git`.
+2. Android Studio에서 저장소의 `android/` 폴더를 열고 Gradle sync를 마칩니다.
+3. 인터넷이 연결된 Android 에뮬레이터 또는 기기에서 `app` 구성을 실행합니다. 앱은 기본으로 팀의 Django API(`https://frameless-team05-api.vercel.app`)에 연결됩니다.
+4. 공개 뉴스 기사 URL을 입력하고 **이 기사 비교하기**를 누른 뒤 결과를 확인합니다. 분석은 몇 분 걸릴 수 있고 일부 결과에는 경고가 표시될 수 있습니다.
+
+**Environment used:** macOS on Apple Silicon, Android Studio with JDK 21, Android SDK 37, and an Android Emulator running API 36. 로컬 백엔드 실행 방법과 상세 설정은 [백엔드 개발·배포 안내](docs/backend.md)를 참고하세요.
+
+### What the demo demonstrates
+
+- 실제 기사 URL을 입력해 분석하고 추출된 기사 본문을 Reader에서 읽는 흐름.
+- 근거가 확인된 C 프레이밍 차이를 눌러 다른 보도의 대응 표현과 설명을 확인하는 기능.
+- I1 별표를 눌러 비교 범위 안에서 이 기사에만 두드러진 내용과 비교 근거를 확인하는 기능.
+- Iteration 2에서 Android Reader와 Django 분석 API를 연결하고, 근거가 있는 표시와 부분 실패 경고를 실제 결과에 함께 보여주는 통합 진전.
+
+**Recording scope:** 아래 영상은 2026-10-19 중간 발표 슬라이드 4에 연결한 실제 TheFact 기사 시연입니다. 영상에서는 입력과 로딩 장면을 빠르게 편집했고, 긴 분석 대기는 생략했다고 표시했습니다. 해당 실행에서 C 프레이밍 표시 2개, I1 별표 3개, 일부 검색 실패 경고를 확인할 수 있습니다. 다른 유형의 표시나 관련 기사 좌우 넘기기는 이 영상에서 시연하지 않습니다.
+
+### Short demo video
+
+[Watch the 68.5-second Reader demo](docs/demo/iteration-2-demo.mp4)
+
 ### Iteration 2 통합 버전 확인
 
 `main`은 Android Reader와 Django 분석 API를 연결합니다. 앱은 기본으로 `https://frameless-team05-api.vercel.app`을 사용합니다. 운영 백엔드는 수동 배포하므로 Git 커밋만으로 배포를 확인할 수 없습니다. 실제 분석은 기사와 모델 응답에 따라 몇 분 걸리거나 부분 결과가 될 수 있습니다. 데모에 쓸 URL·APK·백엔드 리비전은 함께 확인하세요. 로컬 백엔드에는 팀에서 허용한 OpenRouter 키가 필요합니다. NAVER API HUB 키는 있으면 우선 검색에 쓰며, 없거나 인증이 거부되면 OpenRouter Exa 웹 검색으로 후보를 찾습니다. Exa도 실패하면 Google News RSS를 사용합니다. 직접 Gemini 키는 대체 모델 경로로 쓸 수 있습니다. 키는 저장소나 APK에 넣지 않습니다.
