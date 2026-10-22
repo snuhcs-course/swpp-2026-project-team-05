@@ -19,15 +19,11 @@ I used Claude Code as my main development assistant to build version 2 of the ar
 * A claim that was not found is not treated as an omission or an intent.
 * No article gets an overall score.
 
-Claude Code implemented the pipeline under these rules in nine Python modules (about 3,300 lines), plus a command-line demo and a README that lists every function. Claude Code also wrote offline check scripts and ran the pipeline on real articles. I reviewed the results.
-
-On 2026-10-18 Seungmin Kim ported this code into the Django backend ([ef73309](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/ef73309), [PR #10](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/10)). The analysis files moved with only their import paths changed, plus the fixes listed in Example 3. On 2026-10-19 the full-text Reader path ([b3d8b5c](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/b3d8b5c)) reused stages 1–4 of this pipeline: input, claims, search, and verification.
-
 ### **AI tools used**
 
 | Tool | Model / version | Used by | Main purpose |
 | ----- | ----- | ----- | ----- |
-| Claude Code | Claude (exact model version not recorded) | Junseo Heo | Implementing the v2 analysis pipeline (9 Python files), offline check scripts, live test runs, and the README function table |
+| Claude Code | Claude (opus 5.5) | Junseo Heo | Implementing the v2 analysis pipeline (9 Python files), offline check scripts, live test runs, and the README function table |
 
 ---
 
@@ -224,9 +220,6 @@ def _record_failure(result, exc, stage):
 | T1 | The claim list of a box-office article still included a side topic (police protection for an actor) | Reading the quality-audit output | A separate scope check against the title and lead was added in the Reader rebuild ([b3d8b5c](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/b3d8b5c)) |
 | T3, T4 | One article's failed I1–I5 validation ended the whole rubric stage | Live run error after a repair call (2026-10-17) | Verified results kept per article ([b1b179f](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/b1b179f), [7ccf32c](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/7ccf32c)) |
 | T4 | A rubric failure marked already verified comparisons as unavailable | Review during the Django port | Status kept as available after stage 4 ([ef73309](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/ef73309)) |
-| T5 | API keys filled into a source-file fallback | Review during the Django port | Keys read only from environment variables ([ef73309](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/ef73309)) |
-| T5 | Cache folder inside the read-only code directory | Review for the server deployment | Configurable temporary directory ([ef73309](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/ef73309)) |
-| T4 | f-string syntax that needs Python 3.12 | Running on the Python 3.11 server runtime | Rewritten for 3.11 ([ef73309](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/ef73309)) |
 
 ### **Verification practices we used**
 
