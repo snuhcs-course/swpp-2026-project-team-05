@@ -1,26 +1,41 @@
-# Iteration 2 submission checklist — working draft
+# Iteration 2 submission status
 
-**Updated:** 2026-10-22 KST; the demo branch is based on main `07586b0f4a78ef08580379666e2abed60743c80d`. **Evidence boundary:** The PR #44 APK received two HTTP 200 responses from backend `c8cb5ae`: the first result (ID `7cd3876ac7f7`) was displaced before sheet inspection, and the second (ID `43635d9499e5`) showed the Reader sheet, swipe, expansion, and scrolling. Existing test walkthroughs still show older APK/backend combinations. The Iteration 2 assignment text supplied in this thread specifies the required Wiki updates, `iteration-2-demo` branch and root README/video, eTL ZIP contents, and **Friday, October 23, 23:59** deadline. It does not prescribe a video duration or encoding. The selected 68.5-second MP4 is the video linked from the midterm deck and is included on the demo branch.
+**Checked:** 23 October 2026 (KST)
 
-## Working deliverables
+**Assignment deadline:** Friday, 23 October, 23:59
 
-| Deliverable | What exists now | Preparation / completion check |
+## GitHub requirements
+
+| Requirement | Status | Notes |
 | --- | --- | --- |
-| `iteration-2-demo` branch | [Published branch](https://github.com/snuhcs-course/swpp-2026-project-team-05/tree/iteration-2-demo), based on main commit `07586b0f4a78ef08580379666e2abed60743c80d`. Its root README gives checkout, Android Studio/JDK/SDK setup, backend URL, demo scope, recording limits, and a relative video link. A fresh clone confirmed the README and 5,398,832-byte MP4 are present. | Done for branch, README, and recording. |
-| Demo video | `docs/demo/iteration-2-demo.mp4` is the 68.5-second, 5,398,832-byte `FrameLESS-TheFact-reader-demo-2026-10-19.mp4` linked from slide 4 of the local midterm deck; the Drive file title and size match. The speaker notes say input/loading were sped up and the long wait was omitted with a disclosure. The clip shows two C framing marks, three I1 stars, and a partial search-failure warning; it does not demonstrate other marker types or related-article swipes. Two separate earlier Reader walkthrough videos remain local and are described below; they are not the video linked in the midterm deck. | The branch README describes the exact clip and its editing/scope limits. |
-| Requirements and Specifications Wiki | [Live Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Requirements-and-Specifications) is revision 0.1 from Iteration 1. | Review the [Wiki update draft](iteration-2-wiki-update-draft.md), approve scope/acceptance criteria, and revise the Wiki. Preserve the existing NFR-02 120-second target and report the measurement gap until the team decides otherwise. |
-| Design Documentation Wiki | [Live Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Design-Documentation) ends at Rev.1.2 on 2026-10-09 and describes the older comparison screens and model route. | Add current Reader flow, extracted-text offsets, independent article verification, I1 star conditions, A–G pair evidence, status/failure behavior, and deployed topology. Keep detailed test results in the separate Testing page. |
-| Daily Standup Meeting Log Wiki | [Live Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Daily-Standup-Meeting-Log) ends at the 2026-10-05 meeting. | Meeting owner adds dated, factual Iteration 2 entries from notes/Slack: completed work, today's plans, blockers, decisions, and actual participants. Do not manufacture daily meetings from Git commit timestamps. |
-| Testing Documentation Wiki + PDF | [PR #37](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/37) merged the [repository draft](testing-documentation-iter2.md). It separates the earlier `c985903` HTTP 200/240.141 s API result from the `53a5118` backend/`c744cb3` APK walkthrough. Vercel logs later showed **244.599 s server total** and search HTTP errors for that walkthrough, distinct from the approximately 239-second loading-capture-to-app-response interval. [Current main `402ce46` CI](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/39177409231) passed 289 Django and 47 Android tests. Production backend `c8cb5ae` returned HTTP 200 for PR #44 APK request `7cd3876ac7f7` in 118.6 s server time, with partial search errors; its sheet was not inspected. A second response `43635d9499e5` took 178.970 s server time, remained partial, and reached the Reader, where 1/3→2/3 swipe, expansion, and full-text scrolling were observed. The live Wiki had no separate Testing page in the read-only snapshot; no Wiki/PDF publication is evidenced. | Publish a **separate English Wiki page** with plan, unit/integration results, coverage evidence, manual demo results, and honest gaps. Export it to PDF. Keep each CI and live result tied to its tested code/deployment; update screenshots for the actual submission revision. |
-| AI Collaboration Report Wiki + PDF | [Live Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/AI-Collaboration-Report) documents Iteration 1; [Prompt Log](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Prompt-Log) has an empty Iteration 2 section. | Each contributor supplies their real Iteration 2 AI use, review, rejected output, and evidence. Update the report and export PDF; add prompt-log examples as required by the course guidance. Do not infer teammates' AI use from commits. |
-| Requirements PDF, Design PDF, schedule XLSX, eTL ZIP | PDFs/XLSX are not tracked in the repository at this baseline. | Export the final Wiki Requirements, Design, Testing, and AI Collaboration pages as PDFs; locate the team's existing schedule spreadsheet, update progress and dates, export/retain `.xlsx`, package as the provisional course list requires, and inspect archive contents before eTL upload. Verify exact template/filenames/ZIP rules on eTL. |
+| Requirements & Specifications Wiki | Updated | Iteration 2 scope, acceptance criteria, and I1 evidence threshold are documented. |
+| Design Documentation Wiki | Updated | Rev.2.1 describes the account/history API, current Reader behavior, and open implementation limits. |
+| Testing Documentation Wiki | Updated | Records the latest reviewed CI run and an older live walkthrough with the app/backend revisions and limitations. |
+| Daily Standup Meeting Log Wiki | Updated through 20 October | Do not infer meeting minutes from commits. Add a later meeting only from an actual meeting record. |
+| `iteration-2-demo` branch and root `README.md` | Published | README includes setup, environment, implemented features, iteration progress, and the linked demo video. |
+| Short demo video | Included in branch | The 68.5-second clip is the recording linked from slide 4 of the midterm deck. It discloses that the loading interval was shortened and describes the demonstrated C and I1 marks and partial-search warning. It does not show other marks or article swiping. |
 
-## Suggested release sequence
+## eTL package
 
-1. Confirm the course announcement and eTL entry. Assign owners for Wiki edits, demo, PDF export, schedule, and final upload. Resolve the highlighted unknowns above.
-2. Freeze a tested revision. The newer video pairs a `c744cb3` debug APK with backend `53a5118`; the APK itself was not rebuilt at that revision. The `53a5118` server log total was 244.599 seconds and partial search errors were observed. The `402ce46` APK received two `c8cb5ae` backend HTTP 200 responses. The first took 118.6 s server time but its UI result was displaced; the second was walked through in the Reader after 178.970 s server time and remained partial. The earlier `c985903` 240.141-second API run used a different path; these observations do not prove a latency gain from [PR #42](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/42). Complete the [integration sign-off](iteration-2-integration-status.md) and independently maintained Testing Documentation on whichever revision is submitted. Older observed attempts exceeded 120 seconds; the one 118.6-second response does not establish the NFR-02 ten-attempt criterion. HTTP 200 alone does not certify I1/A–G quality.
-3. Update Wiki Requirements and Design from the [draft](iteration-2-wiki-update-draft.md); add real standup and AI-collaboration records. Check that Wiki page links and images render without local paths.
-4. The `iteration-2-demo` branch now contains the README and the midterm-deck recording. The clip's exact APK/backend revisions are not established by its slide notes; do not describe it as a freshly captured run of this branch. `main` pushes alone do not prove backend deployment or direct emulator HTTPS.
-5. Export the four final Wiki PDFs, update the schedule XLSX, create the eTL ZIP, and inspect file names, pages, links, and ZIP contents. Record the exact submission links and time in the team log.
+The local ZIP is `team5-iter2.zip` and contains the five requested files:
 
-**Separate milestone:** the [midterm presentation notice](https://swpp2026fall.slack.com/archives/C0BUL8N1864/p1791813453833289) and slide deadline are distinct from this Iteration 2 package. Do not substitute the presentation deck or its video for a specifically required demo-branch recording without checking the course rule.
+- `team5-iter2-reqspec.pdf`
+- `team5-iter2-design.pdf`
+- `team5-iter2-testing.pdf`
+- `team5-iter2-schedule.xlsx`
+- `team5-iter2-AI-collaboration-report.pdf`
+
+The archive contains exactly these five files. The schedule export shows 11/11 planned Iteration 1 items and 15/15 planned Iteration 2 items complete. The AI report is one page and links to the prompt log; saved prompts, summaries, and the reconstructed Reader-spec prompt are distinguished there.
+
+## Results to describe accurately
+
+- The latest reviewed GitHub Actions run is [Verify #145](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/39573353749) on `07586b0`. Django configuration and all 314 Django tests passed. The backend coverage gate did not pass: the endpoint/adapter group measured 79.0% against an 85% target. Android compilation stopped in `AnalysisViewModelTest.kt`; Android tests, lint, and APK build did not complete.
+- The manual Android walkthrough in the Testing Documentation used an earlier APK/backend pair. It showed the Reader sheet, swiping, and scrolling for one partial result, but did not show A–G or I1 marks or meet the 120-second target.
+- The demo video is a separate earlier recording. It shows two C marks and three I1 stars in one article result; it is not evidence that all marker types or current backend behavior were tested.
+- The latest standup entry is 20 October. The eTL ZIP is prepared locally; upload and receipt are not evidenced in this repository.
+
+## Final checks before eTL upload
+
+1. Upload the ZIP and verify the eTL receipt before the deadline.
+2. If a standup meeting occurred after 20 October, add its log from the actual notes.
+3. Keep the coverage failure, Android build failure, demo recording scope, and unverified upload status visible when describing completion.
