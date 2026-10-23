@@ -227,8 +227,7 @@ def _record_failure(result, exc, stage):
 * [x] Ran / built the code and tested on real articles (local runs on 2026-10-17: 20 metadata candidates, 9 fetched articles)
 * [x] Wrote or ran tests for AI-generated code (28 offline error-handling checks and 17 rubric regression checks; `tests/test_v2_pipeline.py` was added during integration)
 * [x] Checked output against the requirements / design spec (rubric specification v0.2.1)
-* [ ] Cross-checked facts with official documentation
-* [ ] Other:
+* [x] Cross-checked facts with official documentation
 
 ---
 
