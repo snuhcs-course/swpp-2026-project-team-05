@@ -13,5 +13,5 @@ reviews:
     enabled: true
     drafts: false
     auto_incremental_review: true
-    # Avoid spending review quota on every small push to an active student PR.
-    auto_pause_after_reviewed_commits: 2
+    # Review every eligible push without auto-pausing after a commit limit.
+    auto_pause_after_reviewed_commits: 0
