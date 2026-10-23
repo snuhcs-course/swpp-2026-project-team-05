@@ -1,110 +1,161 @@
-## AI Collaboration Contribution — Jinsol Lee
 
-> Individual contribution record for the team-level **AI Collaboration Report – Iteration 2**.  
-> This note covers my work on the Android Reader UI, UI specification, and requirements documentation. It does not claim ownership of the backend retrieval, claim-matching, or LLM-analysis pipeline.
+```md
+# AI Collaboration Contribution — Iteration 2
 
-### 1. Summary of AI Usage
+|                     |                                                                    |
+| ------------------- | ------------------------------------------------------------------ |
+| **Team**            | Team 5 — FrameLESS                                                |
+| **Iteration**       | Iteration 2 — Evidence-Oriented Reader Integration                |
+| **Period**          | October 10, 2026 – October 23, 2026                               |
+| **Iteration goals** | Integrate the Reader flow, validate evidence-oriented comparison, and update the requirements/UI documentation. |
+| **Authors**         | Lee Jinsol — Individual contribution                              |
 
-During Iteration 2, I used ChatGPT/Codex and Claude as drafting and review assistants for the FrameLESS Android Reader experience and the updated Requirements & Specifications document. I provided UI specifications, screenshots from the running application, TA feedback, and relevant implementation context when needed.
+---
 
-AI was used to explore mobile-friendly interaction patterns, review whether the implemented Reader reflected the intended user flow, refine requirements wording, and troubleshoot local development workflow issues. All outputs were treated as provisional drafts. I verified final UI and documentation decisions against the integrated application, the project scope, and GitHub Wiki Preview before integration.
+## 1. Summary of AI Usage
 
-| Tool | Model / version | Used by | Main purpose |
-|---|---|---|---|
-| ChatGPT / Codex | Not recorded | Lee Jinsol | UI/specification review, requirements drafting, presentation wording, and workflow troubleshooting |
-| Claude | Not recorded | Lee Jinsol | UI prototyping, layout exploration, and implementation-handoff preparation |
+I used ChatGPT/Codex and Claude during Iteration 2 to refine the Android Reader experience, review UI states for source-linked comparison, and update the Requirements & Specifications documentation. AI was used to generate drafts of UI structures, wording, requirement tables, and troubleshooting hypotheses. I treated those outputs as implementation candidates rather than verified answers, and checked them against the running Android app, live analysis results, TA feedback, and the GitHub Wiki preview.
 
-**Deliberate scope boundary.** I did not use AI to decide whether a claim was true, whether an outlet was politically biased, whether an omitted claim was intentional, or whether a comparison result was neutral. These are evidence and product-scope decisions that required team-defined rules and human review.
+AI was not used to determine whether a news claim was true, politically neutral, or sufficiently supported. Decisions about evidence sufficiency, withheld marks, and final wording were reviewed manually by the team.
 
-### 2. Major Tasks Where AI Contributed
+### AI tools used
 
-| # | Task | Related deliverable | AI role | Contribution level | Human owner |
-|---|---|---|---|---|---|
-| T1 | Review and refine the mobile Reader flow, including source-linked comparison and uncertainty states | Android UI / Reader experience | Drafting and review assistance | Medium | Lee Jinsol |
-| T2 | Update functional requirements, quality targets, UI flow, screen descriptions, and screenshots to match the integrated application | Requirements & Specifications Wiki | Drafting and review assistance | Medium | Lee Jinsol |
-| T3 | Prepare concise documentation-update and presentation wording | TA meeting / midterm materials | Drafting assistance | Low–Medium | Lee Jinsol |
+| **Tool** | **Model / version** | **Used by** | **Main purpose** |
+| --- | --- | --- | --- |
+| ChatGPT / Codex | Not recorded | Lee Jinsol | UI review, requirements drafting, troubleshooting |
+| Claude | Not recorded | Lee Jinsol | Android UI iteration and component-level implementation assistance |
 
-### 3. Representative Prompts and Outputs
+---
 
-The original Korean prompts and complete conversation records are retained in the team’s Iteration 2 Prompt Log: **[TEAM PROMPT LOG LINK]**. The descriptions below are faithful English summaries included for readability; they are not reconstructed as verbatim prompts.
+## 2. Major Tasks Where AI Contributed
 
-#### Example 1 — Reader UI and specification alignment
+| **#** | **Task** | **Related deliverable** | **AI role** | **Contribution level** | **Human owner** |
+| --- | --- | --- | --- | --- | --- |
+| T1 | Refine the mobile Reader flow for A–G expression marks, I1 evidence states, and source-linked comparison | Android UI prototype | Drafted and reviewed UI/code ideas | Medium | Lee Jinsol |
+| T2 | Update user stories, acceptance criteria, NFRs, UI flow, and screen descriptions to reflect the integrated application | Requirements & Specifications Wiki | Drafted and reviewed documentation | Medium | Lee Jinsol |
+| T3 | Review loading, partial-result, withheld-evidence, and retryable-error states | Android UI prototype and UI requirements | Brainstormed and troubleshot | Medium | Lee Jinsol |
 
-**Goal** — Verify that the mobile Reader UI clearly represented the required article-first flow, source-linked comparison, and uncertainty states.
+---
 
-**Context provided** — Current Reader screenshots, the UI specification, TA feedback, and the distinction between A–G expression marks and I1 evidence conditions.
+## 3. Representative Prompts and Outputs
 
-**Prompt summary**
+### Example 1 — Reader comparison UI and evidence states (T1)
 
-```text
-Review the attached Reader UI against the current product specification.
-Identify whether the mobile flow clearly distinguishes source-linked comparison,
-expression differences, withheld evidence, partial results, and retryable errors.
-Recommend only changes that are compatible with the existing implementation.
-```
+**Define** — We needed a mobile Reader that lets users inspect expression differences with source-linked passages without implying that FrameLESS decides factual truth, political bias, or neutrality.
 
-**Output** — AI generated a structured UI review checklist and suggested ways to clarify visual hierarchy and state-specific messages.
-
-**Verify and integrate** — I compared the suggestions with the running Android application and retained only changes consistent with the implemented Reader flow. Suggestions that would imply unsupported conclusions or require unverified backend behavior were not integrated.
-
-#### Example 2 — Safe implementation handoff
-
-**Goal** — Prepare sufficient context before requesting UI changes from another AI-assisted development environment.
-
-**Context provided** — Existing Android project structure, `MainActivity.kt`, `AnalysisApi.kt`, Gradle configuration, UI screenshots, and the need to preserve the current backend contract.
+**Context provided** — Current Android UI screenshots, the article-first user flow, TA feedback about clarity and neutral comparison, and the expected backend result structure.
 
 **Prompt summary**
 
 ```text
-Prepare a handoff prompt for an existing Android Compose project.
-Specify which implementation files and screenshots must be provided before proposing
-UI changes. Preserve the current API contract and avoid rewriting the application
-from screenshots alone.
+Review the current FrameLESS Android Reader UI and propose a mobile-friendly
+way to present A–G expression differences and I1 evidence states.
+
+Requirements:
+- A user must be able to open source-linked comparison evidence.
+- When I1 evidence is insufficient, the mark must be withheld rather than
+  presented as “no difference.”
+- Do not describe a claim as true, false, politically biased, or neutral.
+- Keep the design practical for a small Android screen.
 ```
 
-**Output** — AI identified the relevant implementation files and recommended giving the existing data/API structure as context before requesting UI modifications.
+**Output (excerpt)**
 
-**Verify and integrate** — This guidance was used to avoid an unsupported visual-only rewrite and to keep UI work compatible with the existing application structure.
+```text
+Use an in-context Reader highlight and a source-linked comparison sheet
+instead of a desktop-style split view. Distinguish loading, partial,
+withheld-evidence, and retryable-error states. Keep the original source
+link available from every displayed comparison item.
+```
 
-#### Example 3 — I1 withheld-state review
+**Verify** — I ran the Android application on the emulator, checked the Reader against live analysis results, and compared the proposed wording with the evidence limits defined by the team.
 
-**Goal** — Confirm that an unavailable I1 star would not be presented as evidence that no reporting difference exists.
+**Integrate**
 
-**Context provided** — Current application behavior, Reader screenshots, and the updated requirements for I1 evidence conditions.
+- **Kept:** Reader highlights, source-linked comparison sheet, clear loading and error states.
+- **Modified:** Replaced wording that could imply a conclusion with “withheld” and evidence-oriented explanations.
+- **Discarded:** Desktop-style split-view ideas that did not fit the mobile Reader flow.
+- **Result:** Integrated into the Android UI and the Iteration 2 UI requirements.
+
+### Example 2 — Requirements and UI documentation update (T2)
+
+**Define** — We needed to revise the requirements document so that it accurately described the Iteration 2 implementation: sign-in, recent analyses, Reader marks, source-linked evidence, and incomplete-result handling.
+
+**Context provided** — The Iteration 1 requirements, updated Android screens, TA feedback, and the current application flow.
 
 **Prompt summary**
 
 ```text
-Review whether the current UI and documentation distinguish an available I1 mark
-from a withheld mark. A withheld mark must not be interpreted as proof of similarity,
-neutrality, or the absence of a reporting difference.
+Based on the current FrameLESS application and TA feedback, revise the
+Functional Requirements, Non-Functional Requirements, and UI Requirements.
+
+The document must:
+- use testable Given–When–Then acceptance criteria;
+- distinguish A–G expression marks from I1 evidence states;
+- explain that a withheld mark is not proof that no difference exists;
+- match the actual Android screens and current project scope.
 ```
 
-**Output** — AI helped identify wording that could overstate the meaning of an absent comparison signal.
+**Output (excerpt)**
 
-**Verify and integrate** — I reviewed the implemented behavior and revised the documentation to state that a withheld mark represents insufficient evidence for display, not a substantive conclusion.
+```text
+The draft included revised user stories, measurable traceability targets,
+a Reader-centered UI flow, and descriptions for loading, partial, withheld,
+and retryable-error states.
+```
 
-### 4. What Worked Well and What Required Human Verification
+**Verify** — I checked the draft against the running app, screenshots, GitHub Wiki Preview, and TA feedback.
 
-AI was effective at turning broad feedback into a structured review checklist and at producing first drafts for UI/documentation language. However, human verification remained necessary because a visually plausible interface or polished wording could overstate what the system actually verifies.
+**Integrate**
 
-| Area | Risk in AI-generated output | Human verification and correction |
-|---|---|---|
-| I1 mark | A missing or withheld mark could be interpreted as proof that no meaningful difference exists. | I described a withheld mark as **no conclusion**, not as evidence of similarity, neutrality, or absence. |
-| Claim language | Terms such as “fact,” “truth,” or “bias” could overstate the result of multi-source comparison. | I retained evidence-oriented wording such as “source-linked comparison,” “reported by multiple sources,” and “withheld when evidence is insufficient.” |
-| Mobile layout | A visually appealing split-view layout may be too dense for a phone-sized interface. | I evaluated proposed layouts against the actual Android Reader and prioritized a readable source-linked comparison flow. |
-| Wiki formatting | Markdown that appears correct in a draft can render incorrectly with tables, Mermaid diagrams, or screenshots. | I checked GitHub Wiki Preview, corrected formatting, and re-uploaded screenshots before saving. |
+- **Kept:** Testable acceptance criteria, measurable UI and traceability requirements, and the Reader-centered flow.
+- **Modified:** Replaced “consensus facts” and similar wording with source-linked, evidence-oriented language.
+- **Discarded:** Suggestions that treated missing evidence as proof of no reporting difference.
+- **Result:** Reflected in the revised Requirements & Specifications Wiki page.
 
-### 5. Manual Verification
+---
 
-- [x] Ran the integrated Android application and inspected the Reader flow.
-- [x] Compared the implemented UI with the updated Functional, Non-Functional, and UI Requirements.
-- [x] Verified that the I1 withheld state was not documented as a political-bias, omission-intent, or no-difference conclusion.
-- [x] Checked the GitHub Wiki page, tables, flow, and screenshots in Preview before saving.
-- [x] Kept UI/documentation claims separate from backend and LLM-analysis claims owned by other team members.
+## 4. What Worked Well and What Required Human Verification
 
-### 6. Reflection
+### What worked well
 
-AI reduced the time required to produce first drafts and organize UI-review criteria, but it could not verify implementation status, source evidence, or the meaning of an absent comparison signal. The most useful prompts included concrete screenshots, the current specification, code/API constraints, and explicit non-overclaim rules.
+- AI quickly transformed broad feedback into concrete UI states, documentation structure, and candidate acceptance criteria.
+- AI was useful for comparing alternative mobile layouts and identifying missing states such as loading, partial results, and retryable errors.
+- AI accelerated first drafts, allowing more time for manual review of wording and evidence boundaries.
 
-For Iteration 3, I will retain raw prompts at the time of use, provide concrete test cases and current interface constraints as context, mark newly integrated AI-generated code according to the course policy, and require a build/UI check before treating an AI-assisted change as complete.
+### What required human verification or correction
+
+| **Task** | **Issue in AI output** | **How it was detected** | **Correction made** |
+| --- | --- | --- | --- |
+| T1 | Some drafts could make an absent I1 mark appear equivalent to “no difference.” | Team review against the I1 evidence rule and live Reader behavior. | Used a withheld-evidence state and explicit limitation message. |
+| T1 | Some layout suggestions assumed a desktop-style split view. | Review on the Android emulator and mobile-screen constraints. | Used an in-context Reader highlight and comparison sheet instead. |
+| T2 | Terms such as “consensus facts” could overstate what multi-source agreement proves. | TA feedback and requirements review. | Replaced them with “reported by multiple sources” and source-linked evidence language. |
+
+### Verification practices we used
+
+- [x] Ran and manually tested the Android application on an emulator
+- [x] Checked UI and documentation against the project requirements and TA feedback
+- [x] Reviewed live analysis results, including partial and withheld-evidence states
+- [x] Verified Markdown tables, Mermaid flow, and screenshots in GitHub Wiki Preview
+- [x] Discussed implementation and wording decisions with team members before integration
+
+---
+
+## 5. Reflection on How AI Affected Our Development Process
+
+**Productivity** — AI shortened the time needed to turn broad feedback into candidate UI states and documentation drafts. It was most useful for iteration and structure, not for final product decisions.
+
+**Quality** — AI improved the completeness of early drafts, but only after manual revision. In particular, evidence-related wording required careful human review to avoid implying truth, neutrality, or intentional omission.
+
+**Team workflow** — AI outputs served as discussion material for implementation and documentation. The team still used the running app, shared feedback, and source-linked evidence rules to decide what to integrate.
+
+**Learning** — AI helped identify possible Compose UI structures and state-handling patterns, but it did not replace understanding the Android code, API behavior, or real article-analysis failures.
+
+### Lessons and plan for next iteration
+
+| **What we learned** | **What we will change next iteration** |
+| --- | --- |
+| Broad UI prompts can produce layouts that do not fit the mobile product. | Include current screenshots, mobile constraints, and explicit acceptance criteria in prompts. |
+| AI can use wording that overstates what evidence supports. | State evidence limits explicitly and review every user-facing claim before integration. |
+| A plausible draft is not equivalent to a verified implementation. | Test AI-assisted changes with real articles, error cases, and the running Android app before merge. |
+```
