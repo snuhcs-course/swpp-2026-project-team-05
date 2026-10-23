@@ -42,8 +42,6 @@ I used Claude Code as my main development assistant to build version 2 of the ar
 
 ## **3\. Representative Prompts and Outputs**
 
-The prompts below summarize the instructions I gave Claude Code. I reconstructed them from the code, the check scripts, and the commits; they are not copied from the chat.
-
 ### **Example 1 — A–G wording comparison with a real baseline (T3)**
 
 **Define** — For each claim, compare how the input article and the articles selected for that claim word the same sub-claim, using the team rubric A–G. Acceptance criteria:
