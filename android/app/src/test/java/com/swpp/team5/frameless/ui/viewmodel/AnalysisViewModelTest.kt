@@ -36,7 +36,7 @@ class AnalysisViewModelTest {
     fun rejectsInvalidUrlsWithoutCallingAnalyzerAndTrimsValidInput() {
         var requested: String? = null
         val pending = CompletableDeferred<AnalysisResult>()
-        val viewModel = AnalysisViewModel { url -> requested = url; pending.await() }
+        val viewModel = AnalysisViewModel(analyzeArticle = { url -> requested = url; pending.await() })
 
         for (invalid in listOf("", "ftp://example.com/article", "https://")) {
             viewModel.onUrlChange(invalid)
@@ -59,7 +59,7 @@ class AnalysisViewModelTest {
     @Test
     fun loadingProgressEndsInSuccessAndSelectsFirstGroup() {
         val pending = CompletableDeferred<AnalysisResult>()
-        val viewModel = AnalysisViewModel { pending.await() }
+        val viewModel = AnalysisViewModel(analyzeArticle = { pending.await() })
         viewModel.onUrlChange("https://requested.example/article")
 
         viewModel.analyze()
@@ -81,10 +81,10 @@ class AnalysisViewModelTest {
     @Test
     fun failedRequestShowsMessageAndRetryCanSucceed() {
         var calls = 0
-        val viewModel = AnalysisViewModel {
+        val viewModel = AnalysisViewModel(analyzeArticle = {
             if (++calls == 1) throw IllegalStateException("서버 연결 실패")
             result()
-        }
+        })
         viewModel.onUrlChange("https://requested.example/article")
 
         viewModel.analyze()
@@ -100,7 +100,7 @@ class AnalysisViewModelTest {
 
     @Test
     fun changingInputClearsPreviousErrorAndMissingMessageUsesFallback() {
-        val viewModel = AnalysisViewModel { throw IllegalStateException() }
+        val viewModel = AnalysisViewModel(analyzeArticle = { throw IllegalStateException() })
         viewModel.onUrlChange("https://requested.example/article")
         viewModel.analyze()
         mainLooper.idle()
@@ -117,7 +117,7 @@ class AnalysisViewModelTest {
     @Test
     fun startOverCancelsPendingAnalysisAndResetsInputAndSelection() {
         val pending = CompletableDeferred<AnalysisResult>()
-        val viewModel = AnalysisViewModel { pending.await() }
+        val viewModel = AnalysisViewModel(analyzeArticle = { pending.await() })
         viewModel.onUrlChange("https://requested.example/article")
         viewModel.analyze()
         mainLooper.idle()
@@ -139,9 +139,9 @@ class AnalysisViewModelTest {
     fun secondRequestIgnoresLateResultFromCancelledFirstRequest() {
         val first = CompletableDeferred<AnalysisResult>()
         val second = CompletableDeferred<AnalysisResult>()
-        val viewModel = AnalysisViewModel { url ->
+        val viewModel = AnalysisViewModel(analyzeArticle = { url ->
             if (url.endsWith("/first")) first.await() else second.await()
-        }
+        })
         viewModel.onUrlChange("https://requested.example/first")
         viewModel.analyze()
         mainLooper.idle()
@@ -162,7 +162,7 @@ class AnalysisViewModelTest {
 
     @Test
     fun comparisonSelectionsFollowInputSentenceAndResetForNewArticle() {
-        val viewModel = AnalysisViewModel { result() }
+        val viewModel = AnalysisViewModel(analyzeArticle = { result() })
         viewModel.onUrlChange("https://requested.example/article")
         viewModel.analyze()
         mainLooper.idle()

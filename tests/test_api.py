@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import Client, SimpleTestCase, override_settings
@@ -10,6 +11,9 @@ from django.test import Client, SimpleTestCase, override_settings
 from server.analysis.article_fetch import _PublicRedirectHandler, validate_article_url
 from server.analysis.model_client import ModelUnavailableError
 from server.analysis.diagnostics import analysis_stage
+from server.analysis.v2_adapter import PipelineContractError
+from server.analysis_history import HistoryUnavailableError
+from server.views import PipelineResultError, analyze_related_articles_v2
 
 
 ARTICLE_URL = "https://n.news.naver.com/article/057/0001971678"
@@ -147,6 +151,48 @@ class AnalyzeApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["code"], "invalid_json")
 
+    def test_json_api_rejects_wrong_content_type_and_non_object_body(self):
+        wrong_type = self.client.post("/api/analyze", data="{}", content_type="text/plain")
+        non_object = self.client.post("/api/analyze", data="[]", content_type="application/json")
+
+        self.assertEqual(wrong_type.status_code, 415)
+        self.assertEqual(wrong_type.json()["error"]["code"], "invalid_content_type")
+        self.assertEqual(non_object.status_code, 400)
+        self.assertEqual(non_object.json()["error"]["code"], "invalid_request")
+
+    @patch("server.views.analyze_related_articles")
+    def test_invalid_url_shape_and_oversized_url_do_not_call_pipeline(self, analyze):
+        for url in (None, 42, "https://example.com/" + "x" * 2049):
+            oversized = isinstance(url, str) and len(url) > 2048
+            with self.subTest(url_type=type(url).__name__, oversized=oversized):
+                response = self.post({"url": url})
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"]["code"], "invalid_url")
+        analyze.assert_not_called()
+
+    @patch("server.views.analyze_related_articles")
+    def test_pipeline_error_retryability_maps_to_http_status(self, analyze):
+        for retryable, expected_status in ((False, 502), (True, 503)):
+            with self.subTest(retryable=retryable):
+                analyze.side_effect = PipelineResultError(
+                    "source_timeout", "기사 본문 확인 실패", retryable=retryable
+                )
+                response = self.post({"url": ARTICLE_URL})
+                self.assertEqual(response.status_code, expected_status)
+                self.assertEqual(response.json()["error"]["code"], "source_timeout")
+                if retryable:
+                    self.assertEqual(response["Retry-After"], "30")
+                else:
+                    self.assertNotIn("Retry-After", response)
+
+    @patch.dict(os.environ, {"FRAMELESS_PIPELINE": "unknown"})
+    @patch("server.views.analyze_related_articles")
+    def test_unknown_pipeline_configuration_fails_closed(self, analyze):
+        response = self.post({"url": ARTICLE_URL})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "invalid_pipeline_config")
+        analyze.assert_not_called()
+
     def test_wrong_method_is_rejected(self):
         self.assertEqual(self.client.get("/api/analyze").status_code, 405)
 
@@ -211,3 +257,209 @@ class DiagnosticsTests(SimpleTestCase):
         self.assertIn('"stage":"synthetic_stage"', captured.output[0])
         self.assertNotIn("private article body", captured.output[0])
         self.assertIsNone(captured.records[0].exc_info)
+
+
+class AccountApiTests(SimpleTestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = SimpleNamespace(id="user-1", username="reader", is_developer=False)
+
+    @patch("server.views.user_from_request", return_value=None)
+    def test_account_and_history_endpoints_require_authentication(self, user_from_request):
+        paths = (
+            "/api/auth/me",
+            "/api/analyses",
+            "/api/analyses/00000000-0000-0000-0000-000000000001",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(response.json()["error"]["code"], "authentication_required")
+        self.assertEqual(user_from_request.call_count, len(paths))
+
+    @patch("server.views.user_from_request")
+    def test_me_returns_the_authenticated_account(self, user_from_request):
+        user_from_request.return_value = self.user
+
+        response = self.client.get("/api/auth/me")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "id": "user-1", "username": "reader", "is_developer": False,
+        })
+        user_from_request.assert_called_once()
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.list_analysis_records", return_value=[{"source_title": "A"}])
+    def test_history_list_uses_authenticated_owner_and_requested_limit(
+        self, list_records, user_from_request
+    ):
+        user_from_request.return_value = self.user
+
+        response = self.client.get("/api/analyses?limit=7")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"analyses": [{"source_title": "A"}]})
+        list_records.assert_called_once_with(self.user, 7)
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.list_analysis_records")
+    def test_history_list_rejects_invalid_limits_before_reading(self, list_records, user_from_request):
+        user_from_request.return_value = self.user
+        for limit in ("abc", "0", "51"):
+            with self.subTest(limit=limit):
+                response = self.client.get(f"/api/analyses?limit={limit}")
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"]["code"], "invalid_limit")
+        list_records.assert_not_called()
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.list_analysis_records", side_effect=HistoryUnavailableError)
+    def test_history_list_database_failure_is_retryable(self, list_records, user_from_request):
+        user_from_request.return_value = self.user
+
+        response = self.client.get("/api/analyses")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "history_unavailable")
+        list_records.assert_called_once_with(self.user, 20)
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.load_analysis_record", return_value=None)
+    def test_detail_not_found_does_not_expose_other_accounts(self, load_record, user_from_request):
+        user_from_request.return_value = self.user
+        record_id = "00000000-0000-0000-0000-000000000001"
+
+        response = self.client.get(f"/api/analyses/{record_id}")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["error"]["code"], "analysis_not_found")
+        self.assertIs(load_record.call_args.args[0], self.user)
+
+    @patch("server.views.user_from_request")
+    @patch("server.views.load_analysis_record", side_effect=HistoryUnavailableError)
+    def test_detail_database_failure_returns_safe_retryable_error(self, load_record, user_from_request):
+        user_from_request.return_value = self.user
+        record_id = "00000000-0000-0000-0000-000000000001"
+
+        response = self.client.get(f"/api/analyses/{record_id}")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "history_unavailable")
+        self.assertIs(load_record.call_args.args[0], self.user)
+
+    @patch("server.views.authenticate", return_value=None)
+    def test_login_rejects_missing_or_incorrect_credentials(self, authenticate):
+        missing = self.client.post(
+            "/api/auth/login", data=json.dumps({"username": " "}),
+            content_type="application/json",
+        )
+        incorrect = self.client.post(
+            "/api/auth/login", data=json.dumps({"username": "reader", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(incorrect.status_code, 401)
+        self.assertEqual(authenticate.call_count, 1)
+
+    @patch("server.views.owner_key_for_request", return_value="legacy-owner")
+    @patch("server.views.claim_legacy_history", return_value=2)
+    @patch("server.views.create_session", return_value=("opaque-token", SimpleNamespace(expires_at="later")))
+    @patch("server.views.authenticate")
+    def test_login_returns_token_and_claims_legacy_history(
+        self, authenticate, create_session, claim_history, owner_key
+    ):
+        authenticate.return_value = self.user
+        response = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"username": " reader ", "password": "pass"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "token": "opaque-token", "expires_at": "later", "claimed_records": 2,
+            "user": {"id": "user-1", "username": "reader", "is_developer": False},
+        })
+        authenticate.assert_called_once_with("reader", "pass")
+        create_session.assert_called_once_with(self.user)
+        claim_history.assert_called_once_with(self.user, "legacy-owner")
+        owner_key.assert_called_once()
+
+
+class V2EndpointAdapterTests(SimpleTestCase):
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    @patch("server.views.adapt_v2_result", return_value={"reader": "ok"})
+    def test_successful_pipeline_is_adapted_with_reader_limits(self, adapt, run_pipeline):
+        run_pipeline.return_value = {
+            "execution_status": "success",
+            "source_analysis": {"title": "source"},
+            "comparison_status": "available",
+        }
+
+        result = analyze_related_articles_v2(ARTICLE_URL, max_related=2)
+
+        self.assertEqual(result, {"reader": "ok"})
+        run_pipeline.assert_called_once_with(
+            ARTICLE_URL,
+            max_claims=3,
+            max_candidates=4,
+            max_per_claim=2,
+            event_baseline_limit=2,
+            verification_batch_size=1,
+            max_rubric_articles=2,
+            analysis_profile="reader",
+            use_cache=False,
+        )
+        adapt.assert_called_once_with(
+            run_pipeline.return_value, max_related=2, requested_url=ARTICLE_URL
+        )
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_terminal_pipeline_failure_ignores_earlier_recoverable_search_error(self, run_pipeline):
+        run_pipeline.return_value = {
+            "execution_status": "failed",
+            "source_analysis": None,
+            "errors": [
+                {"stage": "search", "code": "SEARCH_HTTP_ERROR", "retryable": True},
+                {"stage": "source_analysis", "code": "SOURCE_REJECTED", "retryable": False},
+            ],
+        }
+
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(ARTICLE_URL)
+
+        self.assertEqual(raised.exception.code, "source_rejected")
+        self.assertFalse(raised.exception.retryable)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    def test_unavailable_comparison_is_retryable_when_search_can_recover(self, run_pipeline):
+        run_pipeline.return_value = {
+            "execution_status": "success",
+            "source_analysis": {"title": "source"},
+            "comparison_status": "unavailable",
+            "errors": [{"stage": "search", "code": "SEARCH_HTTP_ERROR", "retryable": True}],
+        }
+
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(ARTICLE_URL)
+
+        self.assertEqual(raised.exception.code, "comparison_unavailable")
+        self.assertTrue(raised.exception.retryable)
+
+    @patch("server.analysis.v2.pipeline.run_analysis_pipeline")
+    @patch("server.views.adapt_v2_result")
+    def test_invalid_adapter_contract_is_reported_without_leaking_details(self, adapt, run_pipeline):
+        adapt.side_effect = PipelineContractError("unsafe contract detail")
+        run_pipeline.return_value = {
+            "execution_status": "success",
+            "source_analysis": {"title": "source"},
+        }
+
+        with self.assertRaises(PipelineResultError) as raised:
+            analyze_related_articles_v2(ARTICLE_URL)
+
+        self.assertEqual(raised.exception.code, "invalid_analysis_result")
+        self.assertNotIn("unsafe contract detail", str(raised.exception))
