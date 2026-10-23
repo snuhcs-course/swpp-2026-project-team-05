@@ -6,7 +6,7 @@
 | **Iteration**       | Iteration 2 — Comparison Rubric and Design Documentation           |
 | **Period**          | October 10, 2026 – October 23, 2026                                |
 | **Iteration goals** | Define the comparison rubric (A–G expression, I1–I5 information) with literature support, prototype the Reader around it, and update the Design Documentation to the integrated system. |
-| **Authors**         | Do Seoyeong — Individual contribution                              |
+| **Authors**         | Doh Seoyeong — Individual contribution                              |
 
 ---
 
@@ -45,12 +45,12 @@ AI did **not** decide which categories the team adopted, whether an article is b
 
 | **#** | **Task** | **Related deliverable** | **AI role** | **Contribution level** | **Human owner** |
 | --- | --- | --- | --- | --- | --- |
-| T1 | Literature review and criteria table: v0.1 had A–G only; v0.2 added I1–I5, three levels, and 40 endnotes | Team doc "판정 기준표 (초안 v0.2)", 10-14 | Searched and summarized papers, drafted the table | High (draft); I set the structure and terms | Do Seoyeong |
-| T2 | Rubric spec v0.2.1: applies the table to a real article pair, adds proposals P1–P6 and endnotes [41]–[57] | Rubric spec (rubric version `0.2.1` in code) | Drafted the text and case judgments | High (draft); P1–P6 not adopted | Do Seoyeong |
-| T3 | Web and Android Reader prototypes (v0.1 10-13, v0.2 10-15) | Prototypes (outside the repo) | Generated the code | High | Do Seoyeong |
-| T4 | Design Documentation Rev.2.0 drafted from code `92d9668` | Wiki "Design Documentation", 10-21 | Drafted, checked against the code | High (draft), Medium after review | Do Seoyeong |
-| T5 | Midterm slides checked against the Final Proposal; English wording on slides 1 and 3 | Midterm slides | Reviewed, suggested wording | Medium | Do Seoyeong |
-| T6 | Background: CHI 2023 "Discord Questions" paper, mobile UI constraints, article pairs for the presentation | Input to T1, T3, T5 | Summarized, searched | Low | Do Seoyeong |
+| T1 | Literature review and criteria table: v0.1 had A–G only; v0.2 added I1–I5, three levels, and 40 endnotes | Team doc "판정 기준표 (초안 v0.2)", 10-14 | Searched and summarized papers, drafted the table | High (draft); I set the structure and terms | Doh Seoyeong |
+| T2 | Rubric spec v0.2.1: applies the table to a real article pair, adds proposals P1–P6 and endnotes [41]–[57] | Rubric spec (rubric version `0.2.1` in code) | Drafted the text and case judgments | High (draft); P1–P6 not adopted | Doh Seoyeong |
+| T3 | Web and Android Reader prototypes (v0.1 10-13, v0.2 10-15) | Prototypes (outside the repo) | Generated the code | High | Doh Seoyeong |
+| T4 | Design Documentation Rev.2.0 drafted from code `92d9668` | Wiki "Design Documentation", 10-21 | Drafted, checked against the code | High (draft), Medium after review | Doh Seoyeong |
+| T5 | Midterm slides checked against the Final Proposal; English wording on slides 1 and 3 | Midterm slides | Reviewed, suggested wording | Medium | Doh Seoyeong |
+| T6 | Background: CHI 2023 "Discord Questions" paper, mobile UI constraints, article pairs for the presentation | Input to T1, T3, T5 | Summarized, searched | Low | Doh Seoyeong |
 
 ---
 
