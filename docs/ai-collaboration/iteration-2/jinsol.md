@@ -1,5 +1,4 @@
 
-```md
 # AI Collaboration Contribution — Iteration 2
 
 |                     |                                                                    |
@@ -158,4 +157,4 @@ and retryable-error states.
 | Broad UI prompts can produce layouts that do not fit the mobile product. | Include current screenshots, mobile constraints, and explicit acceptance criteria in prompts. |
 | AI can use wording that overstates what evidence supports. | State evidence limits explicitly and review every user-facing claim before integration. |
 | A plausible draft is not equivalent to a verified implementation. | Test AI-assisted changes with real articles, error cases, and the running Android app before merge. |
-```
+
