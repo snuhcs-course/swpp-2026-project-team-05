@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(value: string, withTime = false) {
-  return new Intl.DateTimeFormat('ko-KR', {
+  return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -15,5 +15,5 @@ export function formatDate(value: string, withTime = false) {
 }
 
 export function categoryLabel(category: string) {
-  return category === 'SOCIETY' ? '사회' : '정치'
+  return category === 'SOCIETY' ? 'Society' : 'Politics'
 }

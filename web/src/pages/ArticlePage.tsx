@@ -56,7 +56,7 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
           <strong className="text-sm">{article.publisher.name}</strong>
           <p className="mt-1 text-xs text-zinc-500">{formatDate(article.published_at)}</p>
         </div>
-        <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">원문 <ArrowUpRight size={13} /></a>
+        <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">Original <ArrowUpRight size={13} /></a>
       </div>
       <h4 className="font-serif text-lg font-bold leading-6">{article.title}</h4>
       <blockquote className="mt-4 border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
@@ -82,16 +82,16 @@ function FindingPanel({ finding }: { finding: Finding }) {
       </div>
       <div className="py-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-[0.12em]">다른 보도에서는</h3>
+          <h3 className="text-xs font-black uppercase tracking-[0.12em]">Elsewhere in the coverage</h3>
           {comparisons > 1 && (
             <div className="flex items-center gap-2 text-xs font-bold">
-              <button className="grid size-7 place-items-center border border-zinc-300 disabled:opacity-30" disabled={page === 0} onClick={() => setPage((value) => value - 1)} aria-label="이전 기사"><ChevronLeft size={15} /></button>
+              <button className="grid size-7 place-items-center border border-zinc-300 disabled:opacity-30" disabled={page === 0} onClick={() => setPage((value) => value - 1)} aria-label="Previous article"><ChevronLeft size={15} /></button>
               <span>{page + 1} / {comparisons}</span>
-              <button className="grid size-7 place-items-center border border-zinc-300 disabled:opacity-30" disabled={page === comparisons - 1} onClick={() => setPage((value) => value + 1)} aria-label="다음 기사"><ChevronRight size={15} /></button>
+              <button className="grid size-7 place-items-center border border-zinc-300 disabled:opacity-30" disabled={page === comparisons - 1} onClick={() => setPage((value) => value + 1)} aria-label="Next article"><ChevronRight size={15} /></button>
             </div>
           )}
         </div>
-        {comparisons ? <EvidenceQuote finding={finding} page={page} /> : <p className="border-y border-zinc-300 py-5 text-sm leading-6 text-zinc-500">이 표현에 대응하는 다른 언론사의 문장은 아직 연결되지 않았습니다.</p>}
+        {comparisons ? <EvidenceQuote finding={finding} page={page} /> : <p className="border-y border-zinc-300 py-5 text-sm leading-6 text-zinc-500">No corresponding passage from another newsroom has been linked yet.</p>}
       </div>
     </div>
   )
@@ -111,10 +111,10 @@ export function ArticlePage() {
   const bodyFindings = findings.filter((finding) => finding.source.scope === 'BODY')
 
   if (articleQuery.isLoading) {
-    return <AppShell><div className="flex min-h-[70vh] items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> 기사를 불러오는 중입니다.</div></AppShell>
+    return <AppShell><div className="flex min-h-[70vh] items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading the article…</div></AppShell>
   }
   if (!articleQuery.data || articleQuery.isError) {
-    return <AppShell><div className="mx-auto max-w-3xl px-6 py-24 text-center"><h1 className="font-serif text-3xl font-black">기사를 불러오지 못했습니다.</h1><Link to="/" className="mt-6 inline-block font-bold underline">목록으로 돌아가기</Link></div></AppShell>
+    return <AppShell><div className="mx-auto max-w-3xl px-6 py-24 text-center"><h1 className="font-serif text-3xl font-black">This article is unavailable.</h1><Link to="/" className="mt-6 inline-block font-bold underline">Return to the feed</Link></div></AppShell>
   }
   const article = articleQuery.data
 
@@ -123,7 +123,7 @@ export function ArticlePage() {
       <main>
         <div className="mx-auto max-w-[1440px] px-5 sm:px-8">
           <div className="border-b border-zinc-300 py-5">
-            <Link to={`/?category=${article.category}`} className="inline-flex items-center gap-2 text-sm font-bold"><ArrowLeft size={16} /> {categoryLabel(article.category)} 기사로 돌아가기</Link>
+            <Link to={`/?category=${article.category}`} className="inline-flex items-center gap-2 text-sm font-bold"><ArrowLeft size={16} /> Back to {categoryLabel(article.category)}</Link>
           </div>
           <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
             <article className="min-w-0 py-9 lg:border-r lg:border-zinc-300 lg:py-14 lg:pr-12 xl:pr-20">
@@ -142,8 +142,8 @@ export function ArticlePage() {
                   className="font-serif text-[clamp(2.5rem,5vw,5.6rem)] font-black leading-[1.03] tracking-[-0.06em]"
                 />
                 <div className="mt-7 flex items-center justify-between gap-4">
-                  <p className="text-xs text-zinc-500">별표가 붙은 표현을 누르면 비교 분석을 볼 수 있습니다.</p>
-                  <a href={article.original_url} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-xs font-bold">원문 보기 <ArrowUpRight size={14} /></a>
+                  <p className="text-xs text-zinc-500">Select a starred phrase to explore the comparison.</p>
+                  <a href={article.original_url} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-xs font-bold">View original <ArrowUpRight size={14} /></a>
                 </div>
               </header>
               <HighlightedText
@@ -158,11 +158,11 @@ export function ArticlePage() {
             <aside className="border-t border-black py-8 lg:border-t-0 lg:py-14 lg:pl-8 xl:pl-10">
               <div className="sticky top-24">
                 <div className="mb-6 flex items-center justify-between border-b-2 border-black pb-4">
-                  <div className="flex items-center gap-2"><Sparkles size={17} /><h2 className="text-sm font-black">FrameLESS 분석</h2></div>
-                  <span className="text-xs text-zinc-500">{findings.length}개 표현</span>
+                  <div className="flex items-center gap-2"><Sparkles size={17} /><h2 className="text-sm font-black">FrameLESS Analysis</h2></div>
+                  <span className="text-xs text-zinc-500">{findings.length} {findings.length === 1 ? 'finding' : 'findings'}</span>
                 </div>
-                {analysisQuery.isLoading && <div className="flex items-center gap-2 py-8 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={16} /> 분석을 불러오는 중…</div>}
-                {analysisQuery.isError && <p className="py-6 text-sm text-red-700">분석을 불러오지 못했습니다.</p>}
+                {analysisQuery.isLoading && <div className="flex items-center gap-2 py-8 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={16} /> Loading the analysis…</div>}
+                {analysisQuery.isError && <p className="py-6 text-sm text-red-700">The analysis could not be loaded.</p>}
                 {selectedFinding ? (
                   <>
                     {findings.length > 1 && (
@@ -172,7 +172,7 @@ export function ArticlePage() {
                             key={finding.id}
                             className={cn('grid size-8 shrink-0 place-items-center border border-zinc-300 text-xs font-bold', selectedFinding.id === finding.id && 'border-black bg-black text-white')}
                             onClick={() => setSelectedId(finding.id)}
-                            aria-label={`${index + 1}번 분석 보기`}
+                            aria-label={`View finding ${index + 1}`}
                           >{index + 1}</button>
                         ))}
                       </div>
@@ -181,8 +181,8 @@ export function ArticlePage() {
                   </>
                 ) : !analysisQuery.isLoading && (
                   <div className="border-y border-zinc-300 py-8">
-                    <p className="font-serif text-xl font-bold">분석된 표현이 아직 없습니다.</p>
-                    <p className="mt-3 text-sm leading-6 text-zinc-500">기사 본문은 그대로 읽을 수 있으며, 분석 결과는 준비되는 대로 이 영역에 표시됩니다.</p>
+                    <p className="font-serif text-xl font-bold">No findings are available yet.</p>
+                    <p className="mt-3 text-sm leading-6 text-zinc-500">You can still read the full article. Its analysis will appear here once it is ready.</p>
                   </div>
                 )}
               </div>

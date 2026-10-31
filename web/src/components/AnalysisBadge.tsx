@@ -2,11 +2,11 @@ import type { AnalysisState } from '../lib/types'
 import { cn } from '../lib/utils'
 
 const labels: Record<AnalysisState, string> = {
-  READY: '분석 완료',
-  PARTIAL: '일부 분석',
-  PROCESSING: '분석 중',
-  NOT_STARTED: '분석 예정',
-  FAILED: '분석 확인 중',
+  READY: 'Analysis ready',
+  PARTIAL: 'Partial analysis',
+  PROCESSING: 'Analyzing',
+  NOT_STARTED: 'Analysis pending',
+  FAILED: 'Analysis unavailable',
 }
 
 export function AnalysisBadge({ state }: { state: AnalysisState }) {

@@ -26,7 +26,7 @@ function ArticleRow({ article, index }: { article: ArticleSummary; index: number
       </div>
       <div className="flex items-center justify-between gap-5 sm:flex-col sm:items-end">
         <AnalysisBadge state={article.analysis_state} />
-        <Link to={`/articles/${article.id}`} className="flex items-center gap-1 text-xs font-bold">읽기 <ArrowRight size={14} /></Link>
+        <Link to={`/articles/${article.id}`} className="flex items-center gap-1 text-xs font-bold">Open <ArrowRight size={14} /></Link>
       </div>
     </article>
   )
@@ -74,20 +74,20 @@ export function FeedPage() {
       <main className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
         <section className="flex flex-col gap-6 border-b border-black py-9 sm:flex-row sm:items-end sm:justify-between lg:py-12">
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em]">Today’s coverage</p>
-            <h1 className="font-serif text-5xl font-black tracking-[-0.055em] sm:text-7xl">오늘의 보도</h1>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em]">Politics & Society</p>
+            <h1 className="font-serif text-5xl font-black tracking-[-0.055em] sm:text-7xl">Today’s Coverage</h1>
           </div>
           <p className="max-w-xl text-sm leading-6 text-zinc-600 sm:text-right">
-            원하는 언론사의 기사를 읽고, 분석이 완료된 기사에서는 표현과 관점의 차이를 문장 단위로 살펴보세요.
+            Read the news from your preferred publisher, then examine the language and framing that distinguish one account from another.
           </p>
         </section>
 
         <div className="grid lg:grid-cols-[220px_minmax(0,1fr)_230px] lg:gap-9 xl:grid-cols-[240px_minmax(0,1fr)_260px] xl:gap-12">
           <aside className="py-6 lg:border-r lg:border-zinc-300 lg:pr-7">
             <div className="flex items-center justify-between lg:block">
-              <h2 className="text-sm font-bold">분야</h2>
+              <h2 className="text-sm font-bold">Section</h2>
               <button className="flex items-center gap-2 text-sm font-bold lg:hidden" onClick={() => setFiltersOpen((open) => !open)}>
-                <Filter size={15} /> 필터 <ChevronDown size={15} className={cn('transition-transform', filtersOpen && 'rotate-180')} />
+                <Filter size={15} /> Filters <ChevronDown size={15} className={cn('transition-transform', filtersOpen && 'rotate-180')} />
               </button>
             </div>
             <div className={cn('mt-4', !filtersOpen && 'hidden lg:block')}>
@@ -102,7 +102,7 @@ export function FeedPage() {
                   </button>
                 ))}
               </div>
-              <h2 className="mt-9 border-b border-black pb-3 text-sm font-bold">언론사</h2>
+              <h2 className="mt-9 border-b border-black pb-3 text-sm font-bold">Publishers</h2>
               <div className="mt-2 space-y-1">
                 {publisherQuery.data?.map((publisher) => (
                   <label key={publisher.code} className="flex cursor-pointer items-center gap-3 py-2 text-sm">
@@ -115,25 +115,25 @@ export function FeedPage() {
                     {publisher.name}
                   </label>
                 ))}
-                {publisherQuery.isLoading && <span className="text-sm text-zinc-400">불러오는 중…</span>}
+                {publisherQuery.isLoading && <span className="text-sm text-zinc-400">Loading…</span>}
               </div>
               {selectedPublishers.length > 0 && (
-                <button className="mt-4 text-xs font-bold underline underline-offset-4" onClick={() => setSelectedPublishers([])}>전체 언론사 보기</button>
+                <button className="mt-4 text-xs font-bold underline underline-offset-4" onClick={() => setSelectedPublishers([])}>Show all publishers</button>
               )}
             </div>
           </aside>
 
           <section className="min-w-0 py-6 lg:py-9">
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
-              <h2 className="text-sm font-black">{categoryLabel(category)} 주요 기사</h2>
-              <span className="text-xs text-zinc-500">최신순 · {articles.length}건</span>
+              <h2 className="text-sm font-black">{categoryLabel(category)} Headlines</h2>
+              <span className="text-xs text-zinc-500">Newest · {articles.length} stories</span>
             </div>
 
             {articlesQuery.isLoading && (
-              <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> 기사를 불러오는 중입니다.</div>
+              <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading the latest coverage…</div>
             )}
             {articlesQuery.isError && (
-              <div className="border border-red-300 p-8 text-center text-sm text-red-700">기사 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>
+              <div className="border border-red-300 p-8 text-center text-sm text-red-700">We could not load the feed. Please try again shortly.</div>
             )}
             {hero && (
               <article className="border-b-2 border-black pb-8">
@@ -147,16 +147,16 @@ export function FeedPage() {
                     {hero.title}
                   </h2>
                 </Link>
-                <Link to={`/articles/${hero.id}`} className="mt-7 inline-flex items-center gap-2 text-sm font-black">기사와 분석 읽기 <ArrowRight size={17} /></Link>
+                <Link to={`/articles/${hero.id}`} className="mt-7 inline-flex items-center gap-2 text-sm font-black">Read with analysis <ArrowRight size={17} /></Link>
               </article>
             )}
             {rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
             {!articlesQuery.isLoading && !articles.length && (
-              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">선택한 조건에 맞는 기사가 없습니다.</div>
+              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">No stories match these filters.</div>
             )}
             {articlesQuery.hasNextPage && (
               <Button variant="outline" className="mt-7 w-full" disabled={articlesQuery.isFetchingNextPage} onClick={() => void articlesQuery.fetchNextPage()}>
-                {articlesQuery.isFetchingNextPage ? '불러오는 중…' : '기사 더 보기'}
+                {articlesQuery.isFetchingNextPage ? 'Loading…' : 'Load more stories'}
               </Button>
             )}
           </section>
@@ -166,9 +166,9 @@ export function FeedPage() {
               <p className="border-b border-black pb-3 text-xs font-bold uppercase tracking-[0.18em]">How to read</p>
               <ol className="divide-y divide-zinc-300">
                 {[
-                  ['01', '익숙한 언론사의 기사를 선택합니다.'],
-                  ['02', '본문에서 표시된 표현을 누릅니다.'],
-                  ['03', '다른 언론사의 대응 보도와 차이를 확인합니다.'],
+                  ['01', 'Choose a story from a publisher you know.'],
+                  ['02', 'Select a marked phrase in the article.'],
+                  ['03', 'Compare how other newsrooms covered it.'],
                 ].map(([number, text]) => (
                   <li key={number} className="grid grid-cols-[32px_1fr] gap-3 py-4 text-sm leading-6">
                     <span className="font-serif text-zinc-400">{number}</span><span>{text}</span>
@@ -177,7 +177,7 @@ export function FeedPage() {
               </ol>
               <div className="mt-8 bg-black p-5 text-white">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">Analysis</p>
-                <p className="mt-3 font-serif text-xl font-bold leading-7">별표는 정답 판정이 아니라, 비교해 볼 만한 표현을 뜻합니다.</p>
+                <p className="mt-3 font-serif text-xl font-bold leading-7">A star is an invitation to compare—not a verdict.</p>
               </div>
             </div>
           </aside>
