@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.security:security-crypto:1.1.0")
     testImplementation(libs.junit)
     // AI-assisted tests parse real JSON on the host JVM instead of Android's placeholder org.json classes.
     testImplementation("org.json:json:20240303")

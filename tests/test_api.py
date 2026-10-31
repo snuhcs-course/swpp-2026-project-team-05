@@ -4,12 +4,17 @@ import json
 import logging
 import os
 from unittest.mock import patch
+from uuid import uuid4
 
-from django.test import Client, SimpleTestCase, override_settings
+from django.contrib.auth.hashers import make_password
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from server.analysis.article_fetch import _PublicRedirectHandler, validate_article_url
 from server.analysis.model_client import ModelUnavailableError
 from server.analysis.diagnostics import analysis_stage
+from server.authentication import create_session
+from server.models import UserAccount
+from server.analysis_history import HistoryUnavailableError
 
 
 ARTICLE_URL = "https://n.news.naver.com/article/057/0001971678"
@@ -104,6 +109,83 @@ class AnalyzeApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 429)
         self.assertEqual(response.headers["Retry-After"], "30")
         analyze.assert_not_called()
+
+
+class AnalyzeAndLegacyHistoryApiTests(TestCase):
+    """Keep the hidden URL-analysis history endpoints safe while v1 remains supported."""
+
+    def setUp(self):
+        self.client = Client()
+        credentials = patch.dict(os.environ, {
+            "GEMINI_API_KEY": "test-key",
+            "NAVER_CLIENT_ID": "test-id",
+            "NAVER_CLIENT_SECRET": "test-secret",
+            "FRAMELESS_PIPELINE": "v1",
+            "FRAMELESS_ALLOW_LEGACY_V1": "1",
+            "OPENROUTER_API_KEY": "",
+        })
+        credentials.start()
+        self.addCleanup(credentials.stop)
+        self.user = UserAccount.objects.create(
+            email="legacy@example.com",
+            username="legacy-reader",
+            password_hash=make_password("safe-password-123"),
+        )
+        self.token, _ = create_session(self.user)
+        self.auth = {"HTTP_AUTHORIZATION": f"Bearer {self.token}"}
+
+    def post(self, payload, *, content_type="application/json", **headers):
+        return self.client.post(
+            "/api/analyze", data=json.dumps(payload), content_type=content_type, **headers
+        )
+
+    def test_login_validates_json_credentials_and_claims_legacy_history(self):
+        wrong_type = self.client.post("/api/auth/login", data="{}", content_type="text/plain")
+        self.assertEqual(wrong_type.status_code, 415)
+        not_object = self.client.post("/api/auth/login", data="[]", content_type="application/json")
+        self.assertEqual(not_object.status_code, 400)
+        missing = self.client.post("/api/auth/login", data="{}", content_type="application/json")
+        self.assertEqual(missing.status_code, 400)
+        invalid = self.client.post(
+            "/api/auth/login", data=json.dumps({"username": "legacy-reader", "password": "wrong"}),
+            content_type="application/json",
+        )
+        self.assertEqual(invalid.status_code, 401)
+
+        with patch("server.views.claim_legacy_history", return_value=2):
+            response = self.client.post(
+                "/api/auth/login",
+                data=json.dumps({"username": "legacy-reader", "password": "safe-password-123"}),
+                content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["claimed_records"], 2)
+        self.assertEqual(response.json()["user"]["username"], "legacy-reader")
+
+    def test_me_requires_session_and_returns_current_user(self):
+        self.assertEqual(self.client.get("/api/auth/me").status_code, 401)
+        response = self.client.get("/api/auth/me", **self.auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["id"], str(self.user.id))
+
+    def test_analysis_list_validates_limit_and_handles_storage_failure(self):
+        self.assertEqual(self.client.get("/api/analyses?limit=nope", **self.auth).status_code, 400)
+        self.assertEqual(self.client.get("/api/analyses?limit=0", **self.auth).status_code, 400)
+        with patch("server.views.list_analysis_records", side_effect=HistoryUnavailableError):
+            self.assertEqual(self.client.get("/api/analyses", **self.auth).status_code, 503)
+        with patch("server.views.list_analysis_records", return_value=[{"id": "one"}]):
+            response = self.client.get("/api/analyses?limit=1", **self.auth)
+        self.assertEqual(response.json()["analyses"], [{"id": "one"}])
+
+    def test_analysis_detail_handles_unavailable_missing_and_present_records(self):
+        record_id = uuid4()
+        with patch("server.views.load_analysis_record", side_effect=HistoryUnavailableError):
+            self.assertEqual(self.client.get(f"/api/analyses/{record_id}", **self.auth).status_code, 503)
+        with patch("server.views.load_analysis_record", return_value=None):
+            self.assertEqual(self.client.get(f"/api/analyses/{record_id}", **self.auth).status_code, 404)
+        with patch("server.views.load_analysis_record", return_value={"result": {"ok": True}}):
+            response = self.client.get(f"/api/analyses/{record_id}", **self.auth)
+        self.assertEqual(response.json(), {"ok": True})
 
     @patch("server.views.analyze_related_articles")
     def test_invalid_url_cannot_call_pipeline(self, analyze):

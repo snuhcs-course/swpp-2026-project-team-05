@@ -51,10 +51,22 @@ if DATABASE_URL:
         }
     }
 else:
-    DATABASES = {}
+    DATABASES = (
+        {"default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.getenv("FRAMELESS_SQLITE_PATH", ":memory:"),
+        }}
+        if os.getenv("FRAMELESS_USE_SQLITE") == "1" else {}
+    )
 TEMPLATES = []
 WSGI_APPLICATION = "server.wsgi.application"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 8192
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = IS_PRODUCTION

@@ -150,9 +150,23 @@ internal object AnalysisApi {
             connection.outputStream.use { it.write(JSONObject().put("username", username).put("password", password).toString().toByteArray(Charsets.UTF_8)) }
             val json = readJsonResponse(connection)
             val token = json.optString("token")
-            val savedUsername = json.optJSONObject("user")?.optString("username").orEmpty()
-            if (token.isBlank() || savedUsername.isBlank()) throw IllegalStateException("로그인 응답을 읽지 못했어요.")
-            AppSession(savedUsername, token)
+            val userJson = json.optJSONObject("user")
+            val savedUsername = userJson?.optString("username").orEmpty()
+            val userId = userJson?.optString("id").orEmpty()
+            val expiresAt = json.optString("expires_at")
+            if (token.isBlank() || savedUsername.isBlank() || userId.isBlank() || expiresAt.isBlank()) {
+                throw IllegalStateException("로그인 응답을 읽지 못했어요.")
+            }
+            AppSession(
+                user = NewsUser(
+                    id = userId,
+                    email = userJson?.optString("email")?.takeIf { it.isNotBlank() },
+                    username = savedUsername,
+                    isDeveloper = userJson?.optBoolean("is_developer", false) ?: false
+                ),
+                token = token,
+                expiresAt = expiresAt
+            )
         } catch (error: IOException) {
             throw IllegalStateException(networkErrorMessage(error))
         } finally { connection.disconnect() }

@@ -1,0 +1,310 @@
+{
+  "schema_version": 1,
+  "analysis_version": "cluster-pilot-reviewed-v1",
+  "publishers": [
+    {"code": "yna", "name_ko": "연합뉴스", "domain": "yna.co.kr", "display_order": 10},
+    {"code": "news1", "name_ko": "뉴스1", "domain": "news1.kr", "display_order": 20},
+    {"code": "newsis", "name_ko": "뉴시스", "domain": "newsis.com", "display_order": 30},
+    {"code": "mbc", "name_ko": "MBC", "domain": "imbc.com", "display_order": 40},
+    {"code": "sbs", "name_ko": "SBS", "domain": "sbs.co.kr", "display_order": 50},
+    {"code": "ytn", "name_ko": "YTN", "domain": "ytn.co.kr", "display_order": 60},
+    {"code": "hani", "name_ko": "한겨레", "domain": "hani.co.kr", "display_order": 70},
+    {"code": "khan", "name_ko": "경향신문", "domain": "khan.co.kr", "display_order": 80}
+  ],
+  "clusters": [
+    {
+      "key": "capital-housing-sites-2026-10-29",
+      "internal_label": "수도권 공공주택 신규택지 발표",
+      "category": "SOCIETY",
+      "articles": [
+        {
+          "key": "housing-mbc",
+          "publisher": "mbc",
+          "canonical_url": "https://imnews.imbc.com/replay/2026/nwdesk/article/6861753_37004.html",
+          "published_at": "2026-10-29T20:00:41+09:00"
+        },
+        {
+          "key": "housing-newsis",
+          "publisher": "newsis",
+          "canonical_url": "https://www.newsis.com/view/NISX20261029_0003846170",
+          "published_at": "2026-10-29T11:01:05+09:00"
+        },
+        {
+          "key": "housing-newsis-analysis",
+          "publisher": "newsis",
+          "canonical_url": "https://www.newsis.com/view/NISX20261029_0003846956",
+          "published_at": "2026-10-29T18:22:24+09:00"
+        },
+        {
+          "key": "housing-hani",
+          "publisher": "hani",
+          "canonical_url": "https://www.hani.co.kr/arti/area/capital/1284854.html",
+          "published_at": "2026-10-29T17:26:00+09:00"
+        }
+      ],
+      "propositions": [],
+      "findings": [
+        {
+          "key": "housing-speed-race",
+          "article": "housing-newsis-analysis",
+          "source_scope": "BODY",
+          "source_sentence_text": "[서울=뉴시스]이종성 기자 = 정부가 수도권 신규택지 6곳에 7만6700가구를 공급하기 위해 속도전에 나선다.",
+          "marker_text": "속도전에 나선다",
+          "categories": ["C", "E"],
+          "explanation": "주택 공급 계획의 추진 속도와 경쟁적 성격을 강조하는 표현입니다."
+        },
+        {
+          "key": "housing-temperature-gap",
+          "article": "housing-hani",
+          "source_scope": "BODY",
+          "source_sentence_text": "하남시는 개발 부담을 우려했고, 고양·의정부시도 산업기반 확보를 요구하는 등 온도차가 있었다.",
+          "marker_text": "온도차가 있었다",
+          "categories": ["C"],
+          "explanation": "지자체별 반응 차이를 온도에 빗대어 요약한 표현입니다."
+        }
+      ]
+    },
+    {
+      "key": "csat-smart-glasses-2026-10-29",
+      "internal_label": "수능 스마트안경 부정행위 대응",
+      "category": "SOCIETY",
+      "articles": [
+        {
+          "key": "csat-news1",
+          "publisher": "news1",
+          "canonical_url": "https://www.news1.kr/society/education/6336026",
+          "published_at": "2026-10-29T10:28:51+09:00"
+        },
+        {
+          "key": "csat-newsis",
+          "publisher": "newsis",
+          "canonical_url": "https://www.newsis.com/view/?id=NISX20261029_0003846009",
+          "published_at": "2026-10-29T10:50:35+09:00"
+        },
+        {
+          "key": "csat-hani",
+          "publisher": "hani",
+          "canonical_url": "https://www.hani.co.kr/arti/society/schooling/1284765.html",
+          "published_at": "2026-10-29T10:46:00+09:00"
+        },
+        {
+          "key": "csat-sbs",
+          "publisher": "sbs",
+          "canonical_url": "https://news.sbs.co.kr/news/endPage.do?news_id=N1008820677",
+          "published_at": "2026-10-29T10:41:26+09:00"
+        }
+      ],
+      "propositions": [],
+      "findings": [
+        {
+          "key": "csat-hard-line",
+          "article": "csat-news1",
+          "source_scope": "TITLE",
+          "source_sentence_text": "수능 AI 안경 부정행위 형사고발 '강수'…시험장마다 전담 인력(종합)",
+          "marker_text": "강수",
+          "categories": ["E"],
+          "explanation": "형사고발 방침을 강경하고 이례적인 대응으로 평가하는 표현입니다."
+        }
+      ]
+    },
+    {
+      "key": "jeju-suspect-disclosure-2026-10-29",
+      "internal_label": "제주 스토킹 보복살해 피의자 신상공개",
+      "category": "SOCIETY",
+      "articles": [
+        {
+          "key": "jeju-yna",
+          "publisher": "yna",
+          "canonical_url": "https://www.yna.co.kr/view/AKR20261029071700056",
+          "published_at": "2026-10-29T10:09:30+09:00"
+        },
+        {
+          "key": "jeju-mbc",
+          "publisher": "mbc",
+          "canonical_url": "https://imnews.imbc.com/news/2026/society/article/6861601_36918.html",
+          "published_at": "2026-10-29T11:06:36+09:00"
+        },
+        {
+          "key": "jeju-news1",
+          "publisher": "news1",
+          "canonical_url": "https://www.news1.kr/local/jeju/6335978",
+          "published_at": "2026-10-29T10:07:10+09:00"
+        }
+      ],
+      "propositions": [
+        {
+          "key": "suspect-label-at-disclosure",
+          "normalized_proposition": "신상공개 시점에 강성은을 지칭하는 범죄·절차상 명칭"
+        }
+      ],
+      "findings": [
+        {
+          "key": "jeju-news1-retaliatory-murderer",
+          "article": "jeju-news1",
+          "source_scope": "TITLE",
+          "source_sentence_text": "제주 옛 연인 스토킹·보복살해범은 61세 강성은…신상 공개",
+          "marker_text": "보복살해범",
+          "categories": ["F", "G"],
+          "explanation": "신상공개 대상자를 범죄가 확정된 듯한 명칭으로 전면에 배치한 표현입니다.",
+          "shared_proposition": "suspect-label-at-disclosure",
+          "comparisons": [
+            {
+              "target_article": "jeju-mbc",
+              "target_scope": "TITLE",
+              "target_sentence_text": "제주 보복살해 피의자 신상 공개‥61세 강성은",
+              "target_marker_text": "피의자",
+              "target_owner": "REPORTER",
+              "comparison_summary": "MBC는 같은 신상공개 대상을 절차상 지위인 ‘피의자’로 표현했습니다."
+            },
+            {
+              "target_article": "jeju-yna",
+              "target_scope": "TITLE",
+              "target_sentence_text": "제주 스토킹 신고 여성 보복살해 피의자 신상 공개…61세 강성은 | 연합뉴스",
+              "target_marker_text": "피의자",
+              "target_owner": "REPORTER",
+              "comparison_summary": "연합뉴스도 범죄 단정형 명칭 대신 절차상 지위인 ‘피의자’를 사용했습니다."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "chief-justice-investigation-2026-10-27",
+      "internal_label": "조희대 대법원장 국정조사 추진",
+      "category": "POLITICS",
+      "articles": [
+        {
+          "key": "court-yna",
+          "publisher": "yna",
+          "canonical_url": "https://www.yna.co.kr/view/AKR20261027128452001",
+          "published_at": "2026-10-27T16:20:05+09:00"
+        },
+        {
+          "key": "court-ytn",
+          "publisher": "ytn",
+          "canonical_url": "https://www.ytn.co.kr/_ln/0101_202610272157345332",
+          "published_at": "2026-10-27T21:57:00+09:00"
+        },
+        {
+          "key": "court-mbc",
+          "publisher": "mbc",
+          "canonical_url": "https://imnews.imbc.com/replay/2026/nw930/article/6861266_36996.html",
+          "published_at": "2026-10-28T09:39:01+09:00"
+        },
+        {
+          "key": "court-khan",
+          "publisher": "khan",
+          "canonical_url": "https://www.khan.co.kr/article/202610272157015",
+          "published_at": "2026-10-27T21:57:00+09:00"
+        }
+      ],
+      "propositions": [
+        {
+          "key": "investigation-decision",
+          "normalized_proposition": "더불어민주당이 조희대 대법원장 국정조사를 추진하기로 했다"
+        }
+      ],
+      "findings": [
+        {
+          "key": "court-ytn-formalized",
+          "article": "court-ytn",
+          "source_scope": "BODY",
+          "source_sentence_text": "더불어민주당이 조희대 대법원장에 대한 탄핵의 선제 조처로 국정조사 추진을 공식화했습니다.",
+          "marker_text": "공식화했습니다",
+          "categories": ["G"],
+          "explanation": "검토가 아니라 당의 공식 결정 단계로 전환됐음을 강조하는 표현입니다.",
+          "shared_proposition": "investigation-decision",
+          "comparisons": [
+            {
+              "target_article": "court-yna",
+              "target_scope": "TITLE",
+              "target_sentence_text": "與, 대법원장 의혹 '초유의 국조' 추진…내달초 본회의 보고 목표(종합) | 연합뉴스",
+              "target_marker_text": "추진",
+              "target_owner": "REPORTER",
+              "comparison_summary": "연합뉴스는 같은 결정을 ‘추진’으로 표현해 공식화 단계의 강조를 덜었습니다."
+            }
+          ]
+        },
+        {
+          "key": "court-mbc-historic-first",
+          "article": "court-mbc",
+          "source_scope": "TITLE",
+          "source_sentence_text": "헌정사 첫 '대법원장 국조'‥다음 달 목표",
+          "marker_text": "헌정사 첫",
+          "categories": ["G"],
+          "explanation": "사건의 전례 없음과 역사성을 제목에서 강하게 부각한 표현입니다."
+        },
+        {
+          "key": "court-ytn-compromise",
+          "article": "court-ytn",
+          "source_scope": "BODY",
+          "source_sentence_text": "대법원장 즉각 탄핵을 외치며 들고 일어선 강경 지지층과 거부감을 느끼는 중도층 사이 일종의 절충안을 선택한 모습인데,",
+          "marker_text": "절충안",
+          "categories": ["E"],
+          "explanation": "국정조사를 상반된 정치적 요구 사이의 타협으로 평가한 표현입니다."
+        },
+        {
+          "key": "court-yna-backlash",
+          "article": "court-yna",
+          "source_scope": "BODY",
+          "source_sentence_text": "민주당은 애초 조 대법원장의 대법관 재제청 거부 등 정치 개입 논란과 권한 남용 의혹 등에 대해 대법원장 탄핵 가능성을 시사했으나, 중도층의 역풍 등을 우려해 그 대안으로 국정조사를 검토해 왔다.",
+          "marker_text": "역풍",
+          "categories": ["E"],
+          "explanation": "정치적 반작용 가능성을 바람에 빗대어 부정적인 결과로 묘사한 표현입니다."
+        },
+        {
+          "key": "court-khan-negative-current",
+          "article": "court-khan",
+          "source_scope": "BODY",
+          "source_sentence_text": "의원총회에서 국정조사에 대한 공개적인 반대 의견은 나오지 않았지만 물밑에서는 부정적인 기류도 감지된다.",
+          "marker_text": "부정적인 기류",
+          "categories": ["E"],
+          "explanation": "공개 반대가 없는 상황에서도 내부의 비공식적 반감을 흐름으로 포착한 표현입니다."
+        }
+      ]
+    },
+    {
+      "key": "blue-house-audit-disruption-2026-10-29",
+      "internal_label": "청와대 국정감사 파행",
+      "category": "POLITICS",
+      "articles": [
+        {
+          "key": "audit-yna",
+          "publisher": "yna",
+          "canonical_url": "https://www.yna.co.kr/amp/view/AKR20261029170651001",
+          "published_at": "2026-10-29T18:48:20+09:00"
+        },
+        {
+          "key": "audit-ytn",
+          "publisher": "ytn",
+          "canonical_url": "https://www.ytn.co.kr/_ln/0101_202610292202240167",
+          "published_at": "2026-10-29T22:02:00+09:00"
+        },
+        {
+          "key": "audit-mbc",
+          "publisher": "mbc",
+          "canonical_url": "https://imnews.imbc.com/news/2026/politics/article/6861782_36911.html",
+          "published_at": "2026-10-29T20:57:01+09:00"
+        },
+        {
+          "key": "audit-newsis",
+          "publisher": "newsis",
+          "canonical_url": "https://m.newsis.com/view/NISX20261029_0003847435",
+          "published_at": "2026-10-29T23:40:23+09:00"
+        }
+      ],
+      "propositions": [],
+      "findings": [
+        {
+          "key": "audit-ytn-chaos",
+          "article": "audit-ytn",
+          "source_scope": "TITLE",
+          "source_sentence_text": "\"김현지 나와라\" \"김태규 나가라\"...청와대 국감 아수라장",
+          "marker_text": "아수라장",
+          "categories": ["E"],
+          "explanation": "국정감사장의 충돌을 극심한 혼란 상태로 묘사한 표현입니다."
+        }
+      ]
+    }
+  ]
+}
