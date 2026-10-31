@@ -44,8 +44,16 @@ async function request<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorBody
+    const errorCode = body.error?.code
+    const englishMessage: Record<string, string> = {
+      AUTH_REQUIRED: 'Your session has expired. Please sign in again.',
+      INVALID_CREDENTIALS: 'We could not verify those credentials.',
+      VALIDATION_ERROR: 'Please review the details and try again.',
+      NOT_FOUND: 'The requested item could not be found.',
+      INVALID_CURSOR: 'The feed has changed. Please refresh and try again.',
+    }
     throw new ApiError(
-      body.error?.message ?? '요청을 처리하지 못했습니다.',
+      (errorCode && englishMessage[errorCode]) ?? 'We could not complete the request.',
       response.status,
       body.error?.fields,
     )
