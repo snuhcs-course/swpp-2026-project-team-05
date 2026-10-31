@@ -161,8 +161,13 @@ def _fixed_input_repair_request(request: dict, *, extra_instructions: str = "") 
                 "근거 인용을 추측하거나 만들지 마세요.") + extra_instructions}
 
 
-def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None, **kwargs: Any) -> dict:
-    """Validate shape and retry one malformed model output against the unchanged input."""
+def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None,
+                   accept_schema: dict | None = None, **kwargs: Any) -> dict:
+    """Validate shape and retry one malformed model output against the unchanged input.
+
+    ``accept_schema`` validates the answer when it may lawfully omit fields the model is asked
+    for (an answer recorded before those fields existed); the model always receives ``schema``.
+    """
     from jsonschema import ValidationError, validate
     owned = client is None
     client = client if client is not None else GeminiJSONClient()
@@ -187,7 +192,7 @@ def _generate_json(client: Any, *, repair_budget: _RepairBudget | None = None, *
                 request = _fixed_input_repair_request(kwargs)
                 continue
             try:
-                validate(result, kwargs["schema"])
+                validate(result, accept_schema or kwargs["schema"])
                 return result
             except ValidationError as exc:
                 validator, schema_path = _safe_schema_failure(exc)
@@ -215,12 +220,40 @@ def _locate_quote(text: str, quote: str) -> tuple[int, str, list[str]]:
     if text.count(quote) == 1:
         return text.index(quote), quote, []
     # One-to-one character translation preserves offsets and lexical content.
-    translation = str.maketrans({'“': '"', '”': '"', '‘': "'", '’': "'", '＂': '"', '＇': "'"})
-    normalized, needle = text.translate(translation), quote.translate(translation)
+    # Headlines use compatibility ideographs ('李' U+F9E1) that models write in
+    # the unified form (U+674E); only one-to-one NFKC mappings are applied.
+    normalized, needle = _same_length_normalized(text), _same_length_normalized(quote)
     if normalized.count(needle) == 1:
         start = normalized.index(needle)
         return start, text[start:start + len(quote)], ["quotation_marks"]
+    # Spacing slips ('사회가경제적으로', '" \'우리') keep every other character in order.
+    positions = [i for i, char in enumerate(normalized) if not char.isspace()]
+    compact, compact_needle = "".join(normalized[i] for i in positions), "".join(needle.split())
+    if compact.count(compact_needle) == 1:
+        first = compact.index(compact_needle)
+        start, end = positions[first], positions[first + len(compact_needle) - 1] + 1
+        return start, text[start:end], ["whitespace"]
+    # Models often wrap a quoted passage in quotation marks that are not adjacent
+    # to it in the source. The inner text must still match exactly once.
+    stripped = quote.strip('"\'“”‘’＂＇')
+    if stripped != quote and stripped.strip():
+        start, source_quote, adjustments = _locate_quote(text, stripped)
+        return start, source_quote, [*adjustments, "outer_quotation_marks_removed"]
     raise ModelResponseError("LLM의 근거 인용이 원문과 일치하지 않거나 위치가 모호합니다.")
+
+
+_QUOTE_GLYPHS = str.maketrans({'“': '"', '”': '"', '‘': "'", '’': "'", '＂': '"', '＇': "'"})
+
+
+def _same_length_normalized(text: str) -> str:
+    """Unify quote glyphs and compatibility characters without moving any offset."""
+    return "".join(folded if len(folded := unicodedata.normalize("NFKC", char)) == 1 else char
+                   for char in text.translate(_QUOTE_GLYPHS))
+
+
+def _quote_in(text: str, quote: str) -> bool:
+    stripped = quote.strip('"\'“”‘’＂＇') or quote
+    return "".join(_same_length_normalized(stripped).split()) in "".join(_same_length_normalized(text).split())
 
 
 def _ground_evidence(article: dict, evidence: dict) -> dict:
@@ -228,12 +261,35 @@ def _ground_evidence(article: dict, evidence: dict) -> dict:
     if type(index) is not int or not 0 <= index < len(article["sentences"]):
         raise ModelResponseError("LLM이 존재하지 않는 문장 번호를 참조했습니다.")
     sentence = article["sentences"][index]
-    # Ambiguous repeated snippets still need a longer, unique source quote.
-    offset, source_quote, adjustments = _locate_quote(sentence["text"], quote)
+    model_index = index
+    try:
+        # Ambiguous repeated snippets still need a longer, unique source quote.
+        offset, source_quote, adjustments = _locate_quote(sentence["text"], quote)
+    except ModelResponseError:
+        # Real runs show the most common failure is an exact quote with a wrong
+        # sentence number. Accept it only when the quote does not occur in the
+        # named sentence and occurs in exactly one sentence of the article.
+        # A paraphrase or a repeated snippet is still rejected.
+        if _quote_in(sentence["text"], quote):
+            raise
+        located = []
+        for other in article["sentences"]:
+            if other is sentence:
+                continue
+            try:
+                located.append((other, *_locate_quote(other["text"], quote)))
+            except ModelResponseError:
+                continue
+        if len(located) != 1:
+            raise
+        sentence, offset, source_quote, adjustments = located[0]
+        index = sentence["sentence_index"]
+        adjustments = [*adjustments, "sentence_index_corrected"]
     start = sentence["start"] + offset
     return {"sentence_index": index, "paragraph_index": sentence["paragraph_index"],
             "quote": source_quote, "start": start, "end": start + len(source_quote),
-            **({"model_quote": quote, "grounding_adjustments": adjustments} if adjustments else {})}
+            **({"model_quote": quote, "grounding_adjustments": adjustments} if adjustments else {}),
+            **({"model_sentence_index": model_index} if index != model_index else {})}
 
 
 def _ground_span(article: dict, evidence: dict) -> dict:
@@ -241,9 +297,21 @@ def _ground_span(article: dict, evidence: dict) -> dict:
     if evidence["scope"] == "body":
         return {"scope": "body", **_ground_evidence(article, evidence)}
     quote, title = evidence["quote"], article.get("title", "")
+    try:
+        start, source_quote, adjustments = _locate_quote(title, quote)
+    except ModelResponseError:
+        # Korean bodies often open with a subheading that models cite as the
+        # title. Accept it as body evidence when it occurs once in the body.
+        index = evidence["sentence_index"] if type(evidence["sentence_index"]) is int else 0
+        if not 0 <= index < len(article["sentences"]):
+            index = 0
+        body = _ground_evidence(article, {"sentence_index": index, "quote": quote})
+        return {"scope": "body", **body,
+                "grounding_adjustments": [*body.get("grounding_adjustments", []), "title_scope_corrected"]}
     if evidence["sentence_index"] is not None:
-        raise ModelResponseError("제목 근거는 문장 번호가 null이며 원문에서 위치가 유일해야 합니다.")
-    start, source_quote, adjustments = _locate_quote(title, quote)
+        # The title has no sentence number. An exact title quote is the proof;
+        # a stray body index from the model must not discard it.
+        adjustments = [*adjustments, "title_sentence_index_ignored"]
     return {"scope": "title", "sentence_index": None, "paragraph_index": None,
             "quote": source_quote, "start": start, "end": start + len(source_quote),
             **({"model_quote": quote, "grounding_adjustments": adjustments} if adjustments else {})}
@@ -580,12 +648,28 @@ def _review_source_scope(article: dict, analysis: dict, *, client: Any = None) -
         return _validate_source_scope_review(article, analysis, repaired)
 
 
+def _lead_paragraph_indexes(article: dict) -> set[int]:
+    """Subheadings and an opening quote line before the first narrative paragraph, plus that paragraph.
+
+    Korean articles often start with 1–2 subheading lines ("국토부, …계획 심의…내년 착수")
+    or a quoted remark before the actual lead sentence.
+    """
+    lead = set()
+    for paragraph in article.get("paragraphs", [])[:4]:
+        lead.add(paragraph["paragraph_index"])
+        text = paragraph["text"].strip()
+        if (len(text) >= 20 and re.search(r"[.!?。][\"'”’]?$", text)
+                and not text.startswith(('"', "'", "“", "‘"))):
+            break
+    return lead or {article["sentences"][0]["paragraph_index"]}
+
+
 def _validate_source_scope_review(article: dict, analysis: dict, response: dict) -> dict:
     anchor = _ground_span(article, response["primary_anchor"])
+    lead_paragraphs = _lead_paragraph_indexes(article)
 
     def is_lead_anchor(span: dict) -> bool:
-        return (span["scope"] == "title" or
-                span["paragraph_index"] == article["sentences"][0]["paragraph_index"])
+        return span["scope"] == "title" or span["paragraph_index"] in lead_paragraphs
 
     if not is_lead_anchor(anchor):
         raise ModelResponseError("중심 사건 근거는 제목 또는 첫 문단에 있어야 합니다.")
@@ -600,18 +684,19 @@ def _validate_source_scope_review(article: dict, analysis: dict, response: dict)
     decisions, central = [], []
     for claim in analysis["claims"]:
         row = response["claim_scopes"][claim["claim_id"]]
-        grounded = _ground_evidence(article, row["scope_evidence"])
         claim_evidence = claim["evidence"]
-        if not (grounded["sentence_index"] == claim_evidence["sentence_index"]
-                and grounded["start"] < claim_evidence["end"]
-                and claim_evidence["start"] < grounded["end"]):
-            raise ModelResponseError("중심 사건 범위 근거가 제안된 주장 인용과 연결되지 않았습니다.")
-        decision = {"original_claim_id": claim["claim_id"], "scope": row["scope"],
-                    "reason": row["reason"].strip(), "scope_evidence": grounded}
-        if not decision["reason"]:
-            raise ModelResponseError("중심 사건 범위 검토에 판단 근거가 없습니다.")
-        decisions.append(decision)
-        if row["scope"] == "central":
+        try:
+            grounded = _ground_evidence(article, row["scope_evidence"])
+        except ModelResponseError:
+            grounded = None
+        linked = (grounded is not None and grounded["sentence_index"] == claim_evidence["sentence_index"]
+                  and grounded["start"] < claim_evidence["end"] and claim_evidence["start"] < grounded["end"])
+        # An unlinked or unexplained decision withholds only this claim. It is
+        # never promoted to central, and other verified claims are kept.
+        scope = row["scope"] if linked and row["reason"].strip() else "unverified"
+        decisions.append({"original_claim_id": claim["claim_id"], "scope": scope,
+                          "reason": row["reason"].strip(), "scope_evidence": grounded})
+        if scope == "central":
             central.append(claim)
     if analysis["claims"] and not central:
         raise ModelResponseError("중심 사건에 속하는 근거 있는 주장을 확인하지 못했습니다.")
@@ -659,28 +744,52 @@ def _validate_source_scope_review(article: dict, analysis: dict, response: dict)
 
 
 def _validate_source_response(article: dict, response: dict) -> dict:
-    """Reject invented, duplicated, or ambiguous source evidence."""
-    claims, seen = [], set()
-    for row in response["claims"]:
+    """Drop invented, duplicated, or ambiguous claims one by one.
+
+    One bad claim used to discard every verified claim and fail the whole
+    analysis. Only the event itself, or a response without any verified claim,
+    is now fatal.
+    """
+    claims, seen, dropped = [], set(), []
+    for position, row in enumerate(response["claims"], 1):
         claim = " ".join(row["claim"].split())
-        if not claim or claim.casefold() in seen or "event_relevance" not in row["selection_basis"]:
-            raise ModelResponseError("핵심 주장에 중복이 있거나 사건 관련 선택 근거가 없습니다.")
+        query = " ".join(row["search_query"].split())
+        reason = None
+        if not claim or claim.casefold() in seen:
+            reason = "duplicate_or_empty_claim"
+        elif "event_relevance" not in row["selection_basis"]:
+            reason = "missing_event_relevance"
+        elif (row["claim_kind"] == "attributed_statement") != bool(row["speaker"].strip()):
+            reason = "claim_kind_speaker_mismatch"
+        elif not query:
+            reason = "empty_search_query"
+        else:
+            try:
+                evidence = _ground_evidence(article, row["evidence"])
+            except ModelResponseError:
+                reason = "ungrounded_evidence"
+        if reason:
+            dropped.append({"position": position, "reason": reason})
+            continue
         seen.add(claim.casefold())
-        if (row["claim_kind"] == "attributed_statement") != bool(row["speaker"].strip()):
-            raise ModelResponseError("주장 종류와 발언자 필드가 일치하지 않습니다.")
         claims.append({
             "claim_id": f"C{len(claims) + 1}", "claim": claim,
             "claim_kind": row["claim_kind"], "speaker": row["speaker"].strip(),
-            "evidence": _ground_evidence(article, row["evidence"]),
+            "evidence": evidence,
             "selection_basis": list(dict.fromkeys(row["selection_basis"])),
-            "search_query": " ".join(row["search_query"].split()),
+            "search_query": query,
         })
+    if response["claims"] and not claims:
+        raise ModelResponseError("원문 근거를 확인한 핵심 주장이 없습니다.")
     event = " ".join(response["core_event"].split())
     query = " ".join(response["event_query"].split())
-    if not event or not query or any(not item["search_query"] for item in claims):
+    if not event or not query:
         raise ModelResponseError("사건 설명이나 검색어가 비어 있습니다.")
-    return {"core_event": event, "event_query": query,
-            "event_evidence": _ground_evidence(article, response["event_evidence"]), "claims": claims}
+    result = {"core_event": event, "event_query": query,
+              "event_evidence": _ground_evidence(article, response["event_evidence"]), "claims": claims}
+    if dropped:
+        result["dropped_claims"] = dropped
+    return result
 
 
 def _metadata_similarity(left: dict, right: dict) -> float:

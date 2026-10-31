@@ -39,7 +39,10 @@ def _is_sentence_end(text: str, match: re.Match[str]) -> bool:
     """Use conservative boundaries around decimals, URLs and abbreviations."""
     end = match.end()
     if end < len(text) and not text[end].isspace():
-        return False
+        # Korean copy often drops the space after a sentence-final ending:
+        # '…아니다.실제로'. Decimals and URLs never follow '다/요/죠'.
+        return (match.group() == "." and match.start() > 0 and text[match.start() - 1] in "다요죠"
+                and (text[end] in "“‘" or "가" <= text[end] <= "힣"))
     if match.group() != ".":
         return match.group() not in ("..", "...")
     token = re.search(r"\S+$", text[:end])
