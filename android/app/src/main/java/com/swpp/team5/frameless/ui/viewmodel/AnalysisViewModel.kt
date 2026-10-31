@@ -38,6 +38,13 @@ internal class AnalysisViewModel(
     /** viewModels() 기본 팩토리용 */
     constructor() : this({ url -> AnalysisApi.analyze(url) })
 
+    /** Keep the legacy URL-flow tests and developer route injectable with one analyzer. */
+    constructor(analyzeArticle: suspend (String) -> AnalysisResult) : this(
+        analyzeArticle = analyzeArticle,
+        listHistory = { emptyList() },
+        loadHistory = { throw IllegalStateException("저장된 분석을 불러올 수 없어요.") }
+    )
+
     constructor(repository: AnalysisRepository) : this(
         analyzeArticle = repository::analyze,
         listHistory = repository::listHistory,

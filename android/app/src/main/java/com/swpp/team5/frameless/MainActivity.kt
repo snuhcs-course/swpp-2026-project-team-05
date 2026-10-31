@@ -6,31 +6,30 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.swpp.team5.frameless.data.AnalysisRepository
-import com.swpp.team5.frameless.data.AnalysisHistoryIdentity
 import com.swpp.team5.frameless.data.AuthRepository
+import com.swpp.team5.frameless.data.NewsRepository
 import com.swpp.team5.frameless.ui.FrameLESSApp
-import com.swpp.team5.frameless.ui.viewmodel.AnalysisViewModel
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
+import com.swpp.team5.frameless.ui.viewmodel.NewsViewModel
 
 /** 앱 시작만 담당한다. 화면과 상태는 ui 패키지에 있다. */
 class MainActivity : ComponentActivity() {
-    private val viewModel: AnalysisViewModel by viewModels {
+    private val newsViewModel: NewsViewModel by viewModels {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                AnalysisViewModel(AnalysisRepository(applicationContext)) as T
+                NewsViewModel(NewsRepository(applicationContext)) as T
         }
     }
     private val authViewModel: AuthViewModel by viewModels {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                AuthViewModel(AuthRepository(applicationContext), AnalysisHistoryIdentity.clientId(applicationContext)) as T
+                AuthViewModel(AuthRepository(applicationContext)) as T
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { FrameLESSApp(viewModel, authViewModel) }
+        setContent { FrameLESSApp(newsViewModel, authViewModel) }
     }
 }

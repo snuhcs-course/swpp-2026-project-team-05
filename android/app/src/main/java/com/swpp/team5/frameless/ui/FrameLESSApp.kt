@@ -6,79 +6,95 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.swpp.team5.frameless.ui.screens.ComparisonScreen
-import com.swpp.team5.frameless.ui.screens.ImportScreen
-import com.swpp.team5.frameless.ui.screens.LoadingScreen
 import com.swpp.team5.frameless.ui.screens.LoginScreen
-import com.swpp.team5.frameless.ui.screens.ReaderScreen
-import com.swpp.team5.frameless.ui.screens.RestoringScreen
-import com.swpp.team5.frameless.ui.state.AnalysisUiState
+import com.swpp.team5.frameless.ui.screens.NewsFeedScreen
+import com.swpp.team5.frameless.ui.screens.NewsReaderScreen
+import com.swpp.team5.frameless.ui.screens.RegistrationScreen
 import com.swpp.team5.frameless.ui.theme.Fl
-import com.swpp.team5.frameless.ui.viewmodel.AnalysisViewModel
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
+import com.swpp.team5.frameless.ui.viewmodel.NewsRoute
+import com.swpp.team5.frameless.ui.viewmodel.NewsViewModel
 
-/** 전체 화면 전환: 입력 → 분석 중 → 비교 */
+/** Normal product navigation: authentication → feed → Reader. */
 @Composable
-internal fun FrameLESSApp(vm: AnalysisViewModel, auth: AuthViewModel) {
+internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                if (!auth.isLoggedIn) {
-                    LoginScreen(auth.username, auth.password, auth.isLoading, auth.error,
-                        onUsername = { auth.username = it }, onPassword = { auth.password = it }, onLogin = auth::login)
+                if (auth.isRestoring) {
+                    CircularProgressIndicator(color = Fl.Accent, modifier = Modifier.align(Alignment.Center))
                     return@Box
                 }
-                LaunchedEffect(Unit) { vm.refreshHistory() }
-                when (val state = vm.uiState) {
-                    AnalysisUiState.Idle, is AnalysisUiState.Error -> ImportScreen(
-                        url = vm.url,
-                        urlError = vm.urlError,
-                        requestError = (state as? AnalysisUiState.Error)?.message,
-                        history = vm.history,
-                        onUrlChange = vm::onUrlChange,
-                        onAnalyze = vm::analyze,
-                        onOpenHistory = vm::openHistory,
-                        onRefreshHistory = vm::refreshHistory
+                if (!auth.isLoggedIn) {
+                    if (auth.showRegistration) {
+                        BackHandler { auth.closeRegistration() }
+                        RegistrationScreen(
+                            email = auth.registrationEmail,
+                            username = auth.registrationUsername,
+                            password = auth.registrationPassword,
+                            confirmation = auth.registrationConfirmation,
+                            loading = auth.isLoading,
+                            error = auth.error,
+                            fieldErrors = auth.fieldErrors,
+                            onEmail = { auth.registrationEmail = it },
+                            onUsername = { auth.registrationUsername = it },
+                            onPassword = { auth.registrationPassword = it },
+                            onConfirmation = { auth.registrationConfirmation = it },
+                            onBack = auth::closeRegistration,
+                            onSubmit = auth::register
+                        )
+                    } else {
+                        LoginScreen(
+                            identifier = auth.identifier,
+                            password = auth.password,
+                            loading = auth.isLoading,
+                            error = auth.error,
+                            onIdentifier = { auth.identifier = it },
+                            onPassword = { auth.password = it },
+                            onLogin = auth::login,
+                            onRegister = auth::openRegistration
+                        )
+                    }
+                    return@Box
+                }
+
+                val session = auth.session ?: return@Box
+                val feedListState = rememberLazyListState()
+                LaunchedEffect(session.token) { news.initialize() }
+                LaunchedEffect(news.authExpired) {
+                    if (news.authExpired) {
+                        news.consumeAuthExpired()
+                        news.reset()
+                        auth.sessionExpired()
+                    }
+                }
+                when (news.route) {
+                    NewsRoute.FEED -> NewsFeedScreen(
+                        state = news.feed,
+                        session = session,
+                        listState = feedListState,
+                        onCategory = news::selectCategory,
+                        onPublishers = news::applyPublishers,
+                        onRefresh = news::refresh,
+                        onRetry = news::retryFeed,
+                        onLoadMore = news::loadMore,
+                        onArticle = news::openArticle,
+                        onLogout = { news.reset(); auth.logout() }
                     )
-
-                    is AnalysisUiState.Loading -> {
-                        BackHandler { vm.startOver() }
-                        LoadingScreen(url = state.url, step = state.step)
-                    }
-
-                    is AnalysisUiState.Restoring -> {
-                        BackHandler { vm.startOver() }
-                        RestoringScreen(url = state.url)
-                    }
-
-                    is AnalysisUiState.Success -> {
-                        val reader = state.model.analysis.reader
-                        if (reader != null) {
-                            ReaderScreen(
-                                reader = reader,
-                                analysisStatus = state.model.analysis.analysisStatus,
-                                onNewArticle = vm::startOver
-                            )
-                        } else {
-                            ComparisonScreen(
-                                model = state.model,
-                                selection = vm.selection,
-                                onNewArticle = vm::startOver,
-                                onSelectGroup = vm::selectGroup,
-                                onFocusSentence = vm::focusSentence,
-                                onOpenSentenceDetail = vm::openSentenceDetail,
-                                onNarrowTab = vm::setNarrowTab,
-                                onOpenNarrowDetail = vm::openNarrowDetail,
-                                onCloseNarrowDetail = vm::closeNarrowDetail,
-                                onShowDespiteNoMatch = vm::showDespiteNoMatch
-                            )
-                        }
-                    }
+                    NewsRoute.READER -> NewsReaderScreen(
+                        state = news.reader,
+                        onBack = news::closeReader,
+                        onRetry = news::retryReader,
+                        onAnalysisEnabled = news::setAnalysisEnabled
+                    )
                 }
             }
         }
