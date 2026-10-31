@@ -72,17 +72,11 @@ export function FeedPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
-        <section className="flex flex-col gap-6 border-b border-black py-9 sm:flex-row sm:items-end sm:justify-between lg:py-12">
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em]">Politics & Society</p>
-            <h1 className="font-serif text-5xl font-black tracking-[-0.055em] sm:text-7xl">Today’s Coverage</h1>
-          </div>
-          <p className="max-w-xl text-sm leading-6 text-zinc-600 sm:text-right">
-            Read the news from your preferred publisher, then examine the language and framing that distinguish one account from another.
-          </p>
+        <section className="border-b border-black py-8 lg:py-10">
+          <h1 className="font-serif text-5xl font-black tracking-[-0.055em] sm:text-7xl">Today’s Coverage</h1>
         </section>
 
-        <div className="grid lg:grid-cols-[220px_minmax(0,1fr)_230px] lg:gap-9 xl:grid-cols-[240px_minmax(0,1fr)_260px] xl:gap-12">
+        <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-14">
           <aside className="py-6 lg:border-r lg:border-zinc-300 lg:pr-7">
             <div className="flex items-center justify-between lg:block">
               <h2 className="text-sm font-bold">Section</h2>
@@ -147,7 +141,6 @@ export function FeedPage() {
                     {hero.title}
                   </h2>
                 </Link>
-                <Link to={`/articles/${hero.id}`} className="mt-7 inline-flex items-center gap-2 text-sm font-black">Read with analysis <ArrowRight size={17} /></Link>
               </article>
             )}
             {rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
@@ -161,26 +154,6 @@ export function FeedPage() {
             )}
           </section>
 
-          <aside className="hidden py-9 lg:block">
-            <div className="sticky top-24">
-              <p className="border-b border-black pb-3 text-xs font-bold uppercase tracking-[0.18em]">How to read</p>
-              <ol className="divide-y divide-zinc-300">
-                {[
-                  ['01', 'Choose a story from a publisher you know.'],
-                  ['02', 'Select a marked phrase in the article.'],
-                  ['03', 'Compare how other newsrooms covered it.'],
-                ].map(([number, text]) => (
-                  <li key={number} className="grid grid-cols-[32px_1fr] gap-3 py-4 text-sm leading-6">
-                    <span className="font-serif text-zinc-400">{number}</span><span>{text}</span>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-8 bg-black p-5 text-white">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">Analysis</p>
-                <p className="mt-3 font-serif text-xl font-bold leading-7">A star is an invitation to compare—not a verdict.</p>
-              </div>
-            </div>
-          </aside>
         </div>
       </main>
     </AppShell>
