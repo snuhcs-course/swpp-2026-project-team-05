@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, Newspaper, ScanText } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
@@ -34,30 +34,15 @@ export function LoginPage() {
 
   return (
     <main className="grid min-h-screen bg-[var(--paper)] lg:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.8fr)]">
-      <section className="relative flex min-h-[46vh] flex-col justify-between overflow-hidden border-b border-black p-7 lg:min-h-screen lg:border-r lg:border-b-0 lg:p-12 xl:p-16">
-        <div className="relative z-10 flex items-center justify-between">
+      <section className="relative flex min-h-[40vh] flex-col overflow-hidden border-b border-black p-7 lg:min-h-screen lg:border-r lg:border-b-0 lg:p-12 xl:p-16">
+        <div className="relative z-10">
           <span className="font-serif text-2xl font-black tracking-[-0.045em]">FrameLESS</span>
-          <span className="text-xs font-semibold uppercase tracking-[0.18em]">Beyond a single frame</span>
         </div>
-        <div className="relative z-10 max-w-4xl py-16 lg:py-0">
-          <p className="mb-5 text-sm font-bold">One story. More than one frame.</p>
+        <div className="relative z-10 my-auto max-w-4xl py-14 lg:py-0">
           <h1 className="font-serif text-[clamp(3rem,7vw,7.5rem)] font-black leading-[0.9] tracking-[-0.065em]">
-            Read the story.<br />See beyond the frame.
+            Read beyond<br />the frame.
           </h1>
-          <p className="mt-8 max-w-2xl text-base leading-7 text-zinc-600 lg:text-lg">
-            Stay with the source you trust, then examine its language and see how other newsrooms report the same event.
-          </p>
-        </div>
-        <div className="relative z-10 grid gap-px border border-black bg-black sm:grid-cols-3">
-          {[
-            [Newspaper, 'News by publisher'],
-            [ScanText, 'Sentence-level analysis'],
-            [Eye, 'Cross-newsroom context'],
-          ].map(([Icon, label]) => (
-            <div key={label as string} className="flex items-center gap-3 bg-[var(--paper)] p-4 text-sm font-semibold">
-              <Icon size={18} strokeWidth={1.5} /> {label as string}
-            </div>
-          ))}
+          <p className="mt-7 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">One story. More than one frame.</p>
         </div>
         <div className="absolute -right-32 top-1/3 size-[520px] rounded-full border border-zinc-300 opacity-60" />
         <div className="absolute -right-12 top-1/3 size-[320px] rounded-full border border-zinc-300 opacity-60" />
@@ -65,12 +50,10 @@ export function LoginPage() {
 
       <section className="flex items-center justify-center px-6 py-14 sm:px-12 lg:px-16">
         <div className="w-full max-w-md">
-          <div className="mb-10">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em]">Member access</p>
+          <div className="mb-8">
             <h2 className="font-serif text-4xl font-black tracking-[-0.04em]">
               {mode === 'login' ? 'Welcome back.' : 'Join FrameLESS.'}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-zinc-500">Sign in to read full articles and their comparative analysis.</p>
           </div>
           <div className="mb-7 grid grid-cols-2 border-b border-zinc-300 text-sm font-bold">
             <button className={mode === 'login' ? 'border-b-2 border-black py-3 text-black' : 'py-3 text-zinc-400'} onClick={() => setMode('login')}>Sign in</button>

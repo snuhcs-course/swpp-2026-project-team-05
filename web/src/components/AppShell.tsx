@@ -50,11 +50,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </header>
       {children}
-      <footer className="mt-20 border-t border-black px-5 py-8 text-sm text-zinc-600 sm:px-8">
-        <div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-2 sm:flex-row">
-          <strong className="font-serif text-base text-black">FrameLESS</strong>
-          <span>FrameLESS does not rank newsrooms or decide who is right. It makes differences in language and framing visible.</span>
-        </div>
+      <footer className="mt-16 border-t border-black px-5 py-6 sm:px-8">
+        <div className="mx-auto max-w-[1440px] font-serif text-sm font-bold">© 2026 FrameLESS</div>
       </footer>
     </div>
   )

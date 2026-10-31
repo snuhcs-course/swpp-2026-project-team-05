@@ -91,7 +91,7 @@ function FindingPanel({ finding }: { finding: Finding }) {
             </div>
           )}
         </div>
-        {comparisons ? <EvidenceQuote finding={finding} page={page} /> : <p className="border-y border-zinc-300 py-5 text-sm leading-6 text-zinc-500">No corresponding passage from another newsroom has been linked yet.</p>}
+        {comparisons ? <EvidenceQuote finding={finding} page={page} /> : <p className="border-y border-zinc-300 py-5 text-sm text-zinc-500">No comparison available.</p>}
       </div>
     </div>
   )
@@ -141,8 +141,7 @@ export function ArticlePage() {
                   onSelect={setSelectedId}
                   className="font-serif text-[clamp(2.5rem,5vw,5.6rem)] font-black leading-[1.03] tracking-[-0.06em]"
                 />
-                <div className="mt-7 flex items-center justify-between gap-4">
-                  <p className="text-xs text-zinc-500">Select a starred phrase to explore the comparison.</p>
+                <div className="mt-7 flex justify-end">
                   <a href={article.original_url} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-xs font-bold">View original <ArrowUpRight size={14} /></a>
                 </div>
               </header>
@@ -182,7 +181,6 @@ export function ArticlePage() {
                 ) : !analysisQuery.isLoading && (
                   <div className="border-y border-zinc-300 py-8">
                     <p className="font-serif text-xl font-bold">No findings are available yet.</p>
-                    <p className="mt-3 text-sm leading-6 text-zinc-500">You can still read the full article. Its analysis will appear here once it is ready.</p>
                   </div>
                 )}
               </div>
