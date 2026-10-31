@@ -14,6 +14,8 @@ jobs:
     name: Django tests
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      FRAMELESS_USE_SQLITE: '1'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
