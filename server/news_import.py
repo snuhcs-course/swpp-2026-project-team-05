@@ -339,3 +339,21 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
         findings=finding_total,
         comparisons=comparison_total,
     )
+
+
+@transaction.atomic
+def replace_news_dataset(
+    dataset: dict, *, dataset_hash: str, dry_run: bool = False,
+) -> ImportCounts:
+    """Atomically replace product news rows while preserving accounts and history.
+
+    Hydration must finish before this function is called. Any validation or
+    persistence error rolls the deletions back with the import transaction.
+    """
+    Article.objects.all().delete()
+    StoryCluster.objects.all().delete()
+    Publisher.objects.all().delete()
+    counts = import_dataset(dataset, dataset_hash=dataset_hash, dry_run=False)
+    if dry_run:
+        transaction.set_rollback(True)
+    return counts

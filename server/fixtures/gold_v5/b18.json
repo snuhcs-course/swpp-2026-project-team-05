@@ -1,0 +1,344 @@
+{
+  "name": "b18",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "트럼프 \"중간선거 유권자 사기 신고 시 100만 달러 보상\"",
+    "publisher": "더팩트",
+    "published_at": "2026-10-27 07:55:08",
+    "url": "https://n.news.naver.com/mnews/article/629/0000545747"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "트럼프 \"중간선거 '유권자 사기' 신고자에 13억원 지급\"",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 05:15:51",
+      "url": "https://n.news.naver.com/mnews/article/001/0016401754?sid=104"
+    },
+    "A2": {
+      "title": "트럼프, 중간선거 일주일 앞두고 “부정선거 신고자에 13억원 포상”",
+      "publisher": "경향신문",
+      "published_at": "2026-10-27 09:19:00",
+      "url": "https://n.news.naver.com/mnews/article/032/0003478716?sid=104"
+    },
+    "A3": {
+      "title": "트럼프 “중간선거 유권자 사기 신고하면 100만 달러 보상”",
+      "publisher": "중앙일보",
+      "published_at": "2026-10-27 07:49:12",
+      "url": "https://n.news.naver.com/mnews/article/025/0003560724?sid=104"
+    },
+    "A4": {
+      "title": "“부정선거 잡으면 14억원”…  트럼프, 중간선거 앞두고 ‘사상 초유’ 현상금 지급 선언",
+      "publisher": "조선비즈",
+      "published_at": "2026-10-27 15:10:21",
+      "url": "https://n.news.naver.com/mnews/article/366/0001200629?sid=104"
+    },
+    "A5": {
+      "title": "트럼프 \"부정선거 신고자에 100만 달러\"…선거 불복 시동?",
+      "publisher": "TV조선",
+      "published_at": "2026-10-27 09:41:35",
+      "url": "https://n.news.naver.com/mnews/article/448/0000647162?sid=104"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "또한, 공화당이 중간선거에서 고전할 수 있다는 전망이 나오는 가운데, 선거 결과 불복을 위한 사전 작업이 아니냐는 관측도 제기된다.",
+            "start": 556,
+            "end": 629
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 7,
+            "quote": "이처럼 트럼프 대통령이 11월 중간선거를 1주일 앞두고 거액의 보상금을 제시하며 부정선거 가능성을 시사한 것은 공화당의 패색이 짙은 상황에서 선거 결과 불복을 위한 사전 작업이 아니냐는 관측이 나온다.",
+            "start": 592,
+            "end": 704
+          },
+          "difference_summary": "원문은 공화당의 고전을 발화자 없는 전망으로 유보해 전하지만, A1은 같은 전제를 '패색이 짙은 상황'이라는 기자 단정으로 써서 확신 단계가 추정에서 단언으로 올라갔다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 7,
+                "quote": "전망이 나오는 가운데",
+                "start": 582,
+                "end": 593
+              },
+              "related_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 7,
+                "quote": "공화당의 패색이 짙은 상황에서",
+                "start": 654,
+                "end": 670
+              },
+              "note": "원문은 공화당의 고전을 발화자 없는 전망으로 유보해 전하지만, A1은 같은 전제를 '패색이 짙은 상황'이라는 기자 단정으로 써서 확신 단계가 추정에서 단언으로 올라갔다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그간 트럼프 대통령은 2020년 대선에서 조 바이든 전 대통령에게 패한 뒤 비시민권자의 불법 투표 가능성을 꾸준히 제기해 왔다.",
+            "start": 327,
+            "end": 398
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그동안 트럼프 대통령은 뚜렷한 증거 없이 2020년 대선에서 광범위한 부정선거가 이뤄진 탓에 조 바이든 전 대통령에게 승리를 빼앗겼다는 주장을 지속해왔다.",
+            "start": 362,
+            "end": 448
+          },
+          "difference_summary": "트럼프가 2020년 대선 이후 부정선거를 거듭 주장해 왔다는 같은 배경을 두고, 원문은 평가 없이 '가능성을 제기'했다고만 썼고 A1·A2는 '증거 없이'라는 기자의 평가어를 붙여 근거 없는 주장으로 규정했다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "불법 투표 가능성을 꾸준히 제기해 왔다",
+                "start": 376,
+                "end": 397
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "뚜렷한 증거 없이",
+                "start": 375,
+                "end": 384
+              },
+              "note": "트럼프가 2020년 대선 이후 부정선거를 거듭 주장해 왔다는 같은 배경을 두고, 원문은 평가 없이 '가능성을 제기'했다고만 썼고 A1·A2는 '증거 없이'라는 기자의 평가어를 붙여 근거 없는 주장으로 규정했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "또한, 공화당이 중간선거에서 고전할 수 있다는 전망이 나오는 가운데, 선거 결과 불복을 위한 사전 작업이 아니냐는 관측도 제기된다.",
+            "start": 556,
+            "end": 629
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "부정선거 의혹을 거듭 제기해온 트럼프 대통령이 선거를 일주일 앞두고 거액의 포상금까지 내걸면서, 공화당이 패배할 경우 선거 결과에 불복하기 위한 사전 포석 아니냐는 관측이 나온다.",
+            "start": 82,
+            "end": 182
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그간 트럼프 대통령은 2020년 대선에서 조 바이든 전 대통령에게 패한 뒤 비시민권자의 불법 투표 가능성을 꾸준히 제기해 왔다.",
+            "start": 327,
+            "end": 398
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "트럼프 대통령은 그동안 구체적인 증거 없이 2020년 대선에서 광범위한 부정행위가 벌어져 조 바이든 전 대통령에게 패배했다고 주장해왔다.",
+            "start": 372,
+            "end": 448
+          },
+          "difference_summary": "트럼프가 2020년 대선 이후 부정선거를 거듭 주장해 왔다는 같은 배경을 두고, 원문은 평가 없이 '가능성을 제기'했다고만 썼고 A1·A2는 '증거 없이'라는 기자의 평가어를 붙여 근거 없는 주장으로 규정했다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "불법 투표 가능성을 꾸준히 제기해 왔다",
+                "start": 376,
+                "end": 397
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 2,
+                "quote": "구체적인 증거 없이",
+                "start": 385,
+                "end": 395
+              },
+              "note": "트럼프가 2020년 대선 이후 부정선거를 거듭 주장해 왔다는 같은 배경을 두고, 원문은 평가 없이 '가능성을 제기'했다고만 썼고 A1·A2는 '증거 없이'라는 기자의 평가어를 붙여 근거 없는 주장으로 규정했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "또한, 공화당이 중간선거에서 고전할 수 있다는 전망이 나오는 가운데, 선거 결과 불복을 위한 사전 작업이 아니냐는 관측도 제기된다.",
+            "start": 556,
+            "end": 629
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "특히 공화당이 선거에서 불리한 결과를 얻을 경우 결과에 불복할 수 있다는 사전 포석이라는 분석도 나온다.",
+            "start": 716,
+            "end": 774
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그간 트럼프 대통령은 2020년 대선에서 조 바이든 전 대통령에게 패한 뒤 비시민권자의 불법 투표 가능성을 꾸준히 제기해 왔다.",
+            "start": 327,
+            "end": 398
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "트럼프 대통령은 2020년 대선에서 조 바이든 전 대통령에게 패배한 뒤 광범위한 부정선거가 있었다고 주장해 왔다.",
+            "start": 497,
+            "end": 560
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "또한, 공화당이 중간선거에서 고전할 수 있다는 전망이 나오는 가운데, 선거 결과 불복을 위한 사전 작업이 아니냐는 관측도 제기된다.",
+            "start": 556,
+            "end": 629
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그간 트럼프 대통령은 2020년 대선에서 조 바이든 전 대통령에게 패한 뒤 비시민권자의 불법 투표 가능성을 꾸준히 제기해 왔다.",
+            "start": 327,
+            "end": 398
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 26,
+            "paragraph_index": 9,
+            "quote": "조 바이든 전 대통령에게 패배한 2020년 대선 이후에는 선거가 조작됐다는 주장을 한층 강화해 수십 건에 달하는 소송을 제기했다.",
+            "start": 1640,
+            "end": 1712
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "또한, 공화당이 중간선거에서 고전할 수 있다는 전망이 나오는 가운데, 선거 결과 불복을 위한 사전 작업이 아니냐는 관측도 제기된다.",
+            "start": 556,
+            "end": 629
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "일각에서는 공화당의 패배가 예상되는 상황에서 지지층 결집과 동시에 선거 제도 자체에 대한 불신을 부추겨 선거 결과 불복을 위한 사전 작업을 하는 것이란 분석이 나온다.",
+            "start": 316,
+            "end": 409
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그간 트럼프 대통령은 2020년 대선에서 조 바이든 전 대통령에게 패한 뒤 비시민권자의 불법 투표 가능성을 꾸준히 제기해 왔다.",
+            "start": 327,
+            "end": 398
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "트럼프 대통령은 2020년 대선에서도 광범위한 부정선거가 이뤄져 조 바이든 전 대통령에게 패배했다고 주장한 바 있다.",
+            "start": 411,
+            "end": 476
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "D",
+      "source_quote": "고전할 수 있다",
+      "comparison_article": "A1",
+      "comparison_quote": "패색이 짙은",
+      "why": "A1의 '패색이 짙은'은 이미 G 항목에서 전망을 단정으로 쓴 차이로 잡았으므로 한 표현에 코드 하나 원칙에 따라 D로 중복 표기하지 않는다."
+    },
+    {
+      "code": "D",
+      "source_quote": "고전할 수 있다",
+      "comparison_article": "A5",
+      "comparison_quote": "패배가 예상되는",
+      "why": "'고전'과 '패배'는 같은 사실에 붙은 정도어의 강도 차이라기보다 예상 결과 자체가 다른 것이어서 D로 보기 애매하다."
+    }
+  ]
+}

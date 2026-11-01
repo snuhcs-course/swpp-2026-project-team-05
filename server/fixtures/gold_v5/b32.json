@@ -1,0 +1,865 @@
+{
+  "name": "b32",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "천안 일본인 여성 살해 30대, 범행동기 의문…日 언론도 관심",
+    "publisher": "뉴스1",
+    "published_at": "2026-10-31 14:46:08",
+    "url": "https://n.news.naver.com/mnews/article/421/0009262157"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "천안 日여성 살해동기 의문투성이…日언론도 관심 속 유족은 엄벌 촉구",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-31 12:27:09",
+      "url": "https://n.news.naver.com/mnews/article/001/0016413254?sid=102"
+    },
+    "A2": {
+      "title": "천안 日여성 살인사건…피의자 범행동기 '의문 투성'",
+      "publisher": "뉴시스",
+      "published_at": "2026-10-31 16:03:12",
+      "url": "https://n.news.naver.com/mnews/article/003/0014292127?sid=102"
+    },
+    "A3": {
+      "title": "세번째 만남이었는데 “주식 실패해서”…日여성 살해 동기 의문",
+      "publisher": "중앙일보",
+      "published_at": "2026-10-31 14:42:02",
+      "url": "https://n.news.naver.com/mnews/article/025/0003561874?sid=102"
+    },
+    "A4": {
+      "title": "\"주식 500만원 잃어서\"…日여성 살해범의 '석연찮은 변명'",
+      "publisher": "이데일리",
+      "published_at": "2026-10-31 15:40:13",
+      "url": "https://n.news.naver.com/mnews/article/018/0006400790?sid=102"
+    },
+    "A5": {
+      "title": "주식 투자 손실 후 흉기 살해... '천안 일본인 여성 피살 사건' 의구심 증폭",
+      "publisher": "CJB청주방송",
+      "published_at": "2026-10-31 17:30:12",
+      "url": "https://n.news.naver.com/mnews/article/655/0000033395?sid=102"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "(대전=뉴스1) 김종서 기자 = 충남 천안의 한 오피스텔에서 일본인 여성을 살해하고 도주한 30대 남성이 납득하기 어려운 주장을 내놓으면서 정확한 범행 동기에 관심이 모인다.",
+            "start": 33,
+            "end": 130
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "(천안=연합뉴스) 변선진 기자 = 충남 천안에서 불과 세 차례 만난 20대 일본인 여성을 살해한 30대 남성이 주장한 범행 동기를 놓고 여러 의문점이 제기되면서 경찰이 이 부분을 집중적으로 수사하고 있다.",
+            "start": 59,
+            "end": 173
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "31일 천안서북경찰서에 따르면 평소 알고 지내던 20대 일본인 여성 B 씨를 흉기로 살해한 혐의로 구속된 A 씨는 주식투자로 손해를 보자 B 씨를 살해하고 자살할 생각으로 범행한 것으로 조사됐다.",
+            "start": 132,
+            "end": 241
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "31일 천안서북경찰서에 따르면 살인 혐의로 구속된 A(30대)씨는 경찰 조사에서 \"주식 투자로 500만원가량 손해를 봐 죽을 결심을 했는데, 혼자 죽기는 무서워 B(20대·일본 국적)씨와 함께 죽으려 했다\"는 취지로 진술했다.",
+            "start": 175,
+            "end": 301
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "A씨가 극단적 선택을 시도한 정황도 있는 것으로 파악됐지만 진술에도 불구하고 불과 세 차례 만난 B씨를 왜 함께 죽을 상대로 택했다고 주장하는지, 범행 뒤 100㎞ 넘게 떨어진 전주까지 달아난 이유는 무엇인지 등은 아직 드러나지 않았다.",
+            "start": 400,
+            "end": 532
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 6,
+            "quote": "범행 당일은 두 사람의 세 번째 만남이었다.",
+            "start": 635,
+            "end": 659
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "또한 연인 관계도 아니고 만남도 두 번 밖에 되지 않은 20대 일본인 여성을 범행 대상으로 삼은 것도 석연치 않다.",
+            "start": 498,
+            "end": 562
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "A씨가 극단적 선택을 시도한 정황도 있는 것으로 파악됐지만 진술에도 불구하고 불과 세 차례 만난 B씨를 왜 함께 죽을 상대로 택했다고 주장하는지, 범행 뒤 100㎞ 넘게 떨어진 전주까지 달아난 이유는 무엇인지 등은 아직 드러나지 않았다.",
+            "start": 400,
+            "end": 532
+          },
+          "difference_summary": "몇 번 만나지 않은 여성을 범행 대상으로 삼은 점을 원문 기자는 '석연치 않다'고 직접 평가하지만, A1·A2는 그 이유가 아직 드러나지 않았다거나 알려지지 않았다고만 서술한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 5,
+                "quote": "석연치 않다",
+                "start": 555,
+                "end": 561
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "아직 드러나지 않았다",
+                "start": 520,
+                "end": 531
+              },
+              "note": "몇 번 만나지 않은 여성을 범행 대상으로 삼은 점을 원문 기자는 '석연치 않다'고 직접 평가하지만, A1·A2는 그 이유가 아직 드러나지 않았다거나 알려지지 않았다고만 서술한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 5,
+            "quote": "피해 여성을 살해한 뒤 도주를 선택한 것도 앞뒤가 맞지 않는 진술이다.",
+            "start": 563,
+            "end": 602
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "A씨가 극단적 선택을 시도한 정황도 있는 것으로 파악됐지만 진술에도 불구하고 불과 세 차례 만난 B씨를 왜 함께 죽을 상대로 택했다고 주장하는지, 범행 뒤 100㎞ 넘게 떨어진 전주까지 달아난 이유는 무엇인지 등은 아직 드러나지 않았다.",
+            "start": 400,
+            "end": 532
+          },
+          "difference_summary": "살해한 뒤 도주한 점을 원문 기자는 '앞뒤가 맞지 않는 진술'이라고 평가하지만, A1·A2는 도주 이유가 아직 밝혀지지 않았다고만 서술한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 5,
+                "quote": "앞뒤가 맞지 않는 진술이다",
+                "start": 587,
+                "end": 601
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "달아난 이유는 무엇인지 등은 아직 드러나지 않았다",
+                "start": 504,
+                "end": 531
+              },
+              "note": "살해한 뒤 도주한 점을 원문 기자는 '앞뒤가 맞지 않는 진술'이라고 평가하지만, A1·A2는 도주 이유가 아직 밝혀지지 않았다고만 서술한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "(대전=뉴스1) 김종서 기자 = 충남 천안의 한 오피스텔에서 일본인 여성을 살해하고 도주한 30대 남성이 납득하기 어려운 주장을 내놓으면서 정확한 범행 동기에 관심이 모인다.",
+            "start": 33,
+            "end": 130
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "[천안=뉴시스]최영민 기자 = 지난 28일 오후 4시 20분께 천안시 두정동에서 발생한 일본인 여성 피살사건과 관련해 피의자 A씨(30대)의 범행동기에 대한 의문이 증폭되고 있다.",
+            "start": 0,
+            "end": 100
+          },
+          "difference_summary": "범행 동기를 둘러싼 같은 상황을 원문은 '관심이 모인다'로 담담하게 쓴 반면, A2는 '의문이 증폭되고 있다', A5는 '의혹이 커지고 있습니다'로 강도를 높여 기자 서술로 썼다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "관심이 모인다",
+                "start": 122,
+                "end": 129
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "의문이 증폭되고 있다",
+                "start": 88,
+                "end": 99
+              },
+              "note": "범행 동기를 둘러싼 같은 상황을 원문은 '관심이 모인다'로 담담하게 쓴 반면, A2는 '의문이 증폭되고 있다', A5는 '의혹이 커지고 있습니다'로 강도를 높여 기자 서술로 썼다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "31일 천안서북경찰서에 따르면 평소 알고 지내던 20대 일본인 여성 B 씨를 흉기로 살해한 혐의로 구속된 A 씨는 주식투자로 손해를 보자 B 씨를 살해하고 자살할 생각으로 범행한 것으로 조사됐다.",
+            "start": 132,
+            "end": 241
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "31일 충남경찰청 등에 따르면 A씨는 주식투자로 약 500만원의 손해를 입자 자결을 결심했으며, \"혼자 죽기에는 무서웠다\"는 진술을 경찰 조사에서한 것으로 확인됐다.",
+            "start": 102,
+            "end": 194
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "하지만 이 과정에서 A씨가 그간 약 세 번 정도 밖에 만나지 않았던 B씨와 함께 왜 죽으려 했는지와 당초 죽으려고 마음을 먹었던 A씨가 전주까지 도주했던 점에 대해서는 아직 알려지지 않고 있다.",
+            "start": 333,
+            "end": 441
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이들 두 사람은 연인관계는 아닌 것으로 확인됐으며, 어떤 경로로 만나게 됐는지에 대한 A씨의 주장은 있지만 B씨가 숨진 상황에서 확실하게 어떤 사이인지 알 수 있는 방법은 묘연한 상황이다．",
+            "start": 443,
+            "end": 548
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "또한 연인 관계도 아니고 만남도 두 번 밖에 되지 않은 20대 일본인 여성을 범행 대상으로 삼은 것도 석연치 않다.",
+            "start": 498,
+            "end": 562
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "하지만 이 과정에서 A씨가 그간 약 세 번 정도 밖에 만나지 않았던 B씨와 함께 왜 죽으려 했는지와 당초 죽으려고 마음을 먹었던 A씨가 전주까지 도주했던 점에 대해서는 아직 알려지지 않고 있다.",
+            "start": 333,
+            "end": 441
+          },
+          "difference_summary": "몇 번 만나지 않은 여성을 범행 대상으로 삼은 점을 원문 기자는 '석연치 않다'고 직접 평가하지만, A1·A2는 그 이유가 아직 드러나지 않았다거나 알려지지 않았다고만 서술한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 5,
+                "quote": "석연치 않다",
+                "start": 555,
+                "end": 561
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "아직 알려지지 않고 있다",
+                "start": 427,
+                "end": 440
+              },
+              "note": "몇 번 만나지 않은 여성을 범행 대상으로 삼은 점을 원문 기자는 '석연치 않다'고 직접 평가하지만, A1·A2는 그 이유가 아직 드러나지 않았다거나 알려지지 않았다고만 서술한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 5,
+            "quote": "피해 여성을 살해한 뒤 도주를 선택한 것도 앞뒤가 맞지 않는 진술이다.",
+            "start": 563,
+            "end": 602
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "하지만 이 과정에서 A씨가 그간 약 세 번 정도 밖에 만나지 않았던 B씨와 함께 왜 죽으려 했는지와 당초 죽으려고 마음을 먹었던 A씨가 전주까지 도주했던 점에 대해서는 아직 알려지지 않고 있다.",
+            "start": 333,
+            "end": 441
+          },
+          "difference_summary": "살해한 뒤 도주한 점을 원문 기자는 '앞뒤가 맞지 않는 진술'이라고 평가하지만, A1·A2는 도주 이유가 아직 밝혀지지 않았다고만 서술한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 5,
+                "quote": "앞뒤가 맞지 않는 진술이다",
+                "start": 587,
+                "end": 601
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "전주까지 도주했던 점에 대해서는 아직 알려지지 않고 있다",
+                "start": 409,
+                "end": 440
+              },
+              "note": "살해한 뒤 도주한 점을 원문 기자는 '앞뒤가 맞지 않는 진술'이라고 평가하지만, A1·A2는 도주 이유가 아직 밝혀지지 않았다고만 서술한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "(대전=뉴스1) 김종서 기자 = 충남 천안의 한 오피스텔에서 일본인 여성을 살해하고 도주한 30대 남성이 납득하기 어려운 주장을 내놓으면서 정확한 범행 동기에 관심이 모인다.",
+            "start": 33,
+            "end": 130
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "31일 천안서북경찰서에 따르면 평소 알고 지내던 20대 일본인 여성 B 씨를 흉기로 살해한 혐의로 구속된 A 씨는 주식투자로 손해를 보자 B 씨를 살해하고 자살할 생각으로 범행한 것으로 조사됐다.",
+            "start": 132,
+            "end": 241
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "31일 천안 서북경찰서에 따르면 살인 혐의로 구속된 30대 남성 A씨는 경찰 조사에서 “주식 투자로 손해를 봐 죽을 결심을 했는데, 혼자 죽기는 무서워 B씨와 함께 죽으려 했다”는 취지로 진술했다.",
+            "start": 0,
+            "end": 110
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "범행 당일 두 사람은 세 번째 만남이었던 것으로 알려졌다.",
+            "start": 253,
+            "end": 285
+          },
+          "difference_summary": "두 사람이 만난 횟수라는 같은 사실에 원문은 한정어 '뿐'을 붙여 횟수가 적음을 강조하지만, A3는 정도어 없이 '세 번째 만남이었던'으로만 썼다(횟수 값의 차이는 제외).",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "두 차례 만났을 뿐",
+                "start": 394,
+                "end": 404
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "세 번째 만남이었던",
+                "start": 265,
+                "end": 275
+              },
+              "note": "두 사람이 만난 횟수라는 같은 사실에 원문은 한정어 '뿐'을 붙여 횟수가 적음을 강조하지만, A3는 정도어 없이 '세 번째 만남이었던'으로만 썼다(횟수 값의 차이는 제외).",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "범행 당일 두 사람은 세 번째 만남이었던 것으로 알려졌다.",
+            "start": 253,
+            "end": 285
+          },
+          "difference_summary": "두 사람의 만남 횟수를 원문은 '것으로 파악됐다'(지지)로 쓰지만, A3는 '것으로 알려졌다'(전언)로 써서 확신 단계가 낮다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다",
+                "start": 394,
+                "end": 426
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "세 번째 만남이었던 것으로 알려졌다",
+                "start": 265,
+                "end": 284
+              },
+              "note": "두 사람의 만남 횟수를 원문은 '것으로 파악됐다'(지지)로 쓰지만, A3는 '것으로 알려졌다'(전언)로 써서 확신 단계가 낮다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "또한 연인 관계도 아니고 만남도 두 번 밖에 되지 않은 20대 일본인 여성을 범행 대상으로 삼은 것도 석연치 않다.",
+            "start": 498,
+            "end": 562
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 5,
+            "quote": "피해 여성을 살해한 뒤 도주를 선택한 것도 앞뒤가 맞지 않는 진술이다.",
+            "start": 563,
+            "end": 602
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "(대전=뉴스1) 김종서 기자 = 충남 천안의 한 오피스텔에서 일본인 여성을 살해하고 도주한 30대 남성이 납득하기 어려운 주장을 내놓으면서 정확한 범행 동기에 관심이 모인다.",
+            "start": 33,
+            "end": 130
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "성범죄 정황은 없어…국과수 정식 부검 대기[이데일리 김주환 기자] 충남 천안의 한 오피스텔에서 20대 일본인 여성을 흉기로 살해한 30대 남성이 “주식 손실을 비관해 함께 죽으려 했다”고 진술한 가운데, 납득하기 어려운 범행 동기와 수상한 도주 행적을 둘러싸고 경찰이 집중 수사에 나섰다.",
+            "start": 76,
+            "end": 237
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "31일 천안서북경찰서에 따르면 평소 알고 지내던 20대 일본인 여성 B 씨를 흉기로 살해한 혐의로 구속된 A 씨는 주식투자로 손해를 보자 B 씨를 살해하고 자살할 생각으로 범행한 것으로 조사됐다.",
+            "start": 132,
+            "end": 241
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "31일 천안서북경찰서에 따르면 살인 혐의로 구속된 A(30대)씨는 경찰 조사에서 “주식 투자로 500만원가량 손해를 보고 죽을 결심을 했다”며 “혼자 죽기 무서워 B(20대·일본 국적)씨와 함께 죽으려 했다”는 취지로 진술했다.",
+            "start": 238,
+            "end": 365
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "겨우 세 차례 만났을 뿐인 B씨를 범행 대상으로 삼은 경위는 물론 함께 죽으려 했다는 주장과 달리 범행 직후 전주까지 도주한 행적 역시 상식적으로 납득하기 어렵다.",
+            "start": 653,
+            "end": 744
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "범행 당일은 두 사람의 세 번째 만남이었던 것으로 확인됐다.",
+            "start": 797,
+            "end": 830
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "또한 연인 관계도 아니고 만남도 두 번 밖에 되지 않은 20대 일본인 여성을 범행 대상으로 삼은 것도 석연치 않다.",
+            "start": 498,
+            "end": 562
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "겨우 세 차례 만났을 뿐인 B씨를 범행 대상으로 삼은 경위는 물론 함께 죽으려 했다는 주장과 달리 범행 직후 전주까지 도주한 행적 역시 상식적으로 납득하기 어렵다.",
+            "start": 653,
+            "end": 744
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 5,
+            "quote": "피해 여성을 살해한 뒤 도주를 선택한 것도 앞뒤가 맞지 않는 진술이다.",
+            "start": 563,
+            "end": 602
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "겨우 세 차례 만났을 뿐인 B씨를 범행 대상으로 삼은 경위는 물론 함께 죽으려 했다는 주장과 달리 범행 직후 전주까지 도주한 행적 역시 상식적으로 납득하기 어렵다.",
+            "start": 653,
+            "end": 744
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "(대전=뉴스1) 김종서 기자 = 충남 천안의 한 오피스텔에서 일본인 여성을 살해하고 도주한 30대 남성이 납득하기 어려운 주장을 내놓으면서 정확한 범행 동기에 관심이 모인다.",
+            "start": 33,
+            "end": 130
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "충남 천안에서 발생한 20대 일본인 여성 살해 사건과 관련해 30대 피의자 A씨의 범행 동기를 둘러싼 의혹이 커지고 있습니다.",
+            "start": 0,
+            "end": 70
+          },
+          "difference_summary": "범행 동기를 둘러싼 같은 상황을 원문은 '관심이 모인다'로 담담하게 쓴 반면, A2는 '의문이 증폭되고 있다', A5는 '의혹이 커지고 있습니다'로 강도를 높여 기자 서술로 썼다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "관심이 모인다",
+                "start": 122,
+                "end": 129
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "의혹이 커지고 있습니다",
+                "start": 57,
+                "end": 69
+              },
+              "note": "범행 동기를 둘러싼 같은 상황을 원문은 '관심이 모인다'로 담담하게 쓴 반면, A2는 '의문이 증폭되고 있다', A5는 '의혹이 커지고 있습니다'로 강도를 높여 기자 서술로 썼다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "31일 천안서북경찰서에 따르면 평소 알고 지내던 20대 일본인 여성 B 씨를 흉기로 살해한 혐의로 구속된 A 씨는 주식투자로 손해를 보자 B 씨를 살해하고 자살할 생각으로 범행한 것으로 조사됐다.",
+            "start": 132,
+            "end": 241
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "충남경찰청에 따르면, A씨는 경찰 조사에서 주식 투자로 약 500만 원의 손실을 본 뒤 극단적 선택을 결심했으나 \"혼자 죽기 두려워 피해자 B(20대·일본 국적)씨와 함께 목숨을 끊으려 했다\"고 진술한 것으로 전해졌습니다.",
+            "start": 72,
+            "end": 196
+          },
+          "difference_summary": "경찰 조사로 드러난 A 씨의 범행 동기를 원문은 '것으로 조사됐다'(단언·지지)로 쓰지만, A5는 '진술한 것으로 전해졌습니다'(전언)로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "범행한 것으로 조사됐다",
+                "start": 228,
+                "end": 240
+              },
+              "related_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "진술한 것으로 전해졌습니다",
+                "start": 181,
+                "end": 195
+              },
+              "note": "경찰 조사로 드러난 A 씨의 범행 동기를 원문은 '것으로 조사됐다'(단언·지지)로 쓰지만, A5는 '진술한 것으로 전해졌습니다'(전언)로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "두 사람은 연인 관계가 아닌 평소 세 차례 정도에 만난 것에 불과한 것으로 확인됐으며, 극단적 선택을 마음먹었던 A씨가 범행 직후 전주까지 도주한 경위도 불분명한 상황입니다.",
+            "start": 360,
+            "end": 457
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "B 씨와는 서로 아는 사이였지만 올해 두 차례 만났을 뿐, 연인 관계는 아니었던 것으로 파악됐다.",
+            "start": 373,
+            "end": 427
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "두 사람은 연인 관계가 아닌 평소 세 차례 정도에 만난 것에 불과한 것으로 확인됐으며, 극단적 선택을 마음먹었던 A씨가 범행 직후 전주까지 도주한 경위도 불분명한 상황입니다.",
+            "start": 360,
+            "end": 457
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "또한 연인 관계도 아니고 만남도 두 번 밖에 되지 않은 20대 일본인 여성을 범행 대상으로 삼은 것도 석연치 않다.",
+            "start": 498,
+            "end": 562
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그러나 A씨의 진술에는 여전히 납득하기 어려운 대목이 많습니다.",
+            "start": 323,
+            "end": 358
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 5,
+            "quote": "피해 여성을 살해한 뒤 도주를 선택한 것도 앞뒤가 맞지 않는 진술이다.",
+            "start": 563,
+            "end": 602
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "그러나 A씨의 진술에는 여전히 납득하기 어려운 대목이 많습니다.",
+            "start": 323,
+            "end": 358
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "A",
+      "source_quote": "주장하고 있다",
+      "comparison_article": "A2",
+      "comparison_quote": "진술을 경찰 조사에서한",
+      "why": "원문도 S#9에서 같은 진술을 '진술'이라 부르므로, A1·A4에 적용한 같은 기사 안 표현 원칙을 원문에도 적용하면 '주장'/'진술'은 매체 간 차이로 보기 어렵다."
+    },
+    {
+      "code": "A",
+      "source_quote": "주장하고 있다",
+      "comparison_article": "A3",
+      "comparison_quote": "취지로 진술했다",
+      "why": "원문도 S#9에서 같은 진술을 '진술'이라 부르므로, A1·A4에 적용한 같은 기사 안 표현 원칙을 원문에도 적용하면 '주장'/'진술'은 매체 간 차이로 보기 어렵다."
+    },
+    {
+      "code": "A",
+      "source_quote": "주장하고 있다",
+      "comparison_article": "A5",
+      "comparison_quote": "고 진술한",
+      "why": "원문도 S#9에서 같은 진술을 '진술'이라 부르므로, A1·A4에 적용한 같은 기사 안 표현 원칙을 원문에도 적용하면 '주장'/'진술'은 매체 간 차이로 보기 어렵다."
+    }
+  ]
+}

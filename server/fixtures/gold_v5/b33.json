@@ -1,0 +1,407 @@
+{
+  "name": "b33",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "홍대 12만·이태원 2만 인파에도 '우측통행'…\"즐기는 것 좋지만 안전 최선\"",
+    "publisher": "뉴스1",
+    "published_at": "2026-10-31 21:36:47",
+    "url": "https://n.news.naver.com/mnews/article/421/0009262290"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "'핼러윈' 홍대·이태원 16만 인파…새벽까지 시끌벅적(종합2보)",
+      "publisher": "연합뉴스",
+      "published_at": "2026-11-01 01:02:07",
+      "url": "https://n.news.naver.com/mnews/article/001/0016413508?sid=102"
+    },
+    "A2": {
+      "title": "핼러윈 주말, 이태원 2만·홍대 12만 인파 몰렸다...안전 관리 총력",
+      "publisher": "조선일보",
+      "published_at": "2026-10-31 20:20:14",
+      "url": "https://n.news.naver.com/mnews/article/023/0004007081?sid=102"
+    },
+    "A3": {
+      "title": "참사 후 첫 ‘주말 핼러윈’ 연이틀 장갑차 뜬 이태원···2만8000 인파 “우측통행” 질서 속 축제 만끽",
+      "publisher": "경향신문",
+      "published_at": "2026-10-31 22:14:00",
+      "url": "https://n.news.naver.com/mnews/article/032/0003479820?sid=102"
+    },
+    "A4": {
+      "title": "참사 후 첫 '주말 핼러윈' 홍대 12만·이태원 3만 인파…선제 통제 속 질서 유지",
+      "publisher": "파이낸셜뉴스",
+      "published_at": "2026-10-31 23:52:14",
+      "url": "https://n.news.naver.com/mnews/article/014/0005597392?sid=102"
+    },
+    "A5": {
+      "title": "참사 후 첫 ‘주말 핼러윈’…이 시각 이태원",
+      "publisher": "KBS",
+      "published_at": "2026-10-31 21:09:16",
+      "url": "https://n.news.naver.com/mnews/article/056/0012284813?sid=102"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "혼잡 구간 펜스 설치·일방통행…상황 따라 지하철 무정차 검토",
+            "start": 33,
+            "end": 66
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "홍대 관광특구에만 10만 명이 넘는 인파가 몰리고 이태원에도 2만여 명이 모여 붐볐지만, 시민들은 대체로 질서를 지키는 모습이다.",
+            "start": 183,
+            "end": 255
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "경찰과 구청 직원 등 안전관리 인력이 대거 투입된 가운데 시민들은 질서를 지키며 자유로움을 만끽했고, 당국에 접수된 별다른 사건·사고는 없었다.",
+            "start": 181,
+            "end": 261
+          },
+          "difference_summary": "시민들이 질서를 지켰다는 같은 사실에 원문은 한정어 '대체로'를 붙였지만 A1은 한정어 없이 '질서를 지키며'로 단정해 정도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "대체로 질서를 지키는 모습이다",
+                "start": 238,
+                "end": 254
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "시민들은 질서를 지키며",
+                "start": 213,
+                "end": 225
+              },
+              "note": "시민들이 질서를 지켰다는 같은 사실에 원문은 한정어 '대체로'를 붙였지만 A1은 한정어 없이 '질서를 지키며'로 단정해 정도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 31,
+            "paragraph_index": 17,
+            "quote": "경찰은 지난 23일부터 다음 달 1일까지를 핼러윈 특별대책기간으로 정하고 인파 안전관리에 나섰다.",
+            "start": 1891,
+            "end": 1945
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "경찰과 구청 직원 등 안전관리 인력이 대거 투입된 가운데 시민들은 질서를 지키며 자유로움을 만끽했고, 당국에 접수된 별다른 사건·사고는 없었다.",
+            "start": 181,
+            "end": 261
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "혼잡 구간 펜스 설치·일방통행…상황 따라 지하철 무정차 검토",
+            "start": 33,
+            "end": 66
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "홍대 관광특구에만 10만 명이 넘는 인파가 몰리고 이태원에도 2만여 명이 모여 붐볐지만, 시민들은 대체로 질서를 지키는 모습이다.",
+            "start": 183,
+            "end": 255
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 31,
+            "paragraph_index": 17,
+            "quote": "경찰은 지난 23일부터 다음 달 1일까지를 핼러윈 특별대책기간으로 정하고 인파 안전관리에 나섰다.",
+            "start": 1891,
+            "end": 1945
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 0,
+            "quote": "경찰과 구청 등은 안전 사고를 막기 위해 인파 관리에 나섰다.",
+            "start": 65,
+            "end": 99
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "혼잡 구간 펜스 설치·일방통행…상황 따라 지하철 무정차 검토",
+            "start": 33,
+            "end": 66
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "홍대 관광특구에만 10만 명이 넘는 인파가 몰리고 이태원에도 2만여 명이 모여 붐볐지만, 시민들은 대체로 질서를 지키는 모습이다.",
+            "start": 183,
+            "end": 255
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 31,
+            "paragraph_index": 17,
+            "quote": "경찰은 지난 23일부터 다음 달 1일까지를 핼러윈 특별대책기간으로 정하고 인파 안전관리에 나섰다.",
+            "start": 1891,
+            "end": 1945
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "경찰은 핼러윈을 대비해 서울 14곳 등 전국 중점관리지역 28곳을 중심으로 경찰관기동대와 광역범죄예방순찰대, 형사 등 7800명을 배치했다.",
+            "start": 427,
+            "end": 505
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "혼잡 구간 펜스 설치·일방통행…상황 따라 지하철 무정차 검토",
+            "start": 33,
+            "end": 66
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 25,
+            "paragraph_index": 12,
+            "quote": "경찰은 자정 무렵 인파가 최고조에 달할 것으로 보고 밀집도에 따라 지하철 무정차 통과를 검토하는 한편, 분장을 빙자한 모의 총포·흉기 소지 및 경찰 제복 착용 행위에 대한 검문검색도 강화하고 있다.",
+            "start": 1922,
+            "end": 2032
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "홍대 관광특구에만 10만 명이 넘는 인파가 몰리고 이태원에도 2만여 명이 모여 붐볐지만, 시민들은 대체로 질서를 지키는 모습이다.",
+            "start": 183,
+            "end": 255
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "경찰과 지자체가 선제적인 도로 통제와 골목 진입 차단에 나선 가운데, 시민들도 안전 안내에 적극적으로 협조하며 큰 혼란 없이 질서 속에서 축제를 즐겼다.",
+            "start": 274,
+            "end": 359
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 31,
+            "paragraph_index": 17,
+            "quote": "경찰은 지난 23일부터 다음 달 1일까지를 핼러윈 특별대책기간으로 정하고 인파 안전관리에 나섰다.",
+            "start": 1891,
+            "end": 1945
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 23,
+            "paragraph_index": 12,
+            "quote": "경찰은 지난 23일부터 다음 달 1일까지를 핼러윈 특별대책기간으로 정하고, 이날 전국 주요 인파 밀집 지역 28곳에 7800여명의 인력을 배치했다.",
+            "start": 1798,
+            "end": 1880
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "혼잡 구간 펜스 설치·일방통행…상황 따라 지하철 무정차 검토",
+            "start": 33,
+            "end": 66
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 19,
+            "paragraph_index": 18,
+            "quote": "혼잡도가 위험 수준에 이르면 지하철역 출입 통제나 열차 무정차 통과 등의 조치를 추가로 내릴 계획입니다.",
+            "start": 734,
+            "end": 792
+          },
+          "difference_summary": "원문 부제는 상황에 따른 지하철 무정차 통과를 '검토'(추정·가능성 단계)로 썼지만 A5 리포트는 같은 조건부 조치를 '추가로 내릴 계획입니다'(계획 단계)로 써서 실행 확신의 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "지하철 무정차 검토",
+                "start": 56,
+                "end": 66
+              },
+              "related_marker": {
+                "sentence_index": 19,
+                "paragraph_index": 18,
+                "quote": "열차 무정차 통과 등의 조치를 추가로 내릴 계획입니다",
+                "start": 762,
+                "end": 791
+              },
+              "note": "원문 부제는 상황에 따른 지하철 무정차 통과를 '검토'(추정·가능성 단계)로 썼지만 A5 리포트는 같은 조건부 조치를 '추가로 내릴 계획입니다'(계획 단계)로 써서 실행 확신의 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "홍대 관광특구에만 10만 명이 넘는 인파가 몰리고 이태원에도 2만여 명이 모여 붐볐지만, 시민들은 대체로 질서를 지키는 모습이다.",
+            "start": 183,
+            "end": 255
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 31,
+            "paragraph_index": 17,
+            "quote": "경찰은 지난 23일부터 다음 달 1일까지를 핼러윈 특별대책기간으로 정하고 인파 안전관리에 나섰다.",
+            "start": 1891,
+            "end": 1945
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "장갑차에 경찰견까지 인파 관리에 총력전입니다.",
+            "start": 68,
+            "end": 93
+          },
+          "difference_summary": "같은 당국의 인파 관리 대응을 원문은 중립 서술어 '나섰다'로 썼지만 A5 앵커멘트는 '총력전입니다'라는 강한 행위 서술어로 써서 대응의 강도가 다르게 전달된다.",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 31,
+                "paragraph_index": 17,
+                "quote": "인파 안전관리에 나섰다",
+                "start": 1932,
+                "end": 1944
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "인파 관리에 총력전입니다",
+                "start": 79,
+                "end": 92
+              },
+              "note": "같은 당국의 인파 관리 대응을 원문은 중립 서술어 '나섰다'로 썼지만 A5 앵커멘트는 '총력전입니다'라는 강한 행위 서술어로 써서 대응의 강도가 다르게 전달된다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "D",
+      "source_quote": "대체로 질서를 지키는 모습이다",
+      "comparison_article": "A4",
+      "comparison_quote": "안전 안내에 적극적으로 협조하며",
+      "why": "'적극적으로'가 꾸미는 '안전 안내에 협조'는 원문 문장에 없는 내용이라 정도어 비교가 성립하지 않고, 대응 부분인 '큰 혼란 없이 질서 속에서'는 원문의 한정과 차이가 없어 same으로 바꿨다."
+    }
+  ]
+}

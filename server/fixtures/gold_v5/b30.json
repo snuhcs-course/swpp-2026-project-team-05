@@ -1,0 +1,187 @@
+{
+  "name": "b30",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "한미일 외교장관 “北 완전한 비핵화 위한 확고한 의지 재확인”",
+    "publisher": "동아일보",
+    "published_at": "2026-10-31 10:58:17",
+    "url": "https://n.news.naver.com/mnews/article/020/0003759107"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "한미일 외교장관 \"한반도 비핵화 노력 지속\"…北 긴장완화 촉구(종합)",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-31 09:58:27",
+      "url": "https://n.news.naver.com/mnews/article/001/0016413167?sid=104"
+    },
+    "A2": {
+      "title": "한미일 외교장관 회의… ‘北 비핵화’ 한목소리 냈다",
+      "publisher": "조선일보",
+      "published_at": "2026-10-31 10:13:11",
+      "url": "https://n.news.naver.com/mnews/article/023/0004007050?sid=100"
+    },
+    "A3": {
+      "title": "한미일 외교장관 “북한 완전한 비핵화”…조현-루비오 비자 문제 논의",
+      "publisher": "한겨레",
+      "published_at": "2026-10-31 10:48:14",
+      "url": "https://n.news.naver.com/mnews/article/028/0002830078?sid=100"
+    },
+    "A4": {
+      "title": "한미일 외교장관 애틀랜타 회동…北 대화 촉구·‘북극 협력 각서’ 첫 서명",
+      "publisher": "헤럴드경제",
+      "published_at": "2026-10-31 09:12:15",
+      "url": "https://n.news.naver.com/mnews/article/016/0002716938?sid=100"
+    },
+    "A5": {
+      "title": "한미일 외교장관 \"북한 완전한 비핵화\" 재확인…중국 견제도 논의",
+      "publisher": "JTBC",
+      "published_at": "2026-10-31 09:49:12",
+      "url": "https://n.news.naver.com/mnews/article/437/0000518468?sid=100"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 4,
+            "quote": "이와 함께 3국 장관들은 현상을 일방적으로 변경하려는 시도를 포함한 주요 역내 및 국제 정세에 대한 평가를 공유하고, 관련 소통과 공조를 강화하기로 했다.",
+            "start": 527,
+            "end": 613
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "외교부 보도자료는 중국에 대한 직접적 언급 없이 '현상을 일방적으로 변경하려는 시도'를 포함해 주요 역내·글로벌 정세에 대한 평가를 3국 장관이 공유하고 관련 소통과 공조를 강화하기로 했다고만 전했다.",
+            "start": 937,
+            "end": 1049
+          },
+          "difference_summary": "같은 외교부 발표 내용(현상 변경 시도를 포함한 정세 평가 공유와 소통·공조 강화)을 원문은 기자가 그대로 사실로 서술했지만, A1은 '중국에 대한 직접적 언급 없이 …했다고만 전했다'로 범위를 한정해 한국 측 발표가 소극적이라는 기자의 평가를 덧붙였다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 4,
+                "quote": "관련 소통과 공조를 강화하기로 했다",
+                "start": 593,
+                "end": 612
+              },
+              "related_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 12,
+                "quote": "강화하기로 했다고만 전했다",
+                "start": 1034,
+                "end": 1048
+              },
+              "note": "같은 외교부 발표 내용(현상 변경 시도를 포함한 정세 평가 공유와 소통·공조 강화)을 원문은 기자가 그대로 사실로 서술했지만, A1은 '중국에 대한 직접적 언급 없이 …했다고만 전했다'로 범위를 한정해 한국 측 발표가 소극적이라는 기자의 평가를 덧붙였다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 4,
+            "quote": "이와 함께 3국 장관들은 현상을 일방적으로 변경하려는 시도를 포함한 주요 역내 및 국제 정세에 대한 평가를 공유하고, 관련 소통과 공조를 강화하기로 했다.",
+            "start": 527,
+            "end": 613
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "3국 장관들은 “무력 또는 강압에 의한 일방적 현상 변경 시도”를 포함한 세계 정세에 대해서도 의견을 교환하고, 대만 해협의 평화와 안정을 유지해야 하며, “경제적 강압과 공급망의 무기화”에 반대한다는 입장을 재확인했다.",
+            "start": 670,
+            "end": 793
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 4,
+            "quote": "이와 함께 3국 장관들은 현상을 일방적으로 변경하려는 시도를 포함한 주요 역내 및 국제 정세에 대한 평가를 공유하고, 관련 소통과 공조를 강화하기로 했다.",
+            "start": 527,
+            "end": 613
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 6,
+            "quote": "관련해 외교부는 “(세 장관이) 현상을 일방적으로 변경하려는 시도를 포함해 주요 역내 및 글로벌 정세에 대한 평가를 공유했다”고 밝혔다.",
+            "start": 916,
+            "end": 992
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 4,
+            "quote": "이와 함께 3국 장관들은 현상을 일방적으로 변경하려는 시도를 포함한 주요 역내 및 국제 정세에 대한 평가를 공유하고, 관련 소통과 공조를 강화하기로 했다.",
+            "start": 527,
+            "end": 613
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 6,
+            "quote": "세 장관은 “현상을 일방적으로 변경하려는 시도를 포함하여 주요 역내 및 글로벌 정세에 대한 평가를 공유”하며 공조를 강화하기로 했다.",
+            "start": 940,
+            "end": 1014
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 4,
+            "quote": "이와 함께 3국 장관들은 현상을 일방적으로 변경하려는 시도를 포함한 주요 역내 및 국제 정세에 대한 평가를 공유하고, 관련 소통과 공조를 강화하기로 했다.",
+            "start": 527,
+            "end": 613
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

@@ -1,0 +1,187 @@
+{
+  "name": "b11",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "'우주산업 거점' 고흥 우주발사체 국가산단 조성 속도",
+    "publisher": "뉴시스",
+    "published_at": "2026-10-27 16:30:00",
+    "url": "https://n.news.naver.com/mnews/article/003/0014282136"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "고흥 우주발사체 국가산단 조성 속도…내년 보상 착수",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 16:30:00",
+      "url": "https://n.news.naver.com/mnews/article/001/0016403882?sid=101"
+    },
+    "A2": {
+      "title": "고흥 우주발사체 국가산단 중앙심의…내년 보상, 2032년 준공",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 16:30:00",
+      "url": "https://n.news.naver.com/mnews/article/421/0009253343?sid=101"
+    },
+    "A3": {
+      "title": "고흥 우주발사체 국가산단 계획 심의…2027년 보상 착수",
+      "publisher": "파이낸셜뉴스",
+      "published_at": "2026-10-27 16:30:18",
+      "url": "https://n.news.naver.com/mnews/article/014/0005595243?sid=101"
+    },
+    "A4": {
+      "title": "고흥 우주발사체 국가산단 조성 속도…내년 보상 착수",
+      "publisher": "SBS Biz",
+      "published_at": "2026-10-27 16:30:16",
+      "url": "https://n.news.naver.com/mnews/article/374/0000540068?sid=101"
+    },
+    "A5": {
+      "title": "고흥에 152만㎡ 우주발사체 국가산단…내년부터 보상 돌입",
+      "publisher": "노컷뉴스",
+      "published_at": "2026-10-27 16:31:08",
+      "url": "https://n.news.naver.com/mnews/article/079/0004203506?sid=101"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 9,
+            "quote": "박지홍 국토부 국토도시실장은 \"고흥 우주발사체 산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"인근 산업·연구기관과 연계해 성공적으로 조성될 수 있도록 하겠다\"고 말했다．",
+            "start": 732,
+            "end": 905
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 9,
+            "quote": "박지홍 국토부 국토도시실장은 \"고흥 우주발사체 산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"인근 산업·연구기관과 연계해 성공적으로 조성될 수 있도록 하겠다\"고 말했다．",
+            "start": 732,
+            "end": 905
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 20,
+            "paragraph_index": 10,
+            "quote": "박지홍 국토도시실장은 \"고흥 우주발사체 국가산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"고 말했다.",
+            "start": 970,
+            "end": 1102
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 9,
+            "quote": "박지홍 국토부 국토도시실장은 \"고흥 우주발사체 산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"인근 산업·연구기관과 연계해 성공적으로 조성될 수 있도록 하겠다\"고 말했다．",
+            "start": 732,
+            "end": 905
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 5,
+            "quote": "박지홍 국토부 국토도시실장은 \"고흥 우주발사체 국가산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조ㆍ연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고, 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"나로우주센터, 민간발사장, 국방우주시험센터 등 인근의 산업·연구기관과 긴밀히 연계되어 고흥 우주발사체 국가산단이 성공적으로 조성될 수 있도록 하겠다\"고 밝혔다.",
+            "start": 823,
+            "end": 1046
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 9,
+            "quote": "박지홍 국토부 국토도시실장은 \"고흥 우주발사체 산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"인근 산업·연구기관과 연계해 성공적으로 조성될 수 있도록 하겠다\"고 말했다．",
+            "start": 732,
+            "end": 905
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "박지홍 국토교통부 국토도시실장은 \"국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성의 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"나로우주센터와 민간발사장, 국방우주시험센터 등 인근 산업·연구기관과 긴밀히 연계해 국가산단을 성공적으로 조성하겠다\"고 말했습니다.",
+            "start": 812,
+            "end": 1001
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 9,
+            "quote": "박지홍 국토부 국토도시실장은 \"고흥 우주발사체 산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"며 \"인근 산업·연구기관과 연계해 성공적으로 조성될 수 있도록 하겠다\"고 말했다．",
+            "start": 732,
+            "end": 905
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 8,
+            "quote": "국토부 박지홍 국토도시실장은 \"고흥 우주발사체 국가산단 지정은 국내 유일의 발사장을 보유한 고흥에 우주발사체 제조·연구 거점을 함께 구축해 우주항공산업 육성에 시너지를 창출하고, 첨단산업 기반의 미래 성장동력을 확보한다는 의미가 있다\"고 강조했다.",
+            "start": 866,
+            "end": 1004
+          },
+          "difference_summary": "박지홍 실장의 같은 인용('고흥 우주발사체 산단 지정은 … 의미가 있다')을 원문은 중립 동사 '말했다'로 받지만 A5는 기능·태도 동사 '강조했다'로 받아 보도 동사의 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 9,
+                "quote": "말했다",
+                "start": 901,
+                "end": 904
+              },
+              "related_marker": {
+                "sentence_index": 16,
+                "paragraph_index": 8,
+                "quote": "강조했다",
+                "start": 999,
+                "end": 1003
+              },
+              "note": "박지홍 실장의 같은 인용('고흥 우주발사체 산단 지정은 … 의미가 있다')을 원문은 중립 동사 '말했다'로 받지만 A5는 기능·태도 동사 '강조했다'로 받아 보도 동사의 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

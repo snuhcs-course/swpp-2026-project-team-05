@@ -1,0 +1,623 @@
+{
+  "name": "b35",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "바이낸스 8.4조 해킹에 美 수사당국 공조…탈취자금 동결·추적",
+    "publisher": "아시아경제",
+    "published_at": "2026-10-31 11:58:39",
+    "url": "https://n.news.naver.com/mnews/article/277/0005836131"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "美 FBI·비밀경호국, '8.4조원 해킹' 바이낸스 공조수사 착수(종합)",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-31 06:00:07",
+      "url": "https://n.news.naver.com/mnews/article/001/0016413027?sid=104"
+    },
+    "A2": {
+      "title": "미 당국, ‘8.4조 원’ 바이낸스 해킹 조사 시작… 트럼프 “北 연루 아직 몰라”",
+      "publisher": "한국일보",
+      "published_at": "2026-10-31 13:25:09",
+      "url": "https://n.news.naver.com/mnews/article/469/0000962813?sid=104"
+    },
+    "A3": {
+      "title": "단 20분 만에 8조4천억 털렸다 '발칵'…美 수사당국 공조 시작",
+      "publisher": "한국경제TV",
+      "published_at": "2026-10-31 08:41:39",
+      "url": "https://n.news.naver.com/mnews/article/215/0001271186?sid=101"
+    },
+    "A4": {
+      "title": "美 FBI·비밀경호국, ‘8조4000억원 해킹’ 바이낸스 공조수사 착수",
+      "publisher": "데일리안",
+      "published_at": "2026-10-31 07:28:16",
+      "url": "https://n.news.naver.com/mnews/article/119/0003149640?sid=104"
+    },
+    "A5": {
+      "title": "FBI·USSS, '北 배후 의심' 바이낸스 해킹 사건 조사 착수…트럼프는 '일단 신중'",
+      "publisher": "프레시안",
+      "published_at": "2026-10-31 19:57:13",
+      "url": "https://n.news.naver.com/mnews/article/002/0002463680?sid=104"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "CFTC “역외거래소 규제 허점”미국 연방수사국(FBI)과 비밀경호국(USSS)이 63억달러(약 8조4000억원) 규모의 가상화폐 거래소 바이낸스 해킹 사건에 대한 공조수사에 착수했다.",
+            "start": 32,
+            "end": 135
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(샌프란시스코=연합뉴스) 권영전 특파원 = 미국 연방수사국(FBI)과 비밀경호국(USSS)이 가상화폐 거래소 바이낸스에 대한 해킹 사건 조사에 나선 것으로 파악됐다.",
+            "start": 84,
+            "end": 176
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 6,
+            "quote": "미 수사기관의 조사 착수는 블록체인 분석업체들이 이번 해킹 배후로 북한 연계 조직을 지목한 가운데 이뤄졌다.",
+            "start": 445,
+            "end": 505
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "미 연방 수사기관의 이번 조사 착수는 주요 분석업체들이 이번 해킹의 배후로 북한 연계 조직을 지목한 상황에서 이뤄져 주목된다.",
+            "start": 478,
+            "end": 548
+          },
+          "difference_summary": "분석업체들이 북한 연계 조직을 지목한 가운데 수사가 시작됐다는 같은 기자 서술에 A1만 평가어 '주목된다'를 덧붙여 사안의 의미를 부각했다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 6,
+                "quote": "가운데 이뤄졌다",
+                "start": 496,
+                "end": 504
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 6,
+                "quote": "이뤄져 주목된다",
+                "start": 539,
+                "end": 547
+              },
+              "note": "분석업체들이 북한 연계 조직을 지목한 가운데 수사가 시작됐다는 같은 기자 서술에 A1만 평가어 '주목된다'를 덧붙여 사안의 의미를 부각했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "미 금융당국은 이번 사건을 계기로 규제를 받지 않는 역외 가상화폐 거래소의 보안 문제도 지적했다.",
+            "start": 664,
+            "end": 718
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 9,
+            "quote": "미 금융당국은 이번 사건과 관련해 규제 사각지대인 역외 거래소의 보안 취약성을 지적하면서 탈취한 자금을 추적할 능력을 갖췄음을 강조하고 나섰다.",
+            "start": 740,
+            "end": 820
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 9,
+            "quote": "마이클 셀리그 미국 상품선물거래위원회(CFTC) 위원장은 CNBC와의 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소라는 점\"이라며 미국 금융시장 수준의 보호장치를 갖추지 못했다고 지적했다.",
+            "start": 720,
+            "end": 832
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 10,
+            "quote": "마이클 셀리그 상품선물거래위원회(CFTC) 위원장은 미 경제매체 CNBC와의 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소(offshore exchanges)이며 미국 금융시장이 갖춘 수준의 보호장치를 갖추지 못했다는 점\"이라고 꼬집었다.",
+            "start": 822,
+            "end": 962
+          },
+          "difference_summary": "셀리그 위원장의 같은 '진짜 문제는 규제받지 않는 역외 거래소' 발언을 원문은 기능·태도 동사 '지적했다'로 받았고, A1은 서술적·환기 동사 '꼬집었다'로 받아 비판을 더 날카롭게 보이게 했다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 11,
+                "paragraph_index": 9,
+                "quote": "못했다고 지적했다",
+                "start": 822,
+                "end": 831
+              },
+              "related_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 10,
+                "quote": "이라고 꼬집었다",
+                "start": 953,
+                "end": 961
+              },
+              "note": "셀리그 위원장의 같은 '진짜 문제는 규제받지 않는 역외 거래소' 발언을 원문은 기능·태도 동사 '지적했다'로 받았고, A1은 서술적·환기 동사 '꼬집었다'로 받아 비판을 더 날카롭게 보이게 했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 11,
+            "quote": "셀리그 위원장은 가상화폐가 전통 자산보다 빠르게 이동하고 자금의 출처나 행방을 숨길 수 있다면서도 블록체인을 이용해 자금을 추적할 수 있는 능력을 갖추고 있다고 강조했다.",
+            "start": 916,
+            "end": 1011
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 9,
+            "quote": "미 금융당국은 이번 사건과 관련해 규제 사각지대인 역외 거래소의 보안 취약성을 지적하면서 탈취한 자금을 추적할 능력을 갖췄음을 강조하고 나섰다.",
+            "start": 740,
+            "end": 820
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "CFTC “역외거래소 규제 허점”미국 연방수사국(FBI)과 비밀경호국(USSS)이 63억달러(약 8조4000억원) 규모의 가상화폐 거래소 바이낸스 해킹 사건에 대한 공조수사에 착수했다.",
+            "start": 32,
+            "end": 135
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "미국 연방수사국(FBI)과 비밀경호국(USSS)이 세계 최대 규모 가상화폐 거래소 바이낸스에 대한 해킹 사건 조사에 돌입했다.",
+            "start": 81,
+            "end": 151
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 6,
+            "quote": "미 수사기관의 조사 착수는 블록체인 분석업체들이 이번 해킹 배후로 북한 연계 조직을 지목한 가운데 이뤄졌다.",
+            "start": 445,
+            "end": 505
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "미 금융당국은 이번 사건을 계기로 규제를 받지 않는 역외 가상화폐 거래소의 보안 문제도 지적했다.",
+            "start": 664,
+            "end": 718
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 9,
+            "quote": "마이클 셀리그 미국 상품선물거래위원회(CFTC) 위원장은 CNBC와의 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소라는 점\"이라며 미국 금융시장 수준의 보호장치를 갖추지 못했다고 지적했다.",
+            "start": 720,
+            "end": 832
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 11,
+            "quote": "셀리그 위원장은 가상화폐가 전통 자산보다 빠르게 이동하고 자금의 출처나 행방을 숨길 수 있다면서도 블록체인을 이용해 자금을 추적할 수 있는 능력을 갖추고 있다고 강조했다.",
+            "start": 916,
+            "end": 1011
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "CFTC “역외거래소 규제 허점”미국 연방수사국(FBI)과 비밀경호국(USSS)이 63억달러(약 8조4000억원) 규모의 가상화폐 거래소 바이낸스 해킹 사건에 대한 공조수사에 착수했다.",
+            "start": 32,
+            "end": 135
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "가상화폐 거래소 바이낸스에서 사상 최대인 63억 달러(약 8조4,000억원) 규모의 자산이 빠져나간 사건과 관련해 미국 수사당국이 조사에 착수했다.",
+            "start": 62,
+            "end": 144
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 6,
+            "quote": "미 수사기관의 조사 착수는 블록체인 분석업체들이 이번 해킹 배후로 북한 연계 조직을 지목한 가운데 이뤄졌다.",
+            "start": 445,
+            "end": 505
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "미 금융당국은 이번 사건을 계기로 규제를 받지 않는 역외 가상화폐 거래소의 보안 문제도 지적했다.",
+            "start": 664,
+            "end": 718
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 10,
+            "quote": "미 금융당국은 이번 사건을 계기로 규제 사각지대에 있는 역외 거래소의 보안 취약성을 짚으면서, 탈취 자금을 추적할 능력도 갖췄다고 강조했다.",
+            "start": 1100,
+            "end": 1178
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 9,
+            "quote": "마이클 셀리그 미국 상품선물거래위원회(CFTC) 위원장은 CNBC와의 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소라는 점\"이라며 미국 금융시장 수준의 보호장치를 갖추지 못했다고 지적했다.",
+            "start": 720,
+            "end": 832
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 19,
+            "paragraph_index": 11,
+            "quote": "마이클 셀리그 상품선물거래위원회(CFTC) 위원장은 미 경제매체 CNBC 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소이며 미국 금융시장이 갖춘 수준의 보호장치를 갖추지 못했다는 점\"이라고 지적했다.",
+            "start": 1180,
+            "end": 1298
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 11,
+            "quote": "셀리그 위원장은 가상화폐가 전통 자산보다 빠르게 이동하고 자금의 출처나 행방을 숨길 수 있다면서도 블록체인을 이용해 자금을 추적할 수 있는 능력을 갖추고 있다고 강조했다.",
+            "start": 916,
+            "end": 1011
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 25,
+            "paragraph_index": 13,
+            "quote": "그는 \"가상화폐는 자금이 (전통적인 자산보다) 훨씬 빠르게 이동할 수 있고 자금의 출처나 행방을 숨길 수 있다\"면서도 \"우리는 블록체인을 통해 이 모든 것을 추적할 수 있는 능력을 갖추고 있다\"고 강조했다.",
+            "start": 1602,
+            "end": 1717
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "CFTC “역외거래소 규제 허점”미국 연방수사국(FBI)과 비밀경호국(USSS)이 63억달러(약 8조4000억원) 규모의 가상화폐 거래소 바이낸스 해킹 사건에 대한 공조수사에 착수했다.",
+            "start": 32,
+            "end": 135
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "[데일리안 = 김규환 기자] 세계 최대 가상화폐 거래소 바이낸스에서 사상 최대인 63억 달러(약 8조 4000억원) 규모의 해킹 사건이 발생하자 미국 연방수사국(FBI)과 비밀경호국(USSS)이 본격적인 수사에 나섰다.",
+            "start": 84,
+            "end": 206
+          },
+          "difference_summary": "FBI·USSS가 수사에 착수했다는 같은 사실에 A4만 정도어 '본격적인'을 붙여 수사의 강도와 규모를 부각했다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "공조수사에 착수했다",
+                "start": 124,
+                "end": 134
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "본격적인 수사에 나섰다",
+                "start": 193,
+                "end": 205
+              },
+              "note": "FBI·USSS가 수사에 착수했다는 같은 사실에 A4만 정도어 '본격적인'을 붙여 수사의 강도와 규모를 부각했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 6,
+            "quote": "미 수사기관의 조사 착수는 블록체인 분석업체들이 이번 해킹 배후로 북한 연계 조직을 지목한 가운데 이뤄졌다.",
+            "start": 445,
+            "end": 505
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 6,
+            "quote": "미 수사당국의 공조 움직임은 북한 연계 해킹조직이 배후로 지목된 가운데 이뤄졌다.",
+            "start": 596,
+            "end": 641
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "미 금융당국은 이번 사건을 계기로 규제를 받지 않는 역외 가상화폐 거래소의 보안 문제도 지적했다.",
+            "start": 664,
+            "end": 718
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 8,
+            "quote": "미 금융당국은 이번 사건을 계기로 해외 가상화폐 거래소의 허술한 보안체계를 문제 삼았다.",
+            "start": 936,
+            "end": 985
+          },
+          "difference_summary": "미 금융당국이 지적한 역외 거래소의 보안을 원문은 중립적인 '보안 문제'라고 썼으나, A4는 기자의 서술에 평가어 '허술한'을 붙여 더 비판적으로 그렸다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 8,
+                "quote": "거래소의 보안 문제",
+                "start": 701,
+                "end": 711
+              },
+              "related_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 8,
+                "quote": "허술한 보안체계를 문제 삼았다",
+                "start": 968,
+                "end": 984
+              },
+              "note": "미 금융당국이 지적한 역외 거래소의 보안을 원문은 중립적인 '보안 문제'라고 썼으나, A4는 기자의 서술에 평가어 '허술한'을 붙여 더 비판적으로 그렸다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 9,
+            "quote": "마이클 셀리그 미국 상품선물거래위원회(CFTC) 위원장은 CNBC와의 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소라는 점\"이라며 미국 금융시장 수준의 보호장치를 갖추지 못했다고 지적했다.",
+            "start": 720,
+            "end": 832
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 8,
+            "quote": "마이클 셀리그 미 상품선물거래위원회(CFTC) 위원장은 미 경제전문매체 CNBC방송과의 인터뷰에서 “진짜 문제는 규제받지 않는 역외 거래소들이 미국 금융시장 수준의 보호장치를 갖추지 못했다는 점”이라고 비판했다.",
+            "start": 986,
+            "end": 1104
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 11,
+            "quote": "셀리그 위원장은 가상화폐가 전통 자산보다 빠르게 이동하고 자금의 출처나 행방을 숨길 수 있다면서도 블록체인을 이용해 자금을 추적할 수 있는 능력을 갖추고 있다고 강조했다.",
+            "start": 916,
+            "end": 1011
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 17,
+            "paragraph_index": 9,
+            "quote": "탈취 자금에 대해서도 블록체인 거래 기록을 활용하면 추적할 수 있다고 설명했다.",
+            "start": 1166,
+            "end": 1210
+          },
+          "difference_summary": "블록체인으로 자금을 추적할 능력이 있다는 셀리그 위원장의 같은 발언을 원문은 기능·태도 동사 '강조했다'로 받았으나, A4는 중립 동사 '설명했다'로 받아 발언의 무게가 다르다. A1은 같은 내용을 A1#9에서 이미 '강조'로 받았으므로 차이로 보지 않는다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 11,
+                "quote": "있다고 강조했다",
+                "start": 1002,
+                "end": 1010
+              },
+              "related_marker": {
+                "sentence_index": 17,
+                "paragraph_index": 9,
+                "quote": "추적할 수 있다고 설명했다",
+                "start": 1195,
+                "end": 1209
+              },
+              "note": "블록체인으로 자금을 추적할 능력이 있다는 셀리그 위원장의 같은 발언을 원문은 기능·태도 동사 '강조했다'로 받았으나, A4는 중립 동사 '설명했다'로 받아 발언의 무게가 다르다. A1은 같은 내용을 A1#9에서 이미 '강조'로 받았으므로 차이로 보지 않는다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "CFTC “역외거래소 규제 허점”미국 연방수사국(FBI)과 비밀경호국(USSS)이 63억달러(약 8조4000억원) 규모의 가상화폐 거래소 바이낸스 해킹 사건에 대한 공조수사에 착수했다.",
+            "start": 32,
+            "end": 135
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "미국 연방수사국(FBI)과 비밀경호국(USSS)이 세계 최대 가상화폐 거래소 바이낸스 해킹 사건 조사에 착수했다.",
+            "start": 0,
+            "end": 63
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 6,
+            "quote": "미 수사기관의 조사 착수는 블록체인 분석업체들이 이번 해킹 배후로 북한 연계 조직을 지목한 가운데 이뤄졌다.",
+            "start": 445,
+            "end": 505
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "미 금융당국은 이번 사건을 계기로 규제를 받지 않는 역외 가상화폐 거래소의 보안 문제도 지적했다.",
+            "start": 664,
+            "end": 718
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 9,
+            "quote": "마이클 셀리그 미국 상품선물거래위원회(CFTC) 위원장은 CNBC와의 인터뷰에서 \"진짜 문제는 이들이 규제받지 않는 역외 거래소라는 점\"이라며 미국 금융시장 수준의 보호장치를 갖추지 못했다고 지적했다.",
+            "start": 720,
+            "end": 832
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 11,
+            "quote": "셀리그 위원장은 가상화폐가 전통 자산보다 빠르게 이동하고 자금의 출처나 행방을 숨길 수 있다면서도 블록체인을 이용해 자금을 추적할 수 있는 능력을 갖추고 있다고 강조했다.",
+            "start": 916,
+            "end": 1011
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}
