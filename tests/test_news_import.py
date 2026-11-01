@@ -3,8 +3,16 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
 
-from server.models import Article, Publisher, StoryCluster
-from server.news_import import DatasetError, hydrate_articles, import_dataset, locate_unique
+from django.contrib.auth.hashers import make_password
+
+from server.models import Article, Publisher, StoryCluster, UserAccount
+from server.news_import import (
+    DatasetError,
+    hydrate_articles,
+    import_dataset,
+    locate_unique,
+    replace_news_dataset,
+)
 
 
 class NewsDatasetGroundingTests(SimpleTestCase):
@@ -93,3 +101,36 @@ class NewsDatasetImportTests(TestCase):
         article = hydrated["clusters"][0]["articles"][0]
         self.assertEqual(article["title"], "테스트 기사")
         self.assertEqual(article["body_text"], "검토된 기사 본문입니다.")
+
+    def test_replace_is_atomic_and_preserves_accounts(self):
+        user = UserAccount.objects.create(
+            username="kept-user",
+            password_hash=make_password("safe-password-123"),
+        )
+        import_dataset(self.dataset, dataset_hash="a" * 64)
+        old_url = self.dataset["clusters"][0]["articles"][0]["canonical_url"]
+
+        replacement = deepcopy(self.dataset)
+        replacement["clusters"][0]["key"] = "replacement-cluster"
+        replacement_article = replacement["clusters"][0]["articles"][0]
+        replacement_article["canonical_url"] = "https://news.example.com/replacement"
+        replacement_article["title"] = "교체 기사"
+        replacement_article["body_text"] = "교체된 검토 본문입니다."
+        replace_news_dataset(replacement, dataset_hash="b" * 64)
+
+        self.assertTrue(UserAccount.objects.filter(id=user.id).exists())
+        self.assertFalse(Article.objects.filter(canonical_url=old_url).exists())
+        self.assertTrue(
+            Article.objects.filter(canonical_url=replacement_article["canonical_url"]).exists()
+        )
+
+    def test_failed_replace_rolls_back_old_news(self):
+        import_dataset(self.dataset, dataset_hash="a" * 64)
+        invalid = deepcopy(self.dataset)
+        invalid["clusters"][0]["articles"][0]["body_text"] = ""
+
+        with self.assertRaises(DatasetError):
+            replace_news_dataset(invalid, dataset_hash="b" * 64)
+
+        self.assertEqual(Article.objects.count(), 1)
+        self.assertEqual(Article.objects.get().title, "테스트 기사")

@@ -1,0 +1,912 @@
+{
+  "name": "b00",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "李대통령 \"국무회의 참석, 정치중립과 관계없어…중수청장 꼭 안와도 돼\"(종합)",
+    "publisher": "뉴스1",
+    "published_at": "2026-10-27 11:02:40",
+    "url": "https://n.news.naver.com/mnews/article/421/0009252084"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "李대통령, 중수청장 국무회의 참석에 \"비정상의 정상화\"",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 11:17:20",
+      "url": "https://n.news.naver.com/mnews/article/001/0016402644?sid=100"
+    },
+    "A2": {
+      "title": "중수청장 또 국무회의 참석... 李 “한 달에 한 번쯤은 오라”",
+      "publisher": "조선일보",
+      "published_at": "2026-10-27 10:38:16",
+      "url": "https://n.news.naver.com/mnews/article/023/0004006151?sid=100"
+    },
+    "A3": {
+      "title": "한 발 물러선 이 대통령…“중수청장, 한 달에 한 번쯤 오시라”",
+      "publisher": "한겨레",
+      "published_at": "2026-10-27 10:44:22",
+      "url": "https://n.news.naver.com/mnews/article/028/0002829332?sid=100"
+    },
+    "A4": {
+      "title": "李대통령 \"중수청장 국무회의 참석, 정치적 중립과 무슨 상관…자율적으로 하라\"",
+      "publisher": "머니투데이",
+      "published_at": "2026-10-27 13:41:42",
+      "url": "https://n.news.naver.com/mnews/article/008/0005432242?sid=100"
+    },
+    "A5": {
+      "title": "이 대통령, 중수청장 국무회의 참석에 \"비정상의 정상화 일환\"",
+      "publisher": "SBS",
+      "published_at": "2026-10-27 10:42:02",
+      "url": "https://n.news.naver.com/mnews/article/055/0001398415?sid=100"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 한재준 김근욱 임윤지 기자 = 이재명 대통령은 27일 김지용 중대범죄수사청장 등 수사기관장의 국무회의 참석에 대한 비판과 관련해 \"공개회의에 법적인 의무로서 참석하는 것은 정치적 중립과 어떠한 연관 관계도 없다\"고 말했다.",
+            "start": 73,
+            "end": 206
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 \"과거 (수사기관장이) 국무회의에 참석하지 않을 때에는 사정기관의 중립성이 잘 유지됐나. 그렇지 않다\"며 \"법적 의무로서 공개회의에 참석하는 일과 정치적 중립 사이에는 어떤 연관도 없다\"고 거듭 강조했다.",
+            "start": 513,
+            "end": 634
+          },
+          "difference_summary": "'공개회의에 법적 의무로 참석하는 것은 정치적 중립과 무관하다'는 같은 발언을 원문은 중립 동사 '말했다'로 받았으나 A1·A5는 기능·태도 동사 '강조했다'로 받아 발언의 무게를 달리 전한다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "고 말했다",
+                "start": 200,
+                "end": 205
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 6,
+                "quote": "거듭 강조했다",
+                "start": 626,
+                "end": 633
+              },
+              "note": "'공개회의에 법적 의무로 참석하는 것은 정치적 중립과 무관하다'는 같은 발언을 원문은 중립 동사 '말했다'로 받았으나 A1·A5는 기능·태도 동사 '강조했다'로 받아 발언의 무게를 달리 전한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이날 오전 청와대에서 제46회 국무회의를 주재한 자리에서 \"공개회의에 참석하냐, 안 하냐가 정치적 중립성과 무슨 상관이 있느냐\"며 이같이 밝혔다.",
+            "start": 208,
+            "end": 296
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"정치적 중립이 훼손되지 않을까 하는 우려가 나오던데, 이런 공개회의에 참석하는 게 정치적 중립과 무슨 상관이 있나\"라며 \"이런 자리에서 국무위원이 사적인 부탁을 하거나 부정한 지시를 하겠나. 오히려 법에 어긋난 행위를 가능성이 적은 것\"이라고 반박했다.",
+            "start": 366,
+            "end": 511
+          },
+          "difference_summary": "'참석하냐 안 하냐가 정치적 중립과 무슨 상관이 있느냐'는 같은 반문을 원문은 중립 동사 '밝혔다'로 받았으나 A1·A5는 '반박했다'로 받아 비판에 맞서는 발언으로 규정한다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "이같이 밝혔다",
+                "start": 288,
+                "end": 295
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "반박했다",
+                "start": 506,
+                "end": 510
+              },
+              "note": "'참석하냐 안 하냐가 정치적 중립과 무슨 상관이 있느냐'는 같은 반문을 원문은 중립 동사 '밝혔다'로 받았으나 A1·A5는 '반박했다'로 받아 비판에 맞서는 발언으로 규정한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 수사기관장의 국무회의 참석이 중립성을 훼손한다는 지적에 대해 \"이런 자리에서 국무위원들이 사정기관장에게 사적인 부탁을 하겠느냐. 아니면 부정한 지시를 하겠느냐\"라며 \"법에 어긋나는 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 298,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"정치적 중립이 훼손되지 않을까 하는 우려가 나오던데, 이런 공개회의에 참석하는 게 정치적 중립과 무슨 상관이 있나\"라며 \"이런 자리에서 국무위원이 사적인 부탁을 하거나 부정한 지시를 하겠나. 오히려 법에 어긋난 행위를 가능성이 적은 것\"이라고 반박했다.",
+            "start": 366,
+            "end": 511
+          },
+          "difference_summary": "'사적 부탁이나 부정한 지시를 하겠느냐, 위법 가능성이 오히려 적다'는 같은 발언을 원문은 중립 동사 '말했다'로 받았으나 A1은 '반박했다'로 받아 반론의 성격을 덧붙인다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "고 말했다",
+                "start": 424,
+                "end": 429
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "반박했다",
+                "start": 506,
+                "end": 510
+              },
+              "note": "'사적 부탁이나 부정한 지시를 하겠느냐, 위법 가능성이 오히려 적다'는 같은 발언을 원문은 중립 동사 '말했다'로 받았으나 A1은 '반박했다'로 받아 반론의 성격을 덧붙인다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"(수사기관장이) 국무회의에 참석 안 할 때는 사정기관의 중립성이 잘 유지됐느냐. 그렇지 않다\"라며 \"오히려 이런 공간에서 국정 기조, 방향, 가치, 지향에 대해 서로 공유하고, 각자 본인이 맡고 있는 국정에 반영해야 한다\"고 강조했다.",
+            "start": 432,
+            "end": 567
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 \"과거 (수사기관장이) 국무회의에 참석하지 않을 때에는 사정기관의 중립성이 잘 유지됐나. 그렇지 않다\"며 \"법적 의무로서 공개회의에 참석하는 일과 정치적 중립 사이에는 어떤 연관도 없다\"고 거듭 강조했다.",
+            "start": 513,
+            "end": 634
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 특히 \"이것도 비정상의 정상화 일환이다. 워낙 비정상에 오랫동안 노출되다 보면 비정상이 정상인 것처럼 오인되고, 오히려 정상이 비정상으로 이해되는 경우도 많다\"며 \"그런 잘못된 관행이나 일종의 열외를 시정하는 것이 개혁이고 발전\"이라고 했다.",
+            "start": 569,
+            "end": 711
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 \"비정상에 오래 노출되다 보면 비정상이 정상인 것처럼 오인되고, 오히려 정상이 비정상으로 여겨지는 경우도 많다\"며 \"이런 잘못된 관행이나 열외 등을 시정하는 게 개혁이고 발전\"이라고 언급했다.",
+            "start": 250,
+            "end": 364
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "이어 김지용 중수청장에게 \"중수청은 새로 개청해서 인력도 없고, 시설도 불완전하고 그런데 꼭 필요하지 않으면 안 오셔도 된다\"면서 \"그런데 한 달에 한 번쯤은 오라\"고 농담을 건넸다.",
+            "start": 850,
+            "end": 952
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "대신 이 대통령은 \"다른 일이 있는데도 억지로 참석할 필요는 없다. 국무위원들은 의결을 위해 의무적으로 와야 하지만 그 외에 위원회나 처·청은 바쁘면 안 오셔도 된다\"며 \"특히 중수청은 새로 개청해 인력도 부족한데 꼭 필요한 일 아니면 안 오셔도 된다. 그래도 한 달에 한 번쯤은 오시라\"며 웃기도 했다.",
+            "start": 719,
+            "end": 889
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 한재준 김근욱 임윤지 기자 = 이재명 대통령은 27일 김지용 중대범죄수사청장 등 수사기관장의 국무회의 참석에 대한 비판과 관련해 \"공개회의에 법적인 의무로서 참석하는 것은 정치적 중립과 어떠한 연관 관계도 없다\"고 말했다.",
+            "start": 73,
+            "end": 206
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 이날 청와대에서 국무회의를 주재해 “이런 공개 회의에 법적인 의무로서 참석하는 것이 정치적 중립과 어떠한 연관관계도 없다”며 이같이 밝혔다.",
+            "start": 191,
+            "end": 276
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이날 오전 청와대에서 제46회 국무회의를 주재한 자리에서 \"공개회의에 참석하냐, 안 하냐가 정치적 중립성과 무슨 상관이 있느냐\"며 이같이 밝혔다.",
+            "start": 208,
+            "end": 296
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 수사기관장의 국무회의 참석이 중립성을 훼손한다는 지적에 대해 \"이런 자리에서 국무위원들이 사정기관장에게 사적인 부탁을 하겠느냐. 아니면 부정한 지시를 하겠느냐\"라며 \"법에 어긋나는 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 298,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "이 대통령은 “이런 자리에서 우리 국무위원들이 사정기관장들한테 사적인 부탁을 하겠나, 아니면 부정한 지시를 하겠나”라며 “법에 어긋난 행위를 할 가능성이 오히려 적다”고 했다.",
+            "start": 360,
+            "end": 458
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"(수사기관장이) 국무회의에 참석 안 할 때는 사정기관의 중립성이 잘 유지됐느냐. 그렇지 않다\"라며 \"오히려 이런 공간에서 국정 기조, 방향, 가치, 지향에 대해 서로 공유하고, 각자 본인이 맡고 있는 국정에 반영해야 한다\"고 강조했다.",
+            "start": 432,
+            "end": 567
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 특히 \"이것도 비정상의 정상화 일환이다. 워낙 비정상에 오랫동안 노출되다 보면 비정상이 정상인 것처럼 오인되고, 오히려 정상이 비정상으로 이해되는 경우도 많다\"며 \"그런 잘못된 관행이나 일종의 열외를 시정하는 것이 개혁이고 발전\"이라고 했다.",
+            "start": 569,
+            "end": 711
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이재명 대통령은 27일 중대범죄수사청(중수청)장의 국무회의 참석에 대해 “이것도 비정상의 정상화의 일환”이라며 “잘못된 관행이나 일종의 열외 이런 것들을 시정하는 게 개혁이고 발전”이라고 했다.",
+            "start": 81,
+            "end": 189
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "이어 김지용 중수청장에게 \"중수청은 새로 개청해서 인력도 없고, 시설도 불완전하고 그런데 꼭 필요하지 않으면 안 오셔도 된다\"면서 \"그런데 한 달에 한 번쯤은 오라\"고 농담을 건넸다.",
+            "start": 850,
+            "end": 952
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 “제가 출석하라니까 막 무조건 의무적으로 오고 그럴 필요는 없고, 바쁘면 안 오셔도 된다”며 “특히 중수청은 요새 새로 개청해 인력도 없고 시설도 불완전한데 꼭 필요하지 않으면 안 오셔도 된다. 그런데 한 달에 한 번 쯤은 오시라”고 했다.",
+            "start": 582,
+            "end": 723
+          },
+          "difference_summary": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 8,
+                "quote": "농담을 건넸다",
+                "start": 944,
+                "end": 951
+              },
+              "related_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 6,
+                "quote": "고 했다",
+                "start": 718,
+                "end": 722
+              },
+              "note": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 한재준 김근욱 임윤지 기자 = 이재명 대통령은 27일 김지용 중대범죄수사청장 등 수사기관장의 국무회의 참석에 대한 비판과 관련해 \"공개회의에 법적인 의무로서 참석하는 것은 정치적 중립과 어떠한 연관 관계도 없다\"고 말했다.",
+            "start": 73,
+            "end": 206
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이를 의식한 듯 “공개회의에 법적인 의무로 참석하는 것은 정치적 중립과 어떤 연관도 없다”며 “오히려 이런 공간에서 국정의 기조, 방향, 가치, 지향 이런 것을 서로 공유하고 그것을 각자의 국가 업무, 본인들이 맡고 있는 국정에 반영해야 한다”고 말했다.",
+            "start": 560,
+            "end": 709
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이날 오전 청와대에서 제46회 국무회의를 주재한 자리에서 \"공개회의에 참석하냐, 안 하냐가 정치적 중립성과 무슨 상관이 있느냐\"며 이같이 밝혔다.",
+            "start": 208,
+            "end": 296
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "이 대통령은 이어 “(국무회의 참석이) 사정기관의 정치적 중립이 훼손되지 않을까 우려해서 하는 지적일 텐데 이런 공개회의에 참석하냐, 안 하냐가 정치적 중립이랑 무슨 상관이 있냐”며 “이런 자리에서 우리 국무위원들이 사정기관장들에게 사적인 부탁을 하겠냐. 부정한 지시를 하겠냐”고 말했다.",
+            "start": 328,
+            "end": 489
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 수사기관장의 국무회의 참석이 중립성을 훼손한다는 지적에 대해 \"이런 자리에서 국무위원들이 사정기관장에게 사적인 부탁을 하겠느냐. 아니면 부정한 지시를 하겠느냐\"라며 \"법에 어긋나는 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 298,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "이 대통령은 이어 “(국무회의 참석이) 사정기관의 정치적 중립이 훼손되지 않을까 우려해서 하는 지적일 텐데 이런 공개회의에 참석하냐, 안 하냐가 정치적 중립이랑 무슨 상관이 있냐”며 “이런 자리에서 우리 국무위원들이 사정기관장들에게 사적인 부탁을 하겠냐. 부정한 지시를 하겠냐”고 말했다.",
+            "start": 328,
+            "end": 489
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"(수사기관장이) 국무회의에 참석 안 할 때는 사정기관의 중립성이 잘 유지됐느냐. 그렇지 않다\"라며 \"오히려 이런 공간에서 국정 기조, 방향, 가치, 지향에 대해 서로 공유하고, 각자 본인이 맡고 있는 국정에 반영해야 한다\"고 강조했다.",
+            "start": 432,
+            "end": 567
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "이 대통령은 국무회의가 국정 기조와 방향 등을 공유하기 위한 자리임을 강조하며, 김 청장을 향해 “꼭 필요하지 않으면 안 오셔도 된다. 그런데 한 달에 한 번쯤은 오세요”라고 했다.",
+            "start": 61,
+            "end": 162
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 특히 \"이것도 비정상의 정상화 일환이다. 워낙 비정상에 오랫동안 노출되다 보면 비정상이 정상인 것처럼 오인되고, 오히려 정상이 비정상으로 이해되는 경우도 많다\"며 \"그런 잘못된 관행이나 일종의 열외를 시정하는 것이 개혁이고 발전\"이라고 했다.",
+            "start": 569,
+            "end": 711
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이어 “워낙 비정상에 오랫동안 노출되다 보면 비정상이 정상인 것처럼 오인되고 오히려 정상이 비정상으로 이해되는 경우도 많다”며 “그런 잘못된 관행이나 일종의 ‘열외’ 이런 것을 시정하는 게 개혁이고 발전”이라고 덧붙였다.",
+            "start": 710,
+            "end": 840
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "이어 김지용 중수청장에게 \"중수청은 새로 개청해서 인력도 없고, 시설도 불완전하고 그런데 꼭 필요하지 않으면 안 오셔도 된다\"면서 \"그런데 한 달에 한 번쯤은 오라\"고 농담을 건넸다.",
+            "start": 850,
+            "end": 952
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 아울러 김 청장에게 “출석하라고 하니까 무조건 의무적으로 딴 일이 있는데 억지로 오고 그럴 필요는 없다”며 “중수청은 새로 개청해서 인력도 없고 시설도 불완전하고 그런데, 꼭 필요하지 않으면 안 오셔도 된다. 그런데 한 달에 한 번쯤은 오세요”라고 했다.",
+            "start": 842,
+            "end": 991
+          },
+          "difference_summary": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 8,
+                "quote": "농담을 건넸다",
+                "start": 944,
+                "end": 951
+              },
+              "related_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 4,
+                "quote": "라고 했다",
+                "start": 985,
+                "end": 990
+              },
+              "note": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 한재준 김근욱 임윤지 기자 = 이재명 대통령은 27일 김지용 중대범죄수사청장 등 수사기관장의 국무회의 참석에 대한 비판과 관련해 \"공개회의에 법적인 의무로서 참석하는 것은 정치적 중립과 어떠한 연관 관계도 없다\"고 말했다.",
+            "start": 73,
+            "end": 206
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "또 \"과거 (수사기관장이) 국무회의에 참석 안할 때는 사정기관들의 중립성이 잘 유지됐나. 그렇지 않다\"며 \"이런 공개회의에 법적인 의무로 참석하는 것이 정치적 중립과 어떠한 연관관계도 없다\"고 했다.",
+            "start": 554,
+            "end": 665
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이날 오전 청와대에서 제46회 국무회의를 주재한 자리에서 \"공개회의에 참석하냐, 안 하냐가 정치적 중립성과 무슨 상관이 있느냐\"며 이같이 밝혔다.",
+            "start": 208,
+            "end": 296
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 \"(중수청장의 국무회의 참석이 논란이 된 것은) 사정기관들의 정치적 중립이 훼손되지 않을까 우려해서 한 지적일텐데 이게 정치적 중립과 무슨 상관인가\"라며 \"이런 자리에서 국무위원들이 사정 기관장들에게 사적인 부탁을 하겠나, 아니면 부정한 지시를 하겠나. 법에 어긋난 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 372,
+            "end": 552
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 수사기관장의 국무회의 참석이 중립성을 훼손한다는 지적에 대해 \"이런 자리에서 국무위원들이 사정기관장에게 사적인 부탁을 하겠느냐. 아니면 부정한 지시를 하겠느냐\"라며 \"법에 어긋나는 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 298,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 \"(중수청장의 국무회의 참석이 논란이 된 것은) 사정기관들의 정치적 중립이 훼손되지 않을까 우려해서 한 지적일텐데 이게 정치적 중립과 무슨 상관인가\"라며 \"이런 자리에서 국무위원들이 사정 기관장들에게 사적인 부탁을 하겠나, 아니면 부정한 지시를 하겠나. 법에 어긋난 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 372,
+            "end": 552
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"(수사기관장이) 국무회의에 참석 안 할 때는 사정기관의 중립성이 잘 유지됐느냐. 그렇지 않다\"라며 \"오히려 이런 공간에서 국정 기조, 방향, 가치, 지향에 대해 서로 공유하고, 각자 본인이 맡고 있는 국정에 반영해야 한다\"고 강조했다.",
+            "start": 432,
+            "end": 567
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "이것도 비정상의 정상화의 일환\"이라고 했다.",
+            "start": 817,
+            "end": 841
+          },
+          "difference_summary": "'이런 공간에서 국정 기조를 공유하고 국정에 반영해야 한다'는 같은 발언을 원문은 기능·태도 동사 '강조했다'로 받았으나 A4·A5는 중립 동사 '했다/밝혔다'로 받아 강조 여부가 갈린다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "고 강조했다",
+                "start": 560,
+                "end": 566
+              },
+              "related_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 5,
+                "quote": "이라고 했다",
+                "start": 834,
+                "end": 840
+              },
+              "note": "'이런 공간에서 국정 기조를 공유하고 국정에 반영해야 한다'는 같은 발언을 원문은 기능·태도 동사 '강조했다'로 받았으나 A4·A5는 중립 동사 '했다/밝혔다'로 받아 강조 여부가 갈린다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 특히 \"이것도 비정상의 정상화 일환이다. 워낙 비정상에 오랫동안 노출되다 보면 비정상이 정상인 것처럼 오인되고, 오히려 정상이 비정상으로 이해되는 경우도 많다\"며 \"그런 잘못된 관행이나 일종의 열외를 시정하는 것이 개혁이고 발전\"이라고 했다.",
+            "start": 569,
+            "end": 711
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "이것도 비정상의 정상화의 일환\"이라고 했다.",
+            "start": 817,
+            "end": 841
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "이어 김지용 중수청장에게 \"중수청은 새로 개청해서 인력도 없고, 시설도 불완전하고 그런데 꼭 필요하지 않으면 안 오셔도 된다\"면서 \"그런데 한 달에 한 번쯤은 오라\"고 농담을 건넸다.",
+            "start": 850,
+            "end": 952
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 12,
+            "quote": "이 대통령은 \"제가 출석하라니 무조건 의무적으로, 다른 일이 있는데도 억지로 올 필요는 없다. 국무위원들은 안건 의결을 위해 의무적으로 와야겠지만 그 외 위원회, 처, 청 쪽은 바쁘면 안 오셔도 된다\"며 \"특히 중수청은 새로 개청해 인력도 없고 시설도 불완전할텐데 안 오셔도 된다. 그런데 한 달에 한 번쯤은 오라. 자율적으로 하시면 된다\"고 했다.",
+            "start": 1460,
+            "end": 1655
+          },
+          "difference_summary": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 8,
+                "quote": "농담을 건넸다",
+                "start": 944,
+                "end": 951
+              },
+              "related_marker": {
+                "sentence_index": 16,
+                "paragraph_index": 12,
+                "quote": "고 했다",
+                "start": 1650,
+                "end": 1654
+              },
+              "note": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 한재준 김근욱 임윤지 기자 = 이재명 대통령은 27일 김지용 중대범죄수사청장 등 수사기관장의 국무회의 참석에 대한 비판과 관련해 \"공개회의에 법적인 의무로서 참석하는 것은 정치적 중립과 어떠한 연관 관계도 없다\"고 말했다.",
+            "start": 73,
+            "end": 206
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 \"공개회의의 법적인 의무로서 참석하는 것이 정치적 중립과 어떠한 연관관계도 없다\"고 강조했습니다.",
+            "start": 458,
+            "end": 519
+          },
+          "difference_summary": "'공개회의에 법적 의무로 참석하는 것은 정치적 중립과 무관하다'는 같은 발언을 원문은 중립 동사 '말했다'로 받았으나 A1·A5는 기능·태도 동사 '강조했다'로 받아 발언의 무게를 달리 전한다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "고 말했다",
+                "start": 200,
+                "end": 205
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "강조했습니다",
+                "start": 512,
+                "end": 518
+              },
+              "note": "'공개회의에 법적 의무로 참석하는 것은 정치적 중립과 무관하다'는 같은 발언을 원문은 중립 동사 '말했다'로 받았으나 A1·A5는 기능·태도 동사 '강조했다'로 받아 발언의 무게를 달리 전한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이 대통령은 이날 오전 청와대에서 제46회 국무회의를 주재한 자리에서 \"공개회의에 참석하냐, 안 하냐가 정치적 중립성과 무슨 상관이 있느냐\"며 이같이 밝혔다.",
+            "start": 208,
+            "end": 296
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "이재명 대통령이 김지용 중대범죄수사청장의 국무회의 참석을 둘러싼 논란에 대해 \"사정기관들의 정치적 중립 훼손되지 않을까 우려해서 하는 (문제 제기 일텐데) 이런 공개회의 참석하냐, 안 하냐가 정치적 중립과 무슨 상관이 있는가\"라고 반박했습니다.",
+            "start": 0,
+            "end": 136
+          },
+          "difference_summary": "'참석하냐 안 하냐가 정치적 중립과 무슨 상관이 있느냐'는 같은 반문을 원문은 중립 동사 '밝혔다'로 받았으나 A1·A5는 '반박했다'로 받아 비판에 맞서는 발언으로 규정한다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "이같이 밝혔다",
+                "start": 288,
+                "end": 295
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "반박했습니다",
+                "start": 129,
+                "end": 135
+              },
+              "note": "'참석하냐 안 하냐가 정치적 중립과 무슨 상관이 있느냐'는 같은 반문을 원문은 중립 동사 '밝혔다'로 받았으나 A1·A5는 '반박했다'로 받아 비판에 맞서는 발언으로 규정한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이 대통령은 수사기관장의 국무회의 참석이 중립성을 훼손한다는 지적에 대해 \"이런 자리에서 국무위원들이 사정기관장에게 사적인 부탁을 하겠느냐. 아니면 부정한 지시를 하겠느냐\"라며 \"법에 어긋나는 행위를 할 가능성이 오히려 적다\"고 말했다.",
+            "start": 298,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "그러면서, \" 이런 자리에서 우리 국무위원들이 사정기관장들한테 이런 사적인 부탁을 하겠는가, 아니면 부정한 지시를 하겠는가\" 반문하고, \"법에 어긋난 행위를 할 가능성이 오히려 적다\"고 덧붙였습니다.",
+            "start": 281,
+            "end": 392
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이어 \"(수사기관장이) 국무회의에 참석 안 할 때는 사정기관의 중립성이 잘 유지됐느냐. 그렇지 않다\"라며 \"오히려 이런 공간에서 국정 기조, 방향, 가치, 지향에 대해 서로 공유하고, 각자 본인이 맡고 있는 국정에 반영해야 한다\"고 강조했다.",
+            "start": 432,
+            "end": 567
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "또, \"오히려 이런 공간에서 국정의 기조, 방향, 가치, 지향 이런 거에 대해서 서로 공유하고, 각자의 국가 업무, 본인들이 맡고 있는 국정의 반영을 해야 한다\"고 밝혔습니다.",
+            "start": 520,
+            "end": 618
+          },
+          "difference_summary": "'이런 공간에서 국정 기조를 공유하고 국정에 반영해야 한다'는 같은 발언을 원문은 기능·태도 동사 '강조했다'로 받았으나 A4·A5는 중립 동사 '했다/밝혔다'로 받아 강조 여부가 갈린다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "고 강조했다",
+                "start": 560,
+                "end": 566
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "밝혔습니다",
+                "start": 612,
+                "end": 617
+              },
+              "note": "'이런 공간에서 국정 기조를 공유하고 국정에 반영해야 한다'는 같은 발언을 원문은 기능·태도 동사 '강조했다'로 받았으나 A4·A5는 중립 동사 '했다/밝혔다'로 받아 강조 여부가 갈린다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 특히 \"이것도 비정상의 정상화 일환이다. 워낙 비정상에 오랫동안 노출되다 보면 비정상이 정상인 것처럼 오인되고, 오히려 정상이 비정상으로 이해되는 경우도 많다\"며 \"그런 잘못된 관행이나 일종의 열외를 시정하는 것이 개혁이고 발전\"이라고 했다.",
+            "start": 569,
+            "end": 711
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "이 대통령은 중수청장의 국무회의 출석을 \"비정상의 정상화 일환이다\"라며, \"잘못된 관행이나 또는 일정의 열외 이런 것들을 시정하는 게 또 개혁이고 발전\"이라고 힘주어 말했습니다.",
+            "start": 619,
+            "end": 718
+          },
+          "difference_summary": "'비정상의 정상화 일환, 잘못된 관행을 시정하는 것이 개혁이고 발전'이라는 같은 발언을 원문은 중립 동사 '했다'로 받았으나 A5는 '힘주어 말했다'로 받아 발언의 강도를 더한다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 6,
+                "quote": "이라고 했다",
+                "start": 704,
+                "end": 710
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 6,
+                "quote": "힘주어 말했습니다",
+                "start": 708,
+                "end": 717
+              },
+              "note": "'비정상의 정상화 일환, 잘못된 관행을 시정하는 것이 개혁이고 발전'이라는 같은 발언을 원문은 중립 동사 '했다'로 받았으나 A5는 '힘주어 말했다'로 받아 발언의 강도를 더한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "이어 김지용 중수청장에게 \"중수청은 새로 개청해서 인력도 없고, 시설도 불완전하고 그런데 꼭 필요하지 않으면 안 오셔도 된다\"면서 \"그런데 한 달에 한 번쯤은 오라\"고 농담을 건넸다.",
+            "start": 850,
+            "end": 952
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 7,
+            "quote": "다만, 이어진 발언에서 이 대통령은 김지용 중수청장을 향해 \"중수청은 요새 새로 개청해서 인력도 없고 시설도 불완전하고 그런데, 꼭 필요하지 않으면 안 오셔도 된다\", \"한 달에 한 번쯤은 오세요. 자율적으로 하시면 된다\"라고 덧붙이기도 했습니다.",
+            "start": 719,
+            "end": 857
+          },
+          "difference_summary": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 8,
+                "quote": "농담을 건넸다",
+                "start": 944,
+                "end": 951
+              },
+              "related_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 7,
+                "quote": "덧붙이기도 했습니다",
+                "start": 846,
+                "end": 856
+              },
+              "note": "'한 달에 한 번쯤은 오라'는 같은 발언을 원문은 '농담을 건넸다'는 서술적 동사로 받아 가벼운 농담으로 규정했으나 A2·A3·A4·A5는 중립 동사 '했다/덧붙였다'로 받아 실제 요청처럼 전하므로, 중립 대 서술적 동사의 차이다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

@@ -1,0 +1,830 @@
+{
+  "name": "b09",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "[현장에서]조각투자 시장 일군 스타트업에 남은 '기약 없는 기다림'",
+    "publisher": "한국경제",
+    "published_at": "2026-10-27 17:42:16",
+    "url": "https://n.news.naver.com/mnews/article/015/0005347126"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "루센트블록 \"조각투자 인가 2곳 제한, 누가 결정했나\"…추가 인가 촉구",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 15:27:01",
+      "url": "https://n.news.naver.com/mnews/article/421/0009253065?sid=101"
+    },
+    "A2": {
+      "title": "허세영 루센트블록 대표 “공정한 기회 달라…금융위 인가 졸속”",
+      "publisher": "조선일보",
+      "published_at": "2026-10-27 11:18:07",
+      "url": "https://n.news.naver.com/mnews/article/023/0004006158?sid=105"
+    },
+    "A3": {
+      "title": "‘조각투자 거래소 탈락’ 루센트블록 “혁신 시도했는데 밀려날 위기…법적 대응 검토”",
+      "publisher": "경향신문",
+      "published_at": "2026-10-27 15:33:01",
+      "url": "https://n.news.naver.com/mnews/article/032/0003478810?sid=101"
+    },
+    "A4": {
+      "title": "루센트블록 \"조각투자 거래소 '2개 제한'에 의결 없었다…법적 대응도 검토\"",
+      "publisher": "파이낸셜뉴스",
+      "published_at": "2026-10-27 14:46:16",
+      "url": "https://n.news.naver.com/mnews/article/014/0005595150?sid=101"
+    },
+    "A5": {
+      "title": "루센트블록 \"금융위의 조각투자 거래소 인가 불공정…포기 안 해\"",
+      "publisher": "노컷뉴스",
+      "published_at": "2026-10-27 14:37:25",
+      "url": "https://n.news.naver.com/mnews/article/079/0004203402?sid=101"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "27일 서울 역삼동에서 긴급 기자회견을 연 허세영 루센트블록 대표(사진)의 목소리에는 절박함이 묻어났다.",
+            "start": 42,
+            "end": 100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "허세영 루센트블록 대표는 27일 서울 강남구 마루180에서 기자회견을 열고 \"절대 특혜를 바라는 것이 아니다\"라며 \"공정함과 투명함을 바란다\"고 밝혔다.",
+            "start": 272,
+            "end": 357
+          },
+          "difference_summary": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "목소리에는 절박함이 묻어났다",
+                "start": 84,
+                "end": 99
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 3,
+                "quote": "기자회견을 열고",
+                "start": 305,
+                "end": 313
+              },
+              "note": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "하지만 결실을 봐야 할 올 2월, 루센트블록은 금융위원회의 장외거래소 예비인가 문턱에서 탈락했다.",
+            "start": 182,
+            "end": 236
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 5,
+            "quote": "규제 샌드박스를 통해 부동산 조각투자 플랫폼을 운영해 온 루센트블록은 탈락했다.",
+            "start": 514,
+            "end": 558
+          },
+          "difference_summary": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "결실을 봐야 할",
+                "start": 186,
+                "end": 194
+              },
+              "related_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 5,
+                "quote": "루센트블록은 탈락했다",
+                "start": 546,
+                "end": 557
+              },
+              "note": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "그는 “사업자 수 제한을 누가 어떤 권한으로 확정했는지 설명해야 한다”며 “인터넷은행 신규 인가와 비교할 때 충분한 시장 분석도 없이 경쟁을 제한했다”고 주장했다.",
+            "start": 479,
+            "end": 570
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 10,
+            "quote": "또 인터넷전문은행과 부동산신탁업의 신규 인가 사례와 비교하면서 충분한 시장 경쟁도 분석 없이 인가 수를 제한한 것은 납득하기 어렵다는 입장을 밝혔다.",
+            "start": 988,
+            "end": 1071
+          },
+          "difference_summary": "허 대표가 사업자 수 제한의 권한과 시장 분석 부재를 문제 삼은 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받고, A1·A2·A5는 중립 동사(입장을 밝혔다·말했다·했다)로 받아 강도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 4,
+                "quote": "경쟁을 제한했다”고 주장했다",
+                "start": 554,
+                "end": 569
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 10,
+                "quote": "납득하기 어렵다는 입장을 밝혔다",
+                "start": 1053,
+                "end": 1070
+              },
+              "note": "허 대표가 사업자 수 제한의 권한과 시장 분석 부재를 문제 삼은 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받고, A1·A2·A5는 중립 동사(입장을 밝혔다·말했다·했다)로 받아 강도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 7,
+            "quote": "그는 “시장에서 정정당당하게 경쟁해 선택받고 싶다”고 말했다.",
+            "start": 992,
+            "end": 1026
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 27,
+            "paragraph_index": 17,
+            "quote": "허 대표는 추가 인가 시점이 불확실한 데 대해 \"1년 뒤일지, 3년 뒤일지 알 수가 없다\"며 사업을 지속하며 시장에서 경쟁할 기회가 필요하다고 강조했다.",
+            "start": 2083,
+            "end": 2168
+          },
+          "difference_summary": "시장에서 공정하게 경쟁할 기회를 원한다는 허 대표의 같은 발언을 원문·A2·A4는 중립 동사(말했다·덧붙였다)로 받고, A1만 기능·태도 동사 '강조했다'로 받아 강도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 18,
+                "paragraph_index": 7,
+                "quote": "선택받고 싶다”고 말했다",
+                "start": 1012,
+                "end": 1025
+              },
+              "related_marker": {
+                "sentence_index": 27,
+                "paragraph_index": 17,
+                "quote": "기회가 필요하다고 강조했다",
+                "start": 2153,
+                "end": 2167
+              },
+              "note": "시장에서 공정하게 경쟁할 기회를 원한다는 허 대표의 같은 발언을 원문·A2·A4는 중립 동사(말했다·덧붙였다)로 받고, A1만 기능·태도 동사 '강조했다'로 받아 강도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 20,
+            "paragraph_index": 8,
+            "quote": "“권리는 있지만 문이 존재하지 않습니다”라는 호소도 이어졌다.",
+            "start": 1092,
+            "end": 1126
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "27일 서울 역삼동에서 긴급 기자회견을 연 허세영 루센트블록 대표(사진)의 목소리에는 절박함이 묻어났다.",
+            "start": 42,
+            "end": 100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 1,
+            "quote": "허세영 루센트블록 대표는 27일 서울 강남구에서 기자회견을 열고 금융위의 예비 인가 과정에서 절차적인 문제가 있었다고 밝혔다.",
+            "start": 220,
+            "end": 290
+          },
+          "difference_summary": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "목소리에는 절박함이 묻어났다",
+                "start": 84,
+                "end": 99
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 1,
+                "quote": "기자회견을 열고",
+                "start": 247,
+                "end": 255
+              },
+              "note": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "하지만 결실을 봐야 할 올 2월, 루센트블록은 금융위원회의 장외거래소 예비인가 문턱에서 탈락했다.",
+            "start": 182,
+            "end": 236
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "금융위원회는 지난 2월 STO 사업성을 실증한 루센트블록 대신 금융위 출신들이 수장으로 있는 KRX(한국거래소)·NXT(넥스트레이드)에만 예비 인가를 의결해 공정성 논란이 제기됐다.",
+            "start": 65,
+            "end": 166
+          },
+          "difference_summary": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "결실을 봐야 할",
+                "start": 186,
+                "end": 194
+              },
+              "related_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 0,
+                "quote": "루센트블록 대신",
+                "start": 91,
+                "end": 99
+              },
+              "note": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "그는 “사업자 수 제한을 누가 어떤 권한으로 확정했는지 설명해야 한다”며 “인터넷은행 신규 인가와 비교할 때 충분한 시장 분석도 없이 경쟁을 제한했다”고 주장했다.",
+            "start": 479,
+            "end": 570
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "허 대표는 “하룻밤 사이에 무슨 일이 있었는지, 누가 무슨 권한으로 이렇게 결정한 것인지 묻고 싶다”고 말했다.",
+            "start": 625,
+            "end": 687
+          },
+          "difference_summary": "허 대표가 사업자 수 제한의 권한과 시장 분석 부재를 문제 삼은 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받고, A1·A2·A5는 중립 동사(입장을 밝혔다·말했다·했다)로 받아 강도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 4,
+                "quote": "경쟁을 제한했다”고 주장했다",
+                "start": 554,
+                "end": 569
+              },
+              "related_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 4,
+                "quote": "묻고 싶다”고 말했다",
+                "start": 675,
+                "end": 686
+              },
+              "note": "허 대표가 사업자 수 제한의 권한과 시장 분석 부재를 문제 삼은 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받고, A1·A2·A5는 중립 동사(입장을 밝혔다·말했다·했다)로 받아 강도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 7,
+            "quote": "그는 “시장에서 정정당당하게 경쟁해 선택받고 싶다”고 말했다.",
+            "start": 992,
+            "end": 1026
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 6,
+            "quote": "그는 “절대 특혜를 바라지 않는다”며 “기존 사업자의 인가를 취소해달라고 요청하는 것도 아니고 다만 시장에서 공정하게 경쟁할 수 있는 최소한의 기회를 달라고 요청하는 것”이라고 말했다.",
+            "start": 1066,
+            "end": 1169
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 20,
+            "paragraph_index": 8,
+            "quote": "“권리는 있지만 문이 존재하지 않습니다”라는 호소도 이어졌다.",
+            "start": 1092,
+            "end": 1126
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 5,
+            "quote": "허 대표는 “법에 따라 인허가를 신청할 수 있는 권리가 있지만, 금융위가 별도로 최대 2곳을 뽑는 방식으로 예비 인가를 진행했기 때문에 신청할 길이 없었다”고 했다.",
+            "start": 946,
+            "end": 1038
+          },
+          "difference_summary": "법적 권리는 있지만 신청할 길이 없다는 허 대표의 같은 발언을 원문은 '호소'라는 정서적 명사로 부르고, A2는 중립적인 '고 했다'로만 옮겨 발언에 대한 태도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "B",
+              "source_marker": {
+                "sentence_index": 20,
+                "paragraph_index": 8,
+                "quote": "라는 호소도 이어졌다",
+                "start": 1114,
+                "end": 1125
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 5,
+                "quote": "신청할 길이 없었다”고 했다",
+                "start": 1022,
+                "end": 1037
+              },
+              "note": "법적 권리는 있지만 신청할 길이 없다는 허 대표의 같은 발언을 원문은 '호소'라는 정서적 명사로 부르고, A2는 중립적인 '고 했다'로만 옮겨 발언에 대한 태도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "27일 서울 역삼동에서 긴급 기자회견을 연 허세영 루센트블록 대표(사진)의 목소리에는 절박함이 묻어났다.",
+            "start": 42,
+            "end": 100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "허세영 루센트블록 대표는 27일 서울 강남구에 있는 스타트업 플랫폼 공간 ‘마루180’에서 긴급 기자회견을 열고 예비인가 탈락과 관련해 “사업을 이어가기 위해 필요한 대응을 검토하겠다”며 이 같이 밝혔다.",
+            "start": 72,
+            "end": 186
+          },
+          "difference_summary": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "목소리에는 절박함이 묻어났다",
+                "start": 84,
+                "end": 99
+              },
+              "related_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "긴급 기자회견을 열고",
+                "start": 123,
+                "end": 134
+              },
+              "note": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "하지만 결실을 봐야 할 올 2월, 루센트블록은 금융위원회의 장외거래소 예비인가 문턱에서 탈락했다.",
+            "start": 182,
+            "end": 236
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "루센트블록은 금융위원회의 혁신금융서비스 지정을 받아 부동산 조각투자 플랫폼을 운영해왔지만, 지난 2월 금융위가 의결한 조각투자 장외거래소 예비인가에서 탈락했다.",
+            "start": 188,
+            "end": 277
+          },
+          "difference_summary": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "결실을 봐야 할",
+                "start": 186,
+                "end": 194
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "예비인가에서 탈락했다",
+                "start": 265,
+                "end": 276
+              },
+              "note": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "그는 “사업자 수 제한을 누가 어떤 권한으로 확정했는지 설명해야 한다”며 “인터넷은행 신규 인가와 비교할 때 충분한 시장 분석도 없이 경쟁을 제한했다”고 주장했다.",
+            "start": 479,
+            "end": 570
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 6,
+            "quote": "인가 사업자 수 제한 필요성, 적정한 경쟁 수준 등을 판단하려면 충분한 분석과 설명이 뒷받침돼야 한다는 주장이다.",
+            "start": 626,
+            "end": 689
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 7,
+            "quote": "그는 “시장에서 정정당당하게 경쟁해 선택받고 싶다”고 말했다.",
+            "start": 992,
+            "end": 1026
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 20,
+            "paragraph_index": 8,
+            "quote": "“권리는 있지만 문이 존재하지 않습니다”라는 호소도 이어졌다.",
+            "start": 1092,
+            "end": 1126
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "27일 서울 역삼동에서 긴급 기자회견을 연 허세영 루센트블록 대표(사진)의 목소리에는 절박함이 묻어났다.",
+            "start": 42,
+            "end": 100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 1,
+            "quote": "허세영 루센트블록 대표는 27일 서울 강남구 마루180에서 긴급 기자회견을 열고 \"과연 이번 인가 절차가 공정하고 투명하게 진행됐는지 묻고 싶다\"고 말했다.",
+            "start": 166,
+            "end": 253
+          },
+          "difference_summary": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "목소리에는 절박함이 묻어났다",
+                "start": 84,
+                "end": 99
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 1,
+                "quote": "긴급 기자회견을 열고",
+                "start": 199,
+                "end": 210
+              },
+              "note": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "하지만 결실을 봐야 할 올 2월, 루센트블록은 금융위원회의 장외거래소 예비인가 문턱에서 탈락했다.",
+            "start": 182,
+            "end": 236
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "부동산 조각투자 플랫폼 '소유'를 운영해 온 루센트블록은 조각투자 장외거래소 예비인가에 도전했지만 심사에서 탈락했다.",
+            "start": 255,
+            "end": 320
+          },
+          "difference_summary": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "결실을 봐야 할",
+                "start": 186,
+                "end": 194
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 2,
+                "quote": "심사에서 탈락했다",
+                "start": 310,
+                "end": 319
+              },
+              "note": "같은 2월 예비인가 탈락 사실에 원문은 '결실을 봐야 할'이라는 기자의 평가어를 붙여 부당한 탈락이라는 시각을 담고, A1·A2·A3·A4는 평가어 없이 탈락만 적으며 A5는 '정작'으로 비슷한 평가를 한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "그는 “사업자 수 제한을 누가 어떤 권한으로 확정했는지 설명해야 한다”며 “인터넷은행 신규 인가와 비교할 때 충분한 시장 분석도 없이 경쟁을 제한했다”고 주장했다.",
+            "start": 479,
+            "end": 570
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 4,
+            "quote": "또 지난해 9월 3일 금융위 정례회의 보고안건에는 '(예: 최대 2개 원칙)'이라는 문구만 기재됐는데 이튿날 오전 9시 보도자료에는 '최대 2개까지 인가'로 확정됐다는 점을 거론하며 \"보고안건과 보도자료 배포 사이에 어떤 일이 있었는지는 의문\"이라며 \"누가 어떠한 권한으로 확정을 할 수 있었는지 궁금하다\"고 지적했다.",
+            "start": 704,
+            "end": 882
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 7,
+            "quote": "그는 “시장에서 정정당당하게 경쟁해 선택받고 싶다”고 말했다.",
+            "start": 992,
+            "end": 1026
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 8,
+            "quote": "법적 대응도 검토하고 있다는 입장을 밝혔지만, 이보다는 당국이 경쟁 기회를 열어주길 바란다고 덧붙였다.",
+            "start": 1269,
+            "end": 1326
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 20,
+            "paragraph_index": 8,
+            "quote": "“권리는 있지만 문이 존재하지 않습니다”라는 호소도 이어졌다.",
+            "start": 1092,
+            "end": 1126
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "27일 서울 역삼동에서 긴급 기자회견을 연 허세영 루센트블록 대표(사진)의 목소리에는 절박함이 묻어났다.",
+            "start": 42,
+            "end": 100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 1,
+            "quote": "루센트블록 허세용 대표는 27일 서울 강남구 마루180에서 긴급 기자회견을 열고 \"금융위가 타당한 근거나 절차도 없이 조각투자 거래소를 2곳으로 제한했다\"며 절차적 공정성에 의문을 제기했다.",
+            "start": 230,
+            "end": 336
+          },
+          "difference_summary": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "목소리에는 절박함이 묻어났다",
+                "start": 84,
+                "end": 99
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 1,
+                "quote": "긴급 기자회견을 열고",
+                "start": 263,
+                "end": 274
+              },
+              "note": "같은 긴급 기자회견 장면에서 원문만 허 대표의 상태를 '절박함이 묻어났다'는 기자의 감정 평가로 그려 동정적 태도를 드러내고, 비교 기사들은 회견을 열었다는 중립 서술에 그친다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "하지만 결실을 봐야 할 올 2월, 루센트블록은 금융위원회의 장외거래소 예비인가 문턱에서 탈락했다.",
+            "start": 182,
+            "end": 236
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "혁신금융서비스로 지정받아 수년간 조각투자 유통 운영업을 영위해온 루센트블록이 정작 금융위원회의 토큰증권(STO)장외거래소 예비인가에선 탈락한 데 대한 논란이 계속되고 있다.",
+            "start": 0,
+            "end": 96
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "그는 “사업자 수 제한을 누가 어떤 권한으로 확정했는지 설명해야 한다”며 “인터넷은행 신규 인가와 비교할 때 충분한 시장 분석도 없이 경쟁을 제한했다”고 주장했다.",
+            "start": 479,
+            "end": 570
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 6,
+            "quote": "허 대표는 \"금융위원회가 2025년 9월 4일 보도자료를 통해 장외거래소를 '최대 2개까지 인가'하기로 했다고 확정했는데, 전날인 2025년 9월 3일 오후 2시부터 오후 4시 24분까지 이뤄진 회의에선 해당 사안이 '보고' 안건으로 논의돼 '최대 2개 원칙'이 예시로 기재됐을 뿐이었다\"며 \"분명 의결이 아닌 보고 안건인 해당 사안에서 누가 '최대 2개'로 정한 건지 의문\"이라고 했다.",
+            "start": 1232,
+            "end": 1449
+          },
+          "difference_summary": "허 대표가 사업자 수 제한의 권한과 시장 분석 부재를 문제 삼은 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받고, A1·A2·A5는 중립 동사(입장을 밝혔다·말했다·했다)로 받아 강도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 4,
+                "quote": "경쟁을 제한했다”고 주장했다",
+                "start": 554,
+                "end": 569
+              },
+              "related_marker": {
+                "sentence_index": 16,
+                "paragraph_index": 6,
+                "quote": "의문\"이라고 했다",
+                "start": 1439,
+                "end": 1448
+              },
+              "note": "허 대표가 사업자 수 제한의 권한과 시장 분석 부재를 문제 삼은 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받고, A1·A2·A5는 중립 동사(입장을 밝혔다·말했다·했다)로 받아 강도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 7,
+            "quote": "그는 “시장에서 정정당당하게 경쟁해 선택받고 싶다”고 말했다.",
+            "start": 992,
+            "end": 1026
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 20,
+            "paragraph_index": 8,
+            "quote": "“권리는 있지만 문이 존재하지 않습니다”라는 호소도 이어졌다.",
+            "start": 1092,
+            "end": 1126
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

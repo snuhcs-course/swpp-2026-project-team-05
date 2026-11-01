@@ -1,0 +1,256 @@
+{
+  "name": "b02",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "“송 장관이 농지조사 제안” 이 대통령 해명에…“이제 장관 탓” 비판",
+    "publisher": "한겨레",
+    "published_at": "2026-10-27 20:10:09",
+    "url": "https://n.news.naver.com/mnews/article/028/0002829472"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "野 \"李대통령, 농지조사 사달나니 이제 와 장관 탓…책임 모면 비열\"",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 10:27:14",
+      "url": "https://n.news.naver.com/mnews/article/421/0009251888?sid=100"
+    },
+    "A2": {
+      "title": "“농지조사, 장관이 제안한 것” 李 발언 논란…野 “이제와서 남탓”",
+      "publisher": "국민일보",
+      "published_at": "2026-10-27 16:08:07",
+      "url": "https://n.news.naver.com/mnews/article/005/0001881193?sid=100"
+    },
+    "A3": {
+      "title": "국힘 “李대통령, 농지조사 송미령 장관이 제안…장관 탓,비열하다”",
+      "publisher": "중앙일보",
+      "published_at": "2026-10-27 09:35:09",
+      "url": "https://n.news.naver.com/mnews/article/025/0003560737?sid=100"
+    },
+    "A4": {
+      "title": "국힘, ‘농지조사는 송미령 제안’ 李 대통령에 “비열·무책임”",
+      "publisher": "서울경제",
+      "published_at": "2026-10-27 11:09:10",
+      "url": "https://n.news.naver.com/mnews/article/011/0004675539?sid=100"
+    },
+    "A5": {
+      "title": "李 \"농지 전수조사, 송미령 장관이 제안\"…野 \"이제와서 장관 탓\"",
+      "publisher": "TV조선",
+      "published_at": "2026-10-27 08:45:13",
+      "url": "https://n.news.naver.com/mnews/article/448/0000647149?sid=100"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이재명 대통령이 최근 농지 전수조사와 레버리지 상장지수펀드(ETF) 등 여론의 반발을 불러온 주요 정책 추진에 대해 책임을 넘기는 듯한 모습을 보이면서 야당은 “상황이 불리해지니까 본인은 아랫사람에게 책임을 뒤집어씌운다”고 비판했다.",
+            "start": 60,
+            "end": 190
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 홍유진 기자 = 국민의힘은 27일 이재명 대통령이 농지 전수조사는 송미령 농림축산식품부 장관의 제안으로 시작했다고 밝힌 것을 두고 \"이제 와 장관 뒤에 숨어 책임을 모면하려는 것이냐\"라고 비판했다.",
+            "start": 64,
+            "end": 183
+          },
+          "difference_summary": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "책임을 넘기는 듯한 모습을 보이면서",
+                "start": 125,
+                "end": 144
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "제안으로 시작했다고 밝힌 것을 두고",
+                "start": 126,
+                "end": 145
+              },
+              "note": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이재명 대통령이 최근 농지 전수조사와 레버리지 상장지수펀드(ETF) 등 여론의 반발을 불러온 주요 정책 추진에 대해 책임을 넘기는 듯한 모습을 보이면서 야당은 “상황이 불리해지니까 본인은 아랫사람에게 책임을 뒤집어씌운다”고 비판했다.",
+            "start": 60,
+            "end": 190
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 2,
+            "quote": "그간 농민들을 중심으로 불만이 크게 제기된 사안이었는데, 그 책임이 사실상 장관에게 있다는 발언이었다.",
+            "start": 433,
+            "end": 490
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이재명 대통령이 최근 농지 전수조사와 레버리지 상장지수펀드(ETF) 등 여론의 반발을 불러온 주요 정책 추진에 대해 책임을 넘기는 듯한 모습을 보이면서 야당은 “상황이 불리해지니까 본인은 아랫사람에게 책임을 뒤집어씌운다”고 비판했다.",
+            "start": 60,
+            "end": 190
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "정점식 국민의힘 원내대표가 27일 이재명 대통령이 농지 전수조사를 전국으로 확대하게 된 배경에 대해 송미령 농림축산식품부 장관의 제안이 있었다고 설명한 것을 두고 “비열하게 아랫사람에게 책임을 뒤집어 씌운다”고 비판했다.",
+            "start": 0,
+            "end": 123
+          },
+          "difference_summary": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "책임을 넘기는 듯한 모습을 보이면서",
+                "start": 125,
+                "end": 144
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "제안이 있었다고 설명한 것을 두고",
+                "start": 72,
+                "end": 90
+              },
+              "note": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이재명 대통령이 최근 농지 전수조사와 레버리지 상장지수펀드(ETF) 등 여론의 반발을 불러온 주요 정책 추진에 대해 책임을 넘기는 듯한 모습을 보이면서 야당은 “상황이 불리해지니까 본인은 아랫사람에게 책임을 뒤집어씌운다”고 비판했다.",
+            "start": 60,
+            "end": 190
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "국민의힘이 농지 전수조사가 송미령 농림축산식품부 장관의 제안으로 추진됐다는 이재명 대통령의 발언을 겨냥해 ‘비열하다’, ‘무책임하다’며 비판을 쏟아냈다.",
+            "start": 42,
+            "end": 127
+          },
+          "difference_summary": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "책임을 넘기는 듯한 모습을 보이면서",
+                "start": 125,
+                "end": 144
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "추진됐다는 이재명 대통령의 발언을 겨냥해",
+                "start": 78,
+                "end": 100
+              },
+              "note": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이재명 대통령이 최근 농지 전수조사와 레버리지 상장지수펀드(ETF) 등 여론의 반발을 불러온 주요 정책 추진에 대해 책임을 넘기는 듯한 모습을 보이면서 야당은 “상황이 불리해지니까 본인은 아랫사람에게 책임을 뒤집어씌운다”고 비판했다.",
+            "start": 60,
+            "end": 190
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "이재명 대통령이 농지 전수조사를 전국으로 확대하게 된 배경에 대해 송미령 농림축산식품부 장관의 제안이었다고 설명하자, 국민의힘이 \"이제 와서 장관 탓을 한다\"며 반발했다.",
+            "start": 0,
+            "end": 95
+          },
+          "difference_summary": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "책임을 넘기는 듯한 모습을 보이면서",
+                "start": 125,
+                "end": 144
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "장관의 제안이었다고 설명하자",
+                "start": 49,
+                "end": 64
+              },
+              "note": "같은 대통령의 '송 장관 제안' 발언을 한겨레는 기자의 말로 '책임을 넘기는 듯한 모습을 보였다'고 부정적으로 서술했는데, 뉴스1·중앙일보·서울경제·TV조선은 같은 행위를 '밝혔다·설명했다·발언'이라는 중립 서술어로 쓰고 책임 전가라는 규정은 야당의 말로만 전했다(국민일보는 기자의 말로 '책임이 사실상 장관에게 있다는 발언'이라고 써서 차이가 없다).",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

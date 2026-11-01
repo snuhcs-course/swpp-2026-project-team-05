@@ -1,0 +1,302 @@
+{
+  "name": "b10",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "신한라이프, 3분기 누적 순익 4194억원…CSM 8조 돌파 역대최고",
+    "publisher": "아시아경제",
+    "published_at": "2026-10-27 15:09:05",
+    "url": "https://n.news.naver.com/mnews/article/277/0005834123"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "신한라이프, 3분기 순이익 1288억원…CSM 8조 '역대 최대'",
+      "publisher": "뉴시스",
+      "published_at": "2026-10-27 14:51:52",
+      "url": "https://n.news.naver.com/mnews/article/003/0014281592?sid=101"
+    },
+    "A2": {
+      "title": "신한라이프, 3분기 누적 순익 4194억…전년 동기比 18.5%↓",
+      "publisher": "이데일리",
+      "published_at": "2026-10-27 16:48:15",
+      "url": "https://n.news.naver.com/mnews/article/018/0006397255?sid=101"
+    },
+    "A3": {
+      "title": "신한라이프, 3분기 누적 순익 4194억원…전년比 18.5% ↓",
+      "publisher": "헤럴드경제",
+      "published_at": "2026-10-27 14:40:07",
+      "url": "https://n.news.naver.com/mnews/article/016/0002715023?sid=101"
+    },
+    "A4": {
+      "title": "신한라이프, 3분기 누적 CSM 8조원 돌파…순이익 18.5% 감소",
+      "publisher": "파이낸셜뉴스",
+      "published_at": "2026-10-27 15:51:10",
+      "url": "https://n.news.naver.com/mnews/article/014/0005595216?sid=101"
+    },
+    "A5": {
+      "title": "신한라이프, CSM 8조 첫 돌파…장기 성장 초점 맞춘다",
+      "publisher": "블로터",
+      "published_at": "2026-10-27 16:04:16",
+      "url": "https://n.news.naver.com/mnews/article/293/0000092219?sid=101"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "올해 3분기 누적 순이익은 감소했다.",
+            "start": 96,
+            "end": 116
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 3,
+            "quote": "3분기 누적 당기순이익은 4194억원으로 전년 동기 대비 18.5% 감소했다.",
+            "start": 280,
+            "end": 323
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 3,
+            "quote": "금융손익은 금융시장 변동성 확대에 따른 채권평가 및 처분손익 감소로 전년 동기 대비 25.7% 감소한 1329억원을 기록했다.",
+            "start": 322,
+            "end": 392
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "같은 기간 금융손익은 1329억원으로 금융 시장 변동성 확대에 따른 채권평가 및 처분손익 감소로 인해 전년 동기 대비 25.7% 감소했다.",
+            "start": 389,
+            "end": 466
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "올해 3분기 누적 순이익은 감소했다.",
+            "start": 96,
+            "end": 116
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "보유계약 CSM은 사상 최대치 기록[이데일리 박종화 기자] 신한라이프의 올 1~3분기 당기순이익이 1년 전보다 급감했다.",
+            "start": 22,
+            "end": 89
+          },
+          "difference_summary": "3분기 누적 순이익이 전년 대비 18.5% 줄었다는 같은 사실을 원문과 대다수 기사는 '감소했다'로 쓴 반면 이데일리는 기자 서술로 '급감했다'고 써 감소 폭을 더 강하게 표현했다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 0,
+                "quote": "누적 순이익은 감소했다",
+                "start": 103,
+                "end": 115
+              },
+              "related_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "1년 전보다 급감했다",
+                "start": 77,
+                "end": 88
+              },
+              "note": "3분기 누적 순이익이 전년 대비 18.5% 줄었다는 같은 사실을 원문과 대다수 기사는 '감소했다'로 쓴 반면 이데일리는 기자 서술로 '급감했다'고 써 감소 폭을 더 강하게 표현했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 3,
+            "quote": "금융손익은 금융시장 변동성 확대에 따른 채권평가 및 처분손익 감소로 전년 동기 대비 25.7% 감소한 1329억원을 기록했다.",
+            "start": 322,
+            "end": 392
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 3,
+            "quote": "금융 이익은 1329억원으로 1년 전보다 25.7% 급감했다.",
+            "start": 475,
+            "end": 509
+          },
+          "difference_summary": "금융손익이 1329억원으로 25.7% 줄었다는 같은 수치를 원문은 '감소한'으로 중립 서술했으나 이데일리는 '급감했다'는 정도어를 붙여 하락의 강도를 키웠다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 3,
+                "quote": "25.7% 감소한",
+                "start": 369,
+                "end": 378
+              },
+              "related_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 3,
+                "quote": "25.7% 급감했다",
+                "start": 498,
+                "end": 508
+              },
+              "note": "금융손익이 1329억원으로 25.7% 줄었다는 같은 수치를 원문은 '감소한'으로 중립 서술했으나 이데일리는 '급감했다'는 정도어를 붙여 하락의 강도를 키웠다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "올해 3분기 누적 순이익은 감소했다.",
+            "start": 96,
+            "end": 116
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "[헤럴드경제=정호원 기자] 신한라이프는 2026년 3분기 누적 당기순이익이 전년 동기 대비 18.5%(951억원) 감소한 4194억원을 기록했다고 27일 공시했다.",
+            "start": 84,
+            "end": 175
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 3,
+            "quote": "금융손익은 금융시장 변동성 확대에 따른 채권평가 및 처분손익 감소로 전년 동기 대비 25.7% 감소한 1329억원을 기록했다.",
+            "start": 322,
+            "end": 392
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "올해 3분기 누적 순이익은 감소했다.",
+            "start": 96,
+            "end": 116
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 2,
+            "quote": "올해 3분기 누적 당기순이익은 4194억원으로 전년 동기 대비 18.5% 감소했다.",
+            "start": 283,
+            "end": 329
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 3,
+            "quote": "금융손익은 금융시장 변동성 확대에 따른 채권평가 및 처분손익 감소로 전년 동기 대비 25.7% 감소한 1329억원을 기록했다.",
+            "start": 322,
+            "end": 392
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 2,
+            "quote": "누적 보험손익은 4744억원으로 17.3%, 금융손익은 1329억원으로 25.7% 줄었다.",
+            "start": 330,
+            "end": 380
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "올해 3분기 누적 순이익은 감소했다.",
+            "start": 96,
+            "end": 116
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 3,
+            "quote": "신한라이프의 3분기 누적 당기순이익은 4194억원으로 전년 동기보다 18.5% 줄었다.",
+            "start": 474,
+            "end": 522
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 3,
+            "quote": "금융손익은 금융시장 변동성 확대에 따른 채권평가 및 처분손익 감소로 전년 동기 대비 25.7% 감소한 1329억원을 기록했다.",
+            "start": 322,
+            "end": 392
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

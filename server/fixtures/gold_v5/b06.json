@@ -1,0 +1,75 @@
+{
+  "name": "b06",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "정부 “1인당 국민소득 4만 달러 확실 시…성장률·환율 플러스 요인”",
+    "publisher": "채널A",
+    "published_at": "2026-10-27 14:53:14",
+    "url": "https://n.news.naver.com/mnews/article/449/0000365428"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "정부 \"1인당 국민소득 올해 4만달러대 진입 확실시\"",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 11:00:00",
+      "url": "https://n.news.naver.com/mnews/article/001/0016402548?sid=101"
+    },
+    "A2": {
+      "title": "정부 “국민소득 4만달러 달성 확실시”… 3만달러 돌파 12년 만",
+      "publisher": "국민일보",
+      "published_at": "2026-10-27 18:50:11",
+      "url": "https://n.news.naver.com/mnews/article/005/0001881243?sid=101"
+    },
+    "A3": {
+      "title": "정부 \"올해 1인당 국민소득 4만달러대 확실시...28년엔 5만달러\"",
+      "publisher": "머니투데이",
+      "published_at": "2026-10-27 11:27:26",
+      "url": "https://n.news.naver.com/mnews/article/008/0005432195?sid=101"
+    },
+    "A4": {
+      "title": "정부 “올해 3% 중반 성장 가능성…국민소득 4만 달러 확실시”",
+      "publisher": "KBS",
+      "published_at": "2026-10-27 11:00:44",
+      "url": "https://n.news.naver.com/mnews/article/056/0012281542?sid=101"
+    },
+    "A5": {
+      "title": "환율 1300원대면 국민소득 ‘껑충’...정부 “4만4000달러도 가능”",
+      "publisher": "서울경제",
+      "published_at": "2026-10-27 11:42:14",
+      "url": "https://n.news.naver.com/mnews/article/011/0004675550?sid=101"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "원문은 4만 달러대 진입 확실시, 환율·경상성장률의 플러스 요인, 환율 1300원대 유지 시 4만4천 달러 가능성을 모두 재정경제부·정부의 직접·간접 인용(S#0~S#3, S#5)으로만 전하고, 기자 서술인 S#4(환율·성장률 효과 설명)는 비교 기사에 같은 내용의 대응 문장이 없어 기자의 말끼리 비교되는 A–G 차이가 없다.",
+  "negatives": [
+    {
+      "code": "E",
+      "source_quote": "12년 만에 3만 달러를 넘어 4만 달러대 진입이",
+      "comparison_article": "A2",
+      "comparison_quote": "12년 만의 쾌거다",
+      "why": "원문 쪽 표현이 재정경제부의 직접 인용 따옴표 안에 있어 기자의 말이 아니므로 판정 순서 2단계에서 탈락한다."
+    }
+  ]
+}

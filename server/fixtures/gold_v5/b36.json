@@ -1,0 +1,425 @@
+{
+  "name": "b36",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "S&P, 메타 신용등급 전망 '안정적→부정적'…메타 \"동의 못 해\"",
+    "publisher": "연합뉴스",
+    "published_at": "2026-11-01 04:14:27",
+    "url": "https://n.news.naver.com/mnews/article/001/0016413524"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "S&P, 메타 신용등급 전망 '부정적' 하향…AI 투자에 현금흐름 우려",
+      "publisher": "이데일리",
+      "published_at": "2026-11-01 08:28:08",
+      "url": "https://n.news.naver.com/mnews/article/018/0006401108?sid=101"
+    },
+    "A2": {
+      "title": "S&P, 메타 신용전망 '부정적' 하향…\"AI 수익화, 경쟁사에 비해 제한적\"",
+      "publisher": "파이낸셜뉴스",
+      "published_at": "2026-11-01 05:01:22",
+      "url": "https://n.news.naver.com/mnews/article/014/0005597401?sid=101"
+    },
+    "A3": {
+      "title": "S&P, 메타 신용등급 전망 ‘부정적’ 하향⋯AI 투자 부담 반영",
+      "publisher": "ETODAY",
+      "published_at": "2026-10-31T08:56:00+09:00",
+      "url": "https://www.etoday.co.kr/news/view/2642512"
+    },
+    "A4": {
+      "title": "S&P, 메타 신용 전망 ‘부정적’ 하향… 메타 “동의 못해”",
+      "publisher": "",
+      "published_at": "2026-11-01T09:52:00+09:00",
+      "url": "https://it.chosun.com/news/articleView.html?idxno=2023092173271"
+    },
+    "A5": {
+      "title": "메타, AI 투자 부담에 신용등급 강등 경고…현금흐름 악화가 결정타 - AI타임스",
+      "publisher": "AI타임스",
+      "published_at": "2026-11-01T09:30:00+09:00",
+      "url": "https://www.aitimes.com/news/articleView.html?idxno=216853"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "특히 S&P는 메타가 올해는 물론이고 2028년까지도 현금흐름 적자를 면치 못할 것이라고 내다봤다.",
+            "start": 664,
+            "end": 719
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "높은 투자 지출이 지속되면 2028년 이후에도 현금흐름 적자가 이어질 수 있으며, 2028년 발생하는 자금 부족분은 전액 차입으로 충당할 것으로 내다봤다.",
+            "start": 767,
+            "end": 853
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 17,
+            "paragraph_index": 9,
+            "quote": "메타는 인정할 수 없다고 반박했다.",
+            "start": 1044,
+            "end": 1063
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 17,
+            "paragraph_index": 9,
+            "quote": "메타는 인정할 수 없다고 반박했다.",
+            "start": 1044,
+            "end": 1063
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "특히 S&P는 메타가 올해는 물론이고 2028년까지도 현금흐름 적자를 면치 못할 것이라고 내다봤다.",
+            "start": 664,
+            "end": 719
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 4,
+            "quote": "아울러 메타가 올해는 물론이고 2028년까지 FCF 적자를 지속할 것으로 비관했다.",
+            "start": 456,
+            "end": 502
+          },
+          "difference_summary": "S&P가 메타의 현금흐름 적자가 2028년까지 이어질 것이라고 한 같은 전망을 원문은 중립 동사 '내다봤다'로 받았으나, A2는 비관적 태도를 덧씌운 '비관했다'로 받았다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 8,
+                "quote": "면치 못할 것이라고 내다봤다",
+                "start": 703,
+                "end": 718
+              },
+              "related_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 4,
+                "quote": "지속할 것으로 비관했다",
+                "start": 489,
+                "end": 501
+              },
+              "note": "S&P가 메타의 현금흐름 적자가 2028년까지 이어질 것이라고 한 같은 전망을 원문은 중립 동사 '내다봤다'로 받았으나, A2는 비관적 태도를 덧씌운 '비관했다'로 받았다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "특히 S&P는 메타가 올해는 물론이고 2028년까지도 현금흐름 적자를 면치 못할 것이라고 내다봤다.",
+            "start": 664,
+            "end": 719
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 7,
+            "quote": "메타 대변인 캄란 뭄타즈는 성명에서 “메타의 AI 수익화 역량에 관한 S&P의 주장에 정중히 동의하지 않는다”면서 “앞으로 상당한 제품·사업 기회가 있다고 보고 있으며, 이는 우리의 매우 견고한 신용도를 뒷받침한다”고 반박했다.",
+            "start": 700,
+            "end": 827
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 7,
+            "quote": "메타 대변인 캄란 뭄타즈는 성명에서 “메타의 AI 수익화 역량에 관한 S&P의 주장에 정중히 동의하지 않는다”면서 “앞으로 상당한 제품·사업 기회가 있다고 보고 있으며, 이는 우리의 매우 견고한 신용도를 뒷받침한다”고 반박했다.",
+            "start": 700,
+            "end": 827
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "특히 S&P는 메타가 올해는 물론이고 2028년까지도 현금흐름 적자를 면치 못할 것이라고 내다봤다.",
+            "start": 664,
+            "end": 719
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 3,
+            "quote": "S&P는 메타의 잉여현금흐름 적자가 2027년 710억달러에 달한 뒤 2028년에도 390억달러 수준을 기록할 것으로 전망했다.",
+            "start": 334,
+            "end": 405
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 0,
+            "quote": "메타는 AI 수익화 역량에 대한 평가에 동의하지 않는다며 반박했다.",
+            "start": 76,
+            "end": 113
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 6,
+            "quote": "이에 대해 메타는 즉각 반발했다.",
+            "start": 630,
+            "end": 648
+          },
+          "difference_summary": "S&P 평가에 대한 메타의 같은 대응을 원문은 '반박했다'고만 썼으나, A4는 기자 서술에서 정도어 '즉각'을 붙여 '즉각 반발했다'로 대응의 강도를 키웠다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 12,
+                "quote": "반박했다고",
+                "start": 1066,
+                "end": 1071
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 6,
+                "quote": "즉각 반발했다",
+                "start": 640,
+                "end": 647
+              },
+              "note": "S&P 평가에 대한 메타의 같은 대응을 원문은 '반박했다'고만 썼으나, A4는 기자 서술에서 정도어 '즉각'을 붙여 '즉각 반발했다'로 대응의 강도를 키웠다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "특히 S&P는 메타가 올해는 물론이고 2028년까지도 현금흐름 적자를 면치 못할 것이라고 내다봤다.",
+            "start": 664,
+            "end": 719
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 5,
+            "quote": "투자 규모가 줄어들지 않으면 2028년 이후에도 적자가 이어지고, 부족한 자금을 추가 차입으로 충당해야 할 것으로 예상했다.",
+            "start": 856,
+            "end": 925
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 23,
+            "paragraph_index": 8,
+            "quote": "대변인은 \"메타의 AI 수익화 능력에 대한 S&P의 주장에 동의하지 않는다\"라며 앞으로 상당한 제품 및 사업 기회가 있다고 밝혔다.",
+            "start": 1336,
+            "end": 1409
+          },
+          "difference_summary": "메타 대변인의 같은 발언('동의하지 않는다', '상당한 제품·사업 기회')을 원문은 기능·태도 동사 '반박했다'로 받았으나, A5는 기사 어디에서도 반박을 쓰지 않고 중립 동사 '밝혔다'로 받았다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 12,
+                "quote": "반박했다고",
+                "start": 1066,
+                "end": 1071
+              },
+              "related_marker": {
+                "sentence_index": 23,
+                "paragraph_index": 8,
+                "quote": "기회가 있다고 밝혔다",
+                "start": 1397,
+                "end": 1408
+              },
+              "note": "메타 대변인의 같은 발언('동의하지 않는다', '상당한 제품·사업 기회')을 원문은 기능·태도 동사 '반박했다'로 받았으나, A5는 기사 어디에서도 반박을 쓰지 않고 중립 동사 '밝혔다'로 받았다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 12,
+            "quote": "메타 측은 S&P의 평가에 \"동의하지 않는다\"며 \"앞으로 상당한 제품·사업 기회가 펼쳐질 것이며 이는 매우 견고한 신용평가를 뒷받침하게 될 것\"이라고 반박했다고 로이터 통신은 전했다.",
+            "start": 982,
+            "end": 1084
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 22,
+            "paragraph_index": 8,
+            "quote": "메타는 이런 평가에 동의하지 않았다.",
+            "start": 1315,
+            "end": 1335
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "C",
+      "source_quote": "'부정적'으로 하향했다",
+      "comparison_article": "A5",
+      "comparison_quote": "신용등급 강등 가능성을 경고받았다",
+      "why": "A5도 2번 문장에서 원문과 같은 \"'부정적'으로 하향 조정했다\"를 쓰고 있고, 리드의 '강등 가능성 경고'는 A2·A3도 덧붙인 부정적 전망의 의미 풀이여서 같은 행위의 서술어 강도 차이로 보기 어렵다."
+    }
+  ]
+}
