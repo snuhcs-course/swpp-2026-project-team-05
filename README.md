@@ -53,6 +53,8 @@ cd android
 
 - [Requirements and Specifications](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Requirements-and-Specifications)
 - [Design Documentation](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Design-Documentation)
+- [테스트 전략과 결과 기록](docs/testing-documentation.md)
+- [행동 기반 테스트 스펙 작성법](specs/testing/README.md)
 - [Iteration 2 제출 준비 체크리스트](docs/iteration-2-submission-checklist.md)
 - [Iteration 2 통합 상태](docs/iteration-2-integration-status.md)
 - [백엔드 개발·배포 안내](docs/backend.md)
