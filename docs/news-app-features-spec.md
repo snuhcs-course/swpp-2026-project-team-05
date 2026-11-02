@@ -244,10 +244,14 @@ distinct button descriptions, and IME search submits immediately.
 
 - Add a compact search control above the headline list without changing the
   editorial black-and-white visual system.
-- Keep the normalized query in the URL as `q`, alongside the category parameter.
-- A reload or copied URL restores the same query and filters.
+- Keep the draft and active search query in local UI state. Typing must not
+  rewrite the browser URL; reload starts from the ordinary feed.
+- Preserve the category in the URL. Search-result links still open the stable
+  article route, but v1 does not provide a shareable search-results URL.
 - Debounce typing by approximately 300 ms while allowing Enter to submit
   immediately.
+- Respect IME composition: do not debounce or submit an unfinished Korean input,
+  and start the delay only after composition ends.
 - Changing query, category, or publishers resets the result cursor.
 - Reuse existing article layouts and show the optional excerpt as secondary text.
 - Provide explicit loading, no-results, error, retry, and clear-search states.
@@ -277,7 +281,8 @@ codes. Cached results from one search context must never appear under another.
 
 - the API client encodes the query safely;
 - debounce sends only the current query;
-- URL state restores search;
+- typing and Korean IME composition do not mutate the browser URL;
+- reload starts from the ordinary feed rather than restoring search;
 - clear returns to the feed;
 - filter changes reset pagination;
 - loading, empty, and error states render correctly;

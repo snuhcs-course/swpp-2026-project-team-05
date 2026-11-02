@@ -78,10 +78,13 @@ ordinary feed.
   Tested by: `web/src/lib/api.test.ts > articleQueryString > encodes search, filters, and cursor without losing repeated publishers`
 - [Unit] Ordinary feed requests omit search-only parameters.\
   Tested by: `web/src/lib/api.test.ts > articleQueryString > keeps the ordinary feed request free of search-only parameters`
-- [Component] Debounce uses only the latest query; URL state restores the search;
-  clear returns to feed; filter changes reset pagination; loading, empty, and
-  error states remain distinct.\
-  Tip: add a `FeedPage` component test with fake timers and a mocked API.
+- [Component] Search input remains local and does not mutate the URL. Korean IME
+  composition does not submit an unfinished query; after composition ends,
+  debounce sends only the final normalized query.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > keeps IME input local and searches only after composition ends`
+- [Component] Clear returns to feed; filter changes reset pagination; loading,
+  empty, and error states remain distinct.\
+  Tip: extend `FeedPage.test.tsx` with filter and failure-state cases.
 - [Acceptance] Selecting a result opens the existing article route.\
   Tip: verify through the Iteration 3 acceptance procedure after deployment.
 
