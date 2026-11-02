@@ -45,6 +45,8 @@ backend and Android coverage gates and uploads reports for 14 days.
 | Behavioral unit | Specification | State |
 | --- | --- | --- |
 | Article search v1 | [`specs/testing/article-search.spec.md`](../specs/testing/article-search.spec.md) | Implemented with explicit remaining UI/race-condition gaps |
+| Saved articles v1 | [`specs/testing/saved-articles.spec.md`](../specs/testing/saved-articles.spec.md) | Implemented with explicit remaining UI/security gaps |
+| Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Intent-reviewed; implementation not started |
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Proposed; team freeze required for Iteration 3 |
 
 ### Result recording template

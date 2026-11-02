@@ -3,12 +3,12 @@
 | Field | Value |
 | --- | --- |
 | Status | Ready for implementation |
-| Version | 0.2 |
+| Version | 0.3 |
 | Date | 2026-11-02 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
-| Current feature | Saved articles v1 |
+| Current feature | Following sources v1 |
 
 This document defines incremental, ordinary news-app features that build on the
 existing FrameLESS product. The current product and data contracts remain in
@@ -23,9 +23,10 @@ baseline specifications into a feature backlog.
 | Feature | Status | Initial outcome |
 | --- | --- | --- |
 | Article search | Implemented | Search every feed-visible article from Android and Web |
-| Saved articles | Ready | Save or remove an article and browse a personal saved list |
-| Reading history | Planned | Reopen recently viewed articles in last-read order |
-| Sharing | Planned | Share a stable link that opens the same FrameLESS article |
+| Saved articles | Implemented | Save or remove an article and browse a personal saved list |
+| Following sources | Ready | Keep Latest diverse while offering a separate feed from explicitly followed publishers |
+| Reading history | Deferred | Saved articles already cover the primary return-to-reading need |
+| Sharing | Deferred | Native and browser link sharing already cover the immediate need |
 | Likes or reactions | Deferred | Add only after defining what a reaction means for a news product |
 | Comments | Deferred | Requires moderation, reporting, blocking, and deletion policies |
 
@@ -208,7 +209,7 @@ signal and may also become an explicit user-selected filter.
 - Add a search icon beside the account action in the feed header.
 - Tapping it replaces the header controls with a focused search field, clear
   action, and back action.
-- Back exits search and restores the previous category, publishers, feed items,
+- Back exits search and restores the previous category, feed scope, feed items,
   and scroll context.
 - Clearing a non-empty field returns to the ordinary feed state.
 
@@ -217,8 +218,9 @@ signal and may also become an explicit user-selected filter.
 - Start automatic search after at least two normalized characters.
 - Debounce typing by approximately 300 ms.
 - Cancel or ignore an obsolete request when the query changes.
-- Include the active category and publisher filters.
-- Reset the list position and cursor when query or filters change.
+- Include the active category. Search uses the complete `ALL` feed scope rather
+  than silently restricting results to followed publishers.
+- Reset the list position and cursor when query or category changes.
 - Continue using server cursor pagination near the end of the list.
 
 ### 5.3 States
@@ -252,13 +254,13 @@ distinct button descriptions, and IME search submits immediately.
   immediately.
 - Respect IME composition: do not debounce or submit an unfinished Korean input,
   and start the delay only after composition ends.
-- Changing query, category, or publishers resets the result cursor.
+- Changing query or category resets the result cursor.
 - Reuse existing article layouts and show the optional excerpt as secondary text.
 - Provide explicit loading, no-results, error, retry, and clear-search states.
 - Keep the layout usable without horizontal overflow at phone and desktop widths.
 
-The Web query cache key includes normalized query, category, and sorted publisher
-codes. Cached results from one search context must never appear under another.
+The Web query cache key includes the current user, normalized query, and
+category. Cached results from one search context must never appear under another.
 
 ## 7. Verification
 
@@ -284,16 +286,16 @@ codes. Cached results from one search context must never appear under another.
 - typing and Korean IME composition do not mutate the browser URL;
 - reload starts from the ordinary feed rather than restoring search;
 - clear returns to the feed;
-- filter changes reset pagination;
+- category changes reset pagination;
 - loading, empty, and error states render correctly;
 - a result opens the existing article route.
 
 ### 7.3 Android tests
 
-- API query encoding includes query and filters;
+- API query encoding includes query and category;
 - ViewModel discards obsolete responses;
 - clear and back restore the feed state;
-- filter changes reset search pagination;
+- category changes reset search pagination;
 - empty, initial error, and next-page error states are distinct;
 - a result opens the existing Reader.
 
@@ -472,7 +474,7 @@ internal stack trace.
 - Add a saved-articles action beside search in the feed header.
 - Add an accessible save/remove action only to the Reader header.
 - Open saved articles in a separate route and ViewModel state so the ordinary
-  feed retains its category, publisher filters, search, rows, and scroll context.
+  feed retains its category, feed scope, search, rows, and scroll context.
 - Reader back returns to its recorded origin from loaded, loading, and error
   states; it must not fall through to Android's app-exit behavior.
 - Reuse the compact feed row and current Reader navigation.
@@ -520,3 +522,232 @@ show the first account's saved state.
 
 These require separate product decisions and do not add nullable columns or
 placeholder endpoints to saved articles v1.
+
+## 11. Following sources v1
+
+### 11.1 Product goal and FrameLESS invariants
+
+A signed-in user can explicitly follow publishers and open a separate
+`Following` feed containing their articles. The ordinary `Latest` feed remains
+the default and continues to mix every eligible publisher by recency.
+
+Following is a convenience for article discovery, not a recommendation signal
+and not an analysis input. It must preserve these FrameLESS invariants:
+
+- `Latest` is never narrowed, ranked, or personalized by follows;
+- entering the app or a category starts in `Latest`, not `Following`;
+- article rows remain article-first and identify their publisher without
+  grouping the feed into publisher editions or story-cluster cards;
+- opening any article uses the same Reader and expression-analysis flow;
+- a Reader analysis may compare against every eligible article in its story
+  cluster, including publishers the user does not follow;
+- follow state never changes finding generation, shared propositions,
+  comparison selection, analysis quality, or stored editorial data;
+- search remains global across the complete feed-visible corpus and restores
+  the prior feed scope when closed.
+
+Following therefore gives the user control without making FrameLESS reinforce a
+single-source information bubble or hide the cross-outlet evidence that explains
+why a phrase was highlighted.
+
+### 11.2 Feed information architecture
+
+Both clients expose two explicit feed scopes:
+
+| Scope | Meaning | Default |
+| --- | --- | --- |
+| `Latest` | Every eligible feed article, newest first | Yes |
+| `Following` | Eligible articles from explicitly followed publishers, newest first | No |
+
+Politics and Society remain the primary category navigation. Feed scope is
+secondary and does not create a new route hierarchy. Switching category or
+scope resets pagination and list position. Returning from Reader restores the
+previous category, scope, loaded rows, and scroll context.
+
+The existing transient multi-publisher filter is removed from the primary UI so
+that users do not have to distinguish temporary source filters from durable
+follows. The repeatable `publisher` API parameter remains supported for contract
+compatibility and internal use.
+
+One article remains one feed row even when several feed-visible articles share
+a story cluster. V1 does not select a canonical article or render several
+publisher headlines inside one feed card. Cross-outlet detail belongs in the
+Reader analysis.
+
+### 11.3 Followable publisher lifecycle
+
+A publisher is selectable when it is active and has at least one visible,
+feed-visible article. The publisher chooser uses the existing editorial
+`display_order` and then its stable name/code ordering.
+
+If a followed publisher becomes inactive or loses all eligible feed articles,
+it does not appear in the Following feed or active chooser. Existing relationship
+rows may remain until the user next replaces the set or the publisher is hard
+deleted. Re-enabling an unchanged relationship makes it visible again. Hard
+deletion of an account or publisher cascades its follow relationships.
+
+Following zero publishers is valid. It produces a dedicated empty state rather
+than falling back to Latest, because silently changing scope would misrepresent
+the user's selection.
+
+### 11.4 Data model
+
+The database adds one relationship model:
+
+```text
+UserPublisherFollow
+- id: UUID primary key
+- user: UserAccount foreign key, CASCADE
+- publisher: Publisher foreign key, CASCADE
+- followed_at: creation timestamp
+```
+
+PostgreSQL enforces one row per `(user, publisher)`. No rank, weight, category,
+notification flag, recommendation score, or ordering column is added. Publisher
+display order remains editorial metadata on `Publisher`.
+
+### 11.5 API contract
+
+All operations require the existing bearer session and infer the user from it.
+
+The authenticated publisher collection adds user-specific follow state:
+
+```http
+GET /api/v1/publishers
+```
+
+```json
+{
+  "items": [
+    {
+      "code": "yna",
+      "name": "연합뉴스",
+      "logo_url": null,
+      "is_followed": true
+    }
+  ]
+}
+```
+
+The user replaces the selectable follow set atomically:
+
+```http
+PUT /api/v1/me/followed-publishers
+Content-Type: application/json
+
+{"publisher_codes": ["yna", "hani"]}
+```
+
+The array is required, contains unique publisher codes, and may be empty. The
+server normalizes duplicate inputs, rejects unknown or currently unselectable
+codes with `400 VALIDATION_ERROR`, locks the user preference boundary, and
+performs one transaction. Repeating the same set is idempotent. The response is:
+
+```json
+{"publisher_codes": ["yna", "hani"]}
+```
+
+The article collection adds one optional scope:
+
+```http
+GET /api/v1/articles?category=POLITICS&scope=FOLLOWING&limit=20&cursor=...
+```
+
+`scope` is `ALL` or `FOLLOWING` and defaults to `ALL`. `FOLLOWING` intersects
+the ordinary visibility, active-publisher, category, search, and legacy
+repeatable `publisher` filters. An empty follow set returns an empty page with a
+null cursor, not an error.
+
+### 11.6 Pagination, consistency, and query boundary
+
+A feed cursor is bound to scope and, for `FOLLOWING`, a stable fingerprint of
+the authenticated user's current followed publisher codes. Changing follows
+invalidates an old Following cursor with `INVALID_CURSOR`; the client reloads
+from the first page. This prevents duplicates or gaps when the filter changes
+mid-pagination.
+
+Publisher listing and Following pages use bounded queries and must not perform
+one follow lookup per publisher or article. PostgreSQL uniqueness is the source
+of truth. Concurrent full-set updates use last committed request wins semantics
+without exposing partial sets.
+
+Follow state is account-specific. Web query keys include user ID and Android
+clears personalized state on logout. Neither client may render a previous
+user's follows or Following rows after an account switch on the same device.
+
+### 11.7 Web interaction
+
+- Place compact `Latest` and `Following` controls above the existing article
+  list; `Latest` remains visually and behaviorally primary.
+- Keep Politics and Society navigation unchanged.
+- Replace the persistent publisher-checkbox sidebar with a restrained
+  `Manage sources` action that opens a dialog or drawer using the existing
+  publisher list and checkbox vocabulary.
+- Changes remain a local draft until `Save`; `Cancel` discards them.
+- Disable duplicate submission while saving. On failure, retain the prior
+  server set and show an inline retryable error without closing the editor.
+- Article rows keep publisher, publication time, headline, and analysis state.
+  They do not add follow, save, reaction, or comparison controls.
+- Closing global search restores the previous Latest or Following feed and
+  scroll context.
+
+The layout preserves the existing editorial black-and-white design and remains
+usable at phone and desktop widths without adding a separate settings page.
+
+### 11.8 Android interaction
+
+- Reuse the existing compact source control beside the Politics and Society
+  tabs to expose `Latest` and `Following` through a bottom sheet.
+- The bottom sheet also exposes `Manage followed sources`; editing reuses the
+  current checkbox and explicit apply pattern.
+- Do not add a new bottom navigation destination or onboarding flow.
+- Returning from Reader restores the selected scope, list rows, pagination, and
+  scroll position in loaded, loading, and error states.
+- Server follow state replaces the current device-local publisher selection.
+  Existing local publisher codes are not silently uploaded to an account.
+- The category and analysis-visibility preferences may remain device-local.
+
+### 11.9 User-visible states and accessibility
+
+Both clients distinguish:
+
+- publisher list loading and failure;
+- follow-set save in progress and failure;
+- Following with no followed publishers;
+- Following with followed publishers but no article in the current category;
+- Following initial loading, populated list, pagination, and retry;
+- an old cursor invalidated after the follow set changes.
+
+The two empty states have different actions: `Manage sources` for no follows,
+and `View latest coverage` when the current category has no matching article.
+Scope controls expose selected state to assistive technology; checkboxes use
+publisher names; Save, Cancel, retry, and scope-change actions have distinct
+accessible names.
+
+### 11.10 Verification
+
+Automated verification covers authentication, relationship uniqueness and
+cascades, full-set replacement, validation, user isolation, source lifecycle,
+scope filtering, cursor invalidation, bounded queries, client draft/apply/error
+behavior, account cache isolation, and navigation-state restoration.
+
+Cross-client acceptance sets follows on Web, observes the same Following feed on
+Android, changes the set on Android, and observes the update on Web. It also
+confirms that an unfollowed publisher still appears as comparison evidence in a
+followed article's Reader when the stored analysis requires it.
+
+## 12. Following sources v1 non-goals
+
+- ranking, boosting, or recommending followed publishers inside Latest;
+- using follows as an analysis, clustering, or comparison-selection signal;
+- topic, reporter, series, keyword, or story-cluster follows;
+- publisher-specific home pages or publisher-curated editions;
+- per-category follow sets, custom source order, weights, or favorites tiers;
+- publisher blocks, mutes, notifications, or public follower counts;
+- automatic follows inferred from reading behavior;
+- a canonical article or clustered multi-headline feed card;
+- a separate account-settings page or forced onboarding;
+- offline synchronization or queued preference changes.
+
+These require separate product decisions. Following v1 adds only the explicit
+user-publisher relationship and the alternate discovery scope described above.
