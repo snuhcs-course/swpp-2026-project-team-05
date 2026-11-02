@@ -11,7 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://frameless-team05-api.vercel.app',
+        target: process.env.VITE_API_PROXY_TARGET ?? 'https://frameless-team05-api.vercel.app',
         changeOrigin: true,
       },
     },

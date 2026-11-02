@@ -14,6 +14,7 @@ import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal enum class NewsRoute { FEED, READER }
@@ -23,6 +24,10 @@ internal data class NewsFeedState(
     val items: List<ArticleSummary> = emptyList(),
     val category: NewsCategory = NewsCategory.POLITICS,
     val selectedPublishers: Set<String> = emptySet(),
+    val isSearchOpen: Boolean = false,
+    val searchInput: String = "",
+    val activeSearchQuery: String = "",
+    val isSearchPending: Boolean = false,
     val nextCursor: String? = null,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -59,6 +64,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     private var initialized = false
     private var feedJob: Job? = null
+    private var searchDebounceJob: Job? = null
+    private var feedBeforeSearch: NewsFeedState? = null
     private var readerJob: Job? = null
 
     fun initialize() {
@@ -80,7 +87,9 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     fun reset() {
         feedJob?.cancel()
+        searchDebounceJob?.cancel()
         readerJob?.cancel()
+        feedBeforeSearch = null
         initialized = false
         route = NewsRoute.FEED
         feed = NewsFeedState(
@@ -92,6 +101,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun retryFeed() {
+        if (feed.isSearchOpen) {
+            reloadForFilters()
+            return
+        }
         initialized = false
         initialize()
     }
@@ -100,13 +113,15 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         if (feed.isRefreshing) return
         feedJob?.cancel()
         feed = feed.copy(isRefreshing = true, error = null)
-        feedJob = viewModelScope.launch { loadFirstPage() }
+        val query = feed.activeSearchQuery.takeIf { feed.isSearchOpen && it.isNotBlank() }
+        feedJob = viewModelScope.launch { loadFirstPage(query) }
     }
 
     fun selectCategory(category: NewsCategory) {
         if (feed.category == category) return
         feed = feed.copy(category = category)
         repository.saveFilters(category, feed.selectedPublishers)
+        if (feed.isSearchOpen) feedBeforeSearch = null
         reloadForFilters()
     }
 
@@ -115,11 +130,126 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         if (valid == feed.selectedPublishers) return
         feed = feed.copy(selectedPublishers = valid)
         repository.saveFilters(feed.category, valid)
+        if (feed.isSearchOpen) feedBeforeSearch = null
         reloadForFilters()
+    }
+
+    fun openSearch() {
+        if (feed.isSearchOpen) return
+        feedBeforeSearch = feed.copy(
+            isSearchOpen = false,
+            searchInput = "",
+            activeSearchQuery = "",
+            isSearchPending = false
+        )
+        feed = feed.copy(isSearchOpen = true)
+    }
+
+    fun updateSearchInput(value: String) {
+        if (!feed.isSearchOpen) return
+        searchDebounceJob?.cancel()
+        val normalized = normalizeSearch(value)
+        feed = feed.copy(searchInput = value, error = null, nextPageError = null)
+        when {
+            normalized.isEmpty() -> restoreOrdinaryFeedInsideSearch(value)
+            normalized.length < 2 -> feed = feed.copy(
+                items = emptyList(),
+                nextCursor = null,
+                activeSearchQuery = "",
+                isSearchPending = false,
+                isLoading = false,
+                isRefreshing = false,
+                isLoadingMore = false
+            )
+            else -> {
+                feed = feed.copy(isSearchPending = true)
+                searchDebounceJob = viewModelScope.launch {
+                    delay(300)
+                    activateSearch(normalized)
+                }
+            }
+        }
+    }
+
+    fun submitSearch() {
+        val normalized = normalizeSearch(feed.searchInput)
+        if (!feed.isSearchOpen || normalized.length < 2) return
+        searchDebounceJob?.cancel()
+        activateSearch(normalized)
+    }
+
+    fun closeSearch() {
+        if (!feed.isSearchOpen) return
+        searchDebounceJob?.cancel()
+        feedJob?.cancel()
+        val snapshot = feedBeforeSearch
+        feedBeforeSearch = null
+        if (snapshot != null && snapshot.category == feed.category &&
+            snapshot.selectedPublishers == feed.selectedPublishers) {
+            feed = snapshot
+            return
+        }
+        feed = feed.copy(
+            items = emptyList(),
+            nextCursor = null,
+            isSearchOpen = false,
+            searchInput = "",
+            activeSearchQuery = "",
+            isSearchPending = false,
+            isLoading = true,
+            isRefreshing = false,
+            isLoadingMore = false,
+            error = null,
+            nextPageError = null
+        )
+        feedJob = viewModelScope.launch { loadFirstPage(null) }
+    }
+
+    private fun activateSearch(query: String) {
+        if (!feed.isSearchOpen || normalizeSearch(feed.searchInput) != query) return
+        feedJob?.cancel()
+        feed = feed.copy(
+            items = emptyList(),
+            nextCursor = null,
+            activeSearchQuery = query,
+            isSearchPending = false,
+            isLoading = true,
+            isRefreshing = false,
+            isLoadingMore = false,
+            error = null,
+            nextPageError = null
+        )
+        feedJob = viewModelScope.launch { loadFirstPage(query) }
+    }
+
+    private fun restoreOrdinaryFeedInsideSearch(input: String) {
+        feedJob?.cancel()
+        val snapshot = feedBeforeSearch
+        if (snapshot != null && snapshot.category == feed.category &&
+            snapshot.selectedPublishers == feed.selectedPublishers) {
+            feed = snapshot.copy(isSearchOpen = true, searchInput = input)
+            return
+        }
+        feed = feed.copy(
+            items = emptyList(),
+            nextCursor = null,
+            searchInput = input,
+            activeSearchQuery = "",
+            isSearchPending = false,
+            isLoading = true,
+            isRefreshing = false,
+            isLoadingMore = false,
+            error = null,
+            nextPageError = null
+        )
+        feedJob = viewModelScope.launch { loadFirstPage(null) }
     }
 
     private fun reloadForFilters() {
         feedJob?.cancel()
+        searchDebounceJob?.cancel()
+        val normalized = normalizeSearch(feed.searchInput)
+        val query = normalized.takeIf { feed.isSearchOpen && it.length >= 2 }
         feed = feed.copy(
             items = emptyList(),
             nextCursor = null,
@@ -127,14 +257,20 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             isRefreshing = false,
             isLoadingMore = false,
             error = null,
-            nextPageError = null
+            nextPageError = null,
+            activeSearchQuery = query.orEmpty(),
+            isSearchPending = false
         )
-        feedJob = viewModelScope.launch { loadFirstPage() }
+        feedJob = viewModelScope.launch { loadFirstPage(query) }
     }
 
-    private suspend fun loadFirstPage() {
+    private suspend fun loadFirstPage(query: String? = null) {
+        val category = feed.category
+        val publishers = feed.selectedPublishers
         try {
-            val page = repository.articles(feed.category, feed.selectedPublishers)
+            val page = repository.articles(category, publishers, query = query)
+            if (category != feed.category || publishers != feed.selectedPublishers ||
+                query.orEmpty() != feed.activeSearchQuery) return
             feed = feed.copy(
                 items = page.items,
                 nextCursor = page.nextCursor,
@@ -154,9 +290,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         val cursor = feed.nextCursor ?: return
         if (feed.isLoadingMore || feed.isLoading || feed.isRefreshing) return
         feed = feed.copy(isLoadingMore = true, nextPageError = null)
+        val category = feed.category
+        val publishers = feed.selectedPublishers
+        val query = feed.activeSearchQuery.takeIf { feed.isSearchOpen && it.isNotBlank() }
         feedJob = viewModelScope.launch {
             try {
-                val page = repository.articles(feed.category, feed.selectedPublishers, cursor)
+                val page = repository.articles(category, publishers, cursor, query)
+                if (category != feed.category || publishers != feed.selectedPublishers ||
+                    query.orEmpty() != feed.activeSearchQuery) return@launch
                 feed = feed.copy(
                     items = feed.items + page.items,
                     nextCursor = page.nextCursor,
@@ -231,4 +372,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     private fun isAuthFailure(failure: Exception): Boolean =
         failure is NewsApiException && failure.code == "AUTH_REQUIRED"
+
+    private fun normalizeSearch(value: String): String =
+        value.trim().replace(Regex("\\s+"), " ")
 }

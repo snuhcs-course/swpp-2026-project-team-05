@@ -23,6 +23,7 @@ from .authentication import (
     session_from_request,
     user_from_request,
 )
+from .article_search import MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, normalize_search_query
 from .models import AuthSession, NewsCategory, Publisher, UserAccount
 from .news_queries import (
     InvalidCursor,
@@ -193,6 +194,14 @@ def articles(request):
                     .values_list("code", flat=True))
         if set(publisher_codes) != known:
             return _error("VALIDATION_ERROR", "지원하지 않는 언론사가 포함되어 있습니다.", 400)
+    query = normalize_search_query(request.GET.get("q"))
+    if query and not MIN_QUERY_LENGTH <= len(query) <= MAX_QUERY_LENGTH:
+        return _error(
+            "VALIDATION_ERROR",
+            "검색어를 확인해 주세요.",
+            400,
+            fields={"q": f"검색어는 {MIN_QUERY_LENGTH}자 이상 {MAX_QUERY_LENGTH}자 이하여야 합니다."},
+        )
     try:
         limit = int(request.GET.get("limit", "20"))
     except ValueError:
@@ -203,6 +212,7 @@ def articles(request):
         payload = list_articles(
             category=category,
             publisher_codes=publisher_codes,
+            query=query or None,
             cursor=request.GET.get("cursor") or None,
             limit=limit,
         )

@@ -37,7 +37,11 @@ class NewsRepositoryTest {
         assertFalse(repository.savedAnalysisEnabled())
 
         assertEquals(listOf(publisher), repository.publishers())
-        assertEquals("next", repository.articles(NewsCategory.POLITICS, setOf("yna")).nextCursor)
+        assertEquals(
+            "next",
+            repository.articles(NewsCategory.POLITICS, setOf("yna"), query = "정책").nextCursor
+        )
+        assertEquals("정책", service.lastQuery)
         assertEquals(article, repository.article("a1"))
         assertEquals("token", service.lastToken)
         assertEquals("a1", service.lastArticleId)
@@ -71,6 +75,7 @@ class NewsRepositoryTest {
     private inner class FakeNewsService : NewsService {
         var lastToken: String? = null
         var lastArticleId: String? = null
+        var lastQuery: String? = null
         override suspend fun register(email: String, username: String, password: String,
                                       confirmation: String) = error("unused")
         override suspend fun login(identifier: String, password: String) = error("unused")
@@ -81,8 +86,10 @@ class NewsRepositoryTest {
             return listOf(publisher)
         }
         override suspend fun articles(token: String, category: NewsCategory,
-                                      publisherCodes: Set<String>, cursor: String?, limit: Int): ArticlePage {
+                                      publisherCodes: Set<String>, cursor: String?, limit: Int,
+                                      query: String?): ArticlePage {
             lastToken = token
+            lastQuery = query
             return ArticlePage(emptyList(), "next")
         }
         override suspend fun article(token: String, articleId: String): ArticleDetail {

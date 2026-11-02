@@ -23,22 +23,36 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.AppSession
@@ -64,14 +78,30 @@ internal fun NewsFeedScreen(
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
+    onSearchOpen: () -> Unit,
+    onSearchInput: (String) -> Unit,
+    onSearchSubmit: () -> Unit,
+    onSearchClose: () -> Unit,
     onArticle: (String) -> Unit,
     onLogout: () -> Unit
 ) {
     var showPublishers by remember { mutableStateOf(false) }
     var showAccount by remember { mutableStateOf(false) }
+    var savedFeedIndex by remember { mutableIntStateOf(0) }
+    var savedFeedOffset by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(state.category, state.selectedPublishers) {
         listState.scrollToItem(0)
+    }
+
+    LaunchedEffect(state.activeSearchQuery) {
+        if (state.activeSearchQuery.isNotBlank()) listState.scrollToItem(0)
+    }
+
+    LaunchedEffect(state.isSearchOpen) {
+        if (!state.isSearchOpen && listState.layoutInfo.totalItemsCount > 0) {
+            listState.scrollToItem(savedFeedIndex, savedFeedOffset)
+        }
     }
 
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
@@ -82,22 +112,43 @@ internal fun NewsFeedScreen(
 
     Column(Modifier.fillMaxSize().background(Fl.Card)) {
         Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.padding(start = 18.dp)) { BrandRow() }
-                Spacer(Modifier.weight(1f))
-                Box(
-                    Modifier.padding(end = 18.dp).size(36.dp)
-                        .background(Fl.Inset, CircleShape)
-                        .border(1.dp, Fl.Line, CircleShape)
-                        .clickable { showAccount = true }
-                        .semantics {
-                            role = Role.Button
-                            contentDescription = "계정 메뉴"
+            if (state.isSearchOpen) {
+                SearchHeader(
+                    value = state.searchInput,
+                    onValue = onSearchInput,
+                    onSubmit = onSearchSubmit,
+                    onClose = onSearchClose
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.padding(start = 18.dp)) { BrandRow() }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = {
+                            savedFeedIndex = listState.firstVisibleItemIndex
+                            savedFeedOffset = listState.firstVisibleItemScrollOffset
+                            onSearchOpen()
                         },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(session.user.username.take(1).uppercase(), color = Fl.Accent,
-                        fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        modifier = Modifier.size(40.dp).semantics {
+                            contentDescription = "기사 검색"
+                        }
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink2)
+                    }
+                    Box(
+                        Modifier.padding(end = 18.dp).size(36.dp)
+                            .background(Fl.Inset, CircleShape)
+                            .border(1.dp, Fl.Line, CircleShape)
+                            .clickable { showAccount = true }
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = "계정 메뉴"
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(session.user.username.take(1).uppercase(), color = Fl.Accent,
+                            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -131,7 +182,15 @@ internal fun NewsFeedScreen(
             }
         }
         HorizontalDivider(color = Fl.Line)
+        val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
         when {
+            state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
+                title = "검색어를 조금 더 입력해 주세요",
+                detail = "두 글자 이상부터 전체 기사에서 검색해요.",
+                action = "검색 지우기",
+                onAction = { onSearchInput("") }
+            )
+            state.isSearchPending -> LoadingFeed()
             state.isLoading && state.items.isEmpty() -> LoadingFeed()
             state.error != null && state.items.isEmpty() -> FeedMessage(
                 title = "기사를 불러오지 못했어요",
@@ -140,10 +199,17 @@ internal fun NewsFeedScreen(
                 onAction = onRetry
             )
             state.items.isEmpty() -> FeedMessage(
-                title = "조건에 맞는 기사가 없어요",
-                detail = "다른 분야나 언론사를 선택해 보세요.",
-                action = if (state.selectedPublishers.isNotEmpty()) "모든 언론사 보기" else "새로고침",
-                onAction = { if (state.selectedPublishers.isNotEmpty()) onPublishers(emptySet()) else onRefresh() }
+                title = if (state.activeSearchQuery.isNotBlank()) "검색 결과가 없어요" else "조건에 맞는 기사가 없어요",
+                detail = if (state.activeSearchQuery.isNotBlank())
+                    "다른 검색어나 분야를 확인해 보세요."
+                else "다른 분야나 언론사를 선택해 보세요.",
+                action = if (state.activeSearchQuery.isNotBlank()) "검색 지우기"
+                    else if (state.selectedPublishers.isNotEmpty()) "모든 언론사 보기" else "새로고침",
+                onAction = {
+                    if (state.activeSearchQuery.isNotBlank()) onSearchInput("")
+                    else if (state.selectedPublishers.isNotEmpty()) onPublishers(emptySet())
+                    else onRefresh()
+                }
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 item {
@@ -152,6 +218,8 @@ internal fun NewsFeedScreen(
                         verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             if (state.isRefreshing) "새 기사를 확인하는 중…"
+                            else if (state.activeSearchQuery.isNotBlank())
+                                "‘${state.activeSearchQuery}’ · ${state.category.label} 검색"
                             else "${state.category.label} · 최신순",
                             color = Fl.Muted,
                             fontSize = 11.sp,
@@ -221,6 +289,74 @@ private fun ArticleFeedRow(article: ArticleSummary, onClick: () -> Unit) {
         Text(article.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
             fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
             fontWeight = FontWeight.SemiBold, color = Fl.Ink)
+        article.searchExcerpt?.let { excerpt ->
+            Text(excerpt, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Muted)
+        }
+    }
+}
+
+@Composable
+private fun SearchHeader(
+    value: String,
+    onValue: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onClose: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onClose, modifier = Modifier.semantics {
+            contentDescription = "검색 닫기"
+        }) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Fl.Ink)
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValue,
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = Fl.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium
+            ),
+            cursorBrush = SolidColor(Fl.Accent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+            modifier = Modifier.weight(1f).height(44.dp)
+                .background(Fl.Inset, RoundedCornerShape(8.dp))
+                .border(1.dp, Fl.Line, RoundedCornerShape(8.dp))
+                .focusRequester(focusRequester)
+                .semantics { contentDescription = "기사 검색어" },
+            decorationBox = { input ->
+                Row(
+                    Modifier.fillMaxSize().padding(horizontal = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null,
+                        tint = Fl.Muted, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (value.isEmpty()) Text(
+                            "기사, 언론사, 본문 검색",
+                            color = Fl.Muted,
+                            fontSize = 14.sp
+                        )
+                        input()
+                    }
+                }
+            }
+        )
+        if (value.isNotEmpty()) {
+            IconButton(onClick = { onValue("") }, modifier = Modifier.semantics {
+                contentDescription = "검색어 지우기"
+            }) {
+                Icon(Icons.Default.Close, contentDescription = null, tint = Fl.Ink2)
+            }
+        } else {
+            Spacer(Modifier.width(48.dp))
+        }
     }
 }
 

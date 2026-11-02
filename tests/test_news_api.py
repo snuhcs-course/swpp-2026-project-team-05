@@ -211,6 +211,115 @@ class NewsApiTests(TestCase):
         filtered = self.client.get("/api/v1/articles?publisher=mbc", **self.auth)
         self.assertEqual([row["id"] for row in filtered.json()["items"]], [str(self.target.id)])
 
+    def test_search_matches_title_body_and_publisher(self):
+        title_match = self.client.get("/api/v1/articles", {"q": "전격"}, **self.auth)
+        self.assertEqual(
+            [row["id"] for row in title_match.json()["items"]],
+            [str(self.source.id)],
+        )
+        self.assertIn("전격", title_match.json()["items"][0]["search_excerpt"])
+
+        body_match = self.client.get(
+            "/api/v1/articles", {"q": "  후속   협의  "}, **self.auth
+        )
+        self.assertEqual(
+            [row["id"] for row in body_match.json()["items"]],
+            [str(self.source.id)],
+        )
+        self.assertIn("후속 협의", body_match.json()["items"][0]["search_excerpt"])
+
+        publisher_match = self.client.get("/api/v1/articles", {"q": "mbc"}, **self.auth)
+        self.assertEqual(
+            [row["id"] for row in publisher_match.json()["items"]],
+            [str(self.target.id)],
+        )
+        self.assertIsNone(publisher_match.json()["items"][0]["search_excerpt"])
+
+    def test_search_ranks_title_then_publisher_then_body(self):
+        now = timezone.now()
+        ranked_publisher = Publisher.objects.create(
+            code="ranked", name_ko="특별검색뉴스", domain="ranked.example.com",
+            display_order=3,
+        )
+        title_match = self._article(
+            publisher=self.yna,
+            title="특별검색 제목",
+            body="제목에서만 일치합니다.",
+            published_at=now - timedelta(days=3),
+            url="https://example.com/search-title",
+        )
+        publisher_match = self._article(
+            publisher=ranked_publisher,
+            title="언론사 일치 기사",
+            body="언론사 이름으로 찾습니다.",
+            published_at=now - timedelta(days=2),
+            url="https://example.com/search-publisher",
+        )
+        body_match = self._article(
+            publisher=self.mbc,
+            title="본문 일치 기사",
+            body="가장 최근이지만 특별검색 단어는 본문에만 있습니다.",
+            published_at=now,
+            url="https://example.com/search-body",
+        )
+
+        response = self.client.get("/api/v1/articles", {"q": "특별검색"}, **self.auth)
+        self.assertEqual(
+            [row["id"] for row in response.json()["items"]],
+            [str(title_match.id), str(publisher_match.id), str(body_match.id)],
+        )
+
+    def test_search_combines_filters_and_excludes_non_feed_articles(self):
+        self.target.is_feed_visible = False
+        self.target.save(update_fields=["is_feed_visible"])
+
+        hidden_from_search = self.client.get(
+            "/api/v1/articles",
+            {"q": "정부", "category": "POLITICS", "publisher": "mbc"},
+            **self.auth,
+        )
+        self.assertEqual(hidden_from_search.json()["items"], [])
+
+        visible = self.client.get(
+            "/api/v1/articles",
+            {"q": "정부", "category": "POLITICS", "publisher": "yna"},
+            **self.auth,
+        )
+        self.assertEqual(
+            [row["id"] for row in visible.json()["items"]],
+            [str(self.source.id)],
+        )
+
+    def test_search_cursor_is_bound_to_query_and_paginates_ranked_results(self):
+        first = self.client.get(
+            "/api/v1/articles", {"q": "정부", "limit": 1}, **self.auth
+        )
+        cursor = first.json()["next_cursor"]
+        self.assertTrue(cursor)
+        second = self.client.get(
+            "/api/v1/articles", {"q": "정부", "limit": 1, "cursor": cursor}, **self.auth
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertNotEqual(
+            first.json()["items"][0]["id"], second.json()["items"][0]["id"]
+        )
+
+        wrong_query = self.client.get(
+            "/api/v1/articles", {"q": "정책", "limit": 1, "cursor": cursor}, **self.auth
+        )
+        self.assertEqual(wrong_query.status_code, 400)
+        self.assertEqual(wrong_query.json()["error"]["code"], "INVALID_CURSOR")
+
+    def test_search_validates_query_length_and_feed_shape_is_unchanged(self):
+        for query in ("한", "가" * 101):
+            with self.subTest(length=len(query)):
+                response = self.client.get("/api/v1/articles", {"q": query}, **self.auth)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("q", response.json()["error"]["fields"])
+
+        feed = self.client.get("/api/v1/articles", **self.auth)
+        self.assertNotIn("search_excerpt", feed.json()["items"][0])
+
     def test_comparison_article_is_readable_but_excluded_from_feed(self):
         self.target.is_feed_visible = False
         self.target.save(update_fields=["is_feed_visible"])

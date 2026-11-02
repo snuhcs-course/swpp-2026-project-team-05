@@ -45,6 +45,7 @@ class NewsScreensInstrumentedTest {
             NewsFeedScreen(
                 state, session, listState,
                 onCategory = {}, onPublishers = {}, onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onArticle = { selectedId = it }, onLogout = {}
             )
         }

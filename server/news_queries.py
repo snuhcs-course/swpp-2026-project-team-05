@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+import json
 from datetime import datetime
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from django.core import signing
 from django.db.models import Prefetch, Q
 from django.utils.dateparse import parse_datetime
 
+from .article_search import apply_article_search, search_excerpt
 from .models import (
     AnalysisStatus,
     Article,
@@ -21,7 +23,7 @@ from .models import (
 )
 
 
-CURSOR_SALT = "frameless.news-feed.v1"
+CURSOR_SALT = "frameless.news-feed.v2"
 
 
 class InvalidCursor(ValueError):
@@ -40,8 +42,8 @@ def _analysis_state(article: Article) -> str:
     return article.story_cluster.analysis_status if article.story_cluster_id else AnalysisStatus.NOT_STARTED
 
 
-def _article_summary(article: Article) -> dict:
-    return {
+def _article_summary(article: Article, search_query: str | None = None) -> dict:
+    payload = {
         "id": str(article.id),
         "publisher": publisher_payload(article.publisher),
         "title": article.title,
@@ -49,24 +51,56 @@ def _article_summary(article: Article) -> dict:
         "published_at": article.published_at,
         "analysis_state": _analysis_state(article),
     }
+    if search_query:
+        payload["search_excerpt"] = search_excerpt(article.body_text, search_query)
+    return payload
 
 
-def encode_cursor(article: Article) -> str:
+def _context_fingerprint(*, query: str | None, category: str | None,
+                         publisher_codes: list[str]) -> str:
+    canonical = json.dumps(
+        {
+            "q": query or "",
+            "category": category or "",
+            "publishers": sorted(publisher_codes),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()[:24]
+
+
+def encode_cursor(article: Article, *, context: str, search_rank: int | None) -> str:
     return signing.dumps(
-        {"published_at": article.published_at.isoformat(), "id": str(article.id)},
+        {
+            "v": 2,
+            "context": context,
+            "rank": search_rank,
+            "published_at": article.published_at.isoformat(),
+            "id": str(article.id),
+        },
         salt=CURSOR_SALT,
         compress=True,
     )
 
 
-def decode_cursor(value: str) -> tuple[datetime, UUID]:
+def decode_cursor(value: str, *, context: str, search_active: bool) -> tuple[int | None, datetime, UUID]:
     try:
         payload = signing.loads(value, salt=CURSOR_SALT, max_age=60 * 60 * 24 * 7)
+        if payload.get("v") != 2 or payload.get("context") != context:
+            raise ValueError
+        rank = payload.get("rank")
+        if search_active:
+            if type(rank) is not int or not 0 <= rank <= 2:
+                raise ValueError
+        elif rank is not None:
+            raise ValueError
         published_at = parse_datetime(str(payload["published_at"]))
         article_id = UUID(str(payload["id"]))
         if published_at is None or published_at.tzinfo is None:
             raise ValueError
-        return published_at, article_id
+        return rank, published_at, article_id
     except (signing.BadSignature, KeyError, TypeError, ValueError) as exc:
         raise InvalidCursor from exc
 
@@ -78,32 +112,54 @@ def list_publishers() -> list[dict]:
     return [publisher_payload(row) for row in rows]
 
 
-def list_articles(*, category: str | None, publisher_codes: list[str], cursor: str | None,
-                  limit: int) -> dict:
+def list_articles(*, category: str | None, publisher_codes: list[str], query: str | None,
+                  cursor: str | None, limit: int) -> dict:
     queryset = (Article.objects
                 .filter(
                     visibility=ArticleVisibility.VISIBLE,
                     is_feed_visible=True,
                     publisher__is_active=True,
                 )
-                .select_related("publisher", "story_cluster")
-                .order_by("-published_at", "-id"))
+                .select_related("publisher", "story_cluster"))
     if category:
         queryset = queryset.filter(category=category)
     if publisher_codes:
         queryset = queryset.filter(publisher__code__in=publisher_codes)
+    if query:
+        queryset = apply_article_search(queryset, query).order_by(
+            "search_rank", "-published_at", "-id"
+        )
+    else:
+        queryset = queryset.order_by("-published_at", "-id")
+
+    context = _context_fingerprint(
+        query=query, category=category, publisher_codes=publisher_codes,
+    )
     if cursor:
-        published_at, article_id = decode_cursor(cursor)
-        queryset = queryset.filter(
+        rank, published_at, article_id = decode_cursor(
+            cursor, context=context, search_active=bool(query),
+        )
+        position = (
             Q(published_at__lt=published_at)
             | Q(published_at=published_at, id__lt=article_id)
         )
+        if query:
+            queryset = queryset.filter(Q(search_rank__gt=rank) | Q(search_rank=rank) & position)
+        else:
+            queryset = queryset.filter(position)
     rows = list(queryset[:limit + 1])
     has_more = len(rows) > limit
     visible = rows[:limit]
     return {
-        "items": [_article_summary(row) for row in visible],
-        "next_cursor": encode_cursor(visible[-1]) if has_more and visible else None,
+        "items": [_article_summary(row, query) for row in visible],
+        "next_cursor": (
+            encode_cursor(
+                visible[-1],
+                context=context,
+                search_rank=getattr(visible[-1], "search_rank", None),
+            )
+            if has_more and visible else None
+        ),
     }
 
 

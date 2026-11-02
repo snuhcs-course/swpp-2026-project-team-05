@@ -18,7 +18,8 @@ internal interface NewsService {
     suspend fun logout(token: String)
     suspend fun publishers(token: String): List<PublisherItem>
     suspend fun articles(token: String, category: NewsCategory, publisherCodes: Set<String>,
-                         cursor: String? = null, limit: Int = 20): ArticlePage
+                         cursor: String? = null, limit: Int = 20,
+                         query: String? = null): ArticlePage
     suspend fun article(token: String, articleId: String): ArticleDetail
     suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis
 }
@@ -35,8 +36,9 @@ internal object NewsApi : NewsService {
     override suspend fun logout(token: String) = client.logout(token)
     override suspend fun publishers(token: String): List<PublisherItem> = client.publishers(token)
     override suspend fun articles(token: String, category: NewsCategory,
-                                  publisherCodes: Set<String>, cursor: String?, limit: Int): ArticlePage =
-        client.articles(token, category, publisherCodes, cursor, limit)
+                                  publisherCodes: Set<String>, cursor: String?, limit: Int,
+                                  query: String?): ArticlePage =
+        client.articles(token, category, publisherCodes, cursor, limit, query)
     override suspend fun article(token: String, articleId: String): ArticleDetail =
         client.article(token, articleId)
     override suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis =
@@ -76,14 +78,15 @@ internal class NewsApiClient(baseUrl: String) {
 
     suspend fun articles(token: String, category: NewsCategory,
                          publisherCodes: Set<String>, cursor: String? = null,
-                         limit: Int = 20): ArticlePage {
-        val query = buildList {
+                         limit: Int = 20, query: String? = null): ArticlePage {
+        val queryString = buildList {
             add("category=${encode(category.wire)}")
             add("limit=$limit")
             publisherCodes.sorted().forEach { add("publisher=${encode(it)}") }
+            query?.takeIf { it.isNotBlank() }?.let { add("q=${encode(it)}") }
             cursor?.let { add("cursor=${encode(it)}") }
         }.joinToString("&")
-        val root = request("GET", "/api/v1/articles?$query", token = token)
+        val root = request("GET", "/api/v1/articles?$queryString", token = token)
         return ArticlePage(
             items = root.optJSONArray("items").orEmptyObjects().map(::articleSummary),
             nextCursor = root.optString("next_cursor").takeIf { root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank() }
@@ -168,7 +171,10 @@ internal class NewsApiClient(baseUrl: String) {
         title = root.requireString("title"),
         category = NewsCategory.fromWire(root.requireString("category")),
         publishedAt = root.requireString("published_at"),
-        analysisState = StoredAnalysisState.fromWire(root.requireString("analysis_state"))
+        analysisState = StoredAnalysisState.fromWire(root.requireString("analysis_state")),
+        searchExcerpt = root.optString("search_excerpt").takeIf {
+            root.has("search_excerpt") && !root.isNull("search_excerpt") && it.isNotBlank()
+        }
     )
 
     private fun articleDetail(root: JSONObject) = ArticleDetail(

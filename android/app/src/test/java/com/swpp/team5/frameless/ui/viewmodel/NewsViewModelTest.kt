@@ -19,6 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -116,6 +117,35 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun searchDebouncesServerQueryAndClosingRestoresFeed() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("ordinary")), null)
+            pages += ArticlePage(listOf(summary("search-result")), null)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+
+        viewModel.openSearch()
+        viewModel.updateSearchInput("정")
+        assertTrue(viewModel.feed.items.isEmpty())
+        assertEquals("", viewModel.feed.activeSearchQuery)
+
+        viewModel.updateSearchInput("정책")
+        viewModel.updateSearchInput("정책 추진")
+        mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
+
+        assertEquals("정책 추진", repository.queries.last())
+        assertEquals(listOf("search-result"), viewModel.feed.items.map { it.id })
+        assertEquals("정책 추진", viewModel.feed.activeSearchQuery)
+
+        viewModel.closeSearch()
+        assertFalse(viewModel.feed.isSearchOpen)
+        assertEquals(listOf("ordinary"), viewModel.feed.items.map { it.id })
+        assertEquals(2, repository.articlePageCalls)
+    }
+
+    @Test
     fun readerLoadsArticleAndAnalysisAndKeepsAnalysisPreference() {
         val repository = FakeNewsDataSource()
         val viewModel = NewsViewModel(repository)
@@ -167,11 +197,14 @@ class NewsViewModelTest {
         var savedPublisherValue = emptySet<String>()
         var savedAnalysisEnabledValue = true
         var articlePageCalls = 0
+        val queries = mutableListOf<String?>()
         val savedFilters = mutableListOf<Pair<NewsCategory, Set<String>>>()
 
         override suspend fun publishers() = listOf(yna, mbc)
-        override suspend fun articles(category: NewsCategory, publisherCodes: Set<String>, cursor: String?): ArticlePage {
+        override suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
+                                      cursor: String?, query: String?): ArticlePage {
             articlePageCalls += 1
+            queries += query
             pageFailure?.let { throw it }
             return pages.removeFirst()
         }

@@ -77,18 +77,25 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                     }
                 }
                 when (news.route) {
-                    NewsRoute.FEED -> NewsFeedScreen(
-                        state = news.feed,
-                        session = session,
-                        listState = feedListState,
-                        onCategory = news::selectCategory,
-                        onPublishers = news::applyPublishers,
-                        onRefresh = news::refresh,
-                        onRetry = news::retryFeed,
-                        onLoadMore = news::loadMore,
-                        onArticle = news::openArticle,
-                        onLogout = { news.reset(); auth.logout() }
-                    )
+                    NewsRoute.FEED -> {
+                        BackHandler(enabled = news.feed.isSearchOpen) { news.closeSearch() }
+                        NewsFeedScreen(
+                            state = news.feed,
+                            session = session,
+                            listState = feedListState,
+                            onCategory = news::selectCategory,
+                            onPublishers = news::applyPublishers,
+                            onRefresh = news::refresh,
+                            onRetry = news::retryFeed,
+                            onLoadMore = news::loadMore,
+                            onSearchOpen = news::openSearch,
+                            onSearchInput = news::updateSearchInput,
+                            onSearchSubmit = news::submitSearch,
+                            onSearchClose = news::closeSearch,
+                            onArticle = news::openArticle,
+                            onLogout = { news.reset(); auth.logout() }
+                        )
+                    }
                     NewsRoute.READER -> NewsReaderScreen(
                         state = news.reader,
                         onBack = news::closeReader,
