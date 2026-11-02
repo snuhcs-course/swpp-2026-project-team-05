@@ -26,6 +26,18 @@ class GoldDatasetConversionTests(SimpleTestCase):
             160,
         )
         self.assertEqual(sum(not row["findings"] for row in clusters), 4)
+        self.assertEqual(
+            sum(
+                article["is_feed_visible"]
+                for cluster in clusters
+                for article in cluster["articles"]
+            ),
+            30,
+        )
+        self.assertTrue(all(
+            cluster["articles"][0]["is_feed_visible"]
+            for cluster in clusters
+        ))
 
     def test_publishers_are_complete_and_stable(self):
         publishers = self.dataset["publishers"]

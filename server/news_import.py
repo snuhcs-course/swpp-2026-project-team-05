@@ -216,6 +216,7 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
                         _required(article_item, "published_at", article_context), article_context
                     ),
                     "visibility": article_item.get("visibility", ArticleVisibility.VISIBLE),
+                    "is_feed_visible": article_item.get("is_feed_visible", True),
                 },
             )
             article_by_key[article_key] = article

@@ -72,13 +72,20 @@ def decode_cursor(value: str) -> tuple[datetime, UUID]:
 
 
 def list_publishers() -> list[dict]:
-    return [publisher_payload(row) for row in Publisher.objects.filter(is_active=True)]
+    rows = (Publisher.objects
+            .filter(is_active=True, articles__is_feed_visible=True)
+            .distinct())
+    return [publisher_payload(row) for row in rows]
 
 
 def list_articles(*, category: str | None, publisher_codes: list[str], cursor: str | None,
                   limit: int) -> dict:
     queryset = (Article.objects
-                .filter(visibility=ArticleVisibility.VISIBLE, publisher__is_active=True)
+                .filter(
+                    visibility=ArticleVisibility.VISIBLE,
+                    is_feed_visible=True,
+                    publisher__is_active=True,
+                )
                 .select_related("publisher", "story_cluster")
                 .order_by("-published_at", "-id"))
     if category:

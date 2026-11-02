@@ -167,6 +167,9 @@ def _convert_articles(document: dict, code_by_name: dict[str, str]) -> list[dict
             "category": category,
             "published_at": _timestamp(_required(raw, "published_at", context), context),
             "visibility": ArticleVisibility.VISIBLE,
+            # Only the reviewed source article is a feed story. Related articles
+            # remain readable through comparison pages without cluttering the feed.
+            "is_feed_visible": article_id == "source",
         })
     return rows
 

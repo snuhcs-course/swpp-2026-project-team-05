@@ -60,7 +60,8 @@ class NewsApiTests(TestCase):
             url="https://example.com/target",
         )
 
-    def _article(self, *, publisher, title, body, published_at, url, visible=True):
+    def _article(self, *, publisher, title, body, published_at, url, visible=True,
+                 feed_visible=True):
         return Article.objects.create(
             publisher=publisher,
             story_cluster=self.cluster,
@@ -71,6 +72,7 @@ class NewsApiTests(TestCase):
             category=NewsCategory.POLITICS,
             published_at=published_at,
             visibility=ArticleVisibility.VISIBLE if visible else ArticleVisibility.HIDDEN,
+            is_feed_visible=feed_visible,
         )
 
     def _finding(self):
@@ -208,6 +210,38 @@ class NewsApiTests(TestCase):
         self.assertEqual([row["id"] for row in second.json()["items"]], [str(self.target.id)])
         filtered = self.client.get("/api/v1/articles?publisher=mbc", **self.auth)
         self.assertEqual([row["id"] for row in filtered.json()["items"]], [str(self.target.id)])
+
+    def test_comparison_article_is_readable_but_excluded_from_feed(self):
+        self.target.is_feed_visible = False
+        self.target.save(update_fields=["is_feed_visible"])
+
+        feed = self.client.get("/api/v1/articles?category=POLITICS", **self.auth)
+        self.assertEqual(
+            [row["id"] for row in feed.json()["items"]],
+            [str(self.source.id)],
+        )
+        detail = self.client.get(f"/api/v1/articles/{self.target.id}", **self.auth)
+        self.assertEqual(detail.status_code, 200)
+
+        finding = self._finding()
+        self._comparison(finding, self.target)
+        analysis = self.client.get(
+            f"/api/v1/articles/{self.source.id}/analysis", **self.auth
+        )
+        self.assertEqual(
+            analysis.json()["findings"][0]["comparison_articles"][0]["article_id"],
+            str(self.target.id),
+        )
+
+    def test_publishers_exclude_comparison_only_sources(self):
+        self.target.is_feed_visible = False
+        self.target.save(update_fields=["is_feed_visible"])
+
+        response = self.client.get("/api/v1/publishers", **self.auth)
+        self.assertEqual(
+            [row["code"] for row in response.json()["items"]],
+            ["yna"],
+        )
 
     def test_feed_rejects_tampered_cursor(self):
         response = self.client.get("/api/v1/articles?cursor=not-a-cursor", **self.auth)

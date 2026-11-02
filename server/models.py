@@ -175,7 +175,7 @@ class StoryCluster(models.Model):
 
 
 class Article(models.Model):
-    """A stored publisher article shown in the news feed and Reader."""
+    """A stored article readable directly or as supporting comparison evidence."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     publisher = models.ForeignKey(Publisher, on_delete=models.PROTECT, related_name="articles")
@@ -192,6 +192,7 @@ class Article(models.Model):
     visibility = models.CharField(
         max_length=16, choices=ArticleVisibility.choices, default=ArticleVisibility.VISIBLE,
     )
+    is_feed_visible = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -203,7 +204,7 @@ class Article(models.Model):
                 fields=["story_cluster", "-published_at"], name="frameless_article_cluster",
             ),
             models.Index(
-                fields=["category", "visibility", "-published_at"],
+                fields=["category", "visibility", "is_feed_visible", "-published_at"],
                 name="frameless_article_feed",
             ),
         ]
