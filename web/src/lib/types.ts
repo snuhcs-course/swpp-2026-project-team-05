@@ -1,5 +1,6 @@
 export type NewsCategory = 'POLITICS' | 'SOCIETY'
 export type AnalysisState = 'NOT_STARTED' | 'PROCESSING' | 'READY' | 'PARTIAL' | 'FAILED'
+export type FeedScope = 'ALL' | 'FOLLOWING'
 
 export interface User {
   id: string
@@ -18,6 +19,7 @@ export interface Publisher {
   code: string
   name: string
   logo_url: string
+  is_followed?: boolean
 }
 
 export interface ArticleSummary {

@@ -238,6 +238,28 @@ class SavedArticle(models.Model):
         ]
 
 
+class UserPublisherFollow(models.Model):
+    """One account's explicit choice to follow a feed publisher."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        UserAccount, on_delete=models.CASCADE, related_name="publisher_follows",
+    )
+    publisher = models.ForeignKey(
+        Publisher, on_delete=models.CASCADE, related_name="user_follows",
+    )
+    followed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "frameless_user_publisher_follow"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "publisher"],
+                name="frameless_follow_user_pub_uniq",
+            ),
+        ]
+
+
 class SharedProposition(models.Model):
     """The exact meaning shared by one finding and its comparison targets."""
 

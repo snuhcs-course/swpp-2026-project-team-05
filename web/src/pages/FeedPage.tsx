@@ -1,30 +1,33 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Check, ChevronDown, Filter, LoaderCircle, Search, X } from 'lucide-react'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, ChevronDown, Filter, LoaderCircle, Search, Settings2, X } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
+import { ManageSourcesDialog } from '../components/ManageSourcesDialog'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { articleRouteState } from '../lib/navigation'
-import type { NewsCategory } from '../lib/types'
+import type { FeedScope, NewsCategory, Publisher } from '../lib/types'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
 
 export function FeedPage() {
   const { session } = useAuth()
   const token = session!.token
   const userId = session!.user.id
+  const queryClient = useQueryClient()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
   const category = (params.get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS') as NewsCategory
+  const scope = (params.get('scope') === 'following' ? 'FOLLOWING' : 'ALL') as FeedScope
   const [queryInput, setQueryInput] = useState('')
   const [isComposing, setIsComposing] = useState(false)
   const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
   const [activeQuery, setActiveQuery] = useState('')
-  const [selectedPublishers, setSelectedPublishers] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [sourcesOpen, setSourcesOpen] = useState(false)
   const queryTooShort = !isComposing && normalizedInput.length === 1
   const queryPending = !isComposing && normalizedInput.length >= 2 && activeQuery !== normalizedInput
 
@@ -42,21 +45,39 @@ export function FeedPage() {
   }, [isComposing, normalizedInput])
 
   const publisherQuery = useQuery({
-    queryKey: ['publishers'],
+    queryKey: ['publishers', userId],
     queryFn: () => api.publishers(token),
   })
 
+  const effectiveScope: FeedScope = activeQuery ? 'ALL' : scope
+
   const articlesQuery = useInfiniteQuery({
-    queryKey: ['articles', userId, category, [...selectedPublishers].sort(), activeQuery],
+    queryKey: ['articles', userId, category, effectiveScope, activeQuery],
     queryFn: ({ pageParam }) => api.articles(token, {
       category,
-      publishers: selectedPublishers,
+      scope: effectiveScope,
       query: activeQuery || undefined,
       cursor: pageParam,
     }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     enabled: !queryTooShort,
+  })
+
+  const followMutation = useMutation({
+    mutationFn: (codes: string[]) => api.replaceFollowedPublishers(token, codes),
+    onSuccess: async (codes) => {
+      const followed = new Set(codes)
+      queryClient.setQueryData<Publisher[]>(
+        ['publishers', userId],
+        (current = []) => current.map((publisher) => ({
+          ...publisher,
+          is_followed: followed.has(publisher.code),
+        })),
+      )
+      await queryClient.invalidateQueries({ queryKey: ['articles', userId] })
+      setSourcesOpen(false)
+    },
   })
 
   const articles = useMemo(
@@ -67,10 +88,19 @@ export function FeedPage() {
   )
   const hero = articles[0]
   const rest = articles.slice(1)
+  const followedCount = publisherQuery.data?.filter((publisher) => publisher.is_followed).length ?? 0
 
   function chooseCategory(next: NewsCategory) {
     const updated = new URLSearchParams(params)
     updated.set('category', next)
+    updated.delete('q')
+    setParams(updated)
+  }
+
+  function chooseScope(next: FeedScope) {
+    const updated = new URLSearchParams(params)
+    if (next === 'FOLLOWING') updated.set('scope', 'following')
+    else updated.delete('scope')
     updated.delete('q')
     setParams(updated)
   }
@@ -84,12 +114,6 @@ export function FeedPage() {
     event.preventDefault()
     if (isComposing) return
     if (normalizedInput.length >= 2) setActiveQuery(normalizedInput)
-  }
-
-  function togglePublisher(code: string) {
-    setSelectedPublishers((selected) => selected.includes(code)
-      ? selected.filter((item) => item !== code)
-      : [...selected, code])
   }
 
   return (
@@ -132,6 +156,33 @@ export function FeedPage() {
           </div>
         </section>
 
+        <section className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-300 py-4" aria-label="Feed scope">
+          <div className="flex items-center gap-1 border border-zinc-300 p-1">
+            <button
+              type="button"
+              aria-pressed={scope === 'ALL'}
+              className={cn('px-4 py-2 text-sm font-bold', scope === 'ALL' && 'bg-black text-white')}
+              onClick={() => chooseScope('ALL')}
+            >
+              Latest
+            </button>
+            <button
+              type="button"
+              aria-pressed={scope === 'FOLLOWING'}
+              className={cn('px-4 py-2 text-sm font-bold', scope === 'FOLLOWING' && 'bg-black text-white')}
+              onClick={() => chooseScope('FOLLOWING')}
+            >
+              Following
+            </button>
+          </div>
+          <button type="button" className="flex items-center gap-2 text-sm font-bold underline decoration-zinc-400 underline-offset-4 hover:decoration-black" onClick={() => {
+            followMutation.reset()
+            setSourcesOpen(true)
+          }}>
+            <Settings2 size={16} /> Manage sources
+          </button>
+        </section>
+
         <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-14">
           <aside className="py-6 lg:border-r lg:border-zinc-300 lg:pr-7">
             <div className="flex items-center justify-between lg:block">
@@ -152,34 +203,25 @@ export function FeedPage() {
                   </button>
                 ))}
               </div>
-              <h2 className="mt-9 border-b border-black pb-3 text-sm font-bold">Publishers</h2>
-              <div className="mt-2 space-y-1">
-                {publisherQuery.data?.map((publisher) => (
-                  <label key={publisher.code} className="flex cursor-pointer items-center gap-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-black"
-                      checked={selectedPublishers.includes(publisher.code)}
-                      onChange={() => togglePublisher(publisher.code)}
-                    />
-                    {publisher.name}
-                  </label>
-                ))}
-                {publisherQuery.isLoading && <span className="text-sm text-zinc-400">Loading…</span>}
+              <div className="mt-9 border-t border-zinc-300 pt-4 text-xs leading-5 text-zinc-500">
+                {followedCount > 0
+                  ? `${followedCount} ${followedCount === 1 ? 'source' : 'sources'} in Following`
+                  : 'No sources followed yet'}
               </div>
-              {selectedPublishers.length > 0 && (
-                <button className="mt-4 text-xs font-bold underline underline-offset-4" onClick={() => setSelectedPublishers([])}>Show all publishers</button>
-              )}
             </div>
           </aside>
 
           <section className="min-w-0 py-6 lg:py-9">
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
               <h2 className="text-sm font-black">
-                {activeQuery ? `Search results · ${categoryLabel(category)}` : `${categoryLabel(category)} Headlines`}
+                {activeQuery
+                  ? `Search results · ${categoryLabel(category)}`
+                  : `${scope === 'FOLLOWING' ? 'Following' : categoryLabel(category)} Headlines`}
               </h2>
               <span className="text-xs text-zinc-500">
-                {activeQuery ? `“${activeQuery}” · ${articles.length} loaded` : `Newest · ${articles.length} stories`}
+                {activeQuery
+                  ? `“${activeQuery}” · all sources · ${articles.length} loaded`
+                  : `Newest · ${articles.length} stories`}
               </span>
             </div>
 
@@ -210,8 +252,22 @@ export function FeedPage() {
               ? articles.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)
               : rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
             {!articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
-              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">
-                {activeQuery ? `No stories found for “${activeQuery}”.` : 'No stories match these filters.'}
+              <div className="border-y border-zinc-300 px-5 py-20 text-center text-sm text-zinc-500">
+                {activeQuery ? (
+                  `No stories found for “${activeQuery}”.`
+                ) : scope === 'FOLLOWING' && followedCount === 0 ? (
+                  <>
+                    <p>Choose a few trusted sources to build your Following feed.</p>
+                    <Button className="mt-5" onClick={() => setSourcesOpen(true)}>Manage sources</Button>
+                  </>
+                ) : scope === 'FOLLOWING' ? (
+                  <>
+                    <p>Your followed sources have no {categoryLabel(category).toLowerCase()} stories right now.</p>
+                    <Button variant="outline" className="mt-5" onClick={() => chooseScope('ALL')}>Browse Latest</Button>
+                  </>
+                ) : (
+                  'No stories are available in this section.'
+                )}
               </div>
             )}
             {articlesQuery.hasNextPage && !queryPending && !queryTooShort && (
@@ -223,6 +279,16 @@ export function FeedPage() {
 
         </div>
       </main>
+      {sourcesOpen && (
+        <ManageSourcesDialog
+          open
+          publishers={publisherQuery.data ?? []}
+          isSaving={followMutation.isPending}
+          errorMessage={followMutation.isError ? 'Your source preferences could not be saved. Please try again.' : undefined}
+          onClose={() => setSourcesOpen(false)}
+          onSave={(codes) => followMutation.mutate(codes)}
+        />
+      )}
     </AppShell>
   )
 }

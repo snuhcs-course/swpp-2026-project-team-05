@@ -9,6 +9,7 @@ describe('articleQueryString', () => {
   it('encodes search, filters, and cursor without losing repeated publishers', () => {
     const query = new URLSearchParams(articleQueryString({
       category: 'POLITICS',
+      scope: 'FOLLOWING',
       publishers: ['yna', 'mbc'],
       query: '추미애 발언',
       cursor: 'opaque+cursor',
@@ -16,6 +17,7 @@ describe('articleQueryString', () => {
 
     expect(query.get('category')).toBe('POLITICS')
     expect(query.get('limit')).toBe('20')
+    expect(query.get('scope')).toBe('FOLLOWING')
     expect(query.getAll('publisher')).toEqual(['yna', 'mbc'])
     expect(query.get('q')).toBe('추미애 발언')
     expect(query.get('cursor')).toBe('opaque+cursor')
@@ -29,6 +31,26 @@ describe('articleQueryString', () => {
 
     expect(query.has('q')).toBe(false)
     expect(query.has('cursor')).toBe(false)
+    expect(query.get('scope')).toBe('ALL')
+  })
+})
+
+describe('publisher follows API', () => {
+  it('replaces the complete followed-publisher set', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ publisher_codes: ['yna', 'mbc'] }), { status: 200 }),
+    )
+
+    await expect(api.replaceFollowedPublishers('token', ['yna', 'mbc']))
+      .resolves.toEqual(['yna', 'mbc'])
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/me/followed-publishers',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ publisher_codes: ['yna', 'mbc'] }),
+        headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+      }),
+    )
   })
 })
 

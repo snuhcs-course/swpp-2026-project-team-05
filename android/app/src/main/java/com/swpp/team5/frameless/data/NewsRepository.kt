@@ -4,16 +4,16 @@ import android.content.Context
 
 internal interface NewsDataSource {
     suspend fun publishers(): List<PublisherItem>
-    suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
+    suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String>
+    suspend fun articles(category: NewsCategory, scope: FeedScope,
                          cursor: String? = null, query: String? = null): ArticlePage
     suspend fun article(articleId: String): ArticleDetail
     suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi
     suspend fun savedArticles(cursor: String? = null): ArticlePage
     suspend fun setArticleSaved(articleId: String, saved: Boolean)
     fun savedCategory(): NewsCategory
-    fun savedPublishers(): Set<String>
     fun savedAnalysisEnabled(): Boolean
-    fun saveFilters(category: NewsCategory, publishers: Set<String>)
+    fun saveCategory(category: NewsCategory)
     fun saveAnalysisEnabled(enabled: Boolean)
 }
 
@@ -30,9 +30,12 @@ internal class NewsRepository(
 
     override suspend fun publishers(): List<PublisherItem> = service.publishers(token())
 
-    override suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
+    override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> =
+        service.replaceFollowedPublishers(token(), publisherCodes)
+
+    override suspend fun articles(category: NewsCategory, scope: FeedScope,
                          cursor: String?, query: String?): ArticlePage =
-        service.articles(token(), category, publisherCodes, cursor, query = query)
+        service.articles(token(), category, scope, cursor, query = query)
 
     override suspend fun article(articleId: String): ArticleDetail = service.article(token(), articleId)
 
@@ -51,16 +54,10 @@ internal class NewsRepository(
         preferences.getString("category", NewsCategory.POLITICS.wire).orEmpty()
     )
 
-    override fun savedPublishers(): Set<String> = preferences.getString("publishers", "")
-        .orEmpty().split(',').filter(String::isNotBlank).toSet()
-
     override fun savedAnalysisEnabled(): Boolean = preferences.getBoolean("analysis_enabled", true)
 
-    override fun saveFilters(category: NewsCategory, publishers: Set<String>) {
-        preferences.edit()
-            .putString("category", category.wire)
-            .putString("publishers", publishers.sorted().joinToString(","))
-            .apply()
+    override fun saveCategory(category: NewsCategory) {
+        preferences.edit().putString("category", category.wire).remove("publishers").apply()
     }
 
     override fun saveAnalysisEnabled(enabled: Boolean) {

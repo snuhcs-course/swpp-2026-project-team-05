@@ -17,7 +17,8 @@ internal interface NewsService {
     suspend fun me(token: String): NewsUser
     suspend fun logout(token: String)
     suspend fun publishers(token: String): List<PublisherItem>
-    suspend fun articles(token: String, category: NewsCategory, publisherCodes: Set<String>,
+    suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>): Set<String>
+    suspend fun articles(token: String, category: NewsCategory, scope: FeedScope,
                          cursor: String? = null, limit: Int = 20,
                          query: String? = null): ArticlePage
     suspend fun article(token: String, articleId: String): ArticleDetail
@@ -39,10 +40,12 @@ internal object NewsApi : NewsService {
     override suspend fun me(token: String): NewsUser = client.me(token)
     override suspend fun logout(token: String) = client.logout(token)
     override suspend fun publishers(token: String): List<PublisherItem> = client.publishers(token)
+    override suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>) =
+        client.replaceFollowedPublishers(token, publisherCodes)
     override suspend fun articles(token: String, category: NewsCategory,
-                                  publisherCodes: Set<String>, cursor: String?, limit: Int,
+                                  scope: FeedScope, cursor: String?, limit: Int,
                                   query: String?): ArticlePage =
-        client.articles(token, category, publisherCodes, cursor, limit, query)
+        client.articles(token, category, scope, cursor, limit, query)
     override suspend fun article(token: String, articleId: String): ArticleDetail =
         client.article(token, articleId)
     override suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis =
@@ -86,13 +89,24 @@ internal class NewsApiClient(baseUrl: String) {
         request("GET", "/api/v1/publishers", token = token)
             .optJSONArray("items").orEmptyObjects().map(::publisher)
 
+    suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>): Set<String> {
+        val codes = JSONArray().apply { publisherCodes.sorted().forEach(::put) }
+        val root = request(
+            "PUT",
+            "/api/v1/me/followed-publishers",
+            token = token,
+            body = JSONObject().put("publisher_codes", codes)
+        )
+        return root.optJSONArray("publisher_codes").orEmptyStrings().toSet()
+    }
+
     suspend fun articles(token: String, category: NewsCategory,
-                         publisherCodes: Set<String>, cursor: String? = null,
+                         scope: FeedScope = FeedScope.ALL, cursor: String? = null,
                          limit: Int = 20, query: String? = null): ArticlePage {
         val queryString = buildList {
             add("category=${encode(category.wire)}")
+            add("scope=${encode(scope.wire)}")
             add("limit=$limit")
-            publisherCodes.sorted().forEach { add("publisher=${encode(it)}") }
             query?.takeIf { it.isNotBlank() }?.let { add("q=${encode(it)}") }
             cursor?.let { add("cursor=${encode(it)}") }
         }.joinToString("&")
@@ -198,7 +212,8 @@ internal class NewsApiClient(baseUrl: String) {
     private fun publisher(root: JSONObject) = PublisherItem(
         code = root.requireString("code"),
         name = root.requireString("name"),
-        logoUrl = root.optString("logo_url").takeIf { root.has("logo_url") && !root.isNull("logo_url") && it.isNotBlank() }
+        logoUrl = root.optString("logo_url").takeIf { root.has("logo_url") && !root.isNull("logo_url") && it.isNotBlank() },
+        isFollowed = root.optBoolean("is_followed", false)
     )
 
     private fun articleSummary(root: JSONObject) = ArticleSummary(

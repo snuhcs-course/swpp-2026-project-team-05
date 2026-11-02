@@ -24,24 +24,30 @@ class NewsRepositoryTest {
     @Test
     fun preferencesRoundTripAndNetworkCallsUseAuthenticatedService() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
-        context.getSharedPreferences("frameless_news_preferences", Context.MODE_PRIVATE).edit().clear().commit()
+        val preferences = context.getSharedPreferences(
+            "frameless_news_preferences", Context.MODE_PRIVATE
+        )
+        preferences.edit().clear().putString("publishers", "legacy-local-source").commit()
         val service = FakeNewsService()
         val repository = NewsRepository(context, service, FakeAuthDataSource(session))
 
         assertEquals(NewsCategory.POLITICS, repository.savedCategory())
-        assertEquals(emptySet<String>(), repository.savedPublishers())
-        repository.saveFilters(NewsCategory.SOCIETY, setOf("mbc", "yna"))
+        repository.saveCategory(NewsCategory.SOCIETY)
         repository.saveAnalysisEnabled(false)
         assertEquals(NewsCategory.SOCIETY, repository.savedCategory())
-        assertEquals(setOf("mbc", "yna"), repository.savedPublishers())
         assertFalse(repository.savedAnalysisEnabled())
+        assertFalse(preferences.contains("publishers"))
 
         assertEquals(listOf(publisher), repository.publishers())
+        assertEquals(0, service.followReplacementCalls)
+        assertEquals(setOf("yna"), repository.replaceFollowedPublishers(setOf("yna")))
+        assertEquals(1, service.followReplacementCalls)
         assertEquals(
             "next",
-            repository.articles(NewsCategory.POLITICS, setOf("yna"), query = "정책").nextCursor
+            repository.articles(NewsCategory.POLITICS, FeedScope.FOLLOWING, query = "정책").nextCursor
         )
         assertEquals("정책", service.lastQuery)
+        assertEquals(FeedScope.FOLLOWING, service.lastScope)
         assertEquals(article, repository.article("a1"))
         assertEquals("token", service.lastToken)
         assertEquals("a1", service.lastArticleId)
@@ -82,7 +88,9 @@ class NewsRepositoryTest {
         var lastToken: String? = null
         var lastArticleId: String? = null
         var lastQuery: String? = null
+        var lastScope: FeedScope? = null
         var lastSavedState: Boolean? = null
+        var followReplacementCalls = 0
         override suspend fun register(email: String, username: String, password: String,
                                       confirmation: String) = error("unused")
         override suspend fun login(identifier: String, password: String) = error("unused")
@@ -92,11 +100,19 @@ class NewsRepositoryTest {
             lastToken = token
             return listOf(publisher)
         }
+        override suspend fun replaceFollowedPublishers(
+            token: String, publisherCodes: Set<String>
+        ): Set<String> {
+            lastToken = token
+            followReplacementCalls += 1
+            return publisherCodes
+        }
         override suspend fun articles(token: String, category: NewsCategory,
-                                      publisherCodes: Set<String>, cursor: String?, limit: Int,
+                                      scope: FeedScope, cursor: String?, limit: Int,
                                       query: String?): ArticlePage {
             lastToken = token
             lastQuery = query
+            lastScope = scope
             return ArticlePage(emptyList(), "next")
         }
         override suspend fun article(token: String, articleId: String): ArticleDetail {

@@ -5,6 +5,7 @@ import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ArticlePage
 import com.swpp.team5.frameless.data.ArticleSummary
+import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsApiException
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
@@ -40,10 +41,9 @@ class NewsViewModelTest {
     )
 
     @Test
-    fun initializeLoadsPublishersAndFirstPageAndDropsUnknownSavedFilter() {
+    fun initializeLoadsPublishersAndTheCompleteLatestFeed() {
         val repository = FakeNewsDataSource().apply {
             savedCategoryValue = NewsCategory.SOCIETY
-            savedPublisherValue = setOf("yna", "removed")
             pages += ArticlePage(listOf(summary("a")), "next")
         }
         val viewModel = NewsViewModel(repository)
@@ -53,7 +53,8 @@ class NewsViewModelTest {
         mainLooper.idle()
 
         assertEquals(listOf(yna, mbc), viewModel.feed.publishers)
-        assertEquals(setOf("yna"), viewModel.feed.selectedPublishers)
+        assertEquals(FeedScope.ALL, viewModel.feed.scope)
+        assertEquals(FeedScope.ALL, repository.scopes.single())
         assertEquals(listOf("a"), viewModel.feed.items.map { it.id })
         assertEquals("next", viewModel.feed.nextCursor)
         assertFalse(viewModel.feed.isLoading)
@@ -63,7 +64,7 @@ class NewsViewModelTest {
     }
 
     @Test
-    fun categoryPublisherRefreshAndPaginationPreserveExpectedState() {
+    fun categoryScopeRefreshAndPaginationPreserveExpectedState() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("first")), "page-2")
             pages += ArticlePage(listOf(summary("society")), null)
@@ -77,12 +78,12 @@ class NewsViewModelTest {
 
         viewModel.selectCategory(NewsCategory.SOCIETY)
         mainLooper.idle()
-        assertEquals(NewsCategory.SOCIETY, repository.savedFilters.last().first)
+        assertEquals(NewsCategory.SOCIETY, repository.savedCategories.last())
         assertEquals(listOf("society"), viewModel.feed.items.map { it.id })
 
-        viewModel.applyPublishers(setOf("mbc", "unknown"))
+        viewModel.selectScope(FeedScope.FOLLOWING)
         mainLooper.idle()
-        assertEquals(setOf("mbc"), viewModel.feed.selectedPublishers)
+        assertEquals(FeedScope.FOLLOWING, viewModel.feed.scope)
         assertEquals(listOf("filtered"), viewModel.feed.items.map { it.id })
 
         viewModel.loadMore()
@@ -91,6 +92,29 @@ class NewsViewModelTest {
         viewModel.refresh()
         mainLooper.idle()
         assertEquals(listOf("refreshed"), viewModel.feed.items.map { it.id })
+    }
+
+    @Test
+    fun sourcePreferencesAreAccountBackedAndFollowingReloadsAfterSave() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("latest")), null)
+            pages += ArticlePage(emptyList(), null)
+            pages += ArticlePage(listOf(summary("followed", mbc)), null)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.selectScope(FeedScope.FOLLOWING)
+        mainLooper.idle()
+
+        var completed = false
+        viewModel.replaceFollowedPublishers(setOf("mbc", "unknown")) { completed = true }
+        mainLooper.idle()
+
+        assertEquals(setOf("mbc"), repository.followedCodes)
+        assertTrue(viewModel.feed.publishers.single { it.code == "mbc" }.isFollowed)
+        assertEquals(listOf("followed"), viewModel.feed.items.map { it.id })
+        assertTrue(completed)
     }
 
     @Test
@@ -136,6 +160,7 @@ class NewsViewModelTest {
         mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
 
         assertEquals("정책 추진", repository.queries.last())
+        assertEquals(FeedScope.ALL, repository.scopes.last())
         assertEquals(listOf("search-result"), viewModel.feed.items.map { it.id })
         assertEquals("정책 추진", viewModel.feed.activeSearchQuery)
 
@@ -246,18 +271,24 @@ class NewsViewModelTest {
         var analysisFailure: Exception? = null
         var savedMutationFailure: Exception? = null
         var savedCategoryValue = NewsCategory.POLITICS
-        var savedPublisherValue = emptySet<String>()
         var savedAnalysisEnabledValue = true
+        var followedCodes = emptySet<String>()
         var articlePageCalls = 0
         val queries = mutableListOf<String?>()
-        val savedFilters = mutableListOf<Pair<NewsCategory, Set<String>>>()
+        val scopes = mutableListOf<FeedScope>()
+        val savedCategories = mutableListOf<NewsCategory>()
         val savedMutations = mutableListOf<Pair<String, Boolean>>()
 
         override suspend fun publishers() = listOf(yna, mbc)
-        override suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
+        override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> {
+            followedCodes = publisherCodes
+            return publisherCodes
+        }
+        override suspend fun articles(category: NewsCategory, scope: FeedScope,
                                       cursor: String?, query: String?): ArticlePage {
             articlePageCalls += 1
             queries += query
+            scopes += scope
             pageFailure?.let { throw it }
             return pages.removeFirst()
         }
@@ -275,12 +306,10 @@ class NewsViewModelTest {
             savedMutations += articleId to saved
         }
         override fun savedCategory() = savedCategoryValue
-        override fun savedPublishers() = savedPublisherValue
         override fun savedAnalysisEnabled() = savedAnalysisEnabledValue
-        override fun saveFilters(category: NewsCategory, publishers: Set<String>) {
+        override fun saveCategory(category: NewsCategory) {
             savedCategoryValue = category
-            savedPublisherValue = publishers
-            savedFilters += category to publishers
+            savedCategories += category
         }
         override fun saveAnalysisEnabled(enabled: Boolean) {
             savedAnalysisEnabledValue = enabled

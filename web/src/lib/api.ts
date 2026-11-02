@@ -3,6 +3,7 @@ import type {
   ApiErrorBody,
   ArticleDetail,
   ArticlePage,
+  FeedScope,
   NewsCategory,
   Publisher,
   SavedArticleMutation,
@@ -30,13 +31,15 @@ export class ApiError extends Error {
 
 export interface ArticleQuery {
   category: NewsCategory
-  publishers: string[]
+  scope?: FeedScope
+  publishers?: string[]
   query?: string
   cursor?: string
 }
 
-export function articleQueryString({ category, publishers, query, cursor }: ArticleQuery) {
+export function articleQueryString({ category, scope = 'ALL', publishers = [], query, cursor }: ArticleQuery) {
   const params = new URLSearchParams({ category, limit: '20' })
+  params.set('scope', scope)
   publishers.forEach((publisher) => params.append('publisher', publisher))
   if (query) params.set('q', query)
   if (cursor) params.set('cursor', cursor)
@@ -105,6 +108,18 @@ export const api = {
   async publishers(token: string) {
     const body = await request<{ items: Publisher[] }>('/api/v1/publishers', {}, token)
     return body.items
+  },
+
+  async replaceFollowedPublishers(token: string, publisherCodes: string[]) {
+    const body = await request<{ publisher_codes: string[] }>(
+      '/api/v1/me/followed-publishers',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ publisher_codes: publisherCodes }),
+      },
+      token,
+    )
+    return body.publisher_codes
   },
 
   articles(token: string, options: ArticleQuery) {
