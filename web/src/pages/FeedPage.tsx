@@ -42,21 +42,27 @@ export function FeedPage() {
   const token = session!.token
   const [params, setParams] = useSearchParams()
   const category = (params.get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS') as NewsCategory
-  const queryInput = params.get('q') ?? ''
+  const [queryInput, setQueryInput] = useState('')
+  const [isComposing, setIsComposing] = useState(false)
   const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
-  const [activeQuery, setActiveQuery] = useState(
-    normalizedInput.length >= 2 ? normalizedInput : '',
-  )
+  const [activeQuery, setActiveQuery] = useState('')
   const [selectedPublishers, setSelectedPublishers] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const queryTooShort = normalizedInput.length === 1
-  const queryPending = normalizedInput.length >= 2 && activeQuery !== normalizedInput
+  const queryTooShort = !isComposing && normalizedInput.length === 1
+  const queryPending = !isComposing && normalizedInput.length >= 2 && activeQuery !== normalizedInput
 
   useEffect(() => {
-    if (normalizedInput.length < 2) return
+    if (!params.has('q')) return
+    const updated = new URLSearchParams(params)
+    updated.delete('q')
+    setParams(updated, { replace: true })
+  }, [params, setParams])
+
+  useEffect(() => {
+    if (isComposing || normalizedInput.length < 2) return
     const timer = window.setTimeout(() => setActiveQuery(normalizedInput), 300)
     return () => window.clearTimeout(timer)
-  }, [normalizedInput])
+  }, [isComposing, normalizedInput])
 
   const publisherQuery = useQuery({
     queryKey: ['publishers'],
@@ -88,19 +94,18 @@ export function FeedPage() {
   function chooseCategory(next: NewsCategory) {
     const updated = new URLSearchParams(params)
     updated.set('category', next)
+    updated.delete('q')
     setParams(updated)
   }
 
   function updateQuery(value: string) {
-    const updated = new URLSearchParams(params)
-    if (value) updated.set('q', value)
-    else updated.delete('q')
-    setParams(updated, { replace: true })
+    setQueryInput(value)
     if (value.trim().length < 2) setActiveQuery('')
   }
 
   function submitSearch(event: FormEvent) {
     event.preventDefault()
+    if (isComposing) return
     if (normalizedInput.length >= 2) setActiveQuery(normalizedInput)
   }
 
@@ -124,6 +129,16 @@ export function FeedPage() {
                 placeholder="Search articles, publishers, or text"
                 value={queryInput}
                 onChange={(event) => updateQuery(event.target.value)}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={(event) => {
+                  setQueryInput(event.currentTarget.value)
+                  setIsComposing(false)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && event.nativeEvent.isComposing) {
+                    event.preventDefault()
+                  }
+                }}
                 className="h-12 w-full border-0 border-b border-black bg-transparent pl-8 pr-10 text-sm font-medium outline-none placeholder:text-zinc-400 focus:border-b-2"
               />
               {queryInput && (

@@ -40,8 +40,8 @@ pages, a comparison-only article does not appear, and clearing search restores
 the ordinary feed.
 
 Procedure: perform all four searches on Web and Android; open a result; reload Web
-with its copied search URL; clear or close search; verify the pre-search category
-and publisher context is retained.
+and verify search resets without rewriting the URL while typing; clear or close
+search; verify the pre-search category and publisher context is retained.
 
 ## UAT-04 — Read an article with optional analysis
 
