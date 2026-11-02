@@ -65,6 +65,18 @@ Procedure: select a known multi-article finding; verify the source marker and ea
 target passage against stored text; move between comparison articles; expand and
 collapse the panel on Android; open one related article and return.
 
+## UAT-06 — Keep saved articles synchronized per account
+
+**Given** the same signed-in account on Android and Web, **when** the tester saves
+an ordinary article on Android and later removes it on Web, **then** each client
+shows the same server-owned state after refresh without affecting another
+account.
+
+Procedure: save one article from the Android feed and one from Reader; refresh
+Web and verify both appear in recent-save order; remove one on Web; refresh
+Android and verify it disappears; sign out and use a second account on each
+client; verify neither saved row nor saved indicator leaks across accounts.
+
 ## Freeze and results policy
 
 - Team approval changes status to `Intent-reviewed (frozen)` and records the date

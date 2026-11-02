@@ -3,12 +3,12 @@
 | Field | Value |
 | --- | --- |
 | Status | Ready for implementation |
-| Version | 0.1 |
+| Version | 0.2 |
 | Date | 2026-11-02 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
-| First feature | Article search v1 |
+| Current feature | Saved articles v1 |
 
 This document defines incremental, ordinary news-app features that build on the
 existing FrameLESS product. The current product and data contracts remain in
@@ -22,8 +22,8 @@ baseline specifications into a feature backlog.
 
 | Feature | Status | Initial outcome |
 | --- | --- | --- |
-| Article search | Ready | Search every feed-visible article from Android and Web |
-| Saved articles | Planned | Save or remove an article and browse a personal saved list |
+| Article search | Implemented | Search every feed-visible article from Android and Web |
+| Saved articles | Ready | Save or remove an article and browse a personal saved list |
 | Reading history | Planned | Reopen recently viewed articles in last-read order |
 | Sharing | Planned | Share a stable link that opens the same FrameLESS article |
 | Likes or reactions | Deferred | Add only after defining what a reaction means for a news product |
@@ -326,3 +326,192 @@ After automated tests pass:
 
 These capabilities require a separate decision and must not be partially added
 while implementing article search v1.
+
+## 9. Saved articles v1
+
+### 9.1 Product goal
+
+A signed-in user can save or remove an ordinary feed article from Web or
+Android, then reopen it from a personal list ordered by most recently saved.
+Both clients use the same server-owned state. Saving an article never copies its
+headline, body, analysis, or publisher metadata into a user record.
+
+Saved articles v1 is a complete vertical slice, not the foundation for folders,
+tags, notes, reactions, or offline article storage.
+
+### 9.2 Eligible articles and lifecycle
+
+An article can be newly saved only when all of the following are true:
+
+- `Article.visibility == VISIBLE`;
+- `Article.is_feed_visible == true`;
+- its publisher is active.
+
+Comparison-support articles are not independently saveable in v1. An
+ineligible or unknown article uses the same not-found response so the endpoint
+does not reveal unpublished data.
+
+Removing a save is idempotent: the final state is not saved whether or not the
+relationship existed. Operational article removal uses existing soft-visibility
+fields. A soft-hidden article disappears from the saved list while its save row
+is retained, allowing the save to return if the article is restored. Hard
+deletion of an article or account cascades to its save rows in PostgreSQL.
+
+### 9.3 Data model
+
+The database adds one relationship model:
+
+```text
+SavedArticle
+- id: UUID primary key
+- user: UserAccount foreign key, CASCADE
+- article: Article foreign key, CASCADE
+- saved_at: creation timestamp
+```
+
+The database enforces one row per `(user, article)` and indexes
+`(user, saved_at DESC, id DESC)` for the personal list. Repeating a save keeps
+the existing row and timestamp. Removing and later saving again creates a new
+timestamp and returns the article to the top of the list.
+
+### 9.4 API contract
+
+All endpoints require the existing bearer session and infer the user from it:
+
+```http
+GET    /api/v1/saved-articles?limit=20&cursor=...
+PUT    /api/v1/saved-articles/{article_id}
+DELETE /api/v1/saved-articles/{article_id}
+Authorization: Bearer <session token>
+```
+
+`PUT` is idempotent and returns the current relationship:
+
+```json
+{
+  "article_id": "article-uuid",
+  "is_saved": true,
+  "saved_at": "2026-11-02T17:00:00+09:00"
+}
+```
+
+`DELETE` is idempotent and returns `204 No Content`. It may remove an existing
+relationship even after the article becomes ineligible. A request for an
+already absent relationship also returns `204`.
+
+`GET` returns the existing bounded article-page shape with one additional
+timestamp:
+
+```json
+{
+  "items": [
+    {
+      "id": "article-uuid",
+      "publisher": { "code": "yna", "name": "연합뉴스", "logo_url": null },
+      "title": "기사 제목",
+      "category": "POLITICS",
+      "published_at": "2026-11-02T10:00:00+09:00",
+      "analysis_state": "READY",
+      "is_saved": true,
+      "saved_at": "2026-11-02T17:00:00+09:00"
+    }
+  ],
+  "next_cursor": "opaque-or-null"
+}
+```
+
+The ordinary feed, search results, and article detail also include
+`is_saved: boolean` for the authenticated user. Analysis comparison pages do not
+include save state because their supporting articles are outside the v1 saveable
+corpus.
+
+The saved list accepts only `limit` in the existing range of 1 to 50 and an
+opaque cursor. It does not add category, publisher, search, or sort controls.
+The signed cursor is bound to the saved-list contract and carries `saved_at` and
+the relationship ID so equal timestamps paginate deterministically.
+
+### 9.5 Consistency and query boundary
+
+PostgreSQL uniqueness and foreign keys are the source of truth. Save uses an
+atomic `get_or_create`; remove deletes by the authenticated user and article ID.
+The API does not implement a second cleanup job for hard-deleted articles.
+
+Feed, search, and detail queries compute `is_saved` with a correlated `EXISTS`
+annotation or one equivalent bounded query. They must not issue one save lookup
+per returned article. The saved list joins its article, publisher, and analysis
+metadata in a bounded query and filters out currently ineligible articles before
+pagination.
+
+Save state is user-specific. Web query keys include the current user ID, and
+personalized caches are cleared when the account changes. Android clears its
+news state on logout. Neither client may briefly present one user's saved state
+to another user who signs in on the same installation.
+
+If a save races with a hard article deletion, the final database state contains
+no orphan relationship. The API returns either the completed save before the
+cascade or a safe not-found response; an integrity failure is not exposed as an
+internal stack trace.
+
+### 9.6 Web interaction
+
+- Add `Saved` to desktop and mobile navigation and route it at `/saved`.
+- Add an accessible save/remove control to feed rows and the article Reader.
+- Reuse the existing article-row layout for the saved list.
+- Keep feed, Reader, and saved-list state consistent through one shared mutation
+  boundary rather than separate request logic in each component.
+- Apply the intended state immediately; disable duplicate input while the
+  request is pending and roll back with an inline error if it fails.
+- Removing an article from the saved page removes its row without resetting the
+  remaining scroll and pagination context.
+
+### 9.7 Android interaction
+
+- Add a saved-articles action beside search in the feed header.
+- Add an accessible save/remove action to each feed row and the Reader header.
+- Open saved articles in a separate route and ViewModel state so the ordinary
+  feed retains its category, publisher filters, search, rows, and scroll context.
+- Reuse the compact feed row and current Reader navigation.
+- Apply and roll back save state consistently across feed, Reader, and saved
+  list. Failed requests are not queued for later offline synchronization.
+
+### 9.8 User-visible states
+
+Both clients distinguish:
+
+- loading the initial saved list;
+- a populated list;
+- an empty list with a link back to the feed;
+- initial failure with retry;
+- loading another page;
+- next-page failure without discarding loaded rows;
+- a save or remove mutation in progress;
+- a failed mutation whose previous state has been restored.
+
+Save controls use distinct accessible labels such as `Save article` and
+`Remove from saved articles`; the icon alone is not the accessible name.
+
+### 9.9 Verification
+
+Automated verification covers authentication, per-user isolation, database
+uniqueness and cascades, idempotent save and removal, eligibility, deterministic
+pagination, query count, client parsing, cache isolation, state synchronization,
+empty and error states, and mutation rollback.
+
+Acceptance verifies one account saving on Android and observing the same article
+on Web, removing it from Web, and observing the removal on Android after refresh.
+It also verifies that signing into a second account on the same client does not
+show the first account's saved state.
+
+## 10. Saved articles v1 non-goals
+
+- folders, labels, tags, or free-form notes;
+- offline copies of article text or analysis;
+- automatic saving from reading history;
+- saving comparison-support articles;
+- saved-list search, category filters, publisher filters, or custom sorting;
+- bulk save, bulk removal, import, or export;
+- notifications when a saved article or analysis changes;
+- likes, reactions, comments, or public save counts.
+
+These require separate product decisions and do not add nullable columns or
+placeholder endpoints to saved articles v1.

@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { articleQueryString } from './api'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { api, articleQueryString } from './api'
+
+beforeEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('articleQueryString', () => {
   it('encodes search, filters, and cursor without losing repeated publishers', () => {
@@ -25,5 +29,31 @@ describe('articleQueryString', () => {
 
     expect(query.has('q')).toBe(false)
     expect(query.has('cursor')).toBe(false)
+  })
+})
+
+describe('saved articles API', () => {
+  it('lists, saves, and removes through the authenticated contract', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        article_id: 'article-1',
+        is_saved: true,
+        saved_at: '2026-11-02T17:00:00+09:00',
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    await api.savedArticles('token', 'saved cursor')
+    await api.saveArticle('token', 'article-1')
+    await api.removeSavedArticle('token', 'article-1')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/saved-articles?limit=20&cursor=saved+cursor')
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+    })
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/saved-articles/article-1')
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'PUT' })
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: 'DELETE' })
   })
 })

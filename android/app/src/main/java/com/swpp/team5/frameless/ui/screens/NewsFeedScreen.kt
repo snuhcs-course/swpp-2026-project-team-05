@@ -60,6 +60,7 @@ import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
+import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
@@ -82,7 +83,11 @@ internal fun NewsFeedScreen(
     onSearchInput: (String) -> Unit,
     onSearchSubmit: () -> Unit,
     onSearchClose: () -> Unit,
+    onSavedOpen: () -> Unit,
     onArticle: (String) -> Unit,
+    onToggleSaved: (String, Boolean) -> Unit,
+    savedMutationArticleId: String?,
+    saveError: String?,
     onLogout: () -> Unit
 ) {
     var showPublishers by remember { mutableStateOf(false) }
@@ -135,6 +140,14 @@ internal fun NewsFeedScreen(
                     ) {
                         Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink2)
                     }
+                    IconButton(
+                        onClick = onSavedOpen,
+                        modifier = Modifier.size(40.dp).semantics {
+                            contentDescription = "저장한 기사"
+                        }
+                    ) {
+                        ArticleBookmarkIcon(true, Fl.Ink2, Modifier.size(19.dp))
+                    }
                     Box(
                         Modifier.padding(end = 18.dp).size(36.dp)
                             .background(Fl.Inset, CircleShape)
@@ -182,6 +195,11 @@ internal fun NewsFeedScreen(
             }
         }
         HorizontalDivider(color = Fl.Line)
+        if (saveError != null) {
+            Text(saveError, color = Fl.Danger, fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().background(Fl.Inset)
+                    .padding(horizontal = 18.dp, vertical = 9.dp))
+        }
         val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
         when {
             state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
@@ -233,7 +251,12 @@ internal fun NewsFeedScreen(
                     }
                 }
                 items(state.items, key = { it.id }) { article ->
-                    ArticleFeedRow(article, onClick = { onArticle(article.id) })
+                    ArticleFeedRow(
+                        article = article,
+                        onClick = { onArticle(article.id) },
+                        onToggleSaved = { onToggleSaved(article.id, article.isSaved) },
+                        savedPending = savedMutationArticleId == article.id
+                    )
                     HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
                 }
                 if (state.isLoadingMore) {
@@ -275,7 +298,12 @@ internal fun NewsFeedScreen(
 }
 
 @Composable
-private fun ArticleFeedRow(article: ArticleSummary, onClick: () -> Unit) {
+internal fun ArticleFeedRow(
+    article: ArticleSummary,
+    onClick: () -> Unit,
+    onToggleSaved: () -> Unit,
+    savedPending: Boolean
+) {
     Column(
         Modifier.fillMaxWidth().clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 14.dp),
@@ -285,6 +313,19 @@ private fun ArticleFeedRow(article: ArticleSummary, onClick: () -> Unit) {
             Caption("${article.publisher.name} · ${article.category.label} · ${relativeTime(article.publishedAt)}")
             Spacer(Modifier.weight(1f))
             AnalysisStateLabel(article.analysisState)
+            IconButton(
+                onClick = onToggleSaved,
+                enabled = !savedPending,
+                modifier = Modifier.size(34.dp).semantics {
+                    contentDescription = if (article.isSaved) "저장 취소" else "기사 저장"
+                }
+            ) {
+                ArticleBookmarkIcon(
+                    article.isSaved,
+                    if (article.isSaved) Fl.Accent else Fl.Muted,
+                    Modifier.size(19.dp)
+                )
+            }
         }
         Text(article.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
             fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
@@ -393,7 +434,7 @@ private fun AnalysisStateLabel(state: StoredAnalysisState) {
 }
 
 @Composable
-private fun LoadingFeed() {
+internal fun LoadingFeed() {
     Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         repeat(5) {
             Column(Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(10.dp)).padding(16.dp)) {
@@ -408,7 +449,7 @@ private fun LoadingFeed() {
 }
 
 @Composable
-private fun FeedMessage(title: String, detail: String, action: String, onAction: () -> Unit) {
+internal fun FeedMessage(title: String, detail: String, action: String, onAction: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(title, fontWeight = FontWeight.SemiBold, color = Fl.Ink)

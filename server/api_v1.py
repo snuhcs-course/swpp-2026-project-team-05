@@ -12,7 +12,7 @@ from django.core.exceptions import RequestDataTooBig, ValidationError
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .authentication import (
     authenticate,
@@ -32,6 +32,12 @@ from .news_queries import (
     get_article,
     list_articles,
     list_publishers,
+)
+from .saved_articles import (
+    InvalidSavedCursor,
+    list_saved_articles,
+    remove_saved_article,
+    save_article,
 )
 
 
@@ -181,7 +187,7 @@ def publishers(request):
 
 @require_GET
 def articles(request):
-    _, error = _auth(request)
+    user, error = _auth(request)
     if error:
         return error
     category = request.GET.get("category") or None
@@ -210,6 +216,7 @@ def articles(request):
         return _error("VALIDATION_ERROR", "limit은 1에서 50 사이여야 합니다.", 400)
     try:
         payload = list_articles(
+            user=user,
             category=category,
             publisher_codes=publisher_codes,
             query=query or None,
@@ -223,10 +230,10 @@ def articles(request):
 
 @require_GET
 def article_detail(request, article_id):
-    _, error = _auth(request)
+    user, error = _auth(request)
     if error:
         return error
-    article = get_article(article_id)
+    article = get_article(article_id, user=user)
     if article is None:
         return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
     return JsonResponse(article_detail_payload(article), json_dumps_params={"ensure_ascii": False})
@@ -241,3 +248,44 @@ def article_analysis(request, article_id):
     if article is None:
         return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
     return JsonResponse(article_analysis_payload(article), json_dumps_params={"ensure_ascii": False})
+
+
+@require_GET
+def saved_articles(request):
+    user, error = _auth(request)
+    if error:
+        return error
+    try:
+        limit = int(request.GET.get("limit", "20"))
+    except ValueError:
+        return _error("VALIDATION_ERROR", "limit은 정수여야 합니다.", 400)
+    if not 1 <= limit <= 50:
+        return _error("VALIDATION_ERROR", "limit은 1에서 50 사이여야 합니다.", 400)
+    try:
+        payload = list_saved_articles(
+            user=user,
+            cursor=request.GET.get("cursor") or None,
+            limit=limit,
+        )
+    except InvalidSavedCursor:
+        return _error("INVALID_CURSOR", "저장 목록을 처음부터 다시 불러와 주세요.", 400)
+    return JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "DELETE"])
+def saved_article(request, article_id):
+    user, error = _auth(request)
+    if error:
+        return error
+    if request.method == "DELETE":
+        remove_saved_article(user=user, article_id=article_id)
+        return HttpResponse(status=204)
+    row = save_article(user=user, article_id=article_id)
+    if row is None:
+        return _error("NOT_FOUND", "저장할 수 있는 기사를 찾을 수 없습니다.", 404)
+    return JsonResponse({
+        "article_id": str(row.article_id),
+        "is_saved": True,
+        "saved_at": row.saved_at,
+    })

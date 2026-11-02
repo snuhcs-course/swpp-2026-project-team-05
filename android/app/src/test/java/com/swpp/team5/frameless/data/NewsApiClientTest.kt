@@ -83,13 +83,15 @@ class NewsApiClientTest {
         responses += Response(200, """{
           "items":[{"id":"a1","publisher":{"code":"yna","name":"연합뉴스","logo_url":null},
             "title":"정책 추진","category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
-            "analysis_state":"READY","search_excerpt":"…정책 추진을 검토했다…"}],"next_cursor":"cursor-2"}
+            "analysis_state":"READY","is_saved":true,
+            "search_excerpt":"…정책 추진을 검토했다…"}],"next_cursor":"cursor-2"}
         """)
         val page = client.articles(
             "token", NewsCategory.POLITICS, setOf("mbc", "yna"), "cursor 1", 10, "정책 추진"
         )
         assertEquals("a1", page.items.single().id)
         assertEquals("…정책 추진을 검토했다…", page.items.single().searchExcerpt)
+        assertTrue(page.items.single().isSaved)
         assertEquals("cursor-2", page.nextCursor)
         assertTrue(requests[1].path.contains("publisher=mbc&publisher=yna"))
         assertTrue(requests[1].path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
@@ -119,6 +121,26 @@ class NewsApiClientTest {
 
         responses += Response(200, """{"state":"READY","version":"v1"}""")
         assertTrue(client.analysis("token", "a3").findings.isEmpty())
+
+        responses += Response(200, """{"items":[{
+          "id":"a1","publisher":{"code":"yna","name":"연합뉴스"},"title":"정책 추진",
+          "category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
+          "analysis_state":"READY","is_saved":true,"saved_at":"2026-11-02T17:00:00+09:00"
+        }],"next_cursor":"saved-next"}""")
+        val saved = client.savedArticles("token", "saved cursor", 5)
+        assertEquals("saved-next", saved.nextCursor)
+        assertTrue(saved.items.single().isSaved)
+        assertEquals("2026-11-02T17:00:00+09:00", saved.items.single().savedAt)
+        assertTrue(requests.last().path.contains("cursor=saved+cursor"))
+
+        responses += Response(200, """{"article_id":"a1","is_saved":true,
+          "saved_at":"2026-11-02T17:00:00+09:00"}""")
+        client.saveArticle("token", "a1")
+        assertEquals("PUT", requests.last().method)
+
+        responses += Response(204, "")
+        client.removeSavedArticle("token", "a1")
+        assertEquals("DELETE", requests.last().method)
     }
 
     @Test
@@ -168,7 +190,7 @@ class NewsApiClientTest {
       "id":"a1","publisher":{"code":"yna","name":"연합뉴스","logo_url":null},
       "title":"정책 추진","body":"정책 본문","category":"POLITICS",
       "published_at":"2026-10-31T12:00:00+09:00","original_url":"https://example.com/a1",
-      "analysis_state":"READY"}"""
+      "analysis_state":"READY","is_saved":true}"""
 
     private fun analysisJson() = """{
       "state":"READY","version":"reviewed-v1","findings":[{

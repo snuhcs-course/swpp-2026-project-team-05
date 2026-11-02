@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import com.swpp.team5.frameless.ui.screens.LoginScreen
 import com.swpp.team5.frameless.ui.screens.NewsFeedScreen
 import com.swpp.team5.frameless.ui.screens.NewsReaderScreen
+import com.swpp.team5.frameless.ui.screens.NewsSavedScreen
 import com.swpp.team5.frameless.ui.screens.RegistrationScreen
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
@@ -68,6 +69,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
 
                 val session = auth.session ?: return@Box
                 val feedListState = rememberLazyListState()
+                val savedListState = rememberLazyListState()
                 LaunchedEffect(session.token) { news.initialize() }
                 LaunchedEffect(news.authExpired) {
                     if (news.authExpired) {
@@ -92,15 +94,34 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             onSearchInput = news::updateSearchInput,
                             onSearchSubmit = news::submitSearch,
                             onSearchClose = news::closeSearch,
+                            onSavedOpen = news::openSaved,
                             onArticle = news::openArticle,
+                            onToggleSaved = news::toggleSaved,
+                            savedMutationArticleId = news.savedMutationArticleId,
+                            saveError = news.saveError,
                             onLogout = { news.reset(); auth.logout() }
                         )
                     }
+                    NewsRoute.SAVED -> NewsSavedScreen(
+                        state = news.saved,
+                        listState = savedListState,
+                        savedMutationArticleId = news.savedMutationArticleId,
+                        saveError = news.saveError,
+                        onBack = news::closeSaved,
+                        onRefresh = news::refreshSaved,
+                        onRetry = news::retrySaved,
+                        onLoadMore = news::loadMoreSaved,
+                        onArticle = news::openArticle,
+                        onToggleSaved = news::toggleSaved
+                    )
                     NewsRoute.READER -> NewsReaderScreen(
                         state = news.reader,
                         onBack = news::closeReader,
                         onRetry = news::retryReader,
-                        onAnalysisEnabled = news::setAnalysisEnabled
+                        onAnalysisEnabled = news::setAnalysisEnabled,
+                        onToggleSaved = news::toggleSaved,
+                        savedPending = news.savedMutationArticleId == news.reader.articleId,
+                        saveError = news.saveError
                     )
                 }
             }

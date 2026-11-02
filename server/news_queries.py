@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import UUID
 
 from django.core import signing
-from django.db.models import Prefetch, Q
+from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.utils.dateparse import parse_datetime
 
 from .article_search import apply_article_search, search_excerpt
@@ -19,7 +19,9 @@ from .models import (
     ExpressionFinding,
     FindingComparison,
     Publisher,
+    SavedArticle,
     TextScope,
+    UserAccount,
 )
 
 
@@ -42,7 +44,13 @@ def _analysis_state(article: Article) -> str:
     return article.story_cluster.analysis_status if article.story_cluster_id else AnalysisStatus.NOT_STARTED
 
 
-def _article_summary(article: Article, search_query: str | None = None) -> dict:
+def article_summary_payload(
+    article: Article,
+    search_query: str | None = None,
+    *,
+    is_saved: bool | None = None,
+    saved_at: datetime | None = None,
+) -> dict:
     payload = {
         "id": str(article.id),
         "publisher": publisher_payload(article.publisher),
@@ -50,7 +58,13 @@ def _article_summary(article: Article, search_query: str | None = None) -> dict:
         "category": article.category,
         "published_at": article.published_at,
         "analysis_state": _analysis_state(article),
+        "is_saved": (
+            bool(getattr(article, "is_saved", False))
+            if is_saved is None else is_saved
+        ),
     }
+    if saved_at is not None:
+        payload["saved_at"] = saved_at
     if search_query:
         payload["search_excerpt"] = search_excerpt(article.body_text, search_query)
     return payload
@@ -112,14 +126,17 @@ def list_publishers() -> list[dict]:
     return [publisher_payload(row) for row in rows]
 
 
-def list_articles(*, category: str | None, publisher_codes: list[str], query: str | None,
+def list_articles(*, user: UserAccount, category: str | None,
+                  publisher_codes: list[str], query: str | None,
                   cursor: str | None, limit: int) -> dict:
+    saved_by_user = SavedArticle.objects.filter(user=user, article_id=OuterRef("pk"))
     queryset = (Article.objects
                 .filter(
                     visibility=ArticleVisibility.VISIBLE,
                     is_feed_visible=True,
                     publisher__is_active=True,
                 )
+                .annotate(is_saved=Exists(saved_by_user))
                 .select_related("publisher", "story_cluster"))
     if category:
         queryset = queryset.filter(category=category)
@@ -151,7 +168,7 @@ def list_articles(*, category: str | None, publisher_codes: list[str], query: st
     has_more = len(rows) > limit
     visible = rows[:limit]
     return {
-        "items": [_article_summary(row, query) for row in visible],
+        "items": [article_summary_payload(row, query) for row in visible],
         "next_cursor": (
             encode_cursor(
                 visible[-1],
@@ -163,16 +180,25 @@ def list_articles(*, category: str | None, publisher_codes: list[str], query: st
     }
 
 
-def get_article(article_id: UUID) -> Article | None:
-    return (Article.objects
-            .filter(id=article_id, visibility=ArticleVisibility.VISIBLE,
-                    publisher__is_active=True)
+def get_article(article_id: UUID, *, user: UserAccount | None = None) -> Article | None:
+    queryset = Article.objects.filter(
+        id=article_id,
+        visibility=ArticleVisibility.VISIBLE,
+        publisher__is_active=True,
+    )
+    if user is not None:
+        queryset = queryset.annotate(
+            is_saved=Exists(
+                SavedArticle.objects.filter(user=user, article_id=OuterRef("pk"))
+            )
+        )
+    return (queryset
             .select_related("publisher", "story_cluster")
             .first())
 
 
 def article_detail_payload(article: Article) -> dict:
-    payload = _article_summary(article)
+    payload = article_summary_payload(article)
     payload.update({
         "body": article.body_text,
         "original_url": article.canonical_url,

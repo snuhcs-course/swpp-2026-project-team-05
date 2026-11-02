@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { AppShell } from '../components/AppShell'
+import { SaveArticleButton } from '../components/SaveArticleButton'
 import type { Finding } from '../lib/types'
 import { api } from '../lib/api'
 import { segmentText, sourceRange } from '../lib/text'
@@ -101,7 +102,8 @@ export function ArticlePage() {
   const { id = '' } = useParams()
   const { session } = useAuth()
   const token = session!.token
-  const articleQuery = useQuery({ queryKey: ['article', id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
+  const userId = session!.user.id
+  const articleQuery = useQuery({ queryKey: ['article', userId, id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
   const analysisQuery = useQuery({ queryKey: ['analysis', id], queryFn: () => api.analysis(token, id), enabled: Boolean(id) })
   const findings = analysisQuery.data?.findings ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -141,7 +143,8 @@ export function ArticlePage() {
                   onSelect={setSelectedId}
                   className="font-serif text-[clamp(2.5rem,5vw,5.6rem)] font-black leading-[1.03] tracking-[-0.06em]"
                 />
-                <div className="mt-7 flex justify-end">
+                <div className="mt-7 flex items-center justify-end gap-3">
+                  <SaveArticleButton articleId={article.id} isSaved={article.is_saved} />
                   <a href={article.original_url} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-xs font-bold">View original <ArrowUpRight size={14} /></a>
                 </div>
               </header>

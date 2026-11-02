@@ -5,6 +5,7 @@ import type {
   ArticlePage,
   NewsCategory,
   Publisher,
+  SavedArticleMutation,
   Session,
   User,
 } from './types'
@@ -120,5 +121,27 @@ export const api = {
 
   analysis(token: string, id: string) {
     return request<Analysis>(`/api/v1/articles/${id}/analysis`, {}, token)
+  },
+
+  savedArticles(token: string, cursor?: string) {
+    const params = new URLSearchParams({ limit: '20' })
+    if (cursor) params.set('cursor', cursor)
+    return request<ArticlePage>(`/api/v1/saved-articles?${params}`, {}, token)
+  },
+
+  saveArticle(token: string, id: string) {
+    return request<SavedArticleMutation>(
+      `/api/v1/saved-articles/${id}`,
+      { method: 'PUT' },
+      token,
+    )
+  },
+
+  removeSavedArticle(token: string, id: string) {
+    return request<void>(
+      `/api/v1/saved-articles/${id}`,
+      { method: 'DELETE' },
+      token,
+    )
   },
 }

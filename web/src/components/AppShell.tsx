@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav className="ml-12 hidden h-full items-center gap-8 md:flex" aria-label="Primary navigation">
             <NavLink to="/?category=POLITICS" className={({ isActive }) => cn('nav-link', isActive && 'text-black')}>Politics</NavLink>
             <NavLink to="/?category=SOCIETY" className={({ isActive }) => cn('nav-link', isActive && 'text-black')}>Society</NavLink>
+            <NavLink to="/saved" className={({ isActive }) => cn('nav-link', isActive && 'text-black')}>Saved</NavLink>
           </nav>
           <div className="ml-auto hidden items-center gap-3 text-sm text-zinc-600 md:flex">
             <UserRound size={16} aria-hidden />
@@ -42,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex flex-col gap-3 text-sm font-semibold">
               <Link to="/?category=POLITICS" onClick={() => setMenuOpen(false)}>Politics</Link>
               <Link to="/?category=SOCIETY" onClick={() => setMenuOpen(false)}>Society</Link>
+              <Link to="/saved" onClick={() => setMenuOpen(false)}>Saved</Link>
               <button className="mt-2 flex items-center gap-2 border-t border-zinc-300 pt-3 text-left" onClick={() => void logout()}>
                 <LogOut size={15} /> Sign out
               </button>
