@@ -47,6 +47,23 @@ class GoldDatasetConversionTests(SimpleTestCase):
         self.assertIn("아주경제", {row["name_ko"] for row in publishers})
         self.assertIn("IT조선", {row["name_ko"] for row in publishers})
 
+    def test_reviewed_feed_opening_order(self):
+        expected = {
+            "gold-v5-b08": 6,
+            "gold-v5-b12": 5,
+            "gold-v5-b16": 4,
+            "gold-v5-b33": 3,
+            "gold-v5-b34": 2,
+            "gold-v5-b11": 1,
+        }
+        actual = {}
+        for cluster in self.dataset["clusters"]:
+            for article in cluster["articles"]:
+                if article["feed_priority"]:
+                    self.assertTrue(article["is_feed_visible"])
+                    actual[cluster["key"]] = article["feed_priority"]
+        self.assertEqual(actual, expected)
+
     def test_product_projection_keeps_only_displayable_gold_differences(self):
         findings = [
             finding

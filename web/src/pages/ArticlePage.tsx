@@ -54,10 +54,7 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-300 pb-3">
-        <div>
-          <strong className="text-sm">{article.publisher.name}</strong>
-          <p className="mt-1 text-xs text-zinc-500">{formatDate(article.published_at)}</p>
-        </div>
+        <p className="text-xs text-zinc-500">{formatDate(article.published_at)}</p>
         <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">Original <ArrowUpRight size={13} /></a>
       </div>
       <h4 className="font-serif text-lg font-bold leading-6">{article.title}</h4>
@@ -87,7 +84,7 @@ function FindingPanel({ finding }: { finding: Finding }) {
           <h3 className="text-xs font-black uppercase tracking-[0.12em]">Compared coverage</h3>
           <span className="text-xs text-zinc-500">{comparisons} {comparisons === 1 ? 'source' : 'sources'}</span>
         </div>
-        {comparisons > 1 && (
+        {comparisons > 0 && (
           <div role="tablist" aria-label="Comparison sources" className="mb-5 flex gap-5 overflow-x-auto border-b border-zinc-300">
             {finding.comparison_articles.map((article, index) => (
               <button

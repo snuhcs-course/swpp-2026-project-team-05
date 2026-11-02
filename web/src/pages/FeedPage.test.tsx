@@ -105,6 +105,15 @@ describe('FeedPage search', () => {
     expect(screen.getByLabelText('location-search')).toHaveTextContent('scope=following')
   })
 
+  it('keeps section navigation in the global header only', async () => {
+    renderFeed()
+    await waitFor(() => expect(api.articles).toHaveBeenCalled())
+
+    expect(screen.getAllByRole('link', { name: 'Politics' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Society' })).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Section' })).not.toBeInTheDocument()
+  })
+
   it('searches the full corpus even when Following is selected', async () => {
     renderFeed('/?category=POLITICS&scope=following')
     const input = screen.getByRole('searchbox', { name: 'Search articles' })
