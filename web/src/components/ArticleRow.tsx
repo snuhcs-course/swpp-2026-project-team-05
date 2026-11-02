@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import type { ArticleSummary } from '../lib/types'
 import { categoryLabel, formatDate } from '../lib/utils'
 import { AnalysisBadge } from './AnalysisBadge'
-import { SaveArticleButton } from './SaveArticleButton'
 
 export function ArticleRow({ article, index }: { article: ArticleSummary; index: number }) {
   return (
@@ -25,10 +24,7 @@ export function ArticleRow({ article, index }: { article: ArticleSummary; index:
         )}
       </div>
       <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
-        <div className="flex items-center gap-2">
-          <AnalysisBadge state={article.analysis_state} />
-          <SaveArticleButton articleId={article.id} isSaved={article.is_saved} />
-        </div>
+        <AnalysisBadge state={article.analysis_state} />
         <Link to={`/articles/${article.id}`} className="flex items-center gap-1 text-xs font-bold">Open <ArrowRight size={14} /></Link>
       </div>
     </article>

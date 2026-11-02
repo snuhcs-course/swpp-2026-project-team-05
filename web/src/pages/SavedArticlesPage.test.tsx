@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { api } from '../lib/api'
@@ -47,18 +47,12 @@ describe('SavedArticlesPage', () => {
   beforeEach(() => vi.clearAllMocks())
   afterEach(cleanup)
 
-  it('shows the personal list and removes an article through the shared control', async () => {
-    vi.mocked(api.savedArticles)
-      .mockResolvedValueOnce({ items: [savedArticle], next_cursor: null })
-      .mockResolvedValue({ items: [], next_cursor: null })
-    vi.mocked(api.removeSavedArticle).mockResolvedValue(undefined)
+  it('shows the personal list without row-level save controls', async () => {
+    vi.mocked(api.savedArticles).mockResolvedValue({ items: [savedArticle], next_cursor: null })
     renderPage()
 
     expect(await screen.findByText('저장한 기사')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove from saved articles' }))
-
-    await waitFor(() => expect(api.removeSavedArticle).toHaveBeenCalledWith('token', 'article-1'))
-    await waitFor(() => expect(screen.queryByText('저장한 기사')).not.toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Remove from saved articles' })).not.toBeInTheDocument()
   })
 
   it('renders the empty state', async () => {

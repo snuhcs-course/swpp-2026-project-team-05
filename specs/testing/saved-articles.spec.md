@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Proposed for intent review; implementation not started |
+| Status | Implemented |
 | Owner | Saved articles feature owner |
 | Source requirements | `docs/news-app-features-spec.md` §§9–10 |
 | Last reviewed | 2026-11-02 |
@@ -86,21 +86,20 @@ save state; clients own interaction and cache synchronization.
 - [Unit] The API client parses `is_saved` and `saved_at` and sends authenticated
   list, PUT, and DELETE requests to the exact contract paths.\
   Tested by: `web/src/lib/api.test.ts > saved articles API > lists, saves, and removes through the authenticated contract`
-- [Component] Feed and Reader use the same mutation boundary; success updates
+- [Component] Reader uses the shared mutation boundary; success updates
   all relevant caches and failure restores the previous state with an error.\
   Tested by: `web/src/hooks/useSavedArticle.test.tsx > useSavedArticle > updates personalized article caches before the save request completes`,
   `web/src/hooks/useSavedArticle.test.tsx > useSavedArticle > restores cached state when the save request fails`
-- [Component] `/saved` renders loading, populated, empty, initial-error,
-  next-page-error, and removal states without discarding existing rows.\
-  Tip: populated, empty, and removal are covered by `SavedArticlesPage.test.tsx`;
+- [Component] `/saved` renders loading, populated, empty, initial-error, and
+  next-page-error states without discarding existing rows.\
+  Tip: populated and empty are covered by `SavedArticlesPage.test.tsx`;
   add loading, initial-error, and next-page-error cases.
 - [Security regression] Query caches are partitioned by user or cleared on
   account change so another login cannot observe the previous user's save state.\
   Tip: render two sequential sessions against one QueryClient and assert no stale
   saved flag or saved list is shown.
-- [Accessibility] Save and remove controls have distinct accessible names and
-  expose a non-duplicating pending state.\
-  Tested by: `web/src/pages/SavedArticlesPage.test.tsx > SavedArticlesPage > shows the personal list and removes an article through the shared control`
+- [Accessibility] Reader save and remove controls have distinct accessible
+  names and expose a non-duplicating pending state.
 
 ### Android client
 

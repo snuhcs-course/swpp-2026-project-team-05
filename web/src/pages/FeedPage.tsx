@@ -6,7 +6,6 @@ import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
-import { SaveArticleButton } from '../components/SaveArticleButton'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import type { NewsCategory } from '../lib/types'
@@ -197,7 +196,6 @@ export function FeedPage() {
                   <strong>{hero.publisher.name}</strong>
                   <span className="text-zinc-500">{formatDate(hero.published_at, true)}</span>
                   <AnalysisBadge state={hero.analysis_state} />
-                  <SaveArticleButton className="ml-auto" articleId={hero.id} isSaved={hero.is_saved} />
                 </div>
                 <Link to={`/articles/${hero.id}`}>
                   <h2 className="max-w-4xl font-serif text-[clamp(2.25rem,4.5vw,4.8rem)] font-black leading-[1.03] tracking-[-0.055em] hover:underline hover:decoration-2 hover:underline-offset-8">

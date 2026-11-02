@@ -36,14 +36,11 @@ import com.swpp.team5.frameless.ui.viewmodel.SavedArticlesState
 internal fun NewsSavedScreen(
     state: SavedArticlesState,
     listState: LazyListState,
-    savedMutationArticleId: String?,
-    saveError: String?,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onArticle: (String) -> Unit,
-    onToggleSaved: (String, Boolean) -> Unit
+    onArticle: (String) -> Unit
 ) {
     BackHandler(onBack = onBack)
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
@@ -77,11 +74,6 @@ internal fun NewsSavedScreen(
             )
         }
         HorizontalDivider(color = Fl.Line)
-        if (saveError != null) {
-            Text(saveError, color = Fl.Danger, fontSize = 12.sp,
-                modifier = Modifier.fillMaxWidth().background(Fl.Inset)
-                    .padding(horizontal = 18.dp, vertical = 9.dp))
-        }
         when {
             state.isLoading && state.items.isEmpty() -> LoadingFeed()
             state.error != null && state.items.isEmpty() -> FeedMessage(
@@ -109,9 +101,7 @@ internal fun NewsSavedScreen(
                 items(state.items, key = { it.id }) { article ->
                     ArticleFeedRow(
                         article = article,
-                        onClick = { onArticle(article.id) },
-                        onToggleSaved = { onToggleSaved(article.id, article.isSaved) },
-                        savedPending = savedMutationArticleId == article.id
+                        onClick = { onArticle(article.id) }
                     )
                     HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
                 }
