@@ -17,3 +17,16 @@ export function formatDate(value: string, withTime = false) {
 export function categoryLabel(category: string) {
   return category === 'SOCIETY' ? 'Society' : 'Politics'
 }
+
+export function findingCategoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    A: 'Reporting stance',
+    B: 'Speech characterization',
+    C: 'Action characterization',
+    D: 'Emphasis of degree',
+    E: 'Evaluation or emotion',
+    F: 'One-sided naming',
+    G: 'Certainty or categorization',
+  }
+  return labels[category] ?? 'Expression pattern'
+}
