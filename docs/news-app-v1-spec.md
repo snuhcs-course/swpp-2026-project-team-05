@@ -179,10 +179,7 @@ Password change, reset, account deletion, and session listing remain outside thi
 
 ### 4.1 Feed
 
-The ordinary feed starts with a small, explicitly reviewed set in stored
-`feed_priority DESC` order. It then continues with every remaining story in
-`(published_at DESC, id DESC)` order. Priority changes presentation only: it is
-not personalization, recommendation, or search relevance. The feed supports:
+The feed is sorted by `(published_at DESC, id DESC)` and supports:
 
 - politics/society selection;
 - zero or more publisher filters;
@@ -417,9 +414,7 @@ Response:
 }
 ```
 
-The cursor represents the last `(feed_priority, published_at, id)` position for
-ordinary feeds and the search rank/date position for search. It is validated
-with Django signing. Feed payloads do not expose priority, body, or findings.
+The cursor represents the last `(published_at, id)` pair and is validated with Django signing. Feed payloads do not include body or findings.
 
 ### 6.4 Article detail
 

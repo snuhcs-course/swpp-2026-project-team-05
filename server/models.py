@@ -193,13 +193,12 @@ class Article(models.Model):
         max_length=16, choices=ArticleVisibility.choices, default=ArticleVisibility.VISIBLE,
     )
     is_feed_visible = models.BooleanField(default=True)
-    feed_priority = models.PositiveSmallIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "frameless_article"
-        ordering = ["-feed_priority", "-published_at", "-id"]
+        ordering = ["-published_at", "-id"]
         indexes = [
             models.Index(
                 fields=["story_cluster", "-published_at"], name="frameless_article_cluster",

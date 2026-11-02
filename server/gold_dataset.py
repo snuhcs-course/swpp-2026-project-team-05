@@ -31,17 +31,6 @@ POLITICS_CLUSTERS = frozenset({
     "b18", "b19", "b20", "b21", "b22", "b23", "b30", "b31",
 })
 
-# A small reviewed opening order for the evaluation feed. All remaining stories
-# retain ordinary reverse-chronological ordering.
-FEED_PRIORITIES = {
-    "b08": 6,
-    "b12": 5,
-    "b16": 4,
-    "b33": 3,
-    "b34": 2,
-    "b11": 1,
-}
-
 KNOWN_PUBLISHER_CODES = {
     "연합뉴스": "yna",
     "뉴스1": "news1",
@@ -198,8 +187,6 @@ def _convert_articles(document: dict, code_by_name: dict[str, str]) -> list[dict
             # Only the reviewed source article is a feed story. Related articles
             # remain readable through comparison pages without cluttering the feed.
             "is_feed_visible": article_id == "source",
-            "feed_priority": FEED_PRIORITIES.get(document_name, 0)
-            if article_id == "source" else 0,
         })
     return rows
 

@@ -126,9 +126,11 @@ Functional requirements:
 
 Feed behavior:
 
-- Show the explicitly reviewed opening stories first without a separate label,
-  badge, or visual section; continue with publication time descending using
-  stable cursor pagination.
+- Sort by publication time descending with stable cursor pagination.
+- During the evaluation build, Web and Android may quietly move the six reviewed
+  example stories already present in a loaded Latest page to the front. This is
+  client-only, adds no label or separate section, and does not change API or
+  cursor ordering.
 - Category control switches between politics and society.
 - Publisher filter opens the sheet in section 4.3.
 - Politics and Society live in the global header only; do not duplicate the

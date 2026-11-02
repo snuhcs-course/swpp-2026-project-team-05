@@ -26,7 +26,7 @@ from .models import (
 )
 
 
-CURSOR_SALT = "frameless.news-feed.v3"
+CURSOR_SALT = "frameless.news-feed.v2"
 
 
 class InvalidCursor(ValueError):
@@ -89,14 +89,12 @@ def _context_fingerprint(*, query: str | None, category: str | None,
     return hashlib.sha256(canonical.encode()).hexdigest()[:24]
 
 
-def encode_cursor(article: Article, *, context: str, search_rank: int | None,
-                  feed_priority: int | None) -> str:
+def encode_cursor(article: Article, *, context: str, search_rank: int | None) -> str:
     return signing.dumps(
         {
-            "v": 3,
+            "v": 2,
             "context": context,
             "rank": search_rank,
-            "priority": feed_priority,
             "published_at": article.published_at.isoformat(),
             "id": str(article.id),
         },
@@ -105,26 +103,22 @@ def encode_cursor(article: Article, *, context: str, search_rank: int | None,
     )
 
 
-def decode_cursor(value: str, *, context: str, search_active: bool) -> tuple[int | None, int | None, datetime, UUID]:
+def decode_cursor(value: str, *, context: str, search_active: bool) -> tuple[int | None, datetime, UUID]:
     try:
         payload = signing.loads(value, salt=CURSOR_SALT, max_age=60 * 60 * 24 * 7)
-        if payload.get("v") != 3 or payload.get("context") != context:
+        if payload.get("v") != 2 or payload.get("context") != context:
             raise ValueError
         rank = payload.get("rank")
-        priority = payload.get("priority")
         if search_active:
             if type(rank) is not int or not 0 <= rank <= 2:
                 raise ValueError
-            if priority is not None:
-                raise ValueError
-        else:
-            if rank is not None or type(priority) is not int or priority < 0:
-                raise ValueError
+        elif rank is not None:
+            raise ValueError
         published_at = parse_datetime(str(payload["published_at"]))
         article_id = UUID(str(payload["id"]))
         if published_at is None or published_at.tzinfo is None:
             raise ValueError
-        return rank, priority, published_at, article_id
+        return rank, published_at, article_id
     except (signing.BadSignature, KeyError, TypeError, ValueError) as exc:
         raise InvalidCursor from exc
 
@@ -178,7 +172,7 @@ def list_articles(*, user: UserAccount, category: str | None,
             "search_rank", "-published_at", "-id"
         )
     else:
-        queryset = queryset.order_by("-feed_priority", "-published_at", "-id")
+        queryset = queryset.order_by("-published_at", "-id")
 
     context = _context_fingerprint(
         query=query,
@@ -188,7 +182,7 @@ def list_articles(*, user: UserAccount, category: str | None,
         followed_publisher_codes=followed_publisher_codes,
     )
     if cursor:
-        rank, priority, published_at, article_id = decode_cursor(
+        rank, published_at, article_id = decode_cursor(
             cursor, context=context, search_active=bool(query),
         )
         position = (
@@ -198,10 +192,7 @@ def list_articles(*, user: UserAccount, category: str | None,
         if query:
             queryset = queryset.filter(Q(search_rank__gt=rank) | Q(search_rank=rank) & position)
         else:
-            queryset = queryset.filter(
-                Q(feed_priority__lt=priority)
-                | Q(feed_priority=priority) & position
-            )
+            queryset = queryset.filter(position)
     rows = list(queryset[:limit + 1])
     has_more = len(rows) > limit
     visible = rows[:limit]
@@ -212,7 +203,6 @@ def list_articles(*, user: UserAccount, category: str | None,
                 visible[-1],
                 context=context,
                 search_rank=getattr(visible[-1], "search_rank", None),
-                feed_priority=None if query else visible[-1].feed_priority,
             )
             if has_more and visible else None
         ),

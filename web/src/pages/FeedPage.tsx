@@ -9,6 +9,7 @@ import { AppShell } from '../components/AppShell'
 import { ManageSourcesDialog } from '../components/ManageSourcesDialog'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
+import { orderFeedArticles } from '../lib/feedOrdering'
 import { articleRouteState } from '../lib/navigation'
 import type { FeedScope, NewsCategory, Publisher } from '../lib/types'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
@@ -80,10 +81,12 @@ export function FeedPage() {
   })
 
   const articles = useMemo(
-    () => queryPending || queryTooShort
-      ? []
-      : articlesQuery.data?.pages.flatMap((page) => page.items) ?? [],
-    [articlesQuery.data, queryPending, queryTooShort],
+    () => {
+      if (queryPending || queryTooShort) return []
+      const loaded = articlesQuery.data?.pages.flatMap((page) => page.items) ?? []
+      return orderFeedArticles(loaded, scope, Boolean(activeQuery))
+    },
+    [activeQuery, articlesQuery.data, queryPending, queryTooShort, scope],
   )
   const hero = articles[0]
   const rest = articles.slice(1)

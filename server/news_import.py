@@ -217,7 +217,6 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
                     ),
                     "visibility": article_item.get("visibility", ArticleVisibility.VISIBLE),
                     "is_feed_visible": article_item.get("is_feed_visible", True),
-                    "feed_priority": article_item.get("feed_priority", 0),
                 },
             )
             article_by_key[article_key] = article
