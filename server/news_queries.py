@@ -22,6 +22,7 @@ from .models import (
     SavedArticle,
     TextScope,
     UserAccount,
+    UserPublisherFollow,
 )
 
 
@@ -71,12 +72,15 @@ def article_summary_payload(
 
 
 def _context_fingerprint(*, query: str | None, category: str | None,
-                         publisher_codes: list[str]) -> str:
+                         publisher_codes: list[str], scope: str,
+                         followed_publisher_codes: list[str]) -> str:
     canonical = json.dumps(
         {
             "q": query or "",
             "category": category or "",
             "publishers": sorted(publisher_codes),
+            "scope": scope,
+            "follows": sorted(followed_publisher_codes),
         },
         ensure_ascii=False,
         sort_keys=True,
@@ -119,17 +123,36 @@ def decode_cursor(value: str, *, context: str, search_active: bool) -> tuple[int
         raise InvalidCursor from exc
 
 
-def list_publishers() -> list[dict]:
+def list_publishers(*, user: UserAccount) -> list[dict]:
+    followed = UserPublisherFollow.objects.filter(user=user, publisher_id=OuterRef("pk"))
     rows = (Publisher.objects
-            .filter(is_active=True, articles__is_feed_visible=True)
-            .distinct())
-    return [publisher_payload(row) for row in rows]
+            .filter(
+                is_active=True,
+                articles__visibility=ArticleVisibility.VISIBLE,
+                articles__is_feed_visible=True,
+            )
+            .annotate(is_followed=Exists(followed))
+            .distinct()
+            .order_by("display_order", "name_ko", "code"))
+    payloads = []
+    for row in rows:
+        payload = publisher_payload(row)
+        payload["is_followed"] = bool(row.is_followed)
+        payloads.append(payload)
+    return payloads
 
 
 def list_articles(*, user: UserAccount, category: str | None,
                   publisher_codes: list[str], query: str | None,
-                  cursor: str | None, limit: int) -> dict:
+                  cursor: str | None, limit: int, scope: str = "ALL") -> dict:
     saved_by_user = SavedArticle.objects.filter(user=user, article_id=OuterRef("pk"))
+    followed_publisher_codes = (
+        list(UserPublisherFollow.objects
+             .filter(user=user, publisher__is_active=True)
+             .order_by("publisher__code")
+             .values_list("publisher__code", flat=True))
+        if scope == "FOLLOWING" else []
+    )
     queryset = (Article.objects
                 .filter(
                     visibility=ArticleVisibility.VISIBLE,
@@ -142,6 +165,8 @@ def list_articles(*, user: UserAccount, category: str | None,
         queryset = queryset.filter(category=category)
     if publisher_codes:
         queryset = queryset.filter(publisher__code__in=publisher_codes)
+    if scope == "FOLLOWING":
+        queryset = queryset.filter(publisher__code__in=followed_publisher_codes)
     if query:
         queryset = apply_article_search(queryset, query).order_by(
             "search_rank", "-published_at", "-id"
@@ -150,7 +175,11 @@ def list_articles(*, user: UserAccount, category: str | None,
         queryset = queryset.order_by("-published_at", "-id")
 
     context = _context_fingerprint(
-        query=query, category=category, publisher_codes=publisher_codes,
+        query=query,
+        category=category,
+        publisher_codes=publisher_codes,
+        scope=scope,
+        followed_publisher_codes=followed_publisher_codes,
     )
     if cursor:
         rank, published_at, article_id = decode_cursor(

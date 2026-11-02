@@ -15,7 +15,17 @@ internal data class AppSession(
     val username: String get() = user.username
 }
 
-internal data class PublisherItem(val code: String, val name: String, val logoUrl: String?)
+internal data class PublisherItem(
+    val code: String,
+    val name: String,
+    val logoUrl: String?,
+    val isFollowed: Boolean = false
+)
+
+internal enum class FeedScope(val wire: String, val label: String) {
+    ALL("ALL", "최신"),
+    FOLLOWING("FOLLOWING", "팔로잉")
+}
 
 internal enum class NewsCategory(val wire: String, val label: String) {
     POLITICS("POLITICS", "정치"),

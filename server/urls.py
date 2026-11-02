@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/v1/auth/logout", api_v1.logout),
     path("api/v1/auth/me", api_v1.me),
     path("api/v1/publishers", api_v1.publishers),
+    path("api/v1/me/followed-publishers", api_v1.followed_publishers),
     path("api/v1/articles", api_v1.articles),
     path("api/v1/articles/<uuid:article_id>", api_v1.article_detail),
     path("api/v1/articles/<uuid:article_id>/analysis", api_v1.article_analysis),

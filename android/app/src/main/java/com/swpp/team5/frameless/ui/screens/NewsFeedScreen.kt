@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleSummary
+import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
@@ -75,7 +76,8 @@ internal fun NewsFeedScreen(
     session: AppSession,
     listState: LazyListState,
     onCategory: (NewsCategory) -> Unit,
-    onPublishers: (Set<String>) -> Unit,
+    onScope: (FeedScope) -> Unit,
+    onSources: (Set<String>, () -> Unit) -> Unit,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -87,12 +89,13 @@ internal fun NewsFeedScreen(
     onArticle: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-    var showPublishers by remember { mutableStateOf(false) }
+    var showFeedScope by remember { mutableStateOf(false) }
+    var showSources by remember { mutableStateOf(false) }
     var showAccount by remember { mutableStateOf(false) }
     var savedFeedIndex by remember { mutableIntStateOf(0) }
     var savedFeedOffset by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(state.category, state.selectedPublishers) {
+    LaunchedEffect(state.category, state.scope) {
         listState.scrollToItem(0)
     }
 
@@ -175,20 +178,15 @@ internal fun NewsFeedScreen(
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
-                    if (state.selectedPublishers.isEmpty()) "언론사 · 전체  ⌄"
-                    else "언론사 · ${state.selectedPublishers.size}곳  ⌄",
+                    if (state.scope == FeedScope.ALL) "최신  ⌄"
+                    else "팔로잉 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
                     color = Fl.Ink2,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable { showPublishers = true }
+                    modifier = Modifier.clickable { showFeedScope = true }
                         .padding(horizontal = 4.dp, vertical = 12.dp)
                         .semantics { role = Role.Button }
                 )
-            }
-            if (state.selectedPublishers.isNotEmpty()) {
-                val names = state.publishers.filter { it.code in state.selectedPublishers }
-                    .joinToString(" · ") { it.name }
-                Caption(names, modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 9.dp))
             }
         }
         HorizontalDivider(color = Fl.Line)
@@ -209,15 +207,30 @@ internal fun NewsFeedScreen(
                 onAction = onRetry
             )
             state.items.isEmpty() -> FeedMessage(
-                title = if (state.activeSearchQuery.isNotBlank()) "검색 결과가 없어요" else "조건에 맞는 기사가 없어요",
-                detail = if (state.activeSearchQuery.isNotBlank())
-                    "다른 검색어나 분야를 확인해 보세요."
-                else "다른 분야나 언론사를 선택해 보세요.",
-                action = if (state.activeSearchQuery.isNotBlank()) "검색 지우기"
-                    else if (state.selectedPublishers.isNotEmpty()) "모든 언론사 보기" else "새로고침",
+                title = when {
+                    state.activeSearchQuery.isNotBlank() -> "검색 결과가 없어요"
+                    state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
+                        "팔로우한 언론사가 없어요"
+                    else -> "새 기사가 없어요"
+                },
+                detail = when {
+                    state.activeSearchQuery.isNotBlank() -> "다른 검색어나 분야를 확인해 보세요."
+                    state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
+                        "자주 읽는 언론사를 선택해 팔로잉 피드를 만들어 보세요."
+                    state.scope == FeedScope.FOLLOWING -> "이 분야에는 팔로우한 언론사의 새 기사가 없어요."
+                    else -> "잠시 후 새로고침해 주세요."
+                },
+                action = when {
+                    state.activeSearchQuery.isNotBlank() -> "검색 지우기"
+                    state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } -> "언론사 관리"
+                    state.scope == FeedScope.FOLLOWING -> "최신 기사 보기"
+                    else -> "새로고침"
+                },
                 onAction = {
                     if (state.activeSearchQuery.isNotBlank()) onSearchInput("")
-                    else if (state.selectedPublishers.isNotEmpty()) onPublishers(emptySet())
+                    else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                        showSources = true
+                    else if (state.scope == FeedScope.FOLLOWING) onScope(FeedScope.ALL)
                     else onRefresh()
                 }
             )
@@ -229,8 +242,8 @@ internal fun NewsFeedScreen(
                         Text(
                             if (state.isRefreshing) "새 기사를 확인하는 중…"
                             else if (state.activeSearchQuery.isNotBlank())
-                                "‘${state.activeSearchQuery}’ · ${state.category.label} 검색"
-                            else "${state.category.label} · 최신순",
+                                "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
+                            else "${state.category.label} · ${state.scope.label} · 최신순",
                             color = Fl.Muted,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
@@ -262,12 +275,22 @@ internal fun NewsFeedScreen(
         }
     }
 
-    if (showPublishers) {
-        PublisherFilterSheet(
+    if (showFeedScope) {
+        FeedScopeSheet(
+            scope = state.scope,
+            followedCount = state.publishers.count { it.isFollowed },
+            onDismiss = { showFeedScope = false },
+            onScope = { onScope(it); showFeedScope = false },
+            onManage = { showFeedScope = false; showSources = true }
+        )
+    }
+    if (showSources) {
+        PublisherFollowSheet(
             publishers = state.publishers,
-            selected = state.selectedPublishers,
-            onDismiss = { showPublishers = false },
-            onApply = { onPublishers(it); showPublishers = false }
+            isSaving = state.isSavingSources,
+            error = state.sourceSaveError,
+            onDismiss = { if (!state.isSavingSources) showSources = false },
+            onApply = { codes -> onSources(codes) { showSources = false } }
         )
     }
     if (showAccount) {
@@ -435,28 +458,66 @@ internal fun FeedMessage(title: String, detail: String, action: String, onAction
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun PublisherFilterSheet(
+private fun FeedScopeSheet(
+    scope: FeedScope,
+    followedCount: Int,
+    onDismiss: () -> Unit,
+    onScope: (FeedScope) -> Unit,
+    onManage: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Fl.Card) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+            Text("피드", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+            Spacer(Modifier.height(8.dp))
+            FilterRow("최신 · 모든 언론사", scope == FeedScope.ALL) {
+                onScope(FeedScope.ALL)
+            }
+            FilterRow("팔로잉 · ${followedCount}곳", scope == FeedScope.FOLLOWING) {
+                onScope(FeedScope.FOLLOWING)
+            }
+            HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
+            Text(
+                "언론사 관리",
+                color = Fl.Accent,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onManage)
+                    .padding(horizontal = 12.dp, vertical = 14.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun PublisherFollowSheet(
     publishers: List<PublisherItem>,
-    selected: Set<String>,
+    isSaving: Boolean,
+    error: String?,
     onDismiss: () -> Unit,
     onApply: (Set<String>) -> Unit
 ) {
+    val selected = publishers.filter { it.isFollowed }.map { it.code }.toSet()
     var draft by remember(selected) { mutableStateOf(selected) }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Fl.Card) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("언론사 선택", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                Text("언론사 관리", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
                 Spacer(Modifier.weight(1f))
-                Text("완료", color = Fl.Accent, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { onApply(draft) }.padding(10.dp))
+                Text(if (isSaving) "저장 중…" else "저장", color = Fl.Accent,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable(enabled = !isSaving) { onApply(draft) }.padding(10.dp))
             }
-            FilterRow("전체 언론사", draft.isEmpty()) { draft = emptySet() }
+            Caption("선택한 언론사는 팔로잉 피드에만 반영되며 기사 분석에는 영향을 주지 않아요.")
             HorizontalDivider(color = Fl.Line)
             publishers.forEach { publisher ->
                 FilterRow(publisher.name, publisher.code in draft) {
-                    draft = if (publisher.code in draft) draft - publisher.code else draft + publisher.code
+                    if (!isSaving) {
+                        draft = if (publisher.code in draft) draft - publisher.code else draft + publisher.code
+                    }
                 }
             }
+            error?.let { Text(it, color = Fl.Danger, fontSize = 13.sp, modifier = Modifier.padding(12.dp)) }
             Spacer(Modifier.height(20.dp))
         }
     }

@@ -73,12 +73,19 @@ class NewsApiClientTest {
     @Test
     fun newsEndpointsParseFeedDetailAndGroundedComparison() = runBlocking {
         responses += Response(200, """{"items":[
-          {"code":"yna","name":"연합뉴스","logo_url":"https://img.example/yna.png"},
+          {"code":"yna","name":"연합뉴스","logo_url":"https://img.example/yna.png","is_followed":true},
           {"code":"mbc","name":"MBC","logo_url":null}
         ]}""")
         val publishers = client.publishers("token")
         assertEquals(listOf("yna", "mbc"), publishers.map { it.code })
+        assertTrue(publishers[0].isFollowed)
         assertNull(publishers[1].logoUrl)
+
+        responses += Response(200, """{"publisher_codes":["yna","mbc"]}""")
+        assertEquals(setOf("yna", "mbc"), client.replaceFollowedPublishers("token", setOf("mbc", "yna")))
+        assertEquals("PUT", requests.last().method)
+        assertEquals("/api/v1/me/followed-publishers", requests.last().path)
+        assertTrue(requests.last().body.contains("publisher_codes"))
 
         responses += Response(200, """{
           "items":[{"id":"a1","publisher":{"code":"yna","name":"연합뉴스","logo_url":null},
@@ -87,20 +94,20 @@ class NewsApiClientTest {
             "search_excerpt":"…정책 추진을 검토했다…"}],"next_cursor":"cursor-2"}
         """)
         val page = client.articles(
-            "token", NewsCategory.POLITICS, setOf("mbc", "yna"), "cursor 1", 10, "정책 추진"
+            "token", NewsCategory.POLITICS, FeedScope.FOLLOWING, "cursor 1", 10, "정책 추진"
         )
         assertEquals("a1", page.items.single().id)
         assertEquals("…정책 추진을 검토했다…", page.items.single().searchExcerpt)
         assertTrue(page.items.single().isSaved)
         assertEquals("cursor-2", page.nextCursor)
-        assertTrue(requests[1].path.contains("publisher=mbc&publisher=yna"))
-        assertTrue(requests[1].path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
-        assertTrue(requests[1].path.contains("cursor=cursor+1"))
+        assertTrue(requests.last().path.contains("scope=FOLLOWING"))
+        assertTrue(requests.last().path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
+        assertTrue(requests.last().path.contains("cursor=cursor+1"))
 
         responses += Response(200, articleJson())
         val article = client.article("token", "article/id")
         assertEquals("정책 본문", article.body)
-        assertTrue(requests[2].path.contains("article%2Fid"))
+        assertTrue(requests.last().path.contains("article%2Fid"))
 
         responses += Response(200, analysisJson())
         val analysis = client.analysis("token", "a1")
@@ -114,7 +121,7 @@ class NewsApiClientTest {
           "id":"a3","publisher":{"code":"yna","name":"연합뉴스"},"title":"제목",
           "category":"UNKNOWN","published_at":"2026-10-31T12:00:00+09:00",
           "analysis_state":"UNKNOWN"}],"next_cursor":null}""")
-        val conservative = client.articles("token", NewsCategory.SOCIETY, emptySet())
+        val conservative = client.articles("token", NewsCategory.SOCIETY)
         assertNull(conservative.nextCursor)
         assertEquals(NewsCategory.POLITICS, conservative.items.single().category)
         assertEquals(StoredAnalysisState.NOT_STARTED, conservative.items.single().analysisState)

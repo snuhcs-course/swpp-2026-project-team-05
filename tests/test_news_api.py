@@ -22,6 +22,7 @@ from server.models import (
     StoryCluster,
     TextScope,
     UserAccount,
+    UserPublisherFollow,
 )
 
 
@@ -131,6 +132,12 @@ class NewsApiTests(TestCase):
 
         save = self.client.put(f"/api/v1/saved-articles/{self.source.id}")
         self.assertEqual(save.status_code, 401)
+        follow = self.client.put(
+            "/api/v1/me/followed-publishers",
+            data=json.dumps({"publisher_codes": ["yna"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(follow.status_code, 401)
         remove = self.client.delete(f"/api/v1/saved-articles/{self.source.id}")
         self.assertEqual(remove.status_code, 401)
 
@@ -195,14 +202,225 @@ class NewsApiTests(TestCase):
         )
         self.assertEqual(self.client.get("/api/v1/auth/me", **self.auth).status_code, 401)
 
-    def test_publishers_are_ordered_and_active_only(self):
+    def test_publishers_are_ordered_active_and_follow_aware(self):
         Publisher.objects.create(
             code="hidden", name_ko="숨김", domain="hidden.example", is_active=False,
             display_order=0,
         )
+        Publisher.objects.create(
+            code="no-feed", name_ko="기사 없음", domain="no-feed.example",
+            display_order=0,
+        )
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.mbc)
         response = self.client.get("/api/v1/publishers", **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row["code"] for row in response.json()["items"]], ["yna", "mbc"])
+        self.assertEqual(
+            [row["is_followed"] for row in response.json()["items"]],
+            [False, True],
+        )
+
+    def test_follow_relationship_is_unique_and_cascades_with_either_parent(self):
+        follow = UserPublisherFollow.objects.create(user=self.user, publisher=self.yna)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            UserPublisherFollow.objects.create(user=self.user, publisher=self.yna)
+        self.user.delete()
+        self.assertFalse(UserPublisherFollow.objects.filter(pk=follow.pk).exists())
+
+        other = UserAccount.objects.create(
+            email="cascade@example.com", username="cascade_user", password_hash="unused",
+        )
+        publisher = Publisher.objects.create(
+            code="cascade", name_ko="삭제 언론사", domain="cascade.example",
+        )
+        follow = UserPublisherFollow.objects.create(user=other, publisher=publisher)
+        publisher.delete()
+        self.assertFalse(UserPublisherFollow.objects.filter(pk=follow.pk).exists())
+
+    def test_followed_publishers_replace_atomically_and_are_idempotent(self):
+        path = "/api/v1/me/followed-publishers"
+        first = self.client.put(
+            path,
+            data=json.dumps({"publisher_codes": ["mbc", "yna", "mbc"]}),
+            content_type="application/json",
+            **self.auth,
+        )
+        second = self.client.put(
+            path,
+            data=json.dumps({"publisher_codes": ["yna", "mbc"]}),
+            content_type="application/json",
+            **self.auth,
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json(), {"publisher_codes": ["yna", "mbc"]})
+        self.assertEqual(second.json(), first.json())
+        self.assertEqual(UserPublisherFollow.objects.filter(user=self.user).count(), 2)
+
+        cleared = self.client.put(
+            path,
+            data=json.dumps({"publisher_codes": []}),
+            content_type="application/json",
+            **self.auth,
+        )
+        self.assertEqual(cleared.json(), {"publisher_codes": []})
+        self.assertFalse(UserPublisherFollow.objects.filter(user=self.user).exists())
+
+    def test_followed_publishers_reject_invalid_payload_without_partial_update(self):
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.yna)
+        inactive = Publisher.objects.create(
+            code="inactive-follow", name_ko="비활성", domain="inactive-follow.example",
+            is_active=False,
+        )
+        self._article(
+            publisher=inactive,
+            title="비활성 기사",
+            body="본문",
+            published_at=timezone.now(),
+            url="https://example.com/inactive-follow",
+        )
+        path = "/api/v1/me/followed-publishers"
+        for payload in (
+            {},
+            {"publisher_codes": "yna"},
+            {"publisher_codes": ["yna", "unknown"]},
+            {"publisher_codes": ["inactive-follow"]},
+        ):
+            with self.subTest(payload=payload):
+                response = self.client.put(
+                    path,
+                    data=json.dumps(payload),
+                    content_type="application/json",
+                    **self.auth,
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"]["code"], "VALIDATION_ERROR")
+                self.assertEqual(
+                    list(UserPublisherFollow.objects.filter(user=self.user)
+                         .values_list("publisher__code", flat=True)),
+                    ["yna"],
+                )
+
+    def test_following_scope_is_user_specific_and_latest_stays_complete(self):
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.yna)
+        default_latest = self.client.get("/api/v1/articles", **self.auth)
+        latest = self.client.get("/api/v1/articles", {"scope": "ALL"}, **self.auth)
+        following = self.client.get(
+            "/api/v1/articles", {"scope": "FOLLOWING"}, **self.auth
+        )
+        self.assertEqual(
+            {row["id"] for row in latest.json()["items"]},
+            {str(self.source.id), str(self.target.id)},
+        )
+        self.assertEqual(default_latest.json()["items"], latest.json()["items"])
+        self.assertEqual(
+            [row["id"] for row in following.json()["items"]],
+            [str(self.source.id)],
+        )
+
+        other = UserAccount.objects.create(
+            email="following-other@example.com",
+            username="following_other",
+            password_hash=make_password("safe-password-456"),
+        )
+        other_token, _ = create_session(other)
+        other_following = self.client.get(
+            "/api/v1/articles",
+            {"scope": "FOLLOWING"},
+            HTTP_AUTHORIZATION=f"Bearer {other_token}",
+        )
+        self.assertEqual(other_following.json()["items"], [])
+        self.assertIsNone(other_following.json()["next_cursor"])
+
+    def test_following_composes_with_category_and_legacy_publisher_filter(self):
+        UserPublisherFollow.objects.bulk_create([
+            UserPublisherFollow(user=self.user, publisher=self.yna),
+            UserPublisherFollow(user=self.user, publisher=self.mbc),
+        ])
+        response = self.client.get(
+            "/api/v1/articles",
+            {"scope": "FOLLOWING", "category": "POLITICS", "publisher": "mbc"},
+            **self.auth,
+        )
+        self.assertEqual(
+            [row["id"] for row in response.json()["items"]],
+            [str(self.target.id)],
+        )
+
+    def test_follow_changes_neither_reader_nor_stored_analysis(self):
+        finding = self._finding()
+        self._comparison(finding, self.target)
+        before_detail = self.client.get(
+            f"/api/v1/articles/{self.source.id}", **self.auth
+        ).json()
+        before_analysis = self.client.get(
+            f"/api/v1/articles/{self.source.id}/analysis", **self.auth
+        ).json()
+
+        response = self.client.put(
+            "/api/v1/me/followed-publishers",
+            data=json.dumps({"publisher_codes": ["yna"]}),
+            content_type="application/json",
+            **self.auth,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self.client.get(f"/api/v1/articles/{self.source.id}", **self.auth).json(),
+            before_detail,
+        )
+        self.assertEqual(
+            self.client.get(
+                f"/api/v1/articles/{self.source.id}/analysis", **self.auth
+            ).json(),
+            before_analysis,
+        )
+        self.assertEqual(
+            before_analysis["findings"][0]["comparison_articles"][0]["publisher"]["code"],
+            "mbc",
+        )
+
+    def test_following_cursor_is_invalid_after_follow_set_changes(self):
+        older = self._article(
+            publisher=self.yna,
+            title="이전 연합뉴스 기사",
+            body="이전 본문",
+            published_at=timezone.now() - timedelta(hours=1),
+            url="https://example.com/older-yna",
+        )
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.yna)
+        first = self.client.get(
+            "/api/v1/articles",
+            {"scope": "FOLLOWING", "limit": 1},
+            **self.auth,
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.json()["next_cursor"])
+        self.assertIn(str(older.id), {
+            row["id"] for row in self.client.get(
+                "/api/v1/articles", {"scope": "FOLLOWING"}, **self.auth
+            ).json()["items"]
+        })
+        self.client.put(
+            "/api/v1/me/followed-publishers",
+            data=json.dumps({"publisher_codes": ["mbc"]}),
+            content_type="application/json",
+            **self.auth,
+        )
+        stale = self.client.get(
+            "/api/v1/articles",
+            {
+                "scope": "FOLLOWING",
+                "limit": 1,
+                "cursor": first.json()["next_cursor"],
+            },
+            **self.auth,
+        )
+        self.assertEqual(stale.status_code, 400)
+        self.assertEqual(stale.json()["error"]["code"], "INVALID_CURSOR")
+
+    def test_following_rejects_invalid_scope(self):
+        response = self.client.get("/api/v1/articles", {"scope": "MINE"}, **self.auth)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("scope", response.json()["error"]["fields"])
 
     def test_feed_filters_and_uses_stable_cursor(self):
         first = self.client.get("/api/v1/articles?category=POLITICS&limit=1", **self.auth)
@@ -601,6 +819,13 @@ class NewsApiTests(TestCase):
         self._comparison(finding, self.target)
         with self.assertNumQueries(2):
             self.client.get("/api/v1/articles?category=POLITICS", **self.auth)
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.yna)
+        with self.assertNumQueries(3):
+            self.client.get(
+                "/api/v1/articles?category=POLITICS&scope=FOLLOWING", **self.auth
+            )
+        with self.assertNumQueries(2):
+            self.client.get("/api/v1/publishers", **self.auth)
         with self.assertNumQueries(4):
             self.client.get(f"/api/v1/articles/{self.source.id}/analysis", **self.auth)
         SavedArticle.objects.create(user=self.user, article=self.source)

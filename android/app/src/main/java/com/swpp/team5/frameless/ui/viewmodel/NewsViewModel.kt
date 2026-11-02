@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ArticleSummary
+import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsApiException
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
@@ -23,7 +24,9 @@ internal data class NewsFeedState(
     val publishers: List<PublisherItem> = emptyList(),
     val items: List<ArticleSummary> = emptyList(),
     val category: NewsCategory = NewsCategory.POLITICS,
-    val selectedPublishers: Set<String> = emptySet(),
+    val scope: FeedScope = FeedScope.ALL,
+    val isSavingSources: Boolean = false,
+    val sourceSaveError: String? = null,
     val isSearchOpen: Boolean = false,
     val searchInput: String = "",
     val activeSearchQuery: String = "",
@@ -62,8 +65,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         private set
     var feed by mutableStateOf(
         NewsFeedState(
-            category = repository.savedCategory(),
-            selectedPublishers = repository.savedPublishers()
+            category = repository.savedCategory()
         )
     )
         private set
@@ -93,9 +95,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feedJob = viewModelScope.launch {
             try {
                 val publishers = repository.publishers()
-                val known = publishers.map { it.code }.toSet()
-                val selected = feed.selectedPublishers.intersect(known)
-                feed = feed.copy(publishers = publishers, selectedPublishers = selected)
+                feed = feed.copy(publishers = publishers)
                 loadFirstPage()
             } catch (failure: Exception) {
                 handleFeedFailure(failure)
@@ -112,8 +112,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         initialized = false
         route = NewsRoute.FEED
         feed = NewsFeedState(
-            category = repository.savedCategory(),
-            selectedPublishers = repository.savedPublishers()
+            category = repository.savedCategory()
         )
         reader = ArticleReaderState(analysisEnabled = repository.savedAnalysisEnabled())
         saved = SavedArticlesState()
@@ -143,18 +142,43 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     fun selectCategory(category: NewsCategory) {
         if (feed.category == category) return
         feed = feed.copy(category = category)
-        repository.saveFilters(category, feed.selectedPublishers)
+        repository.saveCategory(category)
         if (feed.isSearchOpen) feedBeforeSearch = null
         reloadForFilters()
     }
 
-    fun applyPublishers(codes: Set<String>) {
-        val valid = codes.intersect(feed.publishers.map { it.code }.toSet())
-        if (valid == feed.selectedPublishers) return
-        feed = feed.copy(selectedPublishers = valid)
-        repository.saveFilters(feed.category, valid)
+    fun selectScope(scope: FeedScope) {
+        if (feed.scope == scope) return
+        feed = feed.copy(scope = scope)
         if (feed.isSearchOpen) feedBeforeSearch = null
         reloadForFilters()
+    }
+
+    fun replaceFollowedPublishers(codes: Set<String>, onSuccess: () -> Unit = {}) {
+        if (feed.isSavingSources) return
+        val valid = codes.intersect(feed.publishers.map { it.code }.toSet())
+        feed = feed.copy(isSavingSources = true, sourceSaveError = null)
+        viewModelScope.launch {
+            try {
+                val savedCodes = repository.replaceFollowedPublishers(valid)
+                feed = feed.copy(
+                    publishers = feed.publishers.map { publisher ->
+                        publisher.copy(isFollowed = publisher.code in savedCodes)
+                    },
+                    isSavingSources = false,
+                    sourceSaveError = null
+                )
+                if (feed.isSearchOpen) feedBeforeSearch = null
+                if (feed.scope == FeedScope.FOLLOWING && !feed.isSearchOpen) reloadForFilters()
+                onSuccess()
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                feed = feed.copy(
+                    isSavingSources = false,
+                    sourceSaveError = failure.message ?: "언론사 설정을 저장하지 못했어요."
+                )
+            }
+        }
     }
 
     fun openSearch() {
@@ -207,8 +231,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feedJob?.cancel()
         val snapshot = feedBeforeSearch
         feedBeforeSearch = null
-        if (snapshot != null && snapshot.category == feed.category &&
-            snapshot.selectedPublishers == feed.selectedPublishers) {
+        if (snapshot != null && snapshot.category == feed.category && snapshot.scope == feed.scope) {
             feed = snapshot
             return
         }
@@ -248,8 +271,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private fun restoreOrdinaryFeedInsideSearch(input: String) {
         feedJob?.cancel()
         val snapshot = feedBeforeSearch
-        if (snapshot != null && snapshot.category == feed.category &&
-            snapshot.selectedPublishers == feed.selectedPublishers) {
+        if (snapshot != null && snapshot.category == feed.category && snapshot.scope == feed.scope) {
             feed = snapshot.copy(isSearchOpen = true, searchInput = input)
             return
         }
@@ -289,10 +311,11 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     private suspend fun loadFirstPage(query: String? = null) {
         val category = feed.category
-        val publishers = feed.selectedPublishers
+        val scope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
         try {
-            val page = repository.articles(category, publishers, query = query)
-            if (category != feed.category || publishers != feed.selectedPublishers ||
+            val page = repository.articles(category, scope, query = query)
+            val currentScope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
+            if (category != feed.category || scope != currentScope ||
                 query.orEmpty() != feed.activeSearchQuery) return
             feed = feed.copy(
                 items = page.items,
@@ -314,12 +337,13 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         if (feed.isLoadingMore || feed.isLoading || feed.isRefreshing) return
         feed = feed.copy(isLoadingMore = true, nextPageError = null)
         val category = feed.category
-        val publishers = feed.selectedPublishers
         val query = feed.activeSearchQuery.takeIf { feed.isSearchOpen && it.isNotBlank() }
+        val scope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
         feedJob = viewModelScope.launch {
             try {
-                val page = repository.articles(category, publishers, cursor, query)
-                if (category != feed.category || publishers != feed.selectedPublishers ||
+                val page = repository.articles(category, scope, cursor, query)
+                val currentScope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
+                if (category != feed.category || scope != currentScope ||
                     query.orEmpty() != feed.activeSearchQuery) return@launch
                 feed = feed.copy(
                     items = feed.items + page.items,

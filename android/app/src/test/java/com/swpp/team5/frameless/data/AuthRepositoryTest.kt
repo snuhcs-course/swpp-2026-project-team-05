@@ -76,8 +76,10 @@ class AuthRepositoryTest {
             logoutFailure?.let { throw it }
         }
         override suspend fun publishers(token: String) = error("unused")
+        override suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>) =
+            error("unused")
         override suspend fun articles(token: String, category: NewsCategory,
-                                      publisherCodes: Set<String>, cursor: String?, limit: Int,
+                                      scope: FeedScope, cursor: String?, limit: Int,
                                       query: String?) = error("unused")
         override suspend fun article(token: String, articleId: String) = error("unused")
         override suspend fun analysis(token: String, articleId: String) = error("unused")

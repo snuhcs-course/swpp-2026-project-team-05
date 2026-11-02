@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Intent-reviewed |
+| Status | Implemented |
 | Owner | Following sources feature owner |
 | Source requirements | `docs/news-app-features-spec.md` §§11–12 |
 | Last reviewed | 2026-11-02 |
@@ -37,34 +37,32 @@ and cross-outlet comparison remain independent of follows.
 
 - [Migration] PostgreSQL permits at most one follow relationship for one user
   and publisher and cascades relationships after hard deletion of either parent.\
-  Tip: add model and migration tests for uniqueness and both cascade directions.
+  Tested by: `tests.test_news_api.NewsApiTests.test_follow_relationship_is_unique_and_cascades_with_either_parent`
 - [Integration] `GET /api/v1/publishers` returns active, selectable publishers
   in stable editorial order with the authenticated user's `is_followed` value.\
-  Tip: extend the publisher API tests with followed, unfollowed, inactive, and
-  no-feed-article partitions.
+  Tested by: `tests.test_news_api.NewsApiTests.test_publishers_are_ordered_active_and_follow_aware`
 - [Integration] `PUT /api/v1/me/followed-publishers` atomically replaces the
   user's selectable set, accepts an empty array, normalizes duplicates, and is
   idempotent for an unchanged set.\
-  Tip: add transaction-backed replacement, empty-set, duplicate, and repeated
-  request tests.
+  Tested by: `tests.test_news_api.NewsApiTests.test_followed_publishers_replace_atomically_and_are_idempotent`
 - [Integration] `scope=ALL` or an absent scope returns the complete eligible
   feed without considering follows; `scope=FOLLOWING` returns only eligible
   articles whose publishers the user follows.\
-  Tip: add feed tests with followed and unfollowed articles in both scopes.
+  Tested by: `tests.test_news_api.NewsApiTests.test_following_scope_is_user_specific_and_latest_stays_complete`
 - [Integration] Category and legacy publisher filters compose by intersection
   with Following, while a zero-follow account receives an empty page and null
   cursor.\
-  Tip: add pairwise category, explicit publisher, and follow-set cases.
+  Tested by: `tests.test_news_api.NewsApiTests.test_following_composes_with_category_and_legacy_publisher_filter`,
+  `tests.test_news_api.NewsApiTests.test_following_scope_is_user_specific_and_latest_stays_complete`
 - [Performance] Publisher and feed responses use a bounded number of database
   queries independent of returned publisher or article count.\
-  Tip: extend query-count tests for publisher follow annotations and Following.
+  Tested by: `tests.test_news_api.NewsApiTests.test_feed_and_analysis_queries_are_bounded`
 
 ### FrameLESS analysis independence
 
 - [Integration] Follow state does not change article detail, analysis findings,
   shared propositions, comparison pages, or comparison target selection.\
-  Tip: fetch one analyzed article before and after replacing follows and compare
-  all non-user-specific Reader and analysis fields.
+  Tested by: `tests.test_news_api.NewsApiTests.test_follow_changes_neither_reader_nor_stored_analysis`
 - [Acceptance] A followed article may show grounded comparison evidence from an
   unfollowed publisher when both belong to the stored analysis.\
   Tip: add this assertion to the cross-client acceptance run using a reviewed
@@ -74,15 +72,18 @@ and cross-outlet comparison remain independent of follows.
 
 - [Integration] Missing or expired authentication is rejected by publisher
   follow mutation and personalized Following reads.\
-  Tip: extend authentication coverage to the new mutation and scope.
+  Tested by: `tests.test_news_api.NewsApiTests.test_news_endpoints_require_authentication`,
+  `tests.test_news_api.NewsApiTests.test_following_scope_is_user_specific_and_latest_stays_complete`
 - [Integration] Missing `publisher_codes`, a non-array value, an unknown code,
   or a currently unselectable publisher returns a field-specific
   `400 VALIDATION_ERROR` without partially changing the stored set.\
-  Tip: add malformed-body and atomic rollback tests for each partition.
+  Tested by: `tests.test_news_api.NewsApiTests.test_followed_publishers_reject_invalid_payload_without_partial_update`
 - [Integration] Unsupported scope returns `400 VALIDATION_ERROR`. A cursor from
   another scope, user-follow fingerprint, category, query, or publisher filter
   returns `400 INVALID_CURSOR`.\
-  Tip: add signed-cursor context and follow-change invalidation tests.
+  Tested by: `tests.test_news_api.NewsApiTests.test_following_rejects_invalid_scope`,
+  `tests.test_news_api.NewsApiTests.test_following_cursor_is_invalid_after_follow_set_changes`,
+  `tests.test_news_api.NewsApiTests.test_feed_rejects_tampered_cursor`
 - [Integration] Concurrent full-set replacements expose one complete committed
   set using last committed request wins semantics, never a partial union.\
   Tip: add a transaction-level concurrency test where the database supports it.
@@ -91,15 +92,15 @@ and cross-outlet comparison remain independent of follows.
 
 - [Component] A fresh authenticated entry starts in Latest even when follows
   exist; Following is entered only through an explicit scope control.\
-  Tip: render the feed with followed publishers and assert initial query scope.
+  Tested by: `web/src/pages/FeedPage.test.tsx > keeps Latest complete and requests Following only when selected`
 - [Component] The source editor separates draft from persisted follows; Cancel
   discards the draft, Save applies one full-set request, and a failed Save keeps
   the editor open with the previous server set.\
-  Tip: add dialog component tests for cancel, success, duplicate submission,
-  and rollback.
+  Tested by: `web/src/pages/FeedPage.test.tsx > saves source preferences explicitly from the manager`,
+  `web/src/pages/FeedPage.test.tsx > discards a cancelled draft and keeps the editor open after a failed save`
 - [Component] Zero follows and no matching article in the active category render
   different empty states and actions.\
-  Tip: add both empty-state fixtures and assert their destinations.
+  Tested by: `web/src/pages/FeedPage.test.tsx > distinguishes an empty follow set from a followed category with no stories`
 - [Component] Global search uses the complete corpus and closing it restores the
   previous scope, loaded rows, and scroll context. Reader back does the same.\
   Tip: extend feed navigation tests for Following → search → back and Following
@@ -112,14 +113,18 @@ and cross-outlet comparison remain independent of follows.
 
 - [Unit] API and repository layers parse `is_followed`, replace the full set,
   encode scope, and keep the existing authenticated request boundary.\
-  Tip: extend API-client and repository tests with exact request/response cases.
+  Tested by: `com.swpp.team5.frameless.data.NewsApiClientTest.newsEndpointsParseFeedDetailAndGroundedComparison`,
+  `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
 - [Unit] ViewModel starts in Latest, loads Following on explicit selection,
   resets pagination after a follow change, and preserves each feed state across
   Reader and global search navigation.\
-  Tip: add deterministic coroutine tests for the complete state transitions.
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.initializeLoadsPublishersAndTheCompleteLatestFeed`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.categoryScopeRefreshAndPaginationPreserveExpectedState`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.sourcePreferencesAreAccountBackedAndFollowingReloadsAfterSave`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
 - [Unit] Server follow state replaces device-local publisher selection without
   uploading legacy local codes; category and analysis visibility remain local.\
-  Tip: add a repository migration test with legacy preferences populated.
+  Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
 - [Component] The scope bottom sheet and follow editor expose selected state,
   named checkboxes, Save, Cancel, retry, and both empty states.\
   Tip: add semantics-driven Compose tests when implementing the UI.

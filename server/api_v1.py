@@ -39,6 +39,7 @@ from .saved_articles import (
     remove_saved_article,
     save_article,
 )
+from .publisher_follows import InvalidPublisherCodes, replace_followed_publishers
 
 
 MAX_BODY_BYTES = 8192
@@ -179,10 +180,45 @@ def me(request):
 
 @require_GET
 def publishers(request):
-    _, error = _auth(request)
+    user, error = _auth(request)
     if error:
         return error
-    return JsonResponse({"items": list_publishers()}, json_dumps_params={"ensure_ascii": False})
+    return JsonResponse(
+        {"items": list_publishers(user=user)},
+        json_dumps_params={"ensure_ascii": False},
+    )
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def followed_publishers(request):
+    user, error = _auth(request)
+    if error:
+        return error
+    payload, error = _body(request)
+    if error:
+        return error
+    raw_codes = payload.get("publisher_codes")
+    if not isinstance(raw_codes, list) or any(
+        not isinstance(code, str) or not code.strip() for code in raw_codes
+    ):
+        return _error(
+            "VALIDATION_ERROR",
+            "언론사 목록을 확인해 주세요.",
+            400,
+            fields={"publisher_codes": "언론사 코드 배열을 보내주세요."},
+        )
+    codes = [code.strip() for code in raw_codes]
+    try:
+        selected = replace_followed_publishers(user=user, codes=codes)
+    except InvalidPublisherCodes:
+        return _error(
+            "VALIDATION_ERROR",
+            "팔로우할 수 없는 언론사가 포함되어 있습니다.",
+            400,
+            fields={"publisher_codes": "현재 제공 중인 언론사만 선택해 주세요."},
+        )
+    return JsonResponse({"publisher_codes": selected}, json_dumps_params={"ensure_ascii": False})
 
 
 @require_GET
@@ -194,6 +230,14 @@ def articles(request):
     if category and category not in NewsCategory.values:
         return _error("VALIDATION_ERROR", "지원하지 않는 기사 분야입니다.", 400,
                       fields={"category": "정치 또는 사회를 선택해 주세요."})
+    scope = request.GET.get("scope") or "ALL"
+    if scope not in {"ALL", "FOLLOWING"}:
+        return _error(
+            "VALIDATION_ERROR",
+            "지원하지 않는 피드 범위입니다.",
+            400,
+            fields={"scope": "ALL 또는 FOLLOWING을 선택해 주세요."},
+        )
     publisher_codes = list(dict.fromkeys(request.GET.getlist("publisher")))
     if publisher_codes:
         known = set(Publisher.objects.filter(code__in=publisher_codes, is_active=True)
@@ -222,6 +266,7 @@ def articles(request):
             query=query or None,
             cursor=request.GET.get("cursor") or None,
             limit=limit,
+            scope=scope,
         )
     except InvalidCursor:
         return _error("INVALID_CURSOR", "기사 목록을 처음부터 다시 불러와 주세요.", 400)
