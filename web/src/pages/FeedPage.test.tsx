@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../lib/api'
+import type { ArticleSummary } from '../lib/types'
+import { orderFeedArticles } from '../lib/feedOrdering'
 import { FeedPage } from './FeedPage'
 
 vi.mock('../auth/useAuth', () => ({
@@ -103,6 +105,37 @@ describe('FeedPage search', () => {
       expect.objectContaining({ scope: 'FOLLOWING' }),
     ))
     expect(screen.getByLabelText('location-search')).toHaveTextContent('scope=following')
+  })
+
+  it('keeps section navigation in the global header only', async () => {
+    renderFeed()
+    await waitFor(() => expect(api.articles).toHaveBeenCalled())
+
+    expect(screen.getAllByRole('link', { name: 'Politics' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Society' })).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Section' })).not.toBeInTheDocument()
+  })
+
+  it('quietly moves reviewed examples first only in Latest', () => {
+    const row = (id: string, title: string): ArticleSummary => ({
+      id,
+      title,
+      publisher: { code: 'source', name: 'Source', logo_url: '' },
+      category: 'SOCIETY',
+      published_at: '2026-11-01T12:00:00+09:00',
+      analysis_state: 'READY',
+      is_saved: false,
+    })
+    const newest = row('newest', '가장 최근 일반 기사')
+    const panda = row('panda', "에버랜드 막내 판다 '슈바오' 30일 첫 나들이…쌍둥이 언니들은 작별 준비")
+    const hd = row('hd', "HD현대일렉트릭, 3분기 매출 1조1799억원 '역대 최대'")
+    const ordinary = row('ordinary', '두 번째 일반 기사')
+    const serverOrder = [newest, panda, ordinary, hd]
+
+    expect(orderFeedArticles(serverOrder, 'ALL', false).map((article) => article.id))
+      .toEqual(['hd', 'panda', 'newest', 'ordinary'])
+    expect(orderFeedArticles(serverOrder, 'ALL', true)).toEqual(serverOrder)
+    expect(orderFeedArticles(serverOrder, 'FOLLOWING', false)).toEqual(serverOrder)
   })
 
   it('searches the full corpus even when Following is selected', async () => {

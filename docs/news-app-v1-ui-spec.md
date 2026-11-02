@@ -127,8 +127,14 @@ Functional requirements:
 Feed behavior:
 
 - Sort by publication time descending with stable cursor pagination.
+- During the evaluation build, Web and Android may quietly move the six reviewed
+  example stories already present in a loaded Latest page to the front. This is
+  client-only, adds no label or separate section, and does not change API or
+  cursor ordering.
 - Category control switches between politics and society.
 - Publisher filter opens the sheet in section 4.3.
+- Politics and Society live in the global header only; do not duplicate the
+  same section control in a feed sidebar.
 - Tapping anywhere on an article row opens the Reader.
 - The compact refresh action updates the first page without losing filters; a pull gesture may be added later without changing feed state semantics.
 - Pagination failure leaves existing articles visible and shows inline retry.
@@ -337,6 +343,9 @@ Comparison behavior:
 - One publisher occupies one page.
 - Multiple supporting sentences from one publisher remain in that page.
 - Show publisher, publication time, exact target marker, comparison explanation, and original link.
+- Always show the publisher-name tab row, including when only one comparison
+  exists. The selected publisher name appears in that row only and is not
+  repeated in the evidence metadata header below it.
 - When target wording is attributed, show a label such as `교육부 표현` or `익명 관계자 발언`.
 - Middle state shows the selected finding and comparison preview.
 - Expanded state allows vertical scrolling through the target article.

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, Filter, LoaderCircle, Search, Settings2, X } from 'lucide-react'
+import { LoaderCircle, Search, Settings2, X } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
@@ -9,6 +9,7 @@ import { AppShell } from '../components/AppShell'
 import { ManageSourcesDialog } from '../components/ManageSourcesDialog'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
+import { orderFeedArticles } from '../lib/feedOrdering'
 import { articleRouteState } from '../lib/navigation'
 import type { FeedScope, NewsCategory, Publisher } from '../lib/types'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
@@ -26,7 +27,6 @@ export function FeedPage() {
   const [isComposing, setIsComposing] = useState(false)
   const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
   const [activeQuery, setActiveQuery] = useState('')
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const queryTooShort = !isComposing && normalizedInput.length === 1
   const queryPending = !isComposing && normalizedInput.length >= 2 && activeQuery !== normalizedInput
@@ -81,21 +81,16 @@ export function FeedPage() {
   })
 
   const articles = useMemo(
-    () => queryPending || queryTooShort
-      ? []
-      : articlesQuery.data?.pages.flatMap((page) => page.items) ?? [],
-    [articlesQuery.data, queryPending, queryTooShort],
+    () => {
+      if (queryPending || queryTooShort) return []
+      const loaded = articlesQuery.data?.pages.flatMap((page) => page.items) ?? []
+      return orderFeedArticles(loaded, scope, Boolean(activeQuery))
+    },
+    [activeQuery, articlesQuery.data, queryPending, queryTooShort, scope],
   )
   const hero = articles[0]
   const rest = articles.slice(1)
   const followedCount = publisherQuery.data?.filter((publisher) => publisher.is_followed).length ?? 0
-
-  function chooseCategory(next: NewsCategory) {
-    const updated = new URLSearchParams(params)
-    updated.set('category', next)
-    updated.delete('q')
-    setParams(updated)
-  }
 
   function chooseScope(next: FeedScope) {
     const updated = new URLSearchParams(params)
@@ -183,34 +178,7 @@ export function FeedPage() {
           </button>
         </section>
 
-        <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-14">
-          <aside className="py-6 lg:border-r lg:border-zinc-300 lg:pr-7">
-            <div className="flex items-center justify-between lg:block">
-              <h2 className="text-sm font-bold">Section</h2>
-              <button className="flex items-center gap-2 text-sm font-bold lg:hidden" onClick={() => setFiltersOpen((open) => !open)}>
-                <Filter size={15} /> Filters <ChevronDown size={15} className={cn('transition-transform', filtersOpen && 'rotate-180')} />
-              </button>
-            </div>
-            <div className={cn('mt-4', !filtersOpen && 'hidden lg:block')}>
-              <div className="grid grid-cols-2 gap-px bg-zinc-300 lg:grid-cols-1">
-                {(['POLITICS', 'SOCIETY'] as const).map((item) => (
-                  <button
-                    key={item}
-                    className={cn('flex items-center justify-between bg-[var(--paper)] px-3 py-3 text-left text-sm font-semibold', category === item && 'bg-black text-white')}
-                    onClick={() => chooseCategory(item)}
-                  >
-                    {categoryLabel(item)} {category === item && <Check size={15} />}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-9 border-t border-zinc-300 pt-4 text-xs leading-5 text-zinc-500">
-                {followedCount > 0
-                  ? `${followedCount} ${followedCount === 1 ? 'source' : 'sources'} in Following`
-                  : 'No sources followed yet'}
-              </div>
-            </div>
-          </aside>
-
+        <div className="mx-auto max-w-5xl">
           <section className="min-w-0 py-6 lg:py-9">
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
               <h2 className="text-sm font-black">

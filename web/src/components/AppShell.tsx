@@ -1,12 +1,14 @@
 import { LogOut, Menu, UserRound, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session, logout } = useAuth()
+  const location = useLocation()
+  const activeCategory = new URLSearchParams(location.search).get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS'
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
@@ -17,9 +19,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             FrameLESS
           </Link>
           <nav className="ml-12 hidden h-full items-center gap-8 md:flex" aria-label="Primary navigation">
-            <NavLink to="/?category=POLITICS" className={({ isActive }) => cn('nav-link', isActive && 'text-black')}>Politics</NavLink>
-            <NavLink to="/?category=SOCIETY" className={({ isActive }) => cn('nav-link', isActive && 'text-black')}>Society</NavLink>
-            <NavLink to="/saved" className={({ isActive }) => cn('nav-link', isActive && 'text-black')}>Saved</NavLink>
+            <Link to="/?category=POLITICS" className={cn('nav-link', location.pathname === '/' && activeCategory === 'POLITICS' && 'text-black')}>Politics</Link>
+            <Link to="/?category=SOCIETY" className={cn('nav-link', location.pathname === '/' && activeCategory === 'SOCIETY' && 'text-black')}>Society</Link>
+            <Link to="/saved" className={cn('nav-link', location.pathname === '/saved' && 'text-black')}>Saved</Link>
           </nav>
           <div className="ml-auto hidden items-center gap-3 text-sm text-zinc-600 md:flex">
             <UserRound size={16} aria-hidden />

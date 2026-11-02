@@ -20,6 +20,29 @@ import kotlinx.coroutines.launch
 
 internal enum class NewsRoute { FEED, SAVED, READER }
 
+private val reviewedExampleOrder = listOf(
+    "HD현대일렉트릭, 3분기 매출 1조1799억원 '역대 최대'",
+    "에버랜드 막내 판다 '슈바오' 30일 첫 나들이…쌍둥이 언니들은 작별 준비",
+    "[한 손 뉴스] 변호사 업무 재개한 홍준표, 대선 경선 관계자 변호 맡아(종합)",
+    "홍대 12만·이태원 2만 인파에도 '우측통행'…\"즐기는 것 좋지만 안전 최선\"",
+    "한화, 美 해군 함정 건조 '첫' 수주…필리조선소 인수 2년만",
+    "'우주산업 거점' 고흥 우주발사체 국가산단 조성 속도"
+).withIndex().associate { it.value to it.index }
+
+private fun orderFeedItems(
+    items: List<ArticleSummary>,
+    scope: FeedScope,
+    query: String?
+): List<ArticleSummary> {
+    if (scope != FeedScope.ALL || !query.isNullOrBlank()) return items
+    return items.withIndex().sortedWith(
+        compareBy<IndexedValue<ArticleSummary>>(
+            { reviewedExampleOrder[it.value.title] ?: Int.MAX_VALUE },
+            { if (reviewedExampleOrder.containsKey(it.value.title)) 0 else it.index }
+        )
+    ).map { it.value }
+}
+
 internal data class NewsFeedState(
     val publishers: List<PublisherItem> = emptyList(),
     val items: List<ArticleSummary> = emptyList(),
@@ -318,7 +341,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             if (category != feed.category || scope != currentScope ||
                 query.orEmpty() != feed.activeSearchQuery) return
             feed = feed.copy(
-                items = page.items,
+                items = orderFeedItems(page.items, scope, query),
                 nextCursor = page.nextCursor,
                 isLoading = false,
                 isRefreshing = false,
@@ -346,7 +369,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 if (category != feed.category || scope != currentScope ||
                     query.orEmpty() != feed.activeSearchQuery) return@launch
                 feed = feed.copy(
-                    items = feed.items + page.items,
+                    items = orderFeedItems(feed.items + page.items, scope, query),
                     nextCursor = page.nextCursor,
                     isLoadingMore = false
                 )

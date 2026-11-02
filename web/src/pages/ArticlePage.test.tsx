@@ -81,7 +81,7 @@ const findings: Finding[] = [
       marker: { start_in_sentence: 0, end_in_sentence: 15, text: 'Another framing' },
     },
     explanation: 'The action is characterized rather than simply reported.',
-    comparison_articles: [],
+    comparison_articles: [comparison('comparison-3', 'KBS', 'KBS comparison')],
   },
 ]
 
@@ -120,10 +120,14 @@ describe('ArticlePage analysis rail', () => {
     await user.click(mbc)
     expect(mbc).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('MBC comparison')).toBeInTheDocument()
+    expect(screen.getAllByText('MBC')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'Next finding' }))
     expect(screen.getByText('Finding 2 of 2')).toBeInTheDocument()
     expect(screen.getByText('Action characterization')).toBeInTheDocument()
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    const singleSource = screen.getByRole('tab', { name: 'KBS' })
+    expect(singleSource).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getAllByText('KBS')).toHaveLength(1)
+    expect(screen.getByText('1 source')).toBeInTheDocument()
   })
 })

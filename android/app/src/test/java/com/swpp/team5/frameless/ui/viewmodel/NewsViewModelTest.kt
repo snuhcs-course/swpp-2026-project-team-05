@@ -64,6 +64,40 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun reviewedExamplesLeadOnlyTheLatestFeed() {
+        val regular = summary("regular")
+        val panda = summary("panda").copy(
+            title = "에버랜드 막내 판다 '슈바오' 30일 첫 나들이…쌍둥이 언니들은 작별 준비"
+        )
+        val hd = summary("hd").copy(
+            title = "HD현대일렉트릭, 3분기 매출 1조1799억원 '역대 최대'"
+        )
+        val serverOrder = listOf(regular, panda, hd)
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(serverOrder, null)
+            pages += ArticlePage(serverOrder, null)
+            pages += ArticlePage(serverOrder, null)
+            pages += ArticlePage(serverOrder, null)
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.initialize()
+        mainLooper.idle()
+        assertEquals(listOf("hd", "panda", "regular"), viewModel.feed.items.map { it.id })
+
+        viewModel.selectScope(FeedScope.FOLLOWING)
+        mainLooper.idle()
+        assertEquals(listOf("regular", "panda", "hd"), viewModel.feed.items.map { it.id })
+
+        viewModel.selectScope(FeedScope.ALL)
+        mainLooper.idle()
+        viewModel.openSearch()
+        viewModel.updateSearchInput("분석")
+        mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
+        assertEquals(listOf("regular", "panda", "hd"), viewModel.feed.items.map { it.id })
+    }
+
+    @Test
     fun categoryScopeRefreshAndPaginationPreserveExpectedState() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("first")), "page-2")
