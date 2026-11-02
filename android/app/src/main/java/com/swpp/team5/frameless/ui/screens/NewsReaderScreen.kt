@@ -100,10 +100,14 @@ internal fun NewsReaderScreen(
     saveError: String?
 ) {
     when {
-        state.isArticleLoading -> ReaderLoading(onBack)
-        state.articleError != null || state.article == null -> ReaderError(
-            state.articleError ?: "기사를 불러오지 못했어요.", onBack, onRetry
-        )
+        state.isArticleLoading -> {
+            BackHandler(onBack = onBack)
+            ReaderLoading(onBack)
+        }
+        state.articleError != null || state.article == null -> {
+            BackHandler(onBack = onBack)
+            ReaderError(state.articleError ?: "기사를 불러오지 못했어요.", onBack, onRetry)
+        }
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
             state.isAnalysisLoading, state.analysisError, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError)

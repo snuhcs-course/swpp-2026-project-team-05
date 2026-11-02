@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { AppShell } from '../components/AppShell'
 import { SaveArticleButton } from '../components/SaveArticleButton'
 import type { Finding } from '../lib/types'
 import { api } from '../lib/api'
+import { articleOrigin } from '../lib/navigation'
 import { segmentText, sourceRange } from '../lib/text'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
 
@@ -100,6 +101,8 @@ function FindingPanel({ finding }: { finding: Finding }) {
 
 export function ArticlePage() {
   const { id = '' } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const { session } = useAuth()
   const token = session!.token
   const userId = session!.user.id
@@ -119,13 +122,21 @@ export function ArticlePage() {
     return <AppShell><div className="mx-auto max-w-3xl px-6 py-24 text-center"><h1 className="font-serif text-3xl font-black">This article is unavailable.</h1><Link to="/" className="mt-6 inline-block font-bold underline">Return to the feed</Link></div></AppShell>
   }
   const article = articleQuery.data
+  const origin = articleOrigin(location.state)
+  const backLabel = origin === '/saved'
+    ? 'Back to saved articles'
+    : `Back to ${categoryLabel(article.category)}`
+  const goBack = () => {
+    if (origin) navigate(-1)
+    else navigate(`/?category=${article.category}`, { replace: true })
+  }
 
   return (
     <AppShell>
       <main>
         <div className="mx-auto max-w-[1440px] px-5 sm:px-8">
           <div className="border-b border-zinc-300 py-5">
-            <Link to={`/?category=${article.category}`} className="inline-flex items-center gap-2 text-sm font-bold"><ArrowLeft size={16} /> Back to {categoryLabel(article.category)}</Link>
+            <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-bold"><ArrowLeft size={16} /> {backLabel}</button>
           </div>
           <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
             <article className="min-w-0 py-9 lg:border-r lg:border-zinc-300 lg:py-14 lg:pr-12 xl:pr-20">

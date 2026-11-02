@@ -94,6 +94,10 @@ save state; clients own interaction and cache synchronization.
   next-page-error states without discarding existing rows.\
   Tip: populated and empty are covered by `SavedArticlesPage.test.tsx`;
   add loading, initial-error, and next-page-error cases.
+- [Component] Opening a saved article records the saved list as Reader origin;
+  Reader back returns there rather than falling through to the feed or app exit.\
+  Tested by: `web/src/pages/SavedArticlesPage.test.tsx > SavedArticlesPage > shows the personal list without row-level save controls`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.savedRouteLoadsPagesAndReturnsToPreservedFeed`
 - [Security regression] Query caches are partitioned by user or cleared on
   account change so another login cannot observe the previous user's save state.\
   Tip: render two sequential sessions against one QueryClient and assert no stale
