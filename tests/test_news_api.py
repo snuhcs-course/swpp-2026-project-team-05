@@ -1,7 +1,9 @@
 import json
 from datetime import timedelta
+from uuid import uuid4
 
 from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError, transaction
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -15,6 +17,7 @@ from server.models import (
     FindingComparison,
     NewsCategory,
     Publisher,
+    SavedArticle,
     SharedProposition,
     StoryCluster,
     TextScope,
@@ -118,13 +121,18 @@ class NewsApiTests(TestCase):
         )
 
     def test_news_endpoints_require_authentication(self):
-        for path in ("/api/v1/publishers", "/api/v1/articles",
+        for path in ("/api/v1/publishers", "/api/v1/articles", "/api/v1/saved-articles",
                      f"/api/v1/articles/{self.source.id}",
                      f"/api/v1/articles/{self.source.id}/analysis"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 401)
                 self.assertEqual(response.json()["error"]["code"], "AUTH_REQUIRED")
+
+        save = self.client.put(f"/api/v1/saved-articles/{self.source.id}")
+        self.assertEqual(save.status_code, 401)
+        remove = self.client.delete(f"/api/v1/saved-articles/{self.source.id}")
+        self.assertEqual(remove.status_code, 401)
 
     def test_register_normalizes_fields_and_returns_session(self):
         response = self.client.post(
@@ -210,6 +218,155 @@ class NewsApiTests(TestCase):
         self.assertEqual([row["id"] for row in second.json()["items"]], [str(self.target.id)])
         filtered = self.client.get("/api/v1/articles?publisher=mbc", **self.auth)
         self.assertEqual([row["id"] for row in filtered.json()["items"]], [str(self.target.id)])
+
+    def test_save_article_is_idempotent_and_updates_article_payloads(self):
+        path = f"/api/v1/saved-articles/{self.source.id}"
+        first = self.client.put(path, **self.auth)
+        second = self.client.put(path, **self.auth)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.json(), second.json())
+        self.assertEqual(SavedArticle.objects.count(), 1)
+
+        feed = self.client.get("/api/v1/articles", **self.auth).json()["items"]
+        source = next(row for row in feed if row["id"] == str(self.source.id))
+        self.assertTrue(source["is_saved"])
+        detail = self.client.get(f"/api/v1/articles/{self.source.id}", **self.auth)
+        self.assertTrue(detail.json()["is_saved"])
+
+    def test_saved_article_unique_constraint(self):
+        SavedArticle.objects.create(user=self.user, article=self.source)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                SavedArticle.objects.create(user=self.user, article=self.source)
+
+    def test_remove_saved_article_is_idempotent(self):
+        SavedArticle.objects.create(user=self.user, article=self.source)
+        path = f"/api/v1/saved-articles/{self.source.id}"
+
+        self.assertEqual(self.client.delete(path, **self.auth).status_code, 204)
+        self.assertEqual(self.client.delete(path, **self.auth).status_code, 204)
+        self.assertFalse(SavedArticle.objects.exists())
+
+    def test_saved_articles_are_isolated_per_user(self):
+        SavedArticle.objects.create(user=self.user, article=self.source)
+        other = UserAccount.objects.create(
+            email="other@example.com",
+            username="other",
+            password_hash=make_password("safe-password-456"),
+        )
+        other_token, _ = create_session(other)
+        other_auth = {"HTTP_AUTHORIZATION": f"Bearer {other_token}"}
+
+        mine = self.client.get("/api/v1/saved-articles", **self.auth)
+        theirs = self.client.get("/api/v1/saved-articles", **other_auth)
+        self.assertEqual([row["id"] for row in mine.json()["items"]], [str(self.source.id)])
+        self.assertEqual(theirs.json()["items"], [])
+        other_feed = self.client.get("/api/v1/articles", **other_auth).json()["items"]
+        self.assertTrue(all(not row["is_saved"] for row in other_feed))
+
+    def test_saved_articles_cursor_is_stable_and_bound(self):
+        older = SavedArticle.objects.create(user=self.user, article=self.source)
+        newer = SavedArticle.objects.create(user=self.user, article=self.target)
+        SavedArticle.objects.filter(id=older.id).update(
+            saved_at=timezone.now() - timedelta(days=1)
+        )
+
+        first = self.client.get("/api/v1/saved-articles", {"limit": 1}, **self.auth)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()["items"][0]["id"], str(newer.article_id))
+        self.assertTrue(first.json()["items"][0]["is_saved"])
+        self.assertTrue(first.json()["items"][0]["saved_at"])
+        cursor = first.json()["next_cursor"]
+        second = self.client.get(
+            "/api/v1/saved-articles", {"limit": 1, "cursor": cursor}, **self.auth
+        )
+        self.assertEqual([row["id"] for row in second.json()["items"]], [str(older.article_id)])
+
+        invalid = self.client.get(
+            "/api/v1/saved-articles", {"cursor": "not-a-cursor"}, **self.auth
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.json()["error"]["code"], "INVALID_CURSOR")
+
+    def test_save_eligibility_and_soft_hidden_lifecycle(self):
+        comparison_only = self.target
+        comparison_only.is_feed_visible = False
+        comparison_only.save(update_fields=["is_feed_visible"])
+        rejected = self.client.put(
+            f"/api/v1/saved-articles/{comparison_only.id}", **self.auth
+        )
+        self.assertEqual(rejected.status_code, 404)
+        hidden_article = self._article(
+            publisher=self.yna,
+            title="숨긴 기사",
+            body="숨긴 본문",
+            published_at=timezone.now(),
+            url="https://example.com/save-hidden",
+            visible=False,
+        )
+        inactive_publisher = Publisher.objects.create(
+            code="inactive", name_ko="비활성", domain="inactive.example", is_active=False,
+        )
+        inactive_article = self._article(
+            publisher=inactive_publisher,
+            title="비활성 언론사 기사",
+            body="본문",
+            published_at=timezone.now(),
+            url="https://example.com/save-inactive",
+        )
+        for article_id in (hidden_article.id, inactive_article.id, uuid4()):
+            with self.subTest(article_id=article_id):
+                response = self.client.put(
+                    f"/api/v1/saved-articles/{article_id}", **self.auth
+                )
+                self.assertEqual(response.status_code, 404)
+
+        row = SavedArticle.objects.create(user=self.user, article=self.source)
+        self.source.visibility = ArticleVisibility.HIDDEN
+        self.source.save(update_fields=["visibility"])
+        hidden = self.client.get("/api/v1/saved-articles", **self.auth)
+        self.assertEqual(hidden.json()["items"], [])
+        self.assertTrue(SavedArticle.objects.filter(id=row.id).exists())
+
+        self.source.visibility = ArticleVisibility.VISIBLE
+        self.source.save(update_fields=["visibility"])
+        restored = self.client.get("/api/v1/saved-articles", **self.auth)
+        self.assertEqual(restored.json()["items"][0]["id"], str(self.source.id))
+
+        self.source.visibility = ArticleVisibility.HIDDEN
+        self.source.save(update_fields=["visibility"])
+        self.assertEqual(
+            self.client.delete(
+                f"/api/v1/saved-articles/{self.source.id}", **self.auth
+            ).status_code,
+            204,
+        )
+        self.assertFalse(SavedArticle.objects.filter(id=row.id).exists())
+
+    def test_saved_articles_validate_limit_and_cursor(self):
+        for limit in ("zero", "0", "51"):
+            with self.subTest(limit=limit):
+                response = self.client.get(
+                    "/api/v1/saved-articles", {"limit": limit}, **self.auth
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"]["code"], "VALIDATION_ERROR")
+        invalid = self.client.get(
+            "/api/v1/saved-articles", {"cursor": "invalid"}, **self.auth
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.json()["error"]["code"], "INVALID_CURSOR")
+
+    def test_saved_article_relationships_cascade_with_parent(self):
+        row = SavedArticle.objects.create(user=self.user, article=self.source)
+        self.source.delete()
+        self.assertFalse(SavedArticle.objects.filter(id=row.id).exists())
+
+        row = SavedArticle.objects.create(user=self.user, article=self.target)
+        self.user.delete()
+        self.assertFalse(SavedArticle.objects.filter(id=row.id).exists())
 
     def test_search_matches_title_body_and_publisher(self):
         title_match = self.client.get("/api/v1/articles", {"q": "전격"}, **self.auth)
@@ -446,6 +603,9 @@ class NewsApiTests(TestCase):
             self.client.get("/api/v1/articles?category=POLITICS", **self.auth)
         with self.assertNumQueries(4):
             self.client.get(f"/api/v1/articles/{self.source.id}/analysis", **self.auth)
+        SavedArticle.objects.create(user=self.user, article=self.source)
+        with self.assertNumQueries(2):
+            self.client.get("/api/v1/saved-articles", **self.auth)
 
     def test_ready_article_can_have_zero_findings(self):
         response = self.client.get(f"/api/v1/articles/{self.target.id}/analysis", **self.auth)

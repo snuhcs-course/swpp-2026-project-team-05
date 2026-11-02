@@ -17,7 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-internal enum class NewsRoute { FEED, READER }
+internal enum class NewsRoute { FEED, SAVED, READER }
 
 internal data class NewsFeedState(
     val publishers: List<PublisherItem> = emptyList(),
@@ -47,6 +47,16 @@ internal data class ArticleReaderState(
     val analysisError: String? = null
 )
 
+internal data class SavedArticlesState(
+    val items: List<ArticleSummary> = emptyList(),
+    val nextCursor: String? = null,
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val error: String? = null,
+    val nextPageError: String? = null
+)
+
 internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel() {
     var route by mutableStateOf(NewsRoute.FEED)
         private set
@@ -59,6 +69,12 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         private set
     var reader by mutableStateOf(ArticleReaderState(analysisEnabled = repository.savedAnalysisEnabled()))
         private set
+    var saved by mutableStateOf(SavedArticlesState())
+        private set
+    var savedMutationArticleId by mutableStateOf<String?>(null)
+        private set
+    var saveError by mutableStateOf<String?>(null)
+        private set
     var authExpired by mutableStateOf(false)
         private set
 
@@ -67,6 +83,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private var searchDebounceJob: Job? = null
     private var feedBeforeSearch: NewsFeedState? = null
     private var readerJob: Job? = null
+    private var savedJob: Job? = null
+    private var readerOrigin = NewsRoute.FEED
 
     fun initialize() {
         if (initialized) return
@@ -89,6 +107,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feedJob?.cancel()
         searchDebounceJob?.cancel()
         readerJob?.cancel()
+        savedJob?.cancel()
         feedBeforeSearch = null
         initialized = false
         route = NewsRoute.FEED
@@ -97,6 +116,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             selectedPublishers = repository.savedPublishers()
         )
         reader = ArticleReaderState(analysisEnabled = repository.savedAnalysisEnabled())
+        saved = SavedArticlesState()
+        savedMutationArticleId = null
+        saveError = null
+        readerOrigin = NewsRoute.FEED
         authExpired = false
     }
 
@@ -322,7 +345,118 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         )
     }
 
+    fun openSaved() {
+        savedJob?.cancel()
+        route = NewsRoute.SAVED
+        saved = saved.copy(
+            isLoading = true,
+            isRefreshing = false,
+            isLoadingMore = false,
+            error = null,
+            nextPageError = null
+        )
+        savedJob = viewModelScope.launch { loadSavedFirstPage() }
+    }
+
+    fun closeSaved() {
+        savedJob?.cancel()
+        route = NewsRoute.FEED
+    }
+
+    fun retrySaved() = openSaved()
+
+    fun refreshSaved() {
+        if (saved.isRefreshing) return
+        savedJob?.cancel()
+        saved = saved.copy(isRefreshing = true, error = null, nextPageError = null)
+        savedJob = viewModelScope.launch { loadSavedFirstPage() }
+    }
+
+    private suspend fun loadSavedFirstPage() {
+        try {
+            val page = repository.savedArticles()
+            if (route != NewsRoute.SAVED) return
+            saved = saved.copy(
+                items = page.items,
+                nextCursor = page.nextCursor,
+                isLoading = false,
+                isRefreshing = false,
+                error = null,
+                nextPageError = null
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (isAuthFailure(failure)) authExpired = true
+            saved = saved.copy(
+                isLoading = false,
+                isRefreshing = false,
+                error = failure.message ?: "저장한 기사를 불러오지 못했어요."
+            )
+        }
+    }
+
+    fun loadMoreSaved() {
+        val cursor = saved.nextCursor ?: return
+        if (saved.isLoading || saved.isRefreshing || saved.isLoadingMore) return
+        saved = saved.copy(isLoadingMore = true, nextPageError = null)
+        savedJob = viewModelScope.launch {
+            try {
+                val page = repository.savedArticles(cursor)
+                if (route != NewsRoute.SAVED) return@launch
+                saved = saved.copy(
+                    items = saved.items + page.items,
+                    nextCursor = page.nextCursor,
+                    isLoadingMore = false
+                )
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                saved = saved.copy(
+                    isLoadingMore = false,
+                    nextPageError = failure.message ?: "다음 저장 기사를 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun toggleSaved(articleId: String, currentlySaved: Boolean) {
+        if (savedMutationArticleId != null) return
+        val target = !currentlySaved
+        val previousFeed = feed
+        val previousReader = reader
+        val previousSaved = saved
+        savedMutationArticleId = articleId
+        saveError = null
+        feed = feed.copy(items = feed.items.map { article ->
+            if (article.id == articleId) article.copy(isSaved = target) else article
+        })
+        reader = reader.copy(article = reader.article?.let { article ->
+            if (article.id == articleId) article.copy(isSaved = target) else article
+        })
+        saved = saved.copy(items = if (target) {
+            saved.items.map { article ->
+                if (article.id == articleId) article.copy(isSaved = true) else article
+            }
+        } else {
+            saved.items.filterNot { it.id == articleId }
+        })
+        viewModelScope.launch {
+            try {
+                repository.setArticleSaved(articleId, target)
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                feed = previousFeed
+                reader = previousReader
+                saved = previousSaved
+                saveError = failure.message ?: "저장 상태를 바꾸지 못했어요."
+            } finally {
+                savedMutationArticleId = null
+            }
+        }
+    }
+
     fun openArticle(articleId: String) {
+        if (route != NewsRoute.READER) readerOrigin = route
         route = NewsRoute.READER
         readerJob?.cancel()
         reader = ArticleReaderState(
@@ -358,7 +492,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     fun closeReader() {
         readerJob?.cancel()
-        route = NewsRoute.FEED
+        route = readerOrigin
     }
 
     fun setAnalysisEnabled(enabled: Boolean) {

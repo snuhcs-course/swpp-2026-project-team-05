@@ -210,6 +210,34 @@ class Article(models.Model):
         ]
 
 
+class SavedArticle(models.Model):
+    """One account's bookmark for an ordinary feed article."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        UserAccount, on_delete=models.CASCADE, related_name="saved_articles",
+    )
+    article = models.ForeignKey(
+        Article, on_delete=models.CASCADE, related_name="saved_by",
+    )
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "frameless_saved_article"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "article"],
+                name="frameless_saved_user_art_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "-saved_at", "-id"],
+                name="frameless_saved_recent",
+            ),
+        ]
+
+
 class SharedProposition(models.Model):
     """The exact meaning shared by one finding and its comparison targets."""
 

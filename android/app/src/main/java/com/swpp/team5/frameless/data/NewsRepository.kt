@@ -8,6 +8,8 @@ internal interface NewsDataSource {
                          cursor: String? = null, query: String? = null): ArticlePage
     suspend fun article(articleId: String): ArticleDetail
     suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi
+    suspend fun savedArticles(cursor: String? = null): ArticlePage
+    suspend fun setArticleSaved(articleId: String, saved: Boolean)
     fun savedCategory(): NewsCategory
     fun savedPublishers(): Set<String>
     fun savedAnalysisEnabled(): Boolean
@@ -36,6 +38,14 @@ internal class NewsRepository(
 
     override suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi =
         service.analysis(token(), article.id).toUi(article)
+
+    override suspend fun savedArticles(cursor: String?): ArticlePage =
+        service.savedArticles(token(), cursor)
+
+    override suspend fun setArticleSaved(articleId: String, saved: Boolean) {
+        if (saved) service.saveArticle(token(), articleId)
+        else service.removeSavedArticle(token(), articleId)
+    }
 
     override fun savedCategory(): NewsCategory = NewsCategory.fromWire(
         preferences.getString("category", NewsCategory.POLITICS.wire).orEmpty()

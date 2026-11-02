@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
 import type { Session } from '../lib/types'
 import { AuthContext, type AuthValue } from './auth-context'
@@ -15,14 +16,16 @@ function readSession(): Session | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [session, setSession] = useState<Session | null>(readSession)
   const [loading, setLoading] = useState(Boolean(session))
 
-  const save = (next: Session | null) => {
+  const save = useCallback((next: Session | null) => {
+    if (session?.user.id !== next?.user.id) queryClient.clear()
     setSession(next)
     if (next) localStorage.setItem(SESSION_KEY, JSON.stringify(next))
     else localStorage.removeItem(SESSION_KEY)
-  }
+  }, [queryClient, session?.user.id])
 
   useEffect(() => {
     if (!session) {
@@ -47,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       save(null)
       if (token) await api.logout(token).catch(() => undefined)
     },
-  }), [session, loading])
+  }), [session, loading, save])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

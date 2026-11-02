@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -26,6 +27,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
@@ -75,6 +77,7 @@ import com.swpp.team5.frameless.data.ComparisonArticleUi
 import com.swpp.team5.frameless.data.FindingUi
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.theme.Caption
+import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.SourceLink
@@ -91,7 +94,10 @@ internal fun NewsReaderScreen(
     state: ArticleReaderState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onAnalysisEnabled: (Boolean) -> Unit
+    onAnalysisEnabled: (Boolean) -> Unit,
+    onToggleSaved: (String, Boolean) -> Unit,
+    savedPending: Boolean,
+    saveError: String?
 ) {
     when {
         state.isArticleLoading -> ReaderLoading(onBack)
@@ -99,7 +105,8 @@ internal fun NewsReaderScreen(
             state.articleError ?: "기사를 불러오지 못했어요.", onBack, onRetry
         )
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
-            state.isAnalysisLoading, state.analysisError, onBack, onAnalysisEnabled)
+            state.isAnalysisLoading, state.analysisError, onBack, onAnalysisEnabled,
+            onToggleSaved, savedPending, saveError)
     }
 }
 
@@ -111,7 +118,10 @@ private fun NewsReaderContent(
     analysisLoading: Boolean,
     analysisError: String?,
     onBack: () -> Unit,
-    onAnalysisEnabled: (Boolean) -> Unit
+    onAnalysisEnabled: (Boolean) -> Unit,
+    onToggleSaved: (String, Boolean) -> Unit,
+    savedPending: Boolean,
+    saveError: String?
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -137,6 +147,19 @@ private fun NewsReaderContent(
                     .padding(horizontal = 8.dp, vertical = 6.dp))
             Text("기사 읽기", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
                 modifier = Modifier.weight(1f))
+            IconButton(
+                onClick = { onToggleSaved(article.id, article.isSaved) },
+                enabled = !savedPending,
+                modifier = Modifier.semantics {
+                    contentDescription = if (article.isSaved) "저장 취소" else "기사 저장"
+                }
+            ) {
+                ArticleBookmarkIcon(
+                    article.isSaved,
+                    if (article.isSaved) Fl.Accent else Fl.Muted,
+                    Modifier.size(20.dp)
+                )
+            }
             Text("표현 분석", fontSize = 11.sp, color = Fl.Muted,
                 fontWeight = FontWeight.Medium)
             Spacer(Modifier.width(2.dp))
@@ -163,6 +186,11 @@ private fun NewsReaderContent(
             )
         }
         HorizontalDivider(color = Fl.Line)
+        if (saveError != null) {
+            Text(saveError, color = Fl.Danger, fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().background(Fl.Inset)
+                    .padding(horizontal = 18.dp, vertical = 9.dp))
+        }
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 22.dp, vertical = 22.dp)) {
             Caption("${article.publisher.name} · ${formatNewsTimestamp(article.publishedAt)} · ${article.category.label}")
             Spacer(Modifier.height(10.dp))

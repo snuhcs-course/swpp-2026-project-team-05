@@ -21,4 +21,6 @@ urlpatterns = [
     path("api/v1/articles", api_v1.articles),
     path("api/v1/articles/<uuid:article_id>", api_v1.article_detail),
     path("api/v1/articles/<uuid:article_id>/analysis", api_v1.article_analysis),
+    path("api/v1/saved-articles", api_v1.saved_articles),
+    path("api/v1/saved-articles/<uuid:article_id>", api_v1.saved_article),
 ]

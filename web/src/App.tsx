@@ -5,6 +5,7 @@ import { useAuth } from './auth/useAuth'
 import { ArticlePage } from './pages/ArticlePage'
 import { FeedPage } from './pages/FeedPage'
 import { LoginPage } from './pages/LoginPage'
+import { SavedArticlesPage } from './pages/SavedArticlesPage'
 
 function Protected({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<Protected><FeedPage /></Protected>} />
       <Route path="/articles/:id" element={<Protected><ArticlePage /></Protected>} />
+      <Route path="/saved" element={<Protected><SavedArticlesPage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

@@ -81,5 +81,8 @@ class AuthRepositoryTest {
                                       query: String?) = error("unused")
         override suspend fun article(token: String, articleId: String) = error("unused")
         override suspend fun analysis(token: String, articleId: String) = error("unused")
+        override suspend fun savedArticles(token: String, cursor: String?, limit: Int) = error("unused")
+        override suspend fun saveArticle(token: String, articleId: String) = Unit
+        override suspend fun removeSavedArticle(token: String, articleId: String) = Unit
     }
 }

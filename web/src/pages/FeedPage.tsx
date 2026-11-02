@@ -1,45 +1,21 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { ArrowRight, Check, ChevronDown, Filter, LoaderCircle, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Filter, LoaderCircle, Search, X } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
+import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
+import { SaveArticleButton } from '../components/SaveArticleButton'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
-import type { ArticleSummary, NewsCategory } from '../lib/types'
+import type { NewsCategory } from '../lib/types'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
-
-function ArticleRow({ article, index }: { article: ArticleSummary; index: number }) {
-  return (
-    <article className="group grid gap-4 border-t border-zinc-300 py-6 sm:grid-cols-[52px_minmax(0,1fr)_auto] sm:gap-6">
-      <span className="hidden font-serif text-2xl text-zinc-300 sm:block">{String(index + 1).padStart(2, '0')}</span>
-      <div>
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <strong className="text-black">{article.publisher.name}</strong>
-          <span>{categoryLabel(article.category)}</span>
-          <span>{formatDate(article.published_at, true)}</span>
-        </div>
-        <Link to={`/articles/${article.id}`} className="block font-serif text-[22px] font-bold leading-[1.35] tracking-[-0.025em] decoration-1 underline-offset-4 group-hover:underline sm:text-[25px]">
-          {article.title}
-        </Link>
-        {article.search_excerpt && (
-          <p className="mt-3 line-clamp-2 max-w-3xl text-sm leading-6 text-zinc-600">
-            {article.search_excerpt}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-5 sm:flex-col sm:items-end">
-        <AnalysisBadge state={article.analysis_state} />
-        <Link to={`/articles/${article.id}`} className="flex items-center gap-1 text-xs font-bold">Open <ArrowRight size={14} /></Link>
-      </div>
-    </article>
-  )
-}
 
 export function FeedPage() {
   const { session } = useAuth()
   const token = session!.token
+  const userId = session!.user.id
   const [params, setParams] = useSearchParams()
   const category = (params.get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS') as NewsCategory
   const [queryInput, setQueryInput] = useState('')
@@ -70,7 +46,7 @@ export function FeedPage() {
   })
 
   const articlesQuery = useInfiniteQuery({
-    queryKey: ['articles', category, [...selectedPublishers].sort(), activeQuery],
+    queryKey: ['articles', userId, category, [...selectedPublishers].sort(), activeQuery],
     queryFn: ({ pageParam }) => api.articles(token, {
       category,
       publishers: selectedPublishers,
@@ -221,6 +197,7 @@ export function FeedPage() {
                   <strong>{hero.publisher.name}</strong>
                   <span className="text-zinc-500">{formatDate(hero.published_at, true)}</span>
                   <AnalysisBadge state={hero.analysis_state} />
+                  <SaveArticleButton className="ml-auto" articleId={hero.id} isSaved={hero.is_saved} />
                 </div>
                 <Link to={`/articles/${hero.id}`}>
                   <h2 className="max-w-4xl font-serif text-[clamp(2.25rem,4.5vw,4.8rem)] font-black leading-[1.03] tracking-[-0.055em] hover:underline hover:decoration-2 hover:underline-offset-8">

@@ -42,7 +42,9 @@ internal data class ArticleSummary(
     val category: NewsCategory,
     val publishedAt: String,
     val analysisState: StoredAnalysisState,
-    val searchExcerpt: String? = null
+    val searchExcerpt: String? = null,
+    val isSaved: Boolean = false,
+    val savedAt: String? = null
 )
 
 internal data class ArticlePage(val items: List<ArticleSummary>, val nextCursor: String?)
@@ -55,7 +57,8 @@ internal data class ArticleDetail(
     val category: NewsCategory,
     val publishedAt: String,
     val originalUrl: String,
-    val analysisState: StoredAnalysisState
+    val analysisState: StoredAnalysisState,
+    val isSaved: Boolean = false
 )
 
 /** API offsets are Unicode code points. They are converted before reaching Compose. */

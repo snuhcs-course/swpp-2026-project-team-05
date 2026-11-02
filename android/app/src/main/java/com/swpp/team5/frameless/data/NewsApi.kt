@@ -22,6 +22,10 @@ internal interface NewsService {
                          query: String? = null): ArticlePage
     suspend fun article(token: String, articleId: String): ArticleDetail
     suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis
+    suspend fun savedArticles(token: String, cursor: String? = null,
+                              limit: Int = 20): ArticlePage
+    suspend fun saveArticle(token: String, articleId: String)
+    suspend fun removeSavedArticle(token: String, articleId: String)
 }
 
 internal object NewsApi : NewsService {
@@ -43,6 +47,12 @@ internal object NewsApi : NewsService {
         client.article(token, articleId)
     override suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis =
         client.analysis(token, articleId)
+    override suspend fun savedArticles(token: String, cursor: String?, limit: Int): ArticlePage =
+        client.savedArticles(token, cursor, limit)
+    override suspend fun saveArticle(token: String, articleId: String) =
+        client.saveArticle(token, articleId)
+    override suspend fun removeSavedArticle(token: String, articleId: String) =
+        client.removeSavedArticle(token, articleId)
 }
 
 internal class NewsApiClient(baseUrl: String) {
@@ -99,6 +109,32 @@ internal class NewsApiClient(baseUrl: String) {
     suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis =
         request("GET", "/api/v1/articles/${encode(articleId)}/analysis", token = token)
             .let(::articleAnalysis)
+
+    suspend fun savedArticles(token: String, cursor: String? = null,
+                              limit: Int = 20): ArticlePage {
+        val query = buildList {
+            add("limit=$limit")
+            cursor?.let { add("cursor=${encode(it)}") }
+        }.joinToString("&")
+        val root = request("GET", "/api/v1/saved-articles?$query", token = token)
+        return ArticlePage(
+            items = root.optJSONArray("items").orEmptyObjects().map(::articleSummary),
+            nextCursor = root.optString("next_cursor").takeIf {
+                root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
+            }
+        )
+    }
+
+    suspend fun saveArticle(token: String, articleId: String) {
+        request("PUT", "/api/v1/saved-articles/${encode(articleId)}", token = token)
+    }
+
+    suspend fun removeSavedArticle(token: String, articleId: String) {
+        request(
+            "DELETE", "/api/v1/saved-articles/${encode(articleId)}",
+            token = token, allowEmpty = true
+        )
+    }
 
     private suspend fun request(method: String, path: String, token: String? = null,
                                 body: JSONObject? = null, allowEmpty: Boolean = false): JSONObject =
@@ -174,6 +210,10 @@ internal class NewsApiClient(baseUrl: String) {
         analysisState = StoredAnalysisState.fromWire(root.requireString("analysis_state")),
         searchExcerpt = root.optString("search_excerpt").takeIf {
             root.has("search_excerpt") && !root.isNull("search_excerpt") && it.isNotBlank()
+        },
+        isSaved = root.optBoolean("is_saved", false),
+        savedAt = root.optString("saved_at").takeIf {
+            root.has("saved_at") && !root.isNull("saved_at") && it.isNotBlank()
         }
     )
 
@@ -185,7 +225,8 @@ internal class NewsApiClient(baseUrl: String) {
         category = NewsCategory.fromWire(root.requireString("category")),
         publishedAt = root.requireString("published_at"),
         originalUrl = root.requireString("original_url"),
-        analysisState = StoredAnalysisState.fromWire(root.requireString("analysis_state"))
+        analysisState = StoredAnalysisState.fromWire(root.requireString("analysis_state")),
+        isSaved = root.optBoolean("is_saved", false)
     )
 
     private fun articleAnalysis(root: JSONObject) = ApiArticleAnalysis(

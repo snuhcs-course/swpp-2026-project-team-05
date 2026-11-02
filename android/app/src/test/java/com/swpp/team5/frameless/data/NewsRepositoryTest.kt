@@ -45,6 +45,12 @@ class NewsRepositoryTest {
         assertEquals(article, repository.article("a1"))
         assertEquals("token", service.lastToken)
         assertEquals("a1", service.lastArticleId)
+
+        assertEquals("saved", repository.savedArticles().nextCursor)
+        repository.setArticleSaved("a1", true)
+        assertEquals(true, service.lastSavedState)
+        repository.setArticleSaved("a1", false)
+        assertEquals(false, service.lastSavedState)
     }
 
     @Test
@@ -76,6 +82,7 @@ class NewsRepositoryTest {
         var lastToken: String? = null
         var lastArticleId: String? = null
         var lastQuery: String? = null
+        var lastSavedState: Boolean? = null
         override suspend fun register(email: String, username: String, password: String,
                                       confirmation: String) = error("unused")
         override suspend fun login(identifier: String, password: String) = error("unused")
@@ -106,6 +113,14 @@ class NewsRepositoryTest {
                     ApiMarker(4, 6, "전격"), "속도를 강조한다.", emptyList()
                 ))
             )
+        }
+        override suspend fun savedArticles(token: String, cursor: String?, limit: Int) =
+            ArticlePage(emptyList(), "saved")
+        override suspend fun saveArticle(token: String, articleId: String) {
+            lastSavedState = true
+        }
+        override suspend fun removeSavedArticle(token: String, articleId: String) {
+            lastSavedState = false
         }
     }
 }

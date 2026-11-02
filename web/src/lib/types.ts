@@ -27,6 +27,8 @@ export interface ArticleSummary {
   category: NewsCategory
   published_at: string
   analysis_state: AnalysisState
+  is_saved: boolean
+  saved_at?: string
   search_excerpt?: string | null
 }
 
@@ -87,6 +89,12 @@ export interface Analysis {
 export interface ArticlePage {
   items: ArticleSummary[]
   next_cursor: string | null
+}
+
+export interface SavedArticleMutation {
+  article_id: string
+  is_saved: true
+  saved_at: string
 }
 
 export interface ApiErrorBody {

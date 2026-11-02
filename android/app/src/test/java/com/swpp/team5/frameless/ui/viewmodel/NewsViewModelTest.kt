@@ -188,17 +188,70 @@ class NewsViewModelTest {
         assertFalse(viewModel.authExpired)
     }
 
+    @Test
+    fun savedRouteLoadsPagesAndReturnsToPreservedFeed() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("ordinary")), null)
+            savedPages += ArticlePage(listOf(summary("saved-1").copy(isSaved = true)), "next")
+            savedPages += ArticlePage(listOf(summary("saved-2").copy(isSaved = true)), null)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+
+        viewModel.openSaved()
+        mainLooper.idle()
+        assertEquals(NewsRoute.SAVED, viewModel.route)
+        assertEquals(listOf("saved-1"), viewModel.saved.items.map { it.id })
+        viewModel.loadMoreSaved()
+        mainLooper.idle()
+        assertEquals(listOf("saved-1", "saved-2"), viewModel.saved.items.map { it.id })
+
+        viewModel.openArticle("saved-1")
+        mainLooper.idle()
+        viewModel.closeReader()
+        assertEquals(NewsRoute.SAVED, viewModel.route)
+        viewModel.closeSaved()
+        assertEquals(NewsRoute.FEED, viewModel.route)
+        assertEquals(listOf("ordinary"), viewModel.feed.items.map { it.id })
+    }
+
+    @Test
+    fun saveMutationUpdatesAllStateAndRollsBackAfterFailure() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("a")), null)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+
+        viewModel.toggleSaved("a", false)
+        assertTrue(viewModel.feed.items.single().isSaved)
+        mainLooper.runToEndOfTasks()
+        assertEquals(listOf("a" to true), repository.savedMutations)
+        assertEquals(null, viewModel.savedMutationArticleId)
+
+        repository.savedMutationFailure = IllegalStateException("저장 실패")
+        viewModel.toggleSaved("a", true)
+        mainLooper.runToEndOfTasks()
+        assertTrue(viewModel.feed.items.single().isSaved)
+        assertEquals("저장 실패", viewModel.saveError)
+    }
+
     private inner class FakeNewsDataSource : NewsDataSource {
         val pages = ArrayDeque<ArticlePage>()
+        val savedPages = ArrayDeque<ArticlePage>()
         var pageFailure: Exception? = null
         var articleFailure: Exception? = null
         var analysisFailure: Exception? = null
+        var savedMutationFailure: Exception? = null
         var savedCategoryValue = NewsCategory.POLITICS
         var savedPublisherValue = emptySet<String>()
         var savedAnalysisEnabledValue = true
         var articlePageCalls = 0
         val queries = mutableListOf<String?>()
         val savedFilters = mutableListOf<Pair<NewsCategory, Set<String>>>()
+        val savedMutations = mutableListOf<Pair<String, Boolean>>()
 
         override suspend fun publishers() = listOf(yna, mbc)
         override suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
@@ -215,6 +268,11 @@ class NewsViewModelTest {
         override suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi {
             analysisFailure?.let { throw it }
             return ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", emptyList())
+        }
+        override suspend fun savedArticles(cursor: String?): ArticlePage = savedPages.removeFirst()
+        override suspend fun setArticleSaved(articleId: String, saved: Boolean) {
+            savedMutationFailure?.let { throw it }
+            savedMutations += articleId to saved
         }
         override fun savedCategory() = savedCategoryValue
         override fun savedPublishers() = savedPublisherValue
