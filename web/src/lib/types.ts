@@ -27,6 +27,7 @@ export interface ArticleSummary {
   category: NewsCategory
   published_at: string
   analysis_state: AnalysisState
+  search_excerpt?: string | null
 }
 
 export interface ArticleDetail extends ArticleSummary {

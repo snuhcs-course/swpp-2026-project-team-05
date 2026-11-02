@@ -5,7 +5,7 @@ import android.content.Context
 internal interface NewsDataSource {
     suspend fun publishers(): List<PublisherItem>
     suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
-                         cursor: String? = null): ArticlePage
+                         cursor: String? = null, query: String? = null): ArticlePage
     suspend fun article(articleId: String): ArticleDetail
     suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi
     fun savedCategory(): NewsCategory
@@ -29,8 +29,8 @@ internal class NewsRepository(
     override suspend fun publishers(): List<PublisherItem> = service.publishers(token())
 
     override suspend fun articles(category: NewsCategory, publisherCodes: Set<String>,
-                         cursor: String?): ArticlePage =
-        service.articles(token(), category, publisherCodes, cursor)
+                         cursor: String?, query: String?): ArticlePage =
+        service.articles(token(), category, publisherCodes, cursor, query = query)
 
     override suspend fun article(articleId: String): ArticleDetail = service.article(token(), articleId)
 

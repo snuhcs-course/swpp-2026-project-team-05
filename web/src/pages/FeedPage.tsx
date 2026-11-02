@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { ArrowRight, Check, ChevronDown, Filter, LoaderCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ArrowRight, Check, ChevronDown, Filter, LoaderCircle, Search, X } from 'lucide-react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
@@ -23,6 +23,11 @@ function ArticleRow({ article, index }: { article: ArticleSummary; index: number
         <Link to={`/articles/${article.id}`} className="block font-serif text-[22px] font-bold leading-[1.35] tracking-[-0.025em] decoration-1 underline-offset-4 group-hover:underline sm:text-[25px]">
           {article.title}
         </Link>
+        {article.search_excerpt && (
+          <p className="mt-3 line-clamp-2 max-w-3xl text-sm leading-6 text-zinc-600">
+            {article.search_excerpt}
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between gap-5 sm:flex-col sm:items-end">
         <AnalysisBadge state={article.analysis_state} />
@@ -37,8 +42,21 @@ export function FeedPage() {
   const token = session!.token
   const [params, setParams] = useSearchParams()
   const category = (params.get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS') as NewsCategory
+  const queryInput = params.get('q') ?? ''
+  const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
+  const [activeQuery, setActiveQuery] = useState(
+    normalizedInput.length >= 2 ? normalizedInput : '',
+  )
   const [selectedPublishers, setSelectedPublishers] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const queryTooShort = normalizedInput.length === 1
+  const queryPending = normalizedInput.length >= 2 && activeQuery !== normalizedInput
+
+  useEffect(() => {
+    if (normalizedInput.length < 2) return
+    const timer = window.setTimeout(() => setActiveQuery(normalizedInput), 300)
+    return () => window.clearTimeout(timer)
+  }, [normalizedInput])
 
   const publisherQuery = useQuery({
     queryKey: ['publishers'],
@@ -46,21 +64,44 @@ export function FeedPage() {
   })
 
   const articlesQuery = useInfiniteQuery({
-    queryKey: ['articles', category, selectedPublishers],
-    queryFn: ({ pageParam }) => api.articles(token, category, selectedPublishers, pageParam),
+    queryKey: ['articles', category, [...selectedPublishers].sort(), activeQuery],
+    queryFn: ({ pageParam }) => api.articles(token, {
+      category,
+      publishers: selectedPublishers,
+      query: activeQuery || undefined,
+      cursor: pageParam,
+    }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: !queryTooShort,
   })
 
   const articles = useMemo(
-    () => articlesQuery.data?.pages.flatMap((page) => page.items) ?? [],
-    [articlesQuery.data],
+    () => queryPending || queryTooShort
+      ? []
+      : articlesQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [articlesQuery.data, queryPending, queryTooShort],
   )
   const hero = articles[0]
   const rest = articles.slice(1)
 
   function chooseCategory(next: NewsCategory) {
-    setParams({ category: next })
+    const updated = new URLSearchParams(params)
+    updated.set('category', next)
+    setParams(updated)
+  }
+
+  function updateQuery(value: string) {
+    const updated = new URLSearchParams(params)
+    if (value) updated.set('q', value)
+    else updated.delete('q')
+    setParams(updated, { replace: true })
+    if (value.trim().length < 2) setActiveQuery('')
+  }
+
+  function submitSearch(event: FormEvent) {
+    event.preventDefault()
+    if (normalizedInput.length >= 2) setActiveQuery(normalizedInput)
   }
 
   function togglePublisher(code: string) {
@@ -73,7 +114,30 @@ export function FeedPage() {
     <AppShell>
       <main className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
         <section className="border-b border-black py-8 lg:py-10">
-          <h1 className="font-serif text-5xl font-black tracking-[-0.055em] sm:text-7xl">Today’s Coverage</h1>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <h1 className="font-serif text-5xl font-black tracking-[-0.055em] sm:text-7xl">Today’s Coverage</h1>
+            <form className="relative w-full lg:max-w-md" role="search" onSubmit={submitSearch}>
+              <Search className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2" size={19} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Search articles"
+                placeholder="Search articles, publishers, or text"
+                value={queryInput}
+                onChange={(event) => updateQuery(event.target.value)}
+                className="h-12 w-full border-0 border-b border-black bg-transparent pl-8 pr-10 text-sm font-medium outline-none placeholder:text-zinc-400 focus:border-b-2"
+              />
+              {queryInput && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => updateQuery('')}
+                  className="absolute right-0 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-zinc-500 hover:text-black"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </form>
+          </div>
         </section>
 
         <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-14">
@@ -119,17 +183,24 @@ export function FeedPage() {
 
           <section className="min-w-0 py-6 lg:py-9">
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
-              <h2 className="text-sm font-black">{categoryLabel(category)} Headlines</h2>
-              <span className="text-xs text-zinc-500">Newest · {articles.length} stories</span>
+              <h2 className="text-sm font-black">
+                {activeQuery ? `Search results · ${categoryLabel(category)}` : `${categoryLabel(category)} Headlines`}
+              </h2>
+              <span className="text-xs text-zinc-500">
+                {activeQuery ? `“${activeQuery}” · ${articles.length} loaded` : `Newest · ${articles.length} stories`}
+              </span>
             </div>
 
-            {articlesQuery.isLoading && (
+            {queryTooShort && (
+              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">Enter at least 2 characters to search.</div>
+            )}
+            {(queryPending || articlesQuery.isLoading) && !queryTooShort && (
               <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading the latest coverage…</div>
             )}
-            {articlesQuery.isError && (
+            {articlesQuery.isError && !queryTooShort && (
               <div className="border border-red-300 p-8 text-center text-sm text-red-700">We could not load the feed. Please try again shortly.</div>
             )}
-            {hero && (
+            {!activeQuery && hero && !queryPending && (
               <article className="border-b-2 border-black pb-8">
                 <div className="mb-4 flex flex-wrap items-center gap-3 text-xs">
                   <strong>{hero.publisher.name}</strong>
@@ -143,11 +214,15 @@ export function FeedPage() {
                 </Link>
               </article>
             )}
-            {rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
-            {!articlesQuery.isLoading && !articles.length && (
-              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">No stories match these filters.</div>
+            {activeQuery
+              ? articles.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)
+              : rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
+            {!articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
+              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">
+                {activeQuery ? `No stories found for “${activeQuery}”.` : 'No stories match these filters.'}
+              </div>
             )}
-            {articlesQuery.hasNextPage && (
+            {articlesQuery.hasNextPage && !queryPending && !queryTooShort && (
               <Button variant="outline" className="mt-7 w-full" disabled={articlesQuery.isFetchingNextPage} onClick={() => void articlesQuery.fetchNextPage()}>
                 {articlesQuery.isFetchingNextPage ? 'Loading…' : 'Load more stories'}
               </Button>

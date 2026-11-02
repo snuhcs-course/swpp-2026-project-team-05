@@ -41,7 +41,8 @@ internal data class ArticleSummary(
     val title: String,
     val category: NewsCategory,
     val publishedAt: String,
-    val analysisState: StoredAnalysisState
+    val analysisState: StoredAnalysisState,
+    val searchExcerpt: String? = null
 )
 
 internal data class ArticlePage(val items: List<ArticleSummary>, val nextCursor: String?)

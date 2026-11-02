@@ -27,6 +27,21 @@ export class ApiError extends Error {
   }
 }
 
+export interface ArticleQuery {
+  category: NewsCategory
+  publishers: string[]
+  query?: string
+  cursor?: string
+}
+
+export function articleQueryString({ category, publishers, query, cursor }: ArticleQuery) {
+  const params = new URLSearchParams({ category, limit: '20' })
+  publishers.forEach((publisher) => params.append('publisher', publisher))
+  if (query) params.set('q', query)
+  if (cursor) params.set('cursor', cursor)
+  return params.toString()
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -91,11 +106,12 @@ export const api = {
     return body.items
   },
 
-  articles(token: string, category: NewsCategory, publishers: string[], cursor?: string) {
-    const query = new URLSearchParams({ category, limit: '20' })
-    publishers.forEach((publisher) => query.append('publisher', publisher))
-    if (cursor) query.set('cursor', cursor)
-    return request<ArticlePage>(`/api/v1/articles?${query}`, {}, token)
+  articles(token: string, options: ArticleQuery) {
+    return request<ArticlePage>(
+      `/api/v1/articles?${articleQueryString(options)}`,
+      {},
+      token,
+    )
   },
 
   article(token: string, id: string) {
