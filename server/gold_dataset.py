@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -117,6 +118,22 @@ def _validate_marker(*, evidence: dict, marker: dict, context: str) -> None:
 
 def _article_key(document_name: str, article_id: str) -> str:
     return f"{document_name}-{article_id.lower()}"
+
+
+def _humanize_article_references(text: str, document: dict) -> str:
+    """Replace evaluation-only article IDs with publisher names for product copy."""
+    article_names = {
+        "S": _publisher_name(document["source_article"], f"{document['name']} source article"),
+        **{
+            article_id: _publisher_name(article, f"{document['name']} article {article_id}")
+            for article_id, article in document["related_articles"].items()
+        },
+    }
+    return re.sub(
+        r"(?<![A-Za-z0-9])(?:A\d+(?![A-Za-z0-9])|S(?=는|#))",
+        lambda match: article_names.get(match.group(), "comparison article"),
+        text,
+    )
 
 
 def _publisher_rows(documents: list[dict]) -> tuple[list[dict], dict[str, str]]:
@@ -228,7 +245,10 @@ def _convert_findings(document: dict) -> tuple[list[dict], list[dict]]:
                 code = str(_required(difference, "code", difference_context))
                 if code not in set("ABCDEFG"):
                     raise DatasetError(f"{difference_context}: unsupported code {code}")
-                note = str(_required(difference, "note", difference_context)).strip()
+                note = _humanize_article_references(
+                    str(_required(difference, "note", difference_context)).strip(),
+                    document,
+                )
                 group["categories"].add(code)
                 group["notes"].append(note)
                 group["unit_ids"].add(_required(unit, "unit_id", unit_context))

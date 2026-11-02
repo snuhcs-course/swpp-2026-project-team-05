@@ -10,7 +10,7 @@ import type { Finding } from '../lib/types'
 import { api } from '../lib/api'
 import { articleOrigin } from '../lib/navigation'
 import { segmentText, sourceRange } from '../lib/text'
-import { categoryLabel, cn, formatDate } from '../lib/utils'
+import { categoryLabel, cn, findingCategoryLabel, formatDate } from '../lib/utils'
 
 function HighlightedText({ text, findings, selectedId, onSelect, className }: {
   text: string
@@ -76,23 +76,36 @@ function FindingPanel({ finding }: { finding: Finding }) {
   return (
     <div className="animate-in">
       <div className="border-b border-black pb-5">
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {finding.categories.map((category) => <span key={category} className="bg-black px-2 py-1 text-[10px] font-bold tracking-wide text-white">{category}</span>)}
-        </div>
+        <p className="mb-3 text-[11px] font-black uppercase tracking-[0.12em] text-zinc-600">
+          {finding.categories.map(findingCategoryLabel).join(' · ')}
+        </p>
         <p className="font-serif text-xl font-bold leading-7">“{finding.source.marker.text}”</p>
         <p className="mt-3 text-sm leading-6 text-zinc-600">{finding.explanation}</p>
       </div>
       <div className="py-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-[0.12em]">Elsewhere in the coverage</h3>
-          {comparisons > 1 && (
-            <div className="flex items-center gap-2 text-xs font-bold">
-              <button className="grid size-7 place-items-center border border-zinc-300 disabled:opacity-30" disabled={page === 0} onClick={() => setPage((value) => value - 1)} aria-label="Previous article"><ChevronLeft size={15} /></button>
-              <span>{page + 1} / {comparisons}</span>
-              <button className="grid size-7 place-items-center border border-zinc-300 disabled:opacity-30" disabled={page === comparisons - 1} onClick={() => setPage((value) => value + 1)} aria-label="Next article"><ChevronRight size={15} /></button>
-            </div>
-          )}
+          <h3 className="text-xs font-black uppercase tracking-[0.12em]">Compared coverage</h3>
+          <span className="text-xs text-zinc-500">{comparisons} {comparisons === 1 ? 'source' : 'sources'}</span>
         </div>
+        {comparisons > 1 && (
+          <div role="tablist" aria-label="Comparison sources" className="mb-5 flex gap-5 overflow-x-auto border-b border-zinc-300">
+            {finding.comparison_articles.map((article, index) => (
+              <button
+                key={article.article_id}
+                type="button"
+                role="tab"
+                aria-selected={page === index}
+                onClick={() => setPage(index)}
+                className={cn(
+                  '-mb-px shrink-0 border-b-2 px-0.5 pb-2 text-xs font-bold transition-colors',
+                  page === index ? 'border-black text-black' : 'border-transparent text-zinc-500 hover:text-black',
+                )}
+              >
+                {article.publisher.name}
+              </button>
+            ))}
+          </div>
+        )}
         {comparisons ? <EvidenceQuote finding={finding} page={page} /> : <p className="border-y border-zinc-300 py-5 text-sm text-zinc-500">No comparison available.</p>}
       </div>
     </div>
@@ -112,6 +125,7 @@ export function ArticlePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const selectedFinding = findings.find((finding) => finding.id === selectedId) ?? findings[0]
+  const selectedIndex = selectedFinding ? findings.findIndex((finding) => finding.id === selectedFinding.id) : -1
   const titleFindings = findings.filter((finding) => finding.source.scope === 'TITLE')
   const bodyFindings = findings.filter((finding) => finding.source.scope === 'BODY')
 
@@ -178,18 +192,27 @@ export function ArticlePage() {
                 {analysisQuery.isError && <p className="py-6 text-sm text-red-700">The analysis could not be loaded.</p>}
                 {selectedFinding ? (
                   <>
-                    {findings.length > 1 && (
-                      <div className="mb-5 flex gap-1 overflow-x-auto pb-2">
-                        {findings.map((finding, index) => (
+                    <div className="mb-5 flex items-center justify-between border-b border-zinc-300 pb-4">
+                      <p className="text-xs font-bold text-zinc-600">Finding {selectedIndex + 1} of {findings.length}</p>
+                      {findings.length > 1 && (
+                        <div className="flex items-center gap-1">
                           <button
-                            key={finding.id}
-                            className={cn('grid size-8 shrink-0 place-items-center border border-zinc-300 text-xs font-bold', selectedFinding.id === finding.id && 'border-black bg-black text-white')}
-                            onClick={() => setSelectedId(finding.id)}
-                            aria-label={`View finding ${index + 1}`}
-                          >{index + 1}</button>
-                        ))}
-                      </div>
-                    )}
+                            type="button"
+                            className="grid size-8 place-items-center rounded-full hover:bg-zinc-100 disabled:opacity-25"
+                            disabled={selectedIndex === 0}
+                            onClick={() => setSelectedId(findings[selectedIndex - 1].id)}
+                            aria-label="Previous finding"
+                          ><ChevronLeft size={17} /></button>
+                          <button
+                            type="button"
+                            className="grid size-8 place-items-center rounded-full hover:bg-zinc-100 disabled:opacity-25"
+                            disabled={selectedIndex === findings.length - 1}
+                            onClick={() => setSelectedId(findings[selectedIndex + 1].id)}
+                            aria-label="Next finding"
+                          ><ChevronRight size={17} /></button>
+                        </div>
+                      )}
+                    </div>
                     <FindingPanel key={selectedFinding.id} finding={selectedFinding} />
                   </>
                 ) : !analysisQuery.isLoading && (

@@ -354,6 +354,21 @@ Comparison behavior:
 - Horizontal gestures in comparison content page publishers.
 - Vertical and horizontal gestures must not make the sheet oscillate or change anchors unexpectedly.
 
+### 6.5 Desktop web analysis rail
+
+The desktop Reader keeps the same finding and comparison content in a persistent
+right rail. Its two navigation levels must use different controls:
+
+- Move between findings with `Finding n of m` and previous/next actions. Do not
+  render a row of anonymous numbered boxes; selecting a marker in the article
+  remains the direct way to open its finding.
+- Move between comparison articles with publisher-named tabs such as
+  `연합뉴스`, `MBC`, and `뉴스1`. Do not use a second numeric pager.
+- Show the number of comparison sources as supporting metadata, not as a control.
+- Product copy shows natural-language finding labels and publisher names. Raw
+  A–G codes and evaluation-only article IDs such as `S`, `A1`, or `A2` never
+  appear in the Reader.
+
 ## 7. Account menu
 
 ### 7.1 Account menu

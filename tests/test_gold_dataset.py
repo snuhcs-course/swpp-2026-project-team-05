@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from django.test import SimpleTestCase
 
@@ -62,3 +63,15 @@ class GoldDatasetConversionTests(SimpleTestCase):
                 self.assertTrue(comparison["target_sentence_text"])
                 self.assertTrue(comparison["target_marker_text"])
                 self.assertTrue(comparison["comparison_summary"])
+
+    def test_product_copy_does_not_expose_evaluation_article_ids(self):
+        internal_reference = re.compile(
+            r"(?<![A-Za-z0-9])(?:A\d+(?![A-Za-z0-9])|S(?=는|#))"
+        )
+        for cluster in self.dataset["clusters"]:
+            for finding in cluster["findings"]:
+                self.assertIsNone(internal_reference.search(finding["explanation"]))
+                for comparison in finding["comparisons"]:
+                    self.assertIsNone(
+                        internal_reference.search(comparison["comparison_summary"])
+                    )
