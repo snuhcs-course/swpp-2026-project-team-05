@@ -85,9 +85,6 @@ internal fun NewsFeedScreen(
     onSearchClose: () -> Unit,
     onSavedOpen: () -> Unit,
     onArticle: (String) -> Unit,
-    onToggleSaved: (String, Boolean) -> Unit,
-    savedMutationArticleId: String?,
-    saveError: String?,
     onLogout: () -> Unit
 ) {
     var showPublishers by remember { mutableStateOf(false) }
@@ -195,11 +192,6 @@ internal fun NewsFeedScreen(
             }
         }
         HorizontalDivider(color = Fl.Line)
-        if (saveError != null) {
-            Text(saveError, color = Fl.Danger, fontSize = 12.sp,
-                modifier = Modifier.fillMaxWidth().background(Fl.Inset)
-                    .padding(horizontal = 18.dp, vertical = 9.dp))
-        }
         val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
         when {
             state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
@@ -253,9 +245,7 @@ internal fun NewsFeedScreen(
                 items(state.items, key = { it.id }) { article ->
                     ArticleFeedRow(
                         article = article,
-                        onClick = { onArticle(article.id) },
-                        onToggleSaved = { onToggleSaved(article.id, article.isSaved) },
-                        savedPending = savedMutationArticleId == article.id
+                        onClick = { onArticle(article.id) }
                     )
                     HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
                 }
@@ -300,9 +290,7 @@ internal fun NewsFeedScreen(
 @Composable
 internal fun ArticleFeedRow(
     article: ArticleSummary,
-    onClick: () -> Unit,
-    onToggleSaved: () -> Unit,
-    savedPending: Boolean
+    onClick: () -> Unit
 ) {
     Column(
         Modifier.fillMaxWidth().clickable(onClick = onClick)
@@ -313,19 +301,6 @@ internal fun ArticleFeedRow(
             Caption("${article.publisher.name} · ${article.category.label} · ${relativeTime(article.publishedAt)}")
             Spacer(Modifier.weight(1f))
             AnalysisStateLabel(article.analysisState)
-            IconButton(
-                onClick = onToggleSaved,
-                enabled = !savedPending,
-                modifier = Modifier.size(34.dp).semantics {
-                    contentDescription = if (article.isSaved) "저장 취소" else "기사 저장"
-                }
-            ) {
-                ArticleBookmarkIcon(
-                    article.isSaved,
-                    if (article.isSaved) Fl.Accent else Fl.Muted,
-                    Modifier.size(19.dp)
-                )
-            }
         }
         Text(article.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
             fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,

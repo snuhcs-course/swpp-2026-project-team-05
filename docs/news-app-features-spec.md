@@ -455,21 +455,26 @@ internal stack trace.
 ### 9.6 Web interaction
 
 - Add `Saved` to desktop and mobile navigation and route it at `/saved`.
-- Add an accessible save/remove control to feed rows and the article Reader.
+- Add an accessible save/remove control only to the article Reader. Feed and
+  saved-list rows remain focused on opening the article.
 - Reuse the existing article-row layout for the saved list.
+- Opening a saved row records `/saved` as the Reader origin. Reader back returns
+  to that saved list instead of redirecting to the category feed.
 - Keep feed, Reader, and saved-list state consistent through one shared mutation
   boundary rather than separate request logic in each component.
 - Apply the intended state immediately; disable duplicate input while the
   request is pending and roll back with an inline error if it fails.
-- Removing an article from the saved page removes its row without resetting the
-  remaining scroll and pagination context.
+- Removing an article in the Reader updates the saved page without resetting
+  its remaining scroll and pagination context.
 
 ### 9.7 Android interaction
 
 - Add a saved-articles action beside search in the feed header.
-- Add an accessible save/remove action to each feed row and the Reader header.
+- Add an accessible save/remove action only to the Reader header.
 - Open saved articles in a separate route and ViewModel state so the ordinary
   feed retains its category, publisher filters, search, rows, and scroll context.
+- Reader back returns to its recorded origin from loaded, loading, and error
+  states; it must not fall through to Android's app-exit behavior.
 - Reuse the compact feed row and current Reader navigation.
 - Apply and roll back save state consistently across feed, Reader, and saved
   list. Failed requests are not queued for later offline synchronization.

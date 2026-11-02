@@ -72,10 +72,11 @@ an ordinary article on Android and later removes it on Web, **then** each client
 shows the same server-owned state after refresh without affecting another
 account.
 
-Procedure: save one article from the Android feed and one from Reader; refresh
-Web and verify both appear in recent-save order; remove one on Web; refresh
-Android and verify it disappears; sign out and use a second account on each
-client; verify neither saved row nor saved indicator leaks across accounts.
+Procedure: open two Android articles and save each from Reader; refresh Web and
+verify both appear in recent-save order; open one on Web and remove it from its
+Reader; refresh Android and verify it disappears; sign out and use a second
+account on each client; verify neither saved row nor saved indicator leaks
+across accounts.
 
 ## Freeze and results policy
 

@@ -96,23 +96,17 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             onSearchClose = news::closeSearch,
                             onSavedOpen = news::openSaved,
                             onArticle = news::openArticle,
-                            onToggleSaved = news::toggleSaved,
-                            savedMutationArticleId = news.savedMutationArticleId,
-                            saveError = news.saveError,
                             onLogout = { news.reset(); auth.logout() }
                         )
                     }
                     NewsRoute.SAVED -> NewsSavedScreen(
                         state = news.saved,
                         listState = savedListState,
-                        savedMutationArticleId = news.savedMutationArticleId,
-                        saveError = news.saveError,
                         onBack = news::closeSaved,
                         onRefresh = news::refreshSaved,
                         onRetry = news::retrySaved,
                         onLoadMore = news::loadMoreSaved,
-                        onArticle = news::openArticle,
-                        onToggleSaved = news::toggleSaved
+                        onArticle = news::openArticle
                     )
                     NewsRoute.READER -> NewsReaderScreen(
                         state = news.reader,
