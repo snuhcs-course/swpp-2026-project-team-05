@@ -2,6 +2,7 @@ package com.swpp.team5.frameless.ui.screens
 
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
@@ -229,12 +230,12 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText(body).performTouchInput { click() }
+        compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
         compose.onNodeWithText("“$body”").assertIsDisplayed()
-        compose.onNodeWithText("다른 기사 2곳과 비교").assertIsDisplayed()
+        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
 
-        compose.onNodeWithText("다른 기사 2곳과 비교").performClick()
+        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
         compose.onNodeWithText("같은 내용을 다른 기사에서는").assertIsDisplayed()
         compose.onNodeWithContentDescription("비교 상세 닫기").assertIsDisplayed()
         compose.onAllNodesWithText(finding.comparisonOverview).assertCountEquals(1)
@@ -250,7 +251,7 @@ class NewsScreensInstrumentedTest {
 
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
-        compose.onAllNodesWithText("다른 기사 2곳과 비교").assertCountEquals(0)
+        compose.onAllNodesWithText("다른 기사 2곳과 비교", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -301,7 +302,7 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("확신·범주화가 드러나는 표현").assertIsDisplayed()
         compose.onNodeWithText("설명 더보기").assertIsDisplayed().performClick()
         compose.onNodeWithText("설명 접기").assertIsDisplayed()
-        compose.onAllNodesWithText("자세히 보기").assertCountEquals(0)
+        compose.onAllNodesWithText("곳과 비교", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
 
         compose.onNodeWithText("지역별 반응").performTouchInput { click() }

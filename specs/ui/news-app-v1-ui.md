@@ -438,6 +438,8 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Icons need Korean descriptions unless decorative.
 - Test long publisher names, three-line headlines, long paragraphs, long explanations, and three comparison publishers.
 - No automatic scrolling while the user is reading. Opening a preview never moves the article.
+  A comparison page may move once to its first body evidence when first shown;
+  after that, it preserves the reader's own position.
 
 ## 10. Compose boundaries
 

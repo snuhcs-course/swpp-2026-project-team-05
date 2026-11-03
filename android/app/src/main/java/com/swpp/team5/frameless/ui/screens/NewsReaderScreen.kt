@@ -47,6 +47,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -634,7 +635,7 @@ private fun NewsComparisonPage(
     var layout by remember(page.articleId) { mutableStateOf<TextLayoutResult?>(null) }
     var viewportHeight by remember(page.articleId) { mutableIntStateOf(0) }
     var visibleHeight by remember(page.articleId) { mutableIntStateOf(0) }
-    var focused by remember(page.articleId) { mutableStateOf(false) }
+    var focused by rememberSaveable(page.articleId) { mutableStateOf(false) }
     val headerDismissModifier = downwardDismissModifier(onDismiss)
     val pullDismissConnection = rememberPullDownDismissConnection(scroll, onDismiss)
     val speakerLabels = remember(page.evidence) {
