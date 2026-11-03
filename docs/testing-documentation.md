@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Living team document |
-| Current revision | 2026-11-02 |
+| Current revision | 2026-11-03 |
 | Historical baseline | [`testing-documentation-iter2.md`](testing-documentation-iter2.md) |
 
 This page is the maintainable entry point for the testing plan and measured
@@ -46,7 +46,7 @@ backend and Android coverage gates and uploads reports for 14 days.
 | --- | --- | --- |
 | Article search v1 | [`specs/testing/article-search.spec.md`](../specs/testing/article-search.spec.md) | Implemented with explicit remaining UI/race-condition gaps |
 | Saved articles v1 | [`specs/testing/saved-articles.spec.md`](../specs/testing/saved-articles.spec.md) | Implemented with explicit remaining UI/security gaps |
-| Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Intent-reviewed; implementation not started |
+| Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Implemented with explicit remaining navigation/concurrency gaps |
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Proposed; team freeze required for Iteration 3 |
 
 ### Result recording template

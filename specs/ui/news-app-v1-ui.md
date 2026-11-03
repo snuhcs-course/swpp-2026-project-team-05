@@ -1,8 +1,8 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: v1.6 implementation and visual baseline
+Status: v1.7 implemented Android and Web baseline
 
-Companion document: `docs/news-app-v1-spec.md`
+Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
 ## 0. Implementation references
 
@@ -17,13 +17,17 @@ FrameLESS-specific behavior stays deliberately small: exact in-article markers, 
 
 ## 1. Scope and priorities
 
-This document defines screen structure, user actions, UI states, navigation, and Compose boundaries. The v1 visual direction is a calm, text-first editorial reader: compact controls, serif headlines and article text, restrained navy/gray chrome, and lilac used only for verified expression analysis.
+This document defines screen structure, user actions, UI states, navigation, and
+client boundaries. The v1 visual direction is a calm, text-first editorial
+reader: compact controls, serif headlines and article text, restrained neutral
+chrome, and accent color used only for verified expression analysis or state.
 
 Priorities:
 
 1. Users can browse and read articles like a normal news app.
 2. Analysis never blocks article reading.
-3. Users can turn analysis on and inspect exact title or body markers.
+3. Users can inspect exact title or body markers; Android additionally lets
+   users turn marker styling on or off.
 4. A finding explains the selected expression and shows other publishers only when valid comparison evidence exists.
 5. Login, feed, Reader, comparison, and settings have complete loading, empty, error, and retry behavior.
 
@@ -41,7 +45,7 @@ I-series analysis, including I1, is deferred and does not appear in these screen
 ```text
 Launch
   ├─ no valid session → Login → Register if needed
-  └─ valid session → News feed
+  └─ valid session → News feed ↔ Saved articles
                                                   ↓
                                             Article Reader
                                                   ↓
@@ -50,7 +54,9 @@ Launch
                               Finding detail / comparison bottom sheet
 ```
 
-The feed is the only top-level destination. A small account action shows account identity and logout without a permanent bottom navigation bar.
+The feed is the primary discovery destination and Saved is a secondary route.
+Search is a feed mode rather than a separate destination. A small account action
+shows account identity and logout without a permanent bottom navigation bar.
 
 Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not ordinary-user navigation.
 
@@ -105,13 +111,12 @@ Functional requirements:
 
 ## 4. News feed
 
-### 4.1 Main wireframe
+### 4.1 Android main wireframe
 
 ```text
 ┌──────────────────────────────────────┐
-│  FrameLESS                    [계정]  │
-│  정치   사회          언론사 · 3곳 ⌄ │
-│  연합뉴스 · MBC · SBS                 │
+│  FrameLESS          [검색][저장][계정] │
+│  정치   사회              최신 기사 ⌄ │
 │──────────────────────────────────────│
 │  연합뉴스 · 정치 · 12분 전    분석 완료 │
 │  기사 제목은 최대 두 줄로 표시        │
@@ -132,13 +137,18 @@ Feed behavior:
   client-only, adds no label or separate section, and does not change API or
   cursor ordering.
 - Category control switches between politics and society.
-- Publisher filter opens the sheet in section 4.3.
+- On Android, Latest/Following opens the scope sheet and source management opens
+  the bottom sheet in section 4.3.
+- On Web, search is part of the feed content, Latest/Following is an inline
+  segmented control, Saved is global navigation, and source management opens a
+  dialog. These controls preserve the same feed state and API contracts as
+  Android; they are not required to share the same physical placement.
 - Politics and Society live in the global header only; do not duplicate the
   same section control in a feed sidebar.
 - Tapping anywhere on an article row opens the Reader.
 - The compact refresh action updates the first page without losing filters; a pull gesture may be added later without changing feed state semantics.
 - Pagination failure leaves existing articles visible and shows inline retry.
-- Returning from Reader restores item position, category, and publisher filters.
+- Returning from Reader restores item position, category, and feed scope.
 
 ### 4.2 Article row content
 
@@ -158,28 +168,23 @@ Do not show:
 - cluster information;
 - publisher ranking, bias, or truth labels.
 
-### 4.3 Publisher filter sheet
+### 4.3 Followed-source management
 
 ```text
 ┌──────────────────────────────────────┐
 │  ─────                               │
-│  언론사 선택                  [완료]  │
+│  팔로우할 언론사              [저장]  │
 │                                      │
-│  [✓] 전체 언론사                     │
-│  ──────────────────────────────────  │
-│  선택한 언론사                        │
 │  [ ] 연합뉴스  [✓] MBC  [✓] SBS       │
-│                                      │
-│  모든 언론사                          │
 │  [ ] 뉴스1     [ ] KBS  [ ] YTN       │
 │  ...                                 │
 └──────────────────────────────────────┘
 ```
 
-- `전체 언론사` is mutually exclusive with individual selection.
-- Apply changes on `완료`; dismiss without completion restores the previous filter.
-- Changing the filter scrolls the refreshed feed to the top.
-- Remember the last publisher selection locally on the device; do not create server-side preference UI in v1.
+- Changes remain a local draft until `저장`; dismissing restores the server set.
+- Saving atomically replaces the authenticated account's followed publishers.
+- Following may be empty and never changes Latest, search, or Reader comparisons.
+- Android uses a bottom sheet and Web uses a dialog while preserving the same contract.
 
 ### 4.4 Feed states
 
@@ -187,7 +192,7 @@ Do not show:
 | --- | --- |
 | First loading | Article-row skeletons |
 | Refreshing | Keep current rows and show refresh progress |
-| Empty filter | Explain the active filter; offer `전체 언론사 보기` |
+| Empty Following | Distinguish no followed sources from no matching article in the category |
 | Next-page failure | Inline retry after the last loaded row |
 
 Analysis badges:
@@ -202,7 +207,7 @@ Analysis badges:
 
 ## 5. Article Reader
 
-### 5.1 Analysis off
+### 5.1 Android analysis off
 
 ```text
 ┌──────────────────────────────────────┐
@@ -223,7 +228,7 @@ Analysis badges:
 └──────────────────────────────────────┘
 ```
 
-### 5.2 Analysis on
+### 5.2 Android analysis on
 
 ```text
 ┌──────────────────────────────────────┐
@@ -246,11 +251,14 @@ Analysis badges:
 Reader behavior:
 
 - Article detail loads independently from analysis.
-- Analysis off removes all marker styling without changing text or scroll position.
-- Analysis on marks exact title and body phrases.
+- Android analysis off removes all marker styling without changing text or
+  scroll position; analysis on marks exact title and body phrases.
+- Web has no analysis toggle in the implemented baseline. It marks available
+  title/body findings and keeps the analysis rail in section 6.5 visible.
 - A marker with multiple categories is one tap target.
 - Overlapping markers render as one target and open one finding.
-- Tapping a marker opens the sheet in section 6.
+- Tapping a marker opens the sheet in section 6 on Android or selects the same
+  finding in the Web rail.
 - Opening, paging, expanding, collapsing, and closing the sheet preserves source Reader position.
 - `원문 보기` opens the canonical source externally.
 
@@ -258,12 +266,12 @@ Reader behavior:
 
 | State | Reader behavior |
 | --- | --- |
-| `NOT_STARTED` | Article readable; toggle disabled; analysis unavailable message |
+| `NOT_STARTED` | Article readable; Android toggle disabled; Web rail shows an analysis-unavailable state |
 | `UPDATING` | Article readable; compact updating notice |
-| `READY` with findings | Toggle enabled |
-| `READY` with zero findings | Toggle enabled; show completed-with-no-visible-finding message |
+| `READY` with findings | Android toggle enabled; Web rail shows the findings |
+| `READY` with zero findings | Android toggle enabled; both clients show completed-with-no-visible-finding message |
 | `PARTIAL` | Verified findings available with an incompleteness notice |
-| `FAILED` | Article readable; toggle disabled; analysis unavailable message |
+| `FAILED` | Article readable; Android toggle disabled; Web rail shows an analysis-unavailable state |
 
 READY with zero findings:
 
@@ -394,7 +402,8 @@ right rail. Its two navigation levels must use different controls:
 ```
 
 - Logout clears the local token and returns to Login.
-- The Reader remembers the last analysis-toggle value locally; there is no separate default setting.
+- Android remembers the last analysis-toggle value locally; Web has no separate
+  toggle or default setting in the implemented baseline.
 
 The existing legacy URL-analysis capability is not linked from this v1 UI. A developer screen may be specified later without changing the feed or Reader routes.
 
@@ -405,7 +414,9 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Reader with open sheet → back closes sheet first.
 - Account menu dismiss → same feed state.
 - Expired session clears authenticated state and returns to Login with an explanation.
-- Process recreation restores authentication and the last feed category/publisher filter. Restoring an open Reader or sheet is deferred.
+- Process recreation restores authentication and the last feed category. Followed
+  sources and saved articles reload from the account; restoring an open Reader
+  or sheet is deferred.
 
 ## 9. Accessibility and content edge cases
 
@@ -426,6 +437,7 @@ Screen routes:
 LoginRoute
 RegistrationRoute
 NewsFeedRoute
+SavedArticlesRoute
 ArticleReaderRoute
 ```
 
@@ -434,7 +446,9 @@ Reusable UI:
 ```text
 ArticleFeedRow
 CategorySelector
-PublisherFilterSheet
+FeedScopeSheet
+ManageFollowedSourcesSheet
+SavedArticlesList
 AccountMenuSheet
 AnalysisStateBadge
 ArticleHeader
@@ -454,7 +468,9 @@ ReaderStatusNotice
 - Reuse the existing Reader's full-text annotation, tap targeting, related-article pager, focused scrolling, and bottom-sheet gesture helpers after extracting them from the legacy `ReaderResult` contract.
 - Do not pass legacy `AnalysisResult`/`ReaderResult` or database models into the news routes. Convert versioned API DTOs to immutable UI models at the repository boundary.
 - Keep URL import, live-analysis loading, analysis history, and the old comparison screen outside ordinary navigation. They may remain developer-only and isolated.
-- Feed, registration, publisher filtering, account controls, and news navigation are new components; do not distort legacy screens to imitate them.
+- Feed, registration, followed-source management, saved articles, account
+  controls, and news navigation are product components; do not distort legacy
+  screens to imitate them.
 - Convert API code-point offsets to Compose UTF-16 indices once in the mapper and verify the expected quote. Invalid markers are omitted safely while the article remains readable.
 - Treat the current non-oscillating sheet drag implementation as the baseline and re-test middle ↔ expanded movement with long articles, horizontal paging, font scaling, and a physical device.
 
@@ -477,15 +493,17 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Login error preserves entered values
 - Expired session returns to Login
 - Login and registration open the all-publisher feed
-- Feed → Reader → back restores scroll position and filters
+- Feed → Reader → back restores scroll position, category, and scope
+- Saved → Reader → back restores the saved list rather than exiting the app
 - Back closes sheet before Reader
 - Ordinary users never receive URL-analysis or diagnostic navigation
 
 ### Feed
 
 - Politics/society switching
-- Publisher filter apply and cancel
-- Publisher filter remembered locally
+- Latest/Following switching and distinct empty states
+- Followed-source draft, save, cancel, and failure behavior
+- Search and saved-article entry actions
 - Initial loading, refresh, pagination, empty, and retry states
 - Article row with a long headline
 - Simplified available/preparing/absent analysis badges
@@ -493,7 +511,8 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 ### Reader and analysis
 
 - Article loads independently from analysis
-- Analysis toggle preserves article text and scroll position
+- Android analysis toggle preserves article text and scroll position
+- Web analysis rail selects findings without changing article text or position
 - Title and body markers open the correct finding
 - One marker with multiple labels remains one target
 - READY with zero findings
@@ -510,9 +529,12 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 The UI is complete when:
 
 - users can register or log in and reach the all-publisher feed directly;
-- users can filter politics/society and publishers without losing state;
+- users can switch politics/society and Latest/Following without losing state;
+- users can search all feed-visible articles and return to the prior feed;
+- users can save an article and return from its Reader to the saved list;
 - every visible article is readable regardless of analysis status;
-- analysis can be toggled without changing article content or position;
+- Android analysis can be toggled without changing article content or position;
+- Web analysis remains visible in its rail without changing article content or position;
 - exact title/body markers open the correct article-specific finding;
 - source-only findings end without a comparison carousel;
 - valid compared publishers page horizontally and their articles scroll vertically;

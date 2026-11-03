@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Implemented; intent reviewed for the evaluation build |
 | Owner | Feed feature owner |
-| Source requirements | `docs/news-app-v1-ui-spec.md` §4.1 |
+| Source requirements | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §4.1 |
 | Last reviewed | 2026-11-03 |
 
 ## Scope

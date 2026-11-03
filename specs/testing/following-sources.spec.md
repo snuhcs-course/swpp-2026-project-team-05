@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Implemented |
 | Owner | Following sources feature owner |
-| Source requirements | `docs/news-app-features-spec.md` §§11–12 |
+| Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§11–12 |
 | Last reviewed | 2026-11-02 |
 
 ## Scope

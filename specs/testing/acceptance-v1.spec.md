@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Proposed for Iteration 3 intent review and freeze |
 | Owner | Team |
-| Source requirements | `docs/news-app-v1-spec.md`, `docs/news-app-v1-ui-spec.md`, `docs/news-app-features-spec.md` |
+| Source requirements | [`../product/news-app-v1.md`](../product/news-app-v1.md), [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md), [`../features/news-app-features.md`](../features/news-app-features.md) |
 | Last reviewed | 2026-11-02 |
 
 This plan defines stable user-facing procedures. After the team freezes it for
@@ -25,12 +25,15 @@ available. Pass only if no secret is displayed or logged.
 ## UAT-02 — Browse the reviewed news feed
 
 **Given** a signed-in user, **when** the tester changes between Politics and
-Society and selects one or more publishers, **then** every visible row satisfies
-the active filters and opening a row shows that exact article.
+Society and between Latest and Following, **then** every visible row satisfies
+the selected category and scope and opening a row shows that exact article.
 
-Procedure: record the initial rows; switch each category; apply and clear a
-publisher filter; load the next page when available; open one article and compare
-its publisher and title with the selected row.
+Procedure: record the initial Latest rows; switch each category; follow at least
+one publisher and open Following. If the selected category has a followed-source
+article, load the next page when available, open one article, and compare its
+publisher and title with the selected row. Otherwise, verify the distinct
+no-matching-article empty state and its return-to-Latest action; do not require
+an article to open from an empty result.
 
 ## UAT-03 — Search the complete feed-visible corpus
 
@@ -41,18 +44,20 @@ the ordinary feed.
 
 Procedure: perform all four searches on Web and Android; open a result; reload Web
 and verify search resets without rewriting the URL while typing; clear or close
-search; verify the pre-search category and publisher context is retained.
+search; verify the pre-search category and feed scope are retained.
 
 ## UAT-04 — Read an article with optional analysis
 
-**Given** an article whose analysis is ready, **when** the tester opens it, toggles
-analysis off and on, and scrolls the article, **then** the complete stored article
-remains readable and analysis markers change without replacing or corrupting the
-article text.
+**Given** an article whose analysis is ready, **when** the tester opens it and
+scrolls the article, **then** the complete stored article remains readable and
+the platform's analysis presentation does not replace or corrupt the article
+text. Android additionally supports turning markers off and on; Web presents
+the stored findings in its persistent analysis rail.
 
-Procedure: compare the opening article metadata with the feed row; scroll to the
-end; toggle analysis twice; reopen the article and verify the saved preference is
-applied as specified.
+Procedure: on both clients, compare the opening article metadata with the feed
+row and scroll to the end. On Android, toggle analysis twice, reopen the article,
+and verify the saved preference. On Web, select a title/body marker and verify
+that the corresponding finding is selected in the always-visible analysis rail.
 
 ## UAT-05 — Inspect a grounded cross-publisher comparison
 

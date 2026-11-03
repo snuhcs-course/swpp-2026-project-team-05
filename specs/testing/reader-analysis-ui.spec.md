@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Implemented; intent reviewed from HE feedback |
 | Owner | Reader feature owner |
-| Source requirements | `docs/news-app-v1-ui-spec.md` §§6.1–6.5 |
+| Source requirements | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §§6.1–6.5 |
 | Last reviewed | 2026-11-03 |
 
 ## Scope
