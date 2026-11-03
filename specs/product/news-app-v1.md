@@ -63,7 +63,7 @@ and followed-source behavior are specified in
 - Stored analysis in the Reader: optional marker overlay on Android and a persistent analysis rail on Web
 - Exact title/body highlights for stored findings
 - Source-only finding explanations
-- Optional cross-publisher comparison cards
+- Optional cross-publisher comparison pages
 - Multiple compared publishers for one finding
 - Complete loading, empty, error, and retry states
 - Reviewed demonstration data loaded through a repeatable importer
@@ -236,7 +236,7 @@ When analysis is visible on either client:
 - highlight exact markers in the title and body;
 - merge overlapping markers into one tappable region with multiple labels;
 - do not modify the underlying article string or scroll position;
-- open the finding sheet on Android or select the finding in the Web rail when a
+- open the compact finding preview on Android or select the finding in the Web rail when a
   marker is tapped.
 
 ### 4.3 Analysis display states
@@ -249,7 +249,7 @@ When analysis is visible on either client:
 | `NOT_STARTED`, `FAILED` | Keep the article readable and explain that analysis is unavailable. |
 | `UPDATING` | If reviewed findings exist, keep them readable; otherwise show analysis as unavailable. No read request starts work. |
 
-### 4.4 Finding sheet
+### 4.4 Finding preview and detail
 
 Every finding shows:
 
@@ -259,18 +259,45 @@ Every finding shows:
 
 When comparisons exist, add `같은 내용을 다른 기사에서는`:
 
-- one publisher per horizontal page;
+- one proposition-level comparison overview that names the relevant publishers
+  and explains the overall wording pattern once;
+- one publisher per horizontal comparison page;
 - at most three publisher-diverse pages;
-- publisher, target title, publication time, target sentence, highlighted target marker, explanation, and original link;
+- publisher, target title, publication time, target sentence, highlighted target marker, and original link;
 - multiple evidence sentences from one publisher remain on the same page.
 
-When comparisons do not exist, omit the comparison section entirely. Do not render an empty pager or claim that other articles lack the content.
+When comparisons do not exist, omit the comparison section entirely. Do not render an empty comparison container or claim that other articles lack the content.
 
-The bottom sheet has stable collapsed, middle, and expanded anchors. Vertical article scrolling, sheet dragging, and horizontal publisher paging must not fight each other.
+On Android, tapping a marker first opens a non-modal, fixed-size preview over the
+Reader. The preview shows the selected marker, a concise explanation, a feature
+label set, and—only when comparisons exist—an explicit detail action. Every preview
+shows all feature labels and up to four explanation lines; overflow expands and
+collapses in place so no analysis copy is lost. A source-only finding does not
+open a second surface. A comparison-backed preview's action opens a comparison sheet
+directly at maximum height. There is no middle anchor or height transition;
+vertical gestures scroll the selected target article and horizontal gestures
+move between publisher pages. A compact floating previous/page/next pill mirrors
+the pager when multiple publishers exist without reserving article height.
+
+For a comparison-backed finding, the expanded sheet starts at the comparison
+section and does not repeat the source marker or labels from the preview. A
+single proposition-level comparison overview stays above the publisher pager;
+publisher pages contain evidence rather than repeating prose explanations. Its
+fixed heading provides an explicit close action without gesture instruction
+copy. Specific attributed speakers may be labeled on the page they belong to;
+the generic `기자 표현` label is omitted. Fixed header regions accept downward dismissal; the article body does
+so only when already scrolled to its top. The sheet animates closed after release.
+Material's own whole-sheet drag remains disabled to prevent competing gesture owners.
+Closing that sheet also clears the selected preview, returning to the unobstructed
+Reader. While only the preview is open, tapping ordinary article text closes it,
+tapping another marker replaces it, and scrolling the article keeps it visible.
 
 ## 5. Database contract
 
-The news-analysis schema already exists through `server.0004_news_domain`. Do not add speculative job, audit, embedding, release-history, or candidate tables for this implementation.
+The news-analysis schema originates in `server.0004_news_domain` and adds the
+proposition-level overview in `server.0010_shared_proposition_overview`. Do not
+add speculative job, audit, embedding, release-history, or candidate tables for
+this implementation.
 
 ### 5.1 Relationship overview
 
@@ -319,14 +346,17 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 `SharedProposition`
 
 - one cluster;
-- one precise neutral proposition shared by the finding and all its comparisons.
+- one precise neutral proposition shared by the finding and all its comparisons;
+- one reader-facing `comparison_overview` that explains the cross-publisher
+  wording pattern once.
 
 `FindingComparison`
 
 - source finding and different target article in the same cluster;
 - target scope, absolute sentence/marker offsets, and exact text;
 - target owner and optional speaker label;
-- comparison explanation and display rank.
+- optional pair-specific explanation and display rank. The reviewed gold import
+  leaves this blank because its human-written notes summarize all publishers at once.
 
 `SavedArticle`
 
@@ -482,6 +512,7 @@ The response is projected onto the selected article. It never triggers collectio
         "marker": {"start_in_sentence": 13, "end_in_sentence": 19, "text": "..."}
       },
       "explanation": "...",
+      "comparison_overview": "여러 언론사가 같은 쟁점을 어떻게 다르게 표현했는지 설명...",
       "comparison_articles": [
         {
           "article_id": "uuid",
@@ -497,7 +528,7 @@ The response is projected onto the selected article. It never triggers collectio
               "marker": {"start_in_sentence": 5, "end_in_sentence": 8, "text": "피의자"},
               "target_owner": "REPORTER",
               "target_speaker_label": null,
-              "comparison_summary": "..."
+              "comparison_summary": ""
             }
           ]
         }
@@ -592,16 +623,16 @@ Reuse the existing product language and the parts of the Reader that already sol
 
 - typography, colors, spacing primitives, pills, status notices, and source links;
 - full-article text rendering and annotated-string highlight utilities;
-- highlight hit testing and the finding-detail sheet entry behavior;
-- stable middle/expanded sheet anchors, the dedicated drag handle, and the expanded-body scroll handoff;
-- horizontally paged related-article pages and focused scrolling to a target sentence;
+- highlight hit testing and the finding-preview entry behavior;
+- concise finding presentation and exact comparison-evidence highlighting;
+- horizontally paged comparison articles with exact target highlighting;
 - shared loading, retry, empty, and error presentation where the semantics still match.
 
 Reuse is component-level, not contract-level. The legacy `AnalysisResult`/`ReaderResult` contract assumes one user-supplied source article and must not become the news product's domain model. Map the versioned news API DTOs into immutable feed, Reader, finding, and comparison UI models, then feed those models to extracted rendering components. Database models must not leak into Compose.
 
 Keep these flows separate:
 
-- the normal product route is authentication → feed → Reader → finding sheet;
+- the normal product route is authentication → feed → Reader → finding preview → optional detail;
 - the URL import, live-analysis loading, legacy history, and legacy comparison state machine are not reachable by ordinary users;
 - legacy URL analysis may remain as an isolated developer-only capability, but it must not shape feed navigation or Reader state.
 
@@ -612,7 +643,9 @@ components that match the new contract may be extracted.
 
 Stored offsets are Unicode code-point offsets, while Kotlin `String` and Compose text ranges use UTF-16 indices. Convert offsets once in the API-to-UI mapper and validate the quoted text before rendering. A malformed range disables only that marker and is reported safely; it must never highlight a different substring.
 
-The existing bottom-sheet gesture implementation is the baseline because it already avoids the expanded-sheet/body-scroll oscillation. It still requires Compose and physical-device regression tests with long target articles and font scaling.
+The Android preview and detail flow deliberately avoids nested drag, paging, and
+article-scroll gesture owners. It still requires Compose and physical-device
+regression tests with long target articles and font scaling.
 
 ## 10. Implementation order
 
@@ -624,8 +657,8 @@ The news schema, migration, reviewed fixture, and importer baseline already exis
 4. Add backend contract, permission, pagination, grouping, and query-count tests.
 5. Introduce news routes and API-to-UI mappers without coupling them to the legacy analysis state machine.
 6. Implement Android login/registration, encrypted session restoration, and feed navigation.
-7. Extract the reusable Reader text/highlight and sheet primitives, then implement the full Reader, Android analysis toggle, and Web analysis rail.
-8. Connect findings and the multi-publisher bottom sheet to the analysis DTO.
+7. Extract the reusable Reader text/highlight primitives, then implement the full Reader, Android analysis toggle, and Web analysis rail.
+8. Connect findings and multi-publisher preview/detail presentation to the analysis DTO.
 9. Run the required end-to-end flows against the reviewed Supabase data.
 10. Deploy compatible API code before distributing the Android build.
 
@@ -665,10 +698,10 @@ Automatic collection and analysis are intentionally not in this order.
 - title and body offsets open the correct finding;
 - multiple labels remain one tappable marker;
 - READY with zero findings;
-- source-only finding has no empty pager;
-- publisher pages swipe horizontally;
+- source-only finding has no empty comparison section;
+- selecting a marker opens a compact preview before detail;
+- publisher comparisons page horizontally inside the expanded sheet;
 - target article content scrolls vertically;
-- expanded sheet returns naturally to middle state;
 - long text, font scaling, and screen-reader semantics.
 
 ### 11.3 End to end

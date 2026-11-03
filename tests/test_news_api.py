@@ -87,6 +87,7 @@ class NewsApiTests(TestCase):
         proposition = SharedProposition.objects.create(
             story_cluster=self.cluster,
             normalized_proposition="정부가 정책을 추진한다",
+            comparison_overview="연합뉴스는 속도를 강조하고 MBC는 계획을 중립적으로 전한다.",
         )
         return ExpressionFinding.objects.create(
             article=self.source,
@@ -758,6 +759,10 @@ class NewsApiTests(TestCase):
         result = payload["findings"][0]
         self.assertEqual(result["source"]["marker"]["start_in_sentence"],
                          finding.marker_start - finding.source_sentence_start)
+        self.assertEqual(
+            result["comparison_overview"],
+            "연합뉴스는 속도를 강조하고 MBC는 계획을 중립적으로 전한다.",
+        )
         self.assertEqual(len(result["comparison_articles"]), 1)
         self.assertEqual(result["comparison_articles"][0]["body"], self.target.body_text)
         self.assertEqual(result["comparison_articles"][0]["evidence"][0]["marker"]["text"],

@@ -98,6 +98,7 @@ internal data class ApiFinding(
     val sentence: ApiSentence,
     val marker: ApiMarker,
     val explanation: String,
+    val comparisonOverview: String,
     val comparisons: List<ApiComparisonArticle>
 )
 internal data class ApiArticleAnalysis(
@@ -119,6 +120,7 @@ internal data class FindingUi(
     val markerRange: TextRange,
     val markerText: String,
     val explanation: String,
+    val comparisonOverview: String,
     val comparisons: List<ComparisonArticleUi>
 )
 

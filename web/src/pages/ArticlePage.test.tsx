@@ -67,6 +67,7 @@ const findings: Finding[] = [
       marker: { start_in_sentence: 0, end_in_sentence: 18, text: 'Evaluative wording' },
     },
     explanation: 'The wording carries an evaluation.',
+    comparison_overview: 'Source News, Yonhap News, and MBC frame the same event with different levels of force.',
     comparison_articles: [
       comparison('comparison-1', 'Yonhap News', 'Yonhap comparison'),
       comparison('comparison-2', 'MBC', 'MBC comparison'),
@@ -81,6 +82,7 @@ const findings: Finding[] = [
       marker: { start_in_sentence: 0, end_in_sentence: 15, text: 'Another framing' },
     },
     explanation: 'The action is characterized rather than simply reported.',
+    comparison_overview: 'Source News and KBS characterize the same action differently.',
     comparison_articles: [comparison('comparison-3', 'KBS', 'KBS comparison')],
   },
 ]
@@ -113,6 +115,8 @@ describe('ArticlePage analysis rail', () => {
     expect(screen.getByText('Evaluation or emotion')).toBeInTheDocument()
     expect(screen.queryByText('E')).not.toBeInTheDocument()
     expect(screen.queryByText('1 / 2')).not.toBeInTheDocument()
+    expect(screen.getAllByText(findings[0].comparison_overview)).toHaveLength(1)
+    expect(screen.queryByText('The outlets characterize the same event differently.')).not.toBeInTheDocument()
 
     const yonhap = screen.getByRole('tab', { name: 'Yonhap News' })
     const mbc = screen.getByRole('tab', { name: 'MBC' })
@@ -121,6 +125,7 @@ describe('ArticlePage analysis rail', () => {
     expect(mbc).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('MBC comparison')).toBeInTheDocument()
     expect(screen.getAllByText('MBC')).toHaveLength(1)
+    expect(screen.getAllByText(findings[0].comparison_overview)).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'Next finding' }))
     expect(screen.getByText('Finding 2 of 2')).toBeInTheDocument()

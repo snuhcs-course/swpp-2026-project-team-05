@@ -116,6 +116,7 @@ class NewsApiClientTest {
         assertEquals("전격", finding.marker.text)
         assertEquals("빠르게", finding.comparisons.single().evidence.single().marker.text)
         assertEquals("기자", finding.comparisons.single().evidence.single().targetSpeakerLabel)
+        assertEquals("", finding.comparisons.single().evidence.single().comparisonSummary)
 
         responses += Response(200, """{"items":[{
           "id":"a3","publisher":{"code":"yna","name":"연합뉴스"},"title":"제목",
@@ -211,7 +212,7 @@ class NewsApiClientTest {
           "evidence":[{"scope":"BODY","sentence":{"start":0,"end":18,"text":"정책을 빠르게 추진할 계획이다."},
             "marker":{"start_in_sentence":4,"end_in_sentence":7,"text":"빠르게"},
             "target_owner":"REPORTER","target_speaker_label":"기자",
-            "comparison_summary":"속도 표현이 다르다."}]}]}]}"""
+            "comparison_summary":""}]}]}]}"""
 
     private data class Response(val status: Int, val body: String)
     private data class CapturedRequest(

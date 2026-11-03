@@ -21,7 +21,7 @@ from .news_import import DatasetError
 
 GOLD_RUBRIC = "v5"
 GOLD_KIND = "gold"
-ANALYSIS_VERSION = "gold-v5-product-v1"
+ANALYSIS_VERSION = "gold-v5-product-v2"
 
 # The first release exposes two broad sections.  This mapping is reviewed data,
 # not an inferred classifier result, and can be split when the product adds more
@@ -264,24 +264,30 @@ def _convert_findings(document: dict) -> tuple[list[dict], list[dict]]:
 
     propositions: list[dict] = []
     findings: list[dict] = []
-    proposition_by_sentence: dict[str, str] = {}
     ordered = sorted(grouped.items(), key=lambda item: item[0])
     for display_order, ((marker_start, marker_end, marker_text), group) in enumerate(ordered):
         finding_key = f"finding-{marker_start}-{marker_end}"
         sentence = group["source_sentence_text"]
-        proposition_key = proposition_by_sentence.get(sentence)
-        if proposition_key is None:
-            proposition_key = f"proposition-{marker_start}-{marker_end}"
-            proposition_by_sentence[sentence] = proposition_key
-            propositions.append({
-                "key": proposition_key,
-                # The exact reviewed source sentence is a conservative proposition
-                # label. It is internal and never presented as generated copy.
-                "normalized_proposition": sentence,
-            })
+        proposition_key = f"proposition-{marker_start}-{marker_end}"
+        notes = list(dict.fromkeys(group["notes"]))
+        comparison_overview = "\n\n".join(notes)
+        propositions.append({
+            "key": proposition_key,
+            # The exact reviewed source sentence is a conservative internal label.
+            # A sentence may contain more than one independently compared marker,
+            # so proposition identity is the stable key rather than text equality.
+            "normalized_proposition": sentence,
+            "comparison_overview": comparison_overview,
+        })
         comparisons = []
         for rank, comparison in enumerate(group["comparisons"]):
-            comparisons.append({**comparison, "display_rank": rank})
+            comparisons.append({
+                **comparison,
+                # Gold v5 notes compare the complete publisher set. They belong
+                # to the proposition overview, not to every source-target pair.
+                "comparison_summary": "",
+                "display_rank": rank,
+            })
         findings.append({
             "key": finding_key,
             "article": _article_key(document_name, "source"),
@@ -289,7 +295,7 @@ def _convert_findings(document: dict) -> tuple[list[dict], list[dict]]:
             "source_sentence_text": group["source_sentence_text"],
             "marker_text": marker_text,
             "categories": sorted(group["categories"]),
-            "explanation": group["notes"][0],
+            "explanation": comparison_overview,
             "display_order": display_order,
             "shared_proposition": proposition_key,
             "comparisons": comparisons,

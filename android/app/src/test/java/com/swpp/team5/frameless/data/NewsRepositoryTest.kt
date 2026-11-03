@@ -126,7 +126,7 @@ class NewsRepositoryTest {
                 StoredAnalysisState.READY, "v1", listOf(ApiFinding(
                     "f1", listOf("D"), "BODY",
                     ApiSentence(0, article.body.length, article.body),
-                    ApiMarker(4, 6, "전격"), "속도를 강조한다.", emptyList()
+                    ApiMarker(4, 6, "전격"), "속도를 강조한다.", "", emptyList()
                 ))
             )
         }

@@ -26,7 +26,8 @@ class NewsAnalysisMapperTest {
         val valid = ApiFinding(
             id = "valid", categories = listOf("D"), scope = "TITLE",
             sentence = ApiSentence(0, 9, "😀정책 전격 추진"),
-            marker = ApiMarker(4, 6, "전격"), explanation = "강조", comparisons = emptyList()
+            marker = ApiMarker(4, 6, "전격"), explanation = "강조",
+            comparisonOverview = "", comparisons = emptyList()
         )
         val invalid = valid.copy(id = "invalid", marker = ApiMarker(4, 6, "오류"))
         val mapped = ApiArticleAnalysis(
@@ -63,12 +64,18 @@ class NewsAnalysisMapperTest {
         val finding = ApiFinding(
             id = "f1", categories = listOf("D"), scope = "BODY",
             sentence = ApiSentence(0, 16, article.body), marker = ApiMarker(8, 10, "전격"),
-            explanation = "속도를 강조한다.", comparisons = listOf(target)
+            explanation = "속도를 강조한다.",
+            comparisonOverview = "두 언론사가 추진 속도를 다르게 표현한다.",
+            comparisons = listOf(target)
         )
 
         val mapped = ApiArticleAnalysis(StoredAnalysisState.READY, "v1", listOf(finding)).toUi(article)
 
         assertEquals("빠르게", mapped.findings.single().comparisons.single().evidence.single().markerText)
+        assertEquals(
+            "두 언론사가 추진 속도를 다르게 표현한다.",
+            mapped.findings.single().comparisonOverview
+        )
         val invalidTarget = target.copy(evidence = target.evidence.map {
             it.copy(marker = ApiMarker(8, 11, "불일치"))
         })

@@ -256,6 +256,7 @@ internal class NewsApiClient(baseUrl: String) {
                 sentence = sentence(source.requireObject("sentence")),
                 marker = marker(source.requireObject("marker")),
                 explanation = finding.requireString("explanation"),
+                comparisonOverview = finding.optString("comparison_overview"),
                 comparisons = finding.optJSONArray("comparison_articles").orEmptyObjects().map { target ->
                     ApiComparisonArticle(
                         articleId = target.requireString("article_id"),
@@ -273,7 +274,7 @@ internal class NewsApiClient(baseUrl: String) {
                                 targetSpeakerLabel = evidence.optString("target_speaker_label").takeIf {
                                     evidence.has("target_speaker_label") && !evidence.isNull("target_speaker_label") && it.isNotBlank()
                                 },
-                                comparisonSummary = evidence.requireString("comparison_summary")
+                                comparisonSummary = evidence.optString("comparison_summary")
                             )
                         }
                     )

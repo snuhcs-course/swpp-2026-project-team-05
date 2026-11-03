@@ -73,6 +73,7 @@ internal fun ApiArticleAnalysis.toUi(article: ArticleDetail): ArticleAnalysisUi 
             markerRange = markerRange,
             markerText = finding.marker.text,
             explanation = finding.explanation,
+            comparisonOverview = finding.comparisonOverview,
             comparisons = comparisons
         )
     }

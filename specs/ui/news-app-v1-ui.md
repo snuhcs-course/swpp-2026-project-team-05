@@ -1,6 +1,6 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: v1.7 implemented Android and Web baseline
+Status: v1.8 implemented Android and Web baseline
 
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
@@ -13,7 +13,7 @@ The UI must remain straightforward to implement and maintain in native Android. 
 - [FeedFlow](https://github.com/prof18/feed-flow) for a maintained, Apache-2.0 reader implementation and practical article-list density.
 - [Material 3 adaptive list-detail](https://developer.android.com/develop/adaptive-apps/guides/list-detail) for future phone/tablet layout adaptation.
 
-FrameLESS-specific behavior stays deliberately small: exact in-article markers, a Material 3 bottom sheet, and a Compose horizontal pager for publisher comparisons. Particle and Ground News may inform product behavior, but their private implementations are not development dependencies. GPL reader projects may be observed visually but their code must not be copied into this repository.
+FrameLESS-specific behavior stays deliberately small: exact in-article markers, a compact Android finding preview, and an on-demand expanded sheet for publisher comparisons. Particle and Ground News may inform product behavior, but their private implementations are not development dependencies. GPL reader projects may be observed visually but their code must not be copied into this repository.
 
 ## 1. Scope and priorities
 
@@ -38,7 +38,7 @@ Visual rules:
 - Do not add generic thumbnails, generated summaries, bias meters, truth scores, or decorative gradients.
 - Keep comparison as a contextual layer inside the Reader rather than turning the feed into a cluster dashboard.
 
-I-series analysis, including I1, is deferred and does not appear in these screens. All analysis shown here is already stored; opening the feed, Reader, or analysis sheet never starts collection or an LLM call.
+I-series analysis, including I1, is deferred and does not appear in these screens. All analysis shown here is already stored; opening the feed, Reader, preview, or comparison sheet never starts collection or an LLM call.
 
 ## 2. Primary flow
 
@@ -51,7 +51,7 @@ Launch
                                                   ↓
                                    Tap an analyzed expression
                                                   ↓
-                              Finding detail / comparison bottom sheet
+                         Finding preview → full comparison detail
 ```
 
 The feed is the primary discovery destination and Saved is a secondary route.
@@ -259,9 +259,9 @@ Reader behavior:
   title/body findings and keeps the analysis rail in section 6.5 visible.
 - A marker with multiple categories is one tap target.
 - Overlapping markers render as one target and open one finding.
-- Tapping a marker opens the sheet in section 6 on Android or selects the same
+- Tapping a marker opens the preview in section 6 on Android or selects the same
   finding in the Web rail.
-- Opening, paging, expanding, collapsing, and closing the sheet preserves source Reader position.
+- Opening and closing the preview or comparison sheet preserves source Reader position.
 - `원문 보기` opens the canonical source externally.
 
 ### 5.3 Reader analysis states
@@ -281,97 +281,104 @@ READY with zero findings:
 
 Do not describe the article as neutral.
 
-## 6. Finding detail and comparison sheet
+## 6. Finding preview and comparison detail
 
-### 6.1 Source-only finding
+### 6.1 Android finding preview
 
 ```text
 ┌──────────────────────────────────────┐
-│                 ─────                │
-│  이 표현에서 드러난 특징             │
-│                                      │
-│  선택한 표현: “온도차가 있었다”       │
-│  [평가·범주화 표현]                   │
-│                                      │
-│  여러 지역의 서로 다른 반응을         │
-│  ‘온도차’라는 말로 묶어 설명해요.      │
-│                                      │
-│  기사 문맥                            │
-│  ... “온도차가 있었다” ...            │
-│                                      │
+│  표현 분석                         [×] │
+│  “온도차가 있었다”                    │
+│  여러 지역의 반응을 ‘온도차’라는    │
+│  말로 묶어 설명해요.                  │
+│  [평가·감정이 담긴 표현]              │
 └──────────────────────────────────────┘
 ```
 
-- End after the explanation and source context.
-- Do not render an empty pager.
-- Do not claim that other articles omitted the content.
-- Show natural-language feature labels rather than raw A-G codes.
+- The preview floats over the bottom of the Reader without a scrim and does not
+  change article scroll position.
+- It keeps one anchored compact form and is never dragged or internally
+  scrolled. Only the inline explanation disclosure may increase its height.
+- The article remains scrollable; tapping a different marker replaces the
+  preview content in place.
+- Close, Android back, disabling analysis, or tapping ordinary article text
+  dismisses the preview. Article scrolling alone does not dismiss it.
+- Every preview shows all natural-language feature labels and up to four lines
+  of explanation. When text overflows, `설명 더보기` expands it in place and
+  `설명 접기` restores the compact card; no analysis text becomes inaccessible.
+- A source-only finding ends in the preview with no chevron or detail action.
+- A comparison-backed finding additionally shows `다른 기사 N곳과 비교`.
+- Show natural-language feature labels rather than raw A–G codes.
 
-### 6.2 Finding with comparisons — middle state
+### 6.2 Source-only finding
+
+A source-only finding never opens a second surface. The Reader already supplies
+its source context, so repeating the expression and sentence in a full-height
+sheet would add navigation without adding information.
+
+### 6.3 Comparison publisher pages
 
 ```text
 ┌──────────────────────────────────────┐
-│                 ─────                │
-│  이 표현에서 드러난 특징             │
-│  “보복살해범”                         │
-│  확정적 명명과 수사 단계 명칭의 차이  │
+│  같은 내용을 다른 기사에서는      [×] │
+│  ┌────────────────────────────────┐  │
+│  │ 언론사별 표현 차이를 한 번에 설명 │  │
+│  └────────────────────────────────┘  │
 │──────────────────────────────────────│
-│  같은 내용을 다른 기사에서는    1 / 2 │
-│                                      │
 │  연합뉴스 · 발행 시각                 │
-│  ... “피의자” 신상 공개 ...           │
-│  원문 보기                            │
-│                                      │
-│  ← 좌우로 다른 기사 보기 →            │
-└──────────────────────────────────────┘
-```
-
-### 6.3 Finding with comparisons — expanded state
-
-```text
-┌──────────────────────────────────────┐
-│                 ─────                │
-│  같은 내용을 다른 기사에서는    1 / 2 │
-│  연합뉴스 · 발행 시각 · 원문 보기     │
-│──────────────────────────────────────│
-│                                      │
-│  비교 기사 제목                       │
+│  비교 기사 제목                 원문 보기 │
+│  “피의자”가 들어간 대응 문장           │
 │                                      │
 │  비교 기사 전문...                    │
-│                                      │
-│  대응되는 [피의자] 표현이 화면의      │
-│  읽기 좋은 위치에 오도록 이동한다.     │
-│                                      │
-│  나머지 비교 기사 전문...             │
-│                                      │
+│  대응 표현은 본문에서 강조된다.      │
+│                  ┌───────────┐ │
+│                  │  ‹  1 / 2  ›  │ │
+│                  └───────────┘ │
 └──────────────────────────────────────┘
 ```
 
 Comparison behavior:
 
+- When comparisons exist, the expanded sheet begins directly with `같은 내용을
+  다른 기사에서는`; it does not repeat the marker, categories, or explanation
+  already shown in the preview.
+- Keep an explicit `×` close action in the fixed heading. Do not render gesture
+  instructions such as swipe or pull-to-close copy; the pager, handle, and
+  controls communicate those interactions directly.
+- Show the proposition-level comparison overview once between the fixed heading
+  and pageable evidence. It remains visible while publisher pages change and
+  must not be duplicated inside those pages.
 - Return at most three publisher-diverse pages.
-- One publisher occupies one page.
+- One publisher occupies one horizontal page.
 - Multiple supporting sentences from one publisher remain in that page.
-- Show publisher, publication time, exact target marker, comparison explanation, and original link.
-- Always show the publisher-name tab row, including when only one comparison
-  exists. The selected publisher name appears in that row only and is not
-  repeated in the evidence metadata header below it.
-- When target wording is attributed, show a label such as `교육부 표현` or `익명 관계자 발언`.
-- Middle state shows the selected finding and comparison preview.
-- Expanded state allows vertical scrolling through the target article.
-- Horizontal swiping changes publisher; each page keeps its own vertical position.
-- The selected publisher page remains stable while expanding or collapsing.
+- Show publisher, publication time, exact target marker, and original link.
+- Show a speaker label such as `교육부 표현` only when a specific attributed
+  speaker is stored. Omit the generic `기자 표현` label.
+- The sheet opens directly at its maximum height. The target article scrolls
+  vertically, and horizontal swiping changes publisher pages.
+- With multiple pages, a compact floating `‹  n / N  ›` pill overlays the
+  bottom edge and mirrors horizontal swiping without reserving article height.
+  Its surface is lightly translucent but keeps accessible contrast. Boundary
+  actions are disabled, and bottom article padding keeps the last line reachable.
+- Each page keeps its own vertical position while paging.
 - If a target article becomes unavailable, remove its page rather than showing broken content.
 
-### 6.4 Sheet gesture ownership
+### 6.4 Navigation and gesture ownership
 
-- Sheet initially opens at the middle anchor.
-- Upward drag on the handle expands it.
-- Downward drag on the handle collapses expanded → middle.
-- Back closes the sheet before leaving Reader.
-- In expanded state, vertical gestures on article content scroll the article, not the sheet.
-- Horizontal gestures in comparison content page publishers.
-- Vertical and horizontal gestures must not make the sheet oscillate or change anchors unexpectedly.
+- Tapping the preview action opens the expanded comparison sheet without moving the source Reader.
+- There is no middle sheet anchor and no expand/collapse transition.
+- Back, outside tap, or downward dismissal returns to the same Reader position
+  and clears the preview instead of reopening a surface the reader has already completed.
+- The fixed-heading close action follows the same dismissal path.
+- Back from the preview closes it before leaving Reader.
+- The preview itself has no swipe or drag gesture. Inside the expanded sheet,
+  vertical gestures scroll the selected article and horizontal gestures page publishers.
+- Downward drag dismisses from the top handle, the fixed comparison heading, or
+  the fixed article metadata/evidence area.
+- Article body gestures scroll normally; once that body is already at its top,
+  a deliberate downward pull dismisses the sheet after release. Dismissal uses
+  the Material hide animation; Material whole-sheet dragging stays disabled so
+  these regions never fight the article scroll and wobble.
 
 ### 6.5 Desktop web analysis rail
 
@@ -413,12 +420,13 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 
 - Login and registration success → all-publisher feed.
 - Feed → Reader → back restores feed position and filters.
-- Reader with open sheet → back closes sheet first.
+- Reader with open detail → back closes both detail and its preview, preserving
+  the article position. Back from a preview alone closes the preview first.
 - Account menu dismiss → same feed state.
 - Expired session clears authenticated state and returns to Login with an explanation.
 - Process recreation restores authentication and the last feed category. Followed
   sources and saved articles reload from the account; restoring an open Reader
-  or sheet is deferred.
+  preview or detail is deferred.
 
 ## 9. Accessibility and content edge cases
 
@@ -426,10 +434,12 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Support system font scaling without clipped controls.
 - Marker meaning cannot rely only on color; selected state also changes weight, underline, outline, or semantics.
 - Screen reader marker label: `{marker}, 표현 분석 보기`.
-- Pager announcement: `비교 기사 2개 중 1번째, 연합뉴스`.
+- Comparison-page announcement includes its publisher name and page position.
 - Icons need Korean descriptions unless decorative.
 - Test long publisher names, three-line headlines, long paragraphs, long explanations, and three comparison publishers.
-- No automatic scrolling while the user is reading, except deliberate centering of a selected target sentence when a comparison page opens.
+- No automatic scrolling while the user is reading. Opening a preview never moves the article.
+  A comparison page may move once to its first body evidence when first shown;
+  after that, it preserves the reader's own position.
 
 ## 10. Compose boundaries
 
@@ -456,8 +466,8 @@ AnalysisStateBadge
 ArticleHeader
 AnalysisToggle
 ExpressionAnnotatedText
+FindingPreviewCard
 FindingDetailSheet
-ComparisonPublisherPager
 ComparisonArticlePage
 ReaderStatusNotice
 ```
@@ -467,14 +477,14 @@ ReaderStatusNotice
 - UI models follow versioned API DTOs and are not database-shaped.
 - Authentication, feed, article, and analysis repositories remain injectable.
 - Preserve the existing FrameLESS visual language; improve hierarchy and scanability rather than redesigning it.
-- Reuse the existing Reader's full-text annotation, tap targeting, related-article pager, focused scrolling, and bottom-sheet gesture helpers after extracting them from the legacy `ReaderResult` contract.
+- Reuse the existing Reader's full-text annotation, tap targeting, exact evidence highlighting, and Reader-position preservation after extracting them from the legacy `ReaderResult` contract.
 - Do not pass legacy `AnalysisResult`/`ReaderResult` or database models into the news routes. Convert versioned API DTOs to immutable UI models at the repository boundary.
 - Keep URL import, live-analysis loading, analysis history, and the old comparison screen outside ordinary navigation. They may remain developer-only and isolated.
 - Feed, registration, followed-source management, saved articles, account
   controls, and news navigation are product components; do not distort legacy
   screens to imitate them.
 - Convert API code-point offsets to Compose UTF-16 indices once in the mapper and verify the expected quote. Invalid markers are omitted safely while the article remains readable.
-- Treat the current non-oscillating sheet drag implementation as the baseline and re-test middle ↔ expanded movement with long articles, horizontal paging, font scaling, and a physical device.
+- Re-test preview dismissal, clean expanded-sheet return, long comparison articles, font scaling, and physical-device back behavior.
 
 Suggested extraction boundary:
 
@@ -497,7 +507,8 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Login and registration open the all-publisher feed
 - Feed → Reader → back restores scroll position, category, and scope
 - Saved → Reader → back restores the saved list rather than exiting the app
-- Back closes sheet before Reader
+- Back from detail clears detail and preview before leaving Reader; back from a
+  preview alone clears it before leaving Reader
 - Ordinary users never receive URL-analysis or diagnostic navigation
 
 ### Feed
@@ -518,13 +529,13 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Title and body markers open the correct finding
 - One marker with multiple labels remains one target
 - READY with zero findings
-- Source-only finding has no empty comparison pager
+- Source-only finding has no empty comparison section
 - At most three publisher pages
 - Same-publisher evidence stays on one page
 - Attribution and publication time appear
-- Middle → expanded → middle sheet movement
-- Expanded article scroll does not oscillate the sheet
-- Horizontal publisher paging preserves each page's vertical position
+- Marker opens preview before detail
+- Detail sheet opens directly at maximum height
+- Horizontal publisher paging and vertical article scrolling remain stable
 
 ## 12. UI definition of done
 
@@ -538,9 +549,9 @@ The UI is complete when:
 - Android analysis can be toggled without changing article content or position;
 - Web analysis remains visible in its rail without changing article content or position;
 - exact title/body markers open the correct article-specific finding;
-- source-only findings end without a comparison carousel;
-- valid compared publishers page horizontally and their articles scroll vertically;
-- the bottom sheet moves predictably in both directions;
+- source-only findings end without an empty comparison section;
+- valid compared publishers page horizontally while their articles scroll vertically;
+- the compact preview does not interrupt article reading or require dragging;
 - original links, publisher, publication time, and attribution remain visible;
 - ordinary users never encounter URL input or internal diagnostics;
 - required Compose, accessibility, and end-to-end UI tests pass.

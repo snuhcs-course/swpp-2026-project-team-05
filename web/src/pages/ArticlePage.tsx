@@ -61,7 +61,6 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
       <blockquote className="mt-4 border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
         {before}<mark className="bg-zinc-200 px-0.5 font-semibold text-black">{marker}</mark>{after}
       </blockquote>
-      {evidence.comparison_summary && <p className="mt-4 text-sm leading-6 text-zinc-600">{evidence.comparison_summary}</p>}
     </div>
   )
 }
@@ -69,6 +68,8 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
 function FindingPanel({ finding }: { finding: Finding }) {
   const [page, setPage] = useState(0)
   const comparisons = finding.comparison_articles.length
+  const overview = finding.comparison_overview.trim()
+  const showFindingExplanation = comparisons === 0 || !overview || overview !== finding.explanation.trim()
 
   return (
     <div className="animate-in">
@@ -77,13 +78,18 @@ function FindingPanel({ finding }: { finding: Finding }) {
           {finding.categories.map(findingCategoryLabel).join(' · ')}
         </p>
         <p className="font-serif text-xl font-bold leading-7">“{finding.source.marker.text}”</p>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">{finding.explanation}</p>
+        {showFindingExplanation && <p className="mt-3 text-sm leading-6 text-zinc-600">{finding.explanation}</p>}
       </div>
       <div className="py-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-[0.12em]">Compared coverage</h3>
           <span className="text-xs text-zinc-500">{comparisons} {comparisons === 1 ? 'source' : 'sources'}</span>
         </div>
+        {overview && (
+          <p className="mb-5 border border-zinc-300 bg-zinc-50 px-4 py-3 text-sm leading-6 text-zinc-700">
+            {overview}
+          </p>
+        )}
         {comparisons > 0 && (
           <div role="tablist" aria-label="Comparison sources" className="mb-5 flex gap-5 overflow-x-auto border-b border-zinc-300">
             {finding.comparison_articles.map((article, index) => (
