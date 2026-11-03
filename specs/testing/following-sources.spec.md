@@ -5,7 +5,7 @@
 | Status | Implemented |
 | Owner | Following sources feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§11–12 |
-| Last reviewed | 2026-11-02 |
+| Last reviewed | 2026-11-03 |
 
 ## Scope
 
@@ -125,9 +125,11 @@ and cross-outlet comparison remain independent of follows.
 - [Unit] Server follow state replaces device-local publisher selection without
   uploading legacy local codes; category and analysis visibility remain local.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
-- [Component] The scope bottom sheet and follow editor expose selected state,
-  named checkboxes, Save, Cancel, retry, and both empty states.\
-  Tip: add semantics-driven Compose tests when implementing the UI.
+- [Component] The scope bottom sheet exposes Latest and Following as one
+  mutually exclusive, named radio group. The follow editor alone uses named
+  checkboxes for multi-publisher selection and preserves Save, Cancel, retry,
+  and both empty states.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.feedScopeUsesSingleSelectionRadioOptions`
 - [Security regression] Logout clears follow and Following-feed state before a
   second account initializes the app.\
   Tip: extend reset tests with two accounts and opposing follow sets.
