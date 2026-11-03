@@ -26,7 +26,8 @@ Priorities:
 
 1. Users can browse and read articles like a normal news app.
 2. Analysis never blocks article reading.
-3. Users can turn analysis on and inspect exact title or body markers.
+3. Users can inspect exact title or body markers; Android additionally lets
+   users turn marker styling on or off.
 4. A finding explains the selected expression and shows other publishers only when valid comparison evidence exists.
 5. Login, feed, Reader, comparison, and settings have complete loading, empty, error, and retry behavior.
 
@@ -110,7 +111,7 @@ Functional requirements:
 
 ## 4. News feed
 
-### 4.1 Main wireframe
+### 4.1 Android main wireframe
 
 ```text
 ┌──────────────────────────────────────┐
@@ -136,7 +137,12 @@ Feed behavior:
   client-only, adds no label or separate section, and does not change API or
   cursor ordering.
 - Category control switches between politics and society.
-- Latest/Following opens the scope sheet; source management opens section 4.3.
+- On Android, Latest/Following opens the scope sheet and source management opens
+  the bottom sheet in section 4.3.
+- On Web, search is part of the feed content, Latest/Following is an inline
+  segmented control, Saved is global navigation, and source management opens a
+  dialog. These controls preserve the same feed state and API contracts as
+  Android; they are not required to share the same physical placement.
 - Politics and Society live in the global header only; do not duplicate the
   same section control in a feed sidebar.
 - Tapping anywhere on an article row opens the Reader.
@@ -201,7 +207,7 @@ Analysis badges:
 
 ## 5. Article Reader
 
-### 5.1 Analysis off
+### 5.1 Android analysis off
 
 ```text
 ┌──────────────────────────────────────┐
@@ -222,7 +228,7 @@ Analysis badges:
 └──────────────────────────────────────┘
 ```
 
-### 5.2 Analysis on
+### 5.2 Android analysis on
 
 ```text
 ┌──────────────────────────────────────┐
@@ -245,11 +251,14 @@ Analysis badges:
 Reader behavior:
 
 - Article detail loads independently from analysis.
-- Analysis off removes all marker styling without changing text or scroll position.
-- Analysis on marks exact title and body phrases.
+- Android analysis off removes all marker styling without changing text or
+  scroll position; analysis on marks exact title and body phrases.
+- Web has no analysis toggle in the implemented baseline. It marks available
+  title/body findings and keeps the analysis rail in section 6.5 visible.
 - A marker with multiple categories is one tap target.
 - Overlapping markers render as one target and open one finding.
-- Tapping a marker opens the sheet in section 6.
+- Tapping a marker opens the sheet in section 6 on Android or selects the same
+  finding in the Web rail.
 - Opening, paging, expanding, collapsing, and closing the sheet preserves source Reader position.
 - `원문 보기` opens the canonical source externally.
 
@@ -257,12 +266,12 @@ Reader behavior:
 
 | State | Reader behavior |
 | --- | --- |
-| `NOT_STARTED` | Article readable; toggle disabled; analysis unavailable message |
+| `NOT_STARTED` | Article readable; Android toggle disabled; Web rail shows an analysis-unavailable state |
 | `UPDATING` | Article readable; compact updating notice |
-| `READY` with findings | Toggle enabled |
-| `READY` with zero findings | Toggle enabled; show completed-with-no-visible-finding message |
+| `READY` with findings | Android toggle enabled; Web rail shows the findings |
+| `READY` with zero findings | Android toggle enabled; both clients show completed-with-no-visible-finding message |
 | `PARTIAL` | Verified findings available with an incompleteness notice |
-| `FAILED` | Article readable; toggle disabled; analysis unavailable message |
+| `FAILED` | Article readable; Android toggle disabled; Web rail shows an analysis-unavailable state |
 
 READY with zero findings:
 
@@ -393,7 +402,8 @@ right rail. Its two navigation levels must use different controls:
 ```
 
 - Logout clears the local token and returns to Login.
-- The Reader remembers the last analysis-toggle value locally; there is no separate default setting.
+- Android remembers the last analysis-toggle value locally; Web has no separate
+  toggle or default setting in the implemented baseline.
 
 The existing legacy URL-analysis capability is not linked from this v1 UI. A developer screen may be specified later without changing the feed or Reader routes.
 
@@ -501,7 +511,8 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 ### Reader and analysis
 
 - Article loads independently from analysis
-- Analysis toggle preserves article text and scroll position
+- Android analysis toggle preserves article text and scroll position
+- Web analysis rail selects findings without changing article text or position
 - Title and body markers open the correct finding
 - One marker with multiple labels remains one target
 - READY with zero findings
@@ -522,7 +533,8 @@ The UI is complete when:
 - users can search all feed-visible articles and return to the prior feed;
 - users can save an article and return from its Reader to the saved list;
 - every visible article is readable regardless of analysis status;
-- analysis can be toggled without changing article content or position;
+- Android analysis can be toggled without changing article content or position;
+- Web analysis remains visible in its rail without changing article content or position;
 - exact title/body markers open the correct article-specific finding;
 - source-only findings end without a comparison carousel;
 - valid compared publishers page horizontally and their articles scroll vertically;

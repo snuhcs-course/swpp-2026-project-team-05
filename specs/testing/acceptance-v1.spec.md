@@ -29,8 +29,11 @@ Society and between Latest and Following, **then** every visible row satisfies
 the selected category and scope and opening a row shows that exact article.
 
 Procedure: record the initial Latest rows; switch each category; follow at least
-one publisher and open Following; load the next page when available; open one
-article and compare its publisher and title with the selected row.
+one publisher and open Following. If the selected category has a followed-source
+article, load the next page when available, open one article, and compare its
+publisher and title with the selected row. Otherwise, verify the distinct
+no-matching-article empty state and its return-to-Latest action; do not require
+an article to open from an empty result.
 
 ## UAT-03 — Search the complete feed-visible corpus
 
@@ -45,14 +48,16 @@ search; verify the pre-search category and feed scope are retained.
 
 ## UAT-04 — Read an article with optional analysis
 
-**Given** an article whose analysis is ready, **when** the tester opens it, toggles
-analysis off and on, and scrolls the article, **then** the complete stored article
-remains readable and analysis markers change without replacing or corrupting the
-article text.
+**Given** an article whose analysis is ready, **when** the tester opens it and
+scrolls the article, **then** the complete stored article remains readable and
+the platform's analysis presentation does not replace or corrupt the article
+text. Android additionally supports turning markers off and on; Web presents
+the stored findings in its persistent analysis rail.
 
-Procedure: compare the opening article metadata with the feed row; scroll to the
-end; toggle analysis twice; reopen the article and verify the saved preference is
-applied as specified.
+Procedure: on both clients, compare the opening article metadata with the feed
+row and scroll to the end. On Android, toggle analysis twice, reopen the article,
+and verify the saved preference. On Web, select a title/body marker and verify
+that the corresponding finding is selected in the always-visible analysis rail.
 
 ## UAT-05 — Inspect a grounded cross-publisher comparison
 

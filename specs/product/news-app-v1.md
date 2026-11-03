@@ -12,7 +12,13 @@
 
 ## 1. Product contract
 
-FrameLESS v1 is an article-first news application. A signed-in user browses articles from supported publishers, reads one article in full, and optionally turns on FrameLESS annotations. The annotations are prepared before the read request and stored in PostgreSQL. Other publishers appear only when a reviewed comparison exists for the selected expression.
+FrameLESS v1 is an article-first news application. A signed-in user browses
+articles from supported publishers, reads one article in full, and inspects
+stored FrameLESS annotations. Android lets the user turn article markers on or
+off; Web keeps the reviewed markers and analysis rail visible beside the
+article. The annotations are prepared before the read request and stored in
+PostgreSQL. Other publishers appear only when a reviewed comparison exists for
+the selected expression.
 
 The ordinary user does not submit a URL and never waits for an LLM call. The main flow is:
 
@@ -25,7 +31,7 @@ Choose Latest or Following, or search all feed articles
         ↓
 Read one stored article in full
         ↓
-Turn expression analysis on
+Inspect available expression analysis
         ↓
 Tap a highlighted expression
         ↓
@@ -54,7 +60,7 @@ and followed-source behavior are specified in
 - Stable cursor pagination
 - Full stored article title and body
 - Original publisher, publication time, category, and source link
-- Analysis on/off in the Reader
+- Stored analysis in the Reader: optional marker overlay on Android and a persistent analysis rail on Web
 - Exact title/body highlights for stored findings
 - Source-only finding explanations
 - Optional cross-publisher comparison cards
@@ -195,27 +201,41 @@ Each row shows:
 
 Do not show generated summaries, thumbnails, cluster information, A–G codes, finding counts, rankings, or bias labels.
 
-The last category and Reader analysis-toggle value are stored locally on the
-device. Saved articles and followed publishers are account-specific server data.
-Following never changes analysis or comparison evidence.
+The last category is stored locally on each client. Android also stores its
+Reader analysis-toggle value locally. Saved articles and followed publishers
+are account-specific server data. Following never changes analysis or
+comparison evidence.
 
 ### 4.2 Reader
 
 The article must remain readable regardless of analysis availability.
 
-With analysis off:
+Common Reader behavior:
 
-- render the exact stored title/body without highlights;
+- render the exact stored title/body;
 - preserve paragraph breaks;
 - show publisher, publication time, category, and original link.
 
-With analysis on:
+Android analysis behavior:
 
-- fetch the article-centered analysis endpoint;
+- let the user turn marker styling on or off without changing the article or
+  scroll position;
+- remember that preference locally;
+- fetch the article-centered analysis endpoint independently from article text.
+
+Web analysis behavior:
+
+- fetch the article-centered analysis endpoint when the Reader opens;
+- keep the analysis rail visible beside the article;
+- do not expose an analysis toggle in the implemented Web baseline.
+
+When analysis is visible on either client:
+
 - highlight exact markers in the title and body;
 - merge overlapping markers into one tappable region with multiple labels;
 - do not modify the underlying article string or scroll position;
-- open the finding sheet when a marker is tapped.
+- open the finding sheet on Android or select the finding in the Web rail when a
+  marker is tapped.
 
 ### 4.3 Analysis display states
 
@@ -602,7 +622,7 @@ The news schema, migration, reviewed fixture, and importer baseline already exis
 4. Add backend contract, permission, pagination, grouping, and query-count tests.
 5. Introduce news routes and API-to-UI mappers without coupling them to the legacy analysis state machine.
 6. Implement Android login/registration, encrypted session restoration, and feed navigation.
-7. Extract the reusable Reader text/highlight and sheet primitives, then implement the full Reader and analysis toggle.
+7. Extract the reusable Reader text/highlight and sheet primitives, then implement the full Reader, Android analysis toggle, and Web analysis rail.
 8. Connect findings and the multi-publisher bottom sheet to the analysis DTO.
 9. Run the required end-to-end flows against the reviewed Supabase data.
 10. Deploy compatible API code before distributing the Android build.
@@ -653,7 +673,8 @@ Automatic collection and analysis are intentionally not in this order.
 
 1. Register → Latest/Following feed → open article → source-only finding.
 2. Open the 제주 finding → compare `보복살해범` with `피의자` from two publishers.
-3. Turn analysis off/on without moving the Reader position.
+3. Turn analysis off/on on Android without moving the Reader position; on Web,
+   verify that the persistent analysis rail selects the same stored finding.
 4. Restart the app and restore the authenticated feed and local category.
 5. Confirm an ordinary user cannot access hidden or developer-only behavior.
 
