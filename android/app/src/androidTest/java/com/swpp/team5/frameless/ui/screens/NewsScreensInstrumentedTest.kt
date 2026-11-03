@@ -1,10 +1,11 @@
 package com.swpp.team5.frameless.ui.screens
 
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,6 +13,7 @@ import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ArticleSummary
+import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsUser
 import com.swpp.team5.frameless.data.PublisherItem
@@ -25,7 +27,7 @@ import org.junit.Test
 
 class NewsScreensInstrumentedTest {
     @get:Rule
-    val compose = createAndroidComposeRule<ComponentActivity>()
+    val compose = createComposeRule()
 
     private val publisher = PublisherItem("yna", "연합뉴스", null)
 
@@ -44,9 +46,10 @@ class NewsScreensInstrumentedTest {
             val listState = rememberLazyListState()
             NewsFeedScreen(
                 state, session, listState,
-                onCategory = {}, onPublishers = {}, onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onCategory = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = {}, onRetry = {}, onLoadMore = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onArticle = { selectedId = it }, onLogout = {}
+                onSavedOpen = {}, onArticle = { selectedId = it }, onLogout = {}
             )
         }
 
@@ -54,6 +57,30 @@ class NewsScreensInstrumentedTest {
         compose.runOnIdle { assertEquals("article-1", selectedId) }
         compose.onNodeWithContentDescription("계정 메뉴").performClick()
         compose.onNodeWithText("reader").assertIsDisplayed()
+    }
+
+    @Test
+    fun feedScopeUsesSingleSelectionRadioOptions() {
+        var selectedScope: FeedScope? = null
+        val state = NewsFeedState(
+            publishers = listOf(publisher.copy(isFollowed = true)),
+            scope = FeedScope.ALL
+        )
+        val session = AppSession(NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry")
+        compose.setContent {
+            NewsFeedScreen(
+                state, session, rememberLazyListState(),
+                onCategory = {}, onScope = { selectedScope = it }, onSources = { _, _ -> },
+                onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
+                onSavedOpen = {}, onArticle = {}, onLogout = {}
+            )
+        }
+
+        compose.onNodeWithText("최신  ⌄").performClick()
+        compose.onNodeWithContentDescription("최신 피드").assertIsSelected()
+        compose.onNodeWithContentDescription("팔로잉 피드").assertIsNotSelected().performClick()
+        compose.runOnIdle { assertEquals(FeedScope.FOLLOWING, selectedScope) }
     }
 
     @Test
@@ -73,7 +100,8 @@ class NewsScreensInstrumentedTest {
         compose.setContent {
             NewsReaderScreen(
                 state = remember { state },
-                onBack = {}, onRetry = {}, onAnalysisEnabled = { analysisEnabled = it }
+                onBack = {}, onRetry = {}, onAnalysisEnabled = { analysisEnabled = it },
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
             )
         }
 

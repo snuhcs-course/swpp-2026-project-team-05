@@ -139,6 +139,9 @@ Feed behavior:
 - Category control switches between politics and society.
 - On Android, Latest/Following opens the scope sheet and source management opens
   the bottom sheet in section 4.3.
+- The Android scope sheet presents Latest and Following as one mutually
+  exclusive radio group. Checkboxes are reserved for selecting multiple
+  publishers in source management.
 - On Web, search is part of the feed content, Latest/Following is an inline
   segmented control, Saved is global navigation, and source management opens a
   dialog. These controls preserve the same feed state and API contracts as

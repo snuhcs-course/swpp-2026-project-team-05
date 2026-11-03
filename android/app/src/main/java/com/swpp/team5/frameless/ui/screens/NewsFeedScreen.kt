@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
@@ -26,6 +28,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -469,11 +473,19 @@ private fun FeedScopeSheet(
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             Text("피드", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
             Spacer(Modifier.height(8.dp))
-            FilterRow("최신 · 모든 언론사", scope == FeedScope.ALL) {
-                onScope(FeedScope.ALL)
-            }
-            FilterRow("팔로잉 · ${followedCount}곳", scope == FeedScope.FOLLOWING) {
-                onScope(FeedScope.FOLLOWING)
+            Column(Modifier.selectableGroup()) {
+                FeedScopeOption(
+                    label = "최신",
+                    detail = "모든 언론사",
+                    selected = scope == FeedScope.ALL,
+                    onClick = { onScope(FeedScope.ALL) }
+                )
+                FeedScopeOption(
+                    label = "팔로잉",
+                    detail = if (followedCount == 0) "선택한 언론사 없음" else "${followedCount}개 언론사",
+                    selected = scope == FeedScope.FOLLOWING,
+                    onClick = { onScope(FeedScope.FOLLOWING) }
+                )
             }
             HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
             Text(
@@ -511,7 +523,7 @@ private fun PublisherFollowSheet(
             Caption("선택한 언론사는 팔로잉 피드에만 반영되며 기사 분석에는 영향을 주지 않아요.")
             HorizontalDivider(color = Fl.Line)
             publishers.forEach { publisher ->
-                FilterRow(publisher.name, publisher.code in draft) {
+                CheckboxRow(publisher.name, publisher.code in draft) {
                     if (!isSaving) {
                         draft = if (publisher.code in draft) draft - publisher.code else draft + publisher.code
                     }
@@ -524,7 +536,36 @@ private fun PublisherFollowSheet(
 }
 
 @Composable
-private fun FilterRow(label: String, checked: Boolean, onClick: () -> Unit) {
+private fun FeedScopeOption(
+    label: String,
+    detail: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .semantics { contentDescription = "$label 피드" }
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = Fl.Accent,
+                unselectedColor = Fl.Muted
+            )
+        )
+        Column(Modifier.padding(start = 6.dp)) {
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Fl.Ink)
+            Caption(detail)
+        }
+    }
+}
+
+@Composable
+private fun CheckboxRow(label: String, checked: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = checked, onCheckedChange = { onClick() })
