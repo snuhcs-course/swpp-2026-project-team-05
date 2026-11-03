@@ -256,6 +256,7 @@ internal class NewsApiClient(baseUrl: String) {
                 sentence = sentence(source.requireObject("sentence")),
                 marker = marker(source.requireObject("marker")),
                 explanation = finding.requireString("explanation"),
+                comparisonOverview = finding.optString("comparison_overview"),
                 comparisons = finding.optJSONArray("comparison_articles").orEmptyObjects().map { target ->
                     ApiComparisonArticle(
                         articleId = target.requireString("article_id"),

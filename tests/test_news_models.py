@@ -42,6 +42,7 @@ class NewsAnalysisModelTests(SimpleTestCase):
             id=uuid.uuid4(),
             story_cluster=self.cluster,
             normalized_proposition="정부가 정책을 추진한다",
+            comparison_overview="두 언론사가 추진 속도를 다르게 표현한다.",
         )
 
     def _article(self, *, cluster, url, body):

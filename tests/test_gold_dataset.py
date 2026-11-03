@@ -20,7 +20,7 @@ class GoldDatasetConversionTests(SimpleTestCase):
         self.assertEqual(len(clusters), 30)
         self.assertEqual(sum(len(row["articles"]) for row in clusters), 178)
         self.assertEqual(sum(len(row["findings"]) for row in clusters), 91)
-        self.assertEqual(sum(len(row["propositions"]) for row in clusters), 86)
+        self.assertEqual(sum(len(row["propositions"]) for row in clusters), 91)
         self.assertEqual(
             sum(len(finding["comparisons"])
                 for cluster in clusters for finding in cluster["findings"]),
@@ -59,19 +59,27 @@ class GoldDatasetConversionTests(SimpleTestCase):
             self.assertTrue(finding["source_sentence_text"])
             self.assertTrue(finding["marker_text"])
             self.assertTrue(finding["comparisons"])
+            cluster = next(
+                row for row in self.dataset["clusters"] if finding in row["findings"]
+            )
+            proposition = next(
+                row for row in cluster["propositions"]
+                if row["key"] == finding["shared_proposition"]
+            )
+            self.assertTrue(proposition["comparison_overview"])
             for comparison in finding["comparisons"]:
                 self.assertTrue(comparison["target_sentence_text"])
                 self.assertTrue(comparison["target_marker_text"])
-                self.assertTrue(comparison["comparison_summary"])
+                self.assertEqual(comparison["comparison_summary"], "")
 
     def test_product_copy_does_not_expose_evaluation_article_ids(self):
         internal_reference = re.compile(
             r"(?<![A-Za-z0-9])(?:A\d+(?![A-Za-z0-9])|S(?=는|#))"
         )
         for cluster in self.dataset["clusters"]:
+            for proposition in cluster["propositions"]:
+                self.assertIsNone(
+                    internal_reference.search(proposition["comparison_overview"])
+                )
             for finding in cluster["findings"]:
                 self.assertIsNone(internal_reference.search(finding["explanation"]))
-                for comparison in finding["comparisons"]:
-                    self.assertIsNone(
-                        internal_reference.search(comparison["comparison_summary"])
-                    )

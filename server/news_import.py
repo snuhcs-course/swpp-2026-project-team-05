@@ -236,6 +236,9 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
                 normalized_proposition=_required(
                     proposition_item, "normalized_proposition", f"{context} proposition {proposition_key}"
                 ),
+                comparison_overview=str(
+                    proposition_item.get("comparison_overview") or ""
+                ).strip(),
             )
             proposition.full_clean()
             proposition.save()
@@ -310,14 +313,38 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
                     target_marker_text=target_marker,
                     target_owner=_required(comparison_item, "target_owner", comparison_context),
                     target_speaker_label=comparison_item.get("target_speaker_label") or None,
-                    comparison_summary=_required(
-                        comparison_item, "comparison_summary", comparison_context
-                    ),
+                    comparison_summary=str(
+                        comparison_item.get("comparison_summary") or ""
+                    ).strip(),
                     display_rank=comparison_item.get("display_rank", rank),
                 )
                 comparison.full_clean()
                 comparison.save()
                 comparison_total += 1
+
+        # Older reviewed fixtures predate proposition-level overview copy. Derive
+        # it once from their pair summaries while keeping the import contract
+        # backward compatible.
+        for proposition in proposition_by_key.values():
+            if proposition.comparison_overview:
+                continue
+            summaries = list(
+                FindingComparison.objects.filter(
+                    expression_finding__shared_proposition=proposition,
+                )
+                .order_by("expression_finding__display_order", "display_rank", "id")
+                .values_list("comparison_summary", flat=True)
+            )
+            explanations = list(
+                ExpressionFinding.objects.filter(shared_proposition=proposition)
+                .order_by("display_order", "id")
+                .values_list("explanation", flat=True)
+            )
+            distinct = list(dict.fromkeys(
+                text.strip() for text in [*summaries, *explanations] if text.strip()
+            ))
+            proposition.comparison_overview = "\n\n".join(distinct)
+            proposition.save(update_fields=["comparison_overview"])
 
         cluster.analysis_status = AnalysisStatus.READY
         cluster.analysis_version = dataset.get("analysis_version", "reviewed-v1")

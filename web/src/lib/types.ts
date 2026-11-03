@@ -79,6 +79,7 @@ export interface Finding {
     marker: MarkerRange
   }
   explanation: string
+  comparison_overview: string
   comparison_articles: ComparisonArticle[]
 }
 

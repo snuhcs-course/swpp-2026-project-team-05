@@ -268,16 +268,11 @@ class SharedProposition(models.Model):
         StoryCluster, on_delete=models.CASCADE, related_name="shared_propositions",
     )
     normalized_proposition = models.TextField()
+    comparison_overview = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "frameless_shared_proposition"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["story_cluster", "normalized_proposition"],
-                name="frameless_cluster_proposition_uniq",
-            ),
-        ]
 
 
 class ExpressionFinding(models.Model):
@@ -375,7 +370,7 @@ class FindingComparison(models.Model):
     target_marker_text = models.TextField()
     target_owner = models.CharField(max_length=24, choices=ExpressionOwner.choices)
     target_speaker_label = models.CharField(max_length=255, null=True, blank=True)
-    comparison_summary = models.TextField()
+    comparison_summary = models.TextField(blank=True, default="")
     display_rank = models.PositiveIntegerField(default=0)
 
     class Meta:

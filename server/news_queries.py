@@ -323,6 +323,7 @@ def article_analysis_payload(article: Article) -> dict:
                            .order_by("display_rank", "id"))
     finding_queryset = (ExpressionFinding.objects
                         .filter(article=article)
+                        .select_related("shared_proposition")
                         .prefetch_related(Prefetch("comparisons", queryset=comparison_queryset))
                         .order_by("display_order", "source_sentence_start", "marker_start"))
 
@@ -347,6 +348,10 @@ def article_analysis_payload(article: Article) -> dict:
                 },
             },
             "explanation": finding.explanation,
+            "comparison_overview": (
+                finding.shared_proposition.comparison_overview
+                if finding.shared_proposition_id else ""
+            ),
             "comparison_articles": _comparison_pages(finding, article),
         })
     return {

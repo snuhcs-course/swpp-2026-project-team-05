@@ -67,8 +67,13 @@ publisher and exact corresponding passage, supports multiple comparison articles
 when present, and opens the selected article without losing context.
 
 Procedure: select a known multi-article finding; verify the source marker and each
-target passage against stored text; move between comparison articles; expand and
-collapse the panel on Android; open one related article and return.
+target passage against stored text; on Android, confirm the compact preview opens
+before the maximum-height comparison sheet, then page between publishers and
+confirm the common overview appears only once, use the bottom previous/next
+navigator, scroll one comparison article, and pull
+down from its top to return to the clean Reader without restoring the preview;
+repeat once with the fixed-heading close action; open one original article link
+and return.
 
 ## UAT-06 — Keep saved articles synchronized per account
 
