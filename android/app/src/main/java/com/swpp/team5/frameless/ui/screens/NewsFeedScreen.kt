@@ -204,7 +204,7 @@ internal fun NewsFeedScreen(
             state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
                 title = "검색어를 조금 더 입력해 주세요",
                 detail = "두 글자 이상부터 전체 기사에서 검색해요.",
-                action = "검색 지우기",
+                action = "다시 입력하기",
                 onAction = { onSearchInput("") }
             )
             state.isSearchPending -> LoadingFeed()
@@ -487,7 +487,7 @@ private fun SearchNoResults(
         Spacer(Modifier.height(4.dp))
         FilledPill("기사 링크로 분석하기", onAnalyzeLink)
         Text(
-            "검색 지우기",
+            "전체 기사 보기",
             fontSize = 13.sp,
             color = Fl.Muted,
             fontWeight = FontWeight.Medium,
