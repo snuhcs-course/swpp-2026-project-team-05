@@ -3,11 +3,14 @@ package com.swpp.team5.frameless.ui.screens
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
@@ -54,6 +57,7 @@ class NewsScreensInstrumentedTest {
         }
 
         compose.onNodeWithText("정부, 정책 전격 추진").assertIsDisplayed().performClick()
+        compose.onAllNodesWithText("분석 완료").assertCountEquals(0)
         compose.runOnIdle { assertEquals("article-1", selectedId) }
         compose.onNodeWithContentDescription("계정 메뉴").performClick()
         compose.onNodeWithText("reader").assertIsDisplayed()
@@ -81,6 +85,37 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithContentDescription("최신 피드").assertIsSelected()
         compose.onNodeWithContentDescription("팔로잉 피드").assertIsNotSelected().performClick()
         compose.runOnIdle { assertEquals(FeedScope.FOLLOWING, selectedScope) }
+    }
+
+    @Test
+    fun zeroResultSearchPreviewsUrlAnalysisWithoutSubmitting() {
+        val state = NewsFeedState(
+            publishers = listOf(publisher),
+            isSearchOpen = true,
+            searchInput = "없는 기사",
+            activeSearchQuery = "없는 기사"
+        )
+        val session = AppSession(NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry")
+        compose.setContent {
+            NewsFeedScreen(
+                state, session, rememberLazyListState(),
+                onCategory = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
+                onSavedOpen = {}, onArticle = {}, onLogout = {}
+            )
+        }
+
+        compose.onNodeWithText("기사 링크로 분석하기").performClick()
+        compose.onNodeWithText("계속").performClick()
+        compose.onNodeWithText("http:// 또는 https://로 시작하는 전체 기사 주소를 입력해 주세요.")
+            .assertIsDisplayed()
+        compose.onNodeWithContentDescription("기사 URL 입력")
+            .performTextInput("https://news.example.com/story")
+        compose.onNodeWithText("계속").performClick()
+        compose.onNodeWithText("기사 분석 기능을 준비하고 있어요").assertIsDisplayed()
+        compose.onNodeWithText("검색으로 돌아가기").performClick()
+        compose.onNodeWithText("검색 결과가 없어요").assertIsDisplayed()
     }
 
     @Test

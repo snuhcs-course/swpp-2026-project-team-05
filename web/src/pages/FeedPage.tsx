@@ -3,10 +3,10 @@ import { LoaderCircle, Search, Settings2, X } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
-import { AnalysisBadge } from '../components/AnalysisBadge'
 import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
 import { ManageSourcesDialog } from '../components/ManageSourcesDialog'
+import { UrlAnalysisMock } from '../components/UrlAnalysisMock'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { orderFeedArticles } from '../lib/feedOrdering'
@@ -188,8 +188,8 @@ export function FeedPage() {
               </h2>
               <span className="text-xs text-zinc-500">
                 {activeQuery
-                  ? `“${activeQuery}” · all sources · ${articles.length} loaded`
-                  : `Newest · ${articles.length} stories`}
+                  ? `“${activeQuery}” · all sources`
+                  : 'Newest first'}
               </span>
             </div>
 
@@ -207,7 +207,6 @@ export function FeedPage() {
                 <div className="mb-4 flex flex-wrap items-center gap-3 text-xs">
                   <strong>{hero.publisher.name}</strong>
                   <span className="text-zinc-500">{formatDate(hero.published_at, true)}</span>
-                  <AnalysisBadge state={hero.analysis_state} />
                 </div>
                 <Link to={`/articles/${hero.id}`} state={articleRouteState(location.pathname, location.search)}>
                   <h2 className="max-w-4xl font-serif text-[clamp(2.25rem,4.5vw,4.8rem)] font-black leading-[1.03] tracking-[-0.055em] hover:underline hover:decoration-2 hover:underline-offset-8">
@@ -222,7 +221,7 @@ export function FeedPage() {
             {!articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
               <div className="border-y border-zinc-300 px-5 py-20 text-center text-sm text-zinc-500">
                 {activeQuery ? (
-                  `No stories found for “${activeQuery}”.`
+                  <UrlAnalysisMock key={activeQuery} query={activeQuery} />
                 ) : scope === 'FOLLOWING' && followedCount === 0 ? (
                   <>
                     <p>Choose a few trusted sources to build your Following feed.</p>

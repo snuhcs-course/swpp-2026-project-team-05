@@ -138,6 +138,28 @@ describe('FeedPage search', () => {
     expect(orderFeedArticles(serverOrder, 'FOLLOWING', false)).toEqual(serverOrder)
   })
 
+  it('keeps feed rows free of analysis status and duplicate open actions', async () => {
+    const article = (id: string, title: string): ArticleSummary => ({
+      id,
+      title,
+      publisher: { code: 'yna', name: 'Yonhap News', logo_url: '' },
+      category: 'POLITICS',
+      published_at: '2026-11-01T12:00:00+09:00',
+      analysis_state: 'READY',
+      is_saved: false,
+    })
+    vi.mocked(api.articles).mockResolvedValueOnce({
+      items: [article('hero', '첫 번째 기사'), article('row', '두 번째 기사')],
+      next_cursor: null,
+    })
+
+    renderFeed()
+    expect(await screen.findByText('첫 번째 기사')).toBeInTheDocument()
+    expect(screen.getByText('두 번째 기사')).toBeInTheDocument()
+    expect(screen.queryByText('Analysis ready')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Open/ })).not.toBeInTheDocument()
+  })
+
   it('searches the full corpus even when Following is selected', async () => {
     renderFeed('/?category=POLITICS&scope=following')
     const input = screen.getByRole('searchbox', { name: 'Search articles' })
@@ -148,6 +170,35 @@ describe('FeedPage search', () => {
       'test-token',
       expect.objectContaining({ scope: 'ALL', query: '중수청' }),
     ), { timeout: 1000 })
+  })
+
+  it('previews URL analysis only after a zero-result search without sending the URL', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    const search = screen.getByRole('searchbox', { name: 'Search articles' })
+
+    await waitFor(() => expect(api.articles).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Analyze an article link' })).not.toBeInTheDocument()
+    await user.type(search, '없는 기사')
+    const entry = await screen.findByRole('button', { name: 'Analyze an article link' })
+    const searchRequestCount = vi.mocked(api.articles).mock.calls.length
+
+    await user.click(entry)
+    const urlInput = screen.getByRole('textbox', { name: 'Article URL' })
+    await user.type(urlInput, 'not-a-url')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('complete public article URL')
+
+    await user.clear(urlInput)
+    await user.type(urlInput, ' https://news.example.com/story ')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+
+    const preview = screen.getByText('Article analysis is coming soon.').closest('[role="status"]')
+    expect(preview).toHaveTextContent('not uploaded or saved')
+    expect(api.articles).toHaveBeenCalledTimes(searchRequestCount)
+
+    await user.click(screen.getByRole('button', { name: 'Back to search' }))
+    expect(screen.getByText('No stories found for “없는 기사”.')).toBeInTheDocument()
   })
 
   it('saves source preferences explicitly from the manager', async () => {
