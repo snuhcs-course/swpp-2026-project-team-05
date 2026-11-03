@@ -4,7 +4,8 @@
 
 Use this order when behavior is unclear:
 
-1. reviewed product and UI specifications in `docs/`;
+1. reviewed product, UI, and feature specifications in `specs/product/`,
+   `specs/ui/`, and `specs/features/`;
 2. reviewed behavioral test specifications in `specs/testing/`;
 3. executable tests and API contracts;
 4. implementation details.

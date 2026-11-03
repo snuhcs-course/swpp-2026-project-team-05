@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Implemented; intent review inherited from the product specification |
 | Owner | Article search feature owner |
-| Source requirements | `docs/news-app-features-spec.md` §§2–8 |
+| Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§2–8 |
 | Last reviewed | 2026-11-02 |
 
 ## Scope

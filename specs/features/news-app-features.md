@@ -2,18 +2,18 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for implementation |
-| Version | 0.3 |
-| Date | 2026-11-02 |
+| Status | Implemented baseline |
+| Version | 0.4 |
+| Date | 2026-11-03 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
-| Current feature | Following sources v1 |
+| Implemented slices | Search, saved articles, and following sources |
 
 This document defines incremental, ordinary news-app features that build on the
 existing FrameLESS product. The current product and data contracts remain in
-[`news-app-v1-spec.md`](news-app-v1-spec.md), and the existing Reader and feed
-interactions remain in [`news-app-v1-ui-spec.md`](news-app-v1-ui-spec.md).
+[`news-app-v1.md`](../product/news-app-v1.md), and the existing Reader and feed
+interactions remain in [`news-app-v1-ui.md`](../ui/news-app-v1-ui.md).
 
 The goal is to add one complete vertical slice at a time without turning the
 baseline specifications into a feature backlog.
@@ -24,15 +24,14 @@ baseline specifications into a feature backlog.
 | --- | --- | --- |
 | Article search | Implemented | Search every feed-visible article from Android and Web |
 | Saved articles | Implemented | Save or remove an article and browse a personal saved list |
-| Following sources | Ready | Keep Latest diverse while offering a separate feed from explicitly followed publishers |
+| Following sources | Implemented | Keep Latest diverse while offering a separate feed from explicitly followed publishers |
 | Reading history | Deferred | Saved articles already cover the primary return-to-reading need |
 | Sharing | Deferred | Native and browser link sharing already cover the immediate need |
 | Likes or reactions | Deferred | Add only after defining what a reaction means for a news product |
 | Comments | Deferred | Requires moderation, reporting, blocking, and deletion policies |
 
-Only the feature marked `Ready` is part of the next implementation. Planned and
-deferred rows are directional notes, not authorization to build their schemas or
-UI in advance.
+The three implemented rows are the current product baseline. Deferred rows are
+directional notes, not authorization to build their schemas or UI in advance.
 
 ## 2. Article search v1
 

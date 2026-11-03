@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Proposed for Iteration 3 intent review and freeze |
 | Owner | Team |
-| Source requirements | `docs/news-app-v1-spec.md`, `docs/news-app-v1-ui-spec.md`, `docs/news-app-features-spec.md` |
+| Source requirements | [`../product/news-app-v1.md`](../product/news-app-v1.md), [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md), [`../features/news-app-features.md`](../features/news-app-features.md) |
 | Last reviewed | 2026-11-02 |
 
 This plan defines stable user-facing procedures. After the team freezes it for
@@ -25,12 +25,12 @@ available. Pass only if no secret is displayed or logged.
 ## UAT-02 — Browse the reviewed news feed
 
 **Given** a signed-in user, **when** the tester changes between Politics and
-Society and selects one or more publishers, **then** every visible row satisfies
-the active filters and opening a row shows that exact article.
+Society and between Latest and Following, **then** every visible row satisfies
+the selected category and scope and opening a row shows that exact article.
 
-Procedure: record the initial rows; switch each category; apply and clear a
-publisher filter; load the next page when available; open one article and compare
-its publisher and title with the selected row.
+Procedure: record the initial Latest rows; switch each category; follow at least
+one publisher and open Following; load the next page when available; open one
+article and compare its publisher and title with the selected row.
 
 ## UAT-03 — Search the complete feed-visible corpus
 
@@ -41,7 +41,7 @@ the ordinary feed.
 
 Procedure: perform all four searches on Web and Android; open a result; reload Web
 and verify search resets without rewriting the URL while typing; clear or close
-search; verify the pre-search category and publisher context is retained.
+search; verify the pre-search category and feed scope are retained.
 
 ## UAT-04 — Read an article with optional analysis
 

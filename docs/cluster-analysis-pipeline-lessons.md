@@ -9,7 +9,11 @@
 
 ## 1. Purpose and evidence boundary
 
-This document records implementation lessons for a future automatic analysis pipeline. It is not another product specification and is not part of the current v1 implementation order. The product and schema contracts remain in [`news-app-v1-spec.md`](news-app-v1-spec.md), while the reviewed examples live in [`reviewed_news_pilot_v1.json`](../server/fixtures/reviewed_news_pilot_v1.json).
+This document records implementation lessons for a future automatic analysis
+pipeline. It is not another product specification and is not part of the current
+v1 implementation order. The product and schema contracts remain in
+[`news-app-v1.md`](../specs/product/news-app-v1.md), while the current reviewed
+examples live in [`gold_v5/`](../server/fixtures/gold_v5/).
 
 The conclusions come from manually and agent-assisted review of recent politics and society clusters. They validate the shape of the data and expose common semantic errors. They do **not** establish the precision, latency, or cost of an automatic model pipeline.
 

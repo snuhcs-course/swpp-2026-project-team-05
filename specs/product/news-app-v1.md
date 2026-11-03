@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Status | Implementation baseline |
-| Version | 1.5 (reviewed-analysis vertical slice) |
-| Date | 2026-10-31 |
-| Client | Android |
+| Version | 1.6 (implemented news-product baseline) |
+| Date | 2026-11-03 |
+| Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
 | Analysis scope | Read and present already-reviewed results |
@@ -21,7 +21,7 @@ Register or log in
         ↓
 Browse politics or society articles
         ↓
-Filter by publisher
+Choose Latest or Following, or search all feed articles
         ↓
 Read one stored article in full
         ↓
@@ -36,7 +36,10 @@ Internal story clusters organize related articles, but v1 does not expose a topi
 
 `ExpressionFinding` means one reviewed, displayable result: an exact source sentence, one exact marker, one or more A–G feature categories, a user-facing explanation, and optional comparisons with sentences from other articles.
 
-Android layout, gestures, loading states, and accessibility are specified in [`news-app-v1-ui-spec.md`](news-app-v1-ui-spec.md).
+Android and Web layout, gestures, loading states, and accessibility are specified
+in [`news-app-v1-ui.md`](../ui/news-app-v1-ui.md). Search, saved articles,
+and followed-source behavior are specified in
+[`news-app-features.md`](../features/news-app-features.md).
 
 ### 1.1 Required v1 functionality
 
@@ -44,7 +47,10 @@ Android layout, gestures, loading states, and accessibility are specified in [`n
 - No anonymous mode
 - Ordinary user and developer-account distinction
 - Politics and society feed
-- Publisher and category filters
+- Latest and Following scopes with account-synchronized followed sources
+- Server-side article search across the feed-visible corpus
+- Account-synchronized saved articles
+- Category navigation
 - Stable cursor pagination
 - Full stored article title and body
 - Original publisher, publication time, category, and source link
@@ -70,34 +76,25 @@ The following designs remain valid future work, but they are not required to shi
 - Analysis history and rollback
 - Article edit/version history
 - I-series analysis, including I1
-- Personalized ranking, bookmarks, recommendations, and notifications
-- Server-synchronized publisher preferences
+- Personalized ranking, recommendations, and notifications
 - Email verification, password reset, account deletion, and session management UI
 - Offline article storage
-- Public web and iOS clients
+- iOS client
 
 The existing legacy URL-analysis endpoint may remain for compatibility, but it is not linked from the v1 ordinary-user UI and is not part of the new read-path implementation.
 
-Future automatic analysis work is documented separately in [`cluster-analysis-pipeline-lessons.md`](cluster-analysis-pipeline-lessons.md). It must not complicate the v1 read APIs or Android UI.
+Future automatic analysis work is documented separately in
+[`cluster-analysis-pipeline-lessons.md`](../../docs/cluster-analysis-pipeline-lessons.md).
+It must not complicate the v1 read APIs or client UI.
 
 ## 2. Supported content
 
 ### 2.1 Publishers
 
-Publisher rows come from the database; Android does not hard-code publisher branches.
-
-The reviewed seed currently contains:
-
-- Yonhap News Agency (`yna`)
-- News1 (`news1`)
-- Newsis (`newsis`)
-- MBC (`mbc`)
-- SBS (`sbs`)
-- YTN (`ytn`)
-- Hankyoreh (`hani`)
-- Kyunghyang Shinmun (`khan`)
-
-KBS, Chosun Ilbo, JoongAng Ilbo, and Dong-A Ilbo may be added as ordinary publisher rows when reviewed article data is available. Adding an outlet must not require an Android release.
+Publisher rows come from the database; neither client hard-codes publisher
+branches. The reviewed dataset currently exposes 30 feed articles and keeps 148
+comparison-support articles readable only through analysis evidence. Adding an
+outlet must not require a client release.
 
 `Publisher.code` is the only stable API identifier. Use `yna` consistently; do not introduce a second `yonhap` code.
 
@@ -182,10 +179,11 @@ Password change, reset, account deletion, and session listing remain outside thi
 The feed is sorted by `(published_at DESC, id DESC)` and supports:
 
 - politics/society selection;
-- zero or more publisher filters;
+- Latest and account-specific Following scopes;
+- global server-side search;
 - pull-to-refresh;
 - cursor pagination;
-- restoration of scroll position and filters after returning from the Reader.
+- restoration of scroll position, category, and scope after returning from the Reader.
 
 Each row shows:
 
@@ -197,7 +195,9 @@ Each row shows:
 
 Do not show generated summaries, thumbnails, cluster information, A–G codes, finding counts, rankings, or bias labels.
 
-The last category, publisher selection, and Reader analysis-toggle value are stored locally on the device. They are not account preferences.
+The last category and Reader analysis-toggle value are stored locally on the
+device. Saved articles and followed publishers are account-specific server data.
+Following never changes analysis or comparison evidence.
 
 ### 4.2 Reader
 
@@ -254,6 +254,8 @@ The news-analysis schema already exists through `server.0004_news_domain`. Do no
 
 ```text
 UserAccount ── N AuthSession
+           ├── N SavedArticle ── 1 Article
+           └── N UserPublisherFollow ── 1 Publisher
 
 Publisher ── N Article ── N ExpressionFinding
                     │              │
@@ -303,6 +305,16 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 - target scope, absolute sentence/marker offsets, and exact text;
 - target owner and optional speaker label;
 - comparison explanation and display rank.
+
+`SavedArticle`
+
+- one account and one feed-visible article;
+- unique per `(user, article)` with a saved timestamp.
+
+`UserPublisherFollow`
+
+- one account and one active publisher;
+- unique per `(user, publisher)` with no ranking or recommendation weight.
 
 ### 5.3 A–G feature semantics
 
@@ -382,7 +394,7 @@ Logout is idempotent and returns HTTP 204. `me` returns only the `user` object.
 Return active publishers in `display_order`, then name order:
 
 ```json
-{"items": [{"code": "yna", "name": "연합뉴스", "logo_url": null}]}
+{"items": [{"code": "yna", "name": "연합뉴스", "logo_url": null, "is_followed": true}]}
 ```
 
 ### 6.3 Feed
@@ -392,6 +404,8 @@ Return active publishers in `display_order`, then name order:
 Query parameters:
 
 - `category=POLITICS|SOCIETY`;
+- `scope=ALL|FOLLOWING`;
+- normalized `q` for global search;
 - repeated `publisher=yna&publisher=mbc`;
 - opaque signed `cursor`;
 - `limit`, default 20 and maximum 50.
@@ -407,7 +421,9 @@ Response:
       "title": "...",
       "category": "POLITICS",
       "published_at": "...",
-      "analysis_state": "READY"
+      "analysis_state": "READY",
+      "is_saved": false,
+      "search_excerpt": null
     }
   ],
   "next_cursor": "opaque-or-null"
@@ -420,7 +436,9 @@ The cursor represents the last `(published_at, id)` pair and is validated with D
 
 - `GET /api/v1/articles/{article_id}`
 
-Return publisher, title, exact body, category, publication time, original URL, and analysis state. Hidden articles return `NOT_FOUND` to ordinary users.
+Return publisher, title, exact body, category, publication time, original URL,
+analysis state, and the authenticated user's save state. Hidden articles return
+`NOT_FOUND` to ordinary users.
 
 ### 6.5 Article analysis
 
@@ -479,10 +497,12 @@ The server groups comparisons by publisher and returns at most three pages using
 
 ## 7. Reviewed data import
 
-The Git-tracked fixture contains URLs, expected publishers, clusters, reviewed findings, and reviewed comparisons, but not complete article bodies:
+The Git-tracked gold directory contains 30 reviewed source cases with URLs,
+related articles, A–G findings, and comparison alignments, but not complete
+article bodies:
 
 ```text
-server/fixtures/reviewed_news_pilot_v1.json
+server/fixtures/gold_v5/*.json
 ```
 
 The importer:
@@ -499,23 +519,24 @@ The importer:
 Commands:
 
 ```bash
-python manage.py import_news_dataset \
-  server/fixtures/reviewed_news_pilot_v1.json \
-  --fetch-articles \
+python manage.py import_gold_dataset \
+  server/fixtures/gold_v5 \
   --dry-run
 
-python manage.py import_news_dataset \
-  server/fixtures/reviewed_news_pilot_v1.json \
-  --fetch-articles
+python manage.py import_gold_dataset \
+  server/fixtures/gold_v5 \
+  --replace-news
 ```
 
-The current reviewed dataset contains five clusters and exercises source-only findings, one-to-many comparison evidence, title/body markers, multiple categories on one marker, and completed analyses with no forced comparisons.
+The current reviewed dataset contains 30 clusters and exercises source-only
+findings, one-to-many comparison evidence, multiple categories on one marker,
+and completed analyses with no forced comparisons.
 
 ## 8. Security and robustness
 
 - Never store or log raw passwords or session tokens.
 - Never log database URLs, API keys, full article bodies, or raw model output.
-- Enforce authentication on the server, not only in Android navigation.
+- Enforce authentication on the server, not only in client navigation.
 - Preserve SSRF protection when the management command fetches URLs.
 - Limit request bodies and validate all enum, UUID, cursor, and filter inputs.
 - Use constant-time password checks through Django hashers.
@@ -539,7 +560,9 @@ server/
 
 Do not create a generic repository framework, job framework, event bus, CMS, audit subsystem, or plugin abstraction for v1.
 
-Android uses the existing Kotlin/Compose stack with injectable authentication, article, and analysis clients. DTOs are versioned API models rather than database-shaped objects.
+Android uses the existing Kotlin/Compose stack and Web uses React with shared
+versioned JSON contracts. Client DTOs are API models rather than database-shaped
+objects.
 
 ### 9.1 Android reuse and separation
 
@@ -560,7 +583,10 @@ Keep these flows separate:
 - the URL import, live-analysis loading, legacy history, and legacy comparison state machine are not reachable by ordinary users;
 - legacy URL analysis may remain as an isolated developer-only capability, but it must not shape feed navigation or Reader state.
 
-The feed, publisher filter, registration, account menu, and news navigation are new surfaces. The existing legacy `ComparisonScreen` is not reused wholesale; only focused cards, text annotation helpers, and provenance components that match the new contract may be extracted.
+The feed, Following source manager, saved list, registration, account menu, and
+news navigation are product surfaces. The existing legacy `ComparisonScreen` is
+not reused wholesale; only focused cards, text annotation helpers, and provenance
+components that match the new contract may be extracted.
 
 Stored offsets are Unicode code-point offsets, while Kotlin `String` and Compose text ranges use UTF-16 indices. Convert offsets once in the API-to-UI mapper and validate the quoted text before rendering. A malformed range disables only that marker and is reported safely; it must never highlight a different substring.
 
@@ -575,7 +601,7 @@ The news schema, migration, reviewed fixture, and importer baseline already exis
 3. Implement publisher, feed, article-detail, and article-analysis read APIs.
 4. Add backend contract, permission, pagination, grouping, and query-count tests.
 5. Introduce news routes and API-to-UI mappers without coupling them to the legacy analysis state machine.
-6. Implement Android login/registration, encrypted session restoration, and feed filters.
+6. Implement Android login/registration, encrypted session restoration, and feed navigation.
 7. Extract the reusable Reader text/highlight and sheet primitives, then implement the full Reader and analysis toggle.
 8. Connect findings and the multi-publisher bottom sheet to the analysis DTO.
 9. Run the required end-to-end flows against the reviewed Supabase data.
@@ -610,7 +636,7 @@ Automatic collection and analysis are intentionally not in this order.
 
 - registration and login validation;
 - session restoration and expired-session return to login;
-- category and publisher filters;
+- category and feed-scope navigation;
 - initial, refresh, empty, pagination, and retry feed states;
 - Reader works independently of analysis;
 - analysis toggle preserves text and scroll position;
@@ -625,10 +651,10 @@ Automatic collection and analysis are intentionally not in this order.
 
 ### 11.3 End to end
 
-1. Register → feed → filter → open article → source-only finding.
+1. Register → Latest/Following feed → open article → source-only finding.
 2. Open the 제주 finding → compare `보복살해범` with `피의자` from two publishers.
 3. Turn analysis off/on without moving the Reader position.
-4. Restart the app and restore the authenticated feed and local filters.
+4. Restart the app and restore the authenticated feed and local category.
 5. Confirm an ordinary user cannot access hidden or developer-only behavior.
 
 ## 12. Definition of done
@@ -637,11 +663,12 @@ v1 is complete when:
 
 - a new user can register, log in, remain signed in, and log out;
 - configured politics and society articles appear in a chronological feed;
-- publisher/category filters and pagination are stable;
+- category, Latest/Following scope, and pagination are stable;
+- search, saved articles, and followed sources behave consistently on Android and Web;
 - every visible article is readable regardless of analysis state;
 - exact title/body findings render on the correct characters;
 - source-only findings end without a comparison carousel;
 - validated cross-publisher evidence is grouped and pageable;
 - no read request starts article collection or an LLM call;
 - the reviewed fixture can be loaded repeatedly and verified;
-- backend, Android, and end-to-end tests pass on the supported environment.
+- backend, Android, Web, and end-to-end tests pass on the supported environment.

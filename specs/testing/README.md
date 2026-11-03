@@ -1,7 +1,8 @@
 # Behavioral test specifications
 
 This directory turns reviewed product intent into stable test oracles. It sits
-between the product specifications in `docs/` and executable tests.
+between the product specifications in the sibling `product/`, `ui/`, and
+`features/` directories and executable tests.
 
 ## When a specification is required
 
@@ -35,7 +36,8 @@ not be converted into a passing claim.
 
 ## Different documents, different jobs
 
-- `docs/*-spec.md` defines the product and public contract.
+- `specs/product/`, `specs/ui/`, and `specs/features/` define product and public
+  contracts.
 - `specs/testing/*.spec.md` defines executable oracles and coverage gaps.
 - `docs/testing-documentation.md` records the team strategy and measured results.
 - CI logs and coverage artifacts are evidence for one revision, not permanent
