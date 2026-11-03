@@ -67,6 +67,7 @@ import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
 import com.swpp.team5.frameless.ui.theme.Caption
+import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
@@ -96,6 +97,7 @@ internal fun NewsFeedScreen(
     var showFeedScope by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
     var showAccount by remember { mutableStateOf(false) }
+    var showUrlAnalysisMock by remember { mutableStateOf(false) }
     var savedFeedIndex by remember { mutableIntStateOf(0) }
     var savedFeedOffset by remember { mutableIntStateOf(0) }
 
@@ -103,8 +105,11 @@ internal fun NewsFeedScreen(
         listState.scrollToItem(0)
     }
 
-    LaunchedEffect(state.activeSearchQuery) {
-        if (state.activeSearchQuery.isNotBlank()) listState.scrollToItem(0)
+    LaunchedEffect(state.activeSearchQuery, state.isLoading) {
+        showUrlAnalysisMock = false
+        if (state.activeSearchQuery.isNotBlank() && !state.isLoading && state.items.isNotEmpty()) {
+            listState.scrollToItem(0)
+        }
     }
 
     LaunchedEffect(state.isSearchOpen) {
@@ -210,29 +215,27 @@ internal fun NewsFeedScreen(
                 action = "다시 시도",
                 onAction = onRetry
             )
+            state.items.isEmpty() && state.activeSearchQuery.isNotBlank() -> SearchNoResults(
+                query = state.activeSearchQuery,
+                onAnalyzeLink = { showUrlAnalysisMock = true },
+                onClearSearch = { onSearchInput("") }
+            )
             state.items.isEmpty() -> FeedMessage(
-                title = when {
-                    state.activeSearchQuery.isNotBlank() -> "검색 결과가 없어요"
-                    state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
-                        "팔로우한 언론사가 없어요"
-                    else -> "새 기사가 없어요"
-                },
+                title = if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                    "팔로우한 언론사가 없어요" else "새 기사가 없어요",
                 detail = when {
-                    state.activeSearchQuery.isNotBlank() -> "다른 검색어나 분야를 확인해 보세요."
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
                         "자주 읽는 언론사를 선택해 팔로잉 피드를 만들어 보세요."
                     state.scope == FeedScope.FOLLOWING -> "이 분야에는 팔로우한 언론사의 새 기사가 없어요."
                     else -> "잠시 후 새로고침해 주세요."
                 },
                 action = when {
-                    state.activeSearchQuery.isNotBlank() -> "검색 지우기"
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } -> "언론사 관리"
                     state.scope == FeedScope.FOLLOWING -> "최신 기사 보기"
                     else -> "새로고침"
                 },
                 onAction = {
-                    if (state.activeSearchQuery.isNotBlank()) onSearchInput("")
-                    else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                    if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
                         showSources = true
                     else if (state.scope == FeedScope.FOLLOWING) onScope(FeedScope.ALL)
                     else onRefresh()
@@ -311,6 +314,9 @@ internal fun NewsFeedScreen(
                 Spacer(Modifier.height(12.dp))
             }
         }
+    }
+    if (showUrlAnalysisMock) {
+        UrlAnalysisMockSheet(onDismiss = { showUrlAnalysisMock = false })
     }
 }
 
@@ -457,6 +463,37 @@ internal fun FeedMessage(title: String, detail: String, action: String, onAction
         Text(title, fontWeight = FontWeight.SemiBold, color = Fl.Ink)
         Text(detail, fontSize = 13.sp, lineHeight = 20.sp, color = Fl.Muted)
         OutlinedPill(action, onAction)
+    }
+}
+
+@Composable
+private fun SearchNoResults(
+    query: String,
+    onAnalyzeLink: () -> Unit,
+    onClearSearch: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 44.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("검색 결과가 없어요", fontWeight = FontWeight.SemiBold, color = Fl.Ink)
+        Text(
+            "‘$query’와 일치하는 기사를 찾지 못했어요. 찾고 있는 기사의 링크가 있다면 분석 흐름을 미리 확인할 수 있어요.",
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+            color = Fl.Muted
+        )
+        Spacer(Modifier.height(4.dp))
+        FilledPill("기사 링크로 분석하기", onAnalyzeLink)
+        Text(
+            "검색 지우기",
+            fontSize = 13.sp,
+            color = Fl.Muted,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.clickable(onClick = onClearSearch).padding(8.dp)
+                .semantics { role = Role.Button }
+        )
     }
 }
 

@@ -7,6 +7,7 @@ import { AnalysisBadge } from '../components/AnalysisBadge'
 import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
 import { ManageSourcesDialog } from '../components/ManageSourcesDialog'
+import { UrlAnalysisMock } from '../components/UrlAnalysisMock'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { orderFeedArticles } from '../lib/feedOrdering'
@@ -222,7 +223,7 @@ export function FeedPage() {
             {!articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
               <div className="border-y border-zinc-300 px-5 py-20 text-center text-sm text-zinc-500">
                 {activeQuery ? (
-                  `No stories found for “${activeQuery}”.`
+                  <UrlAnalysisMock key={activeQuery} query={activeQuery} />
                 ) : scope === 'FOLLOWING' && followedCount === 0 ? (
                   <>
                     <p>Choose a few trusted sources to build your Following feed.</p>
