@@ -64,7 +64,6 @@ import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherItem
-import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
@@ -250,7 +249,8 @@ internal fun NewsFeedScreen(
                             if (state.isRefreshing) "새 기사를 확인하는 중…"
                             else if (state.activeSearchQuery.isNotBlank())
                                 "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
-                            else "${state.category.label} · ${state.scope.label} · 최신순",
+                            else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
+                            else "전체 언론사 · 최신순",
                             color = Fl.Muted,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
@@ -331,9 +331,7 @@ internal fun ArticleFeedRow(
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Caption("${article.publisher.name} · ${article.category.label} · ${relativeTime(article.publishedAt)}")
-            Spacer(Modifier.weight(1f))
-            AnalysisStateLabel(article.analysisState)
+            Caption("${article.publisher.name} · ${relativeTime(article.publishedAt)}")
         }
         Text(article.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
             fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
@@ -422,22 +420,6 @@ private fun CategoryTab(label: String, selected: Boolean, onClick: () -> Unit) {
             modifier = Modifier.padding(horizontal = 5.dp, vertical = 8.dp))
         Box(Modifier.height(2.dp).fillMaxWidth()
             .background(if (selected) Fl.Accent else androidx.compose.ui.graphics.Color.Transparent))
-    }
-}
-
-@Composable
-private fun AnalysisStateLabel(state: StoredAnalysisState) {
-    val treatment = when (state) {
-        StoredAnalysisState.UPDATING -> Triple(Fl.Muted, "분석 중", Fl.Muted)
-        StoredAnalysisState.READY -> Triple(Fl.InkDiff, "분석 완료", Fl.InkDiff)
-        StoredAnalysisState.PARTIAL -> Triple(Fl.InkDiff, "일부 분석", Fl.InkDiff)
-        else -> null
-    } ?: return
-    Row(verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Box(Modifier.size(6.dp).background(treatment.first, CircleShape))
-        Text(treatment.second, fontSize = 10.sp, color = treatment.third,
-            fontWeight = FontWeight.Medium)
     }
 }
 

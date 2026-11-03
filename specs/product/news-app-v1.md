@@ -195,9 +195,11 @@ Each row shows:
 
 - publisher;
 - publication time;
-- headline;
-- category;
-- a simple analysis badge when useful.
+- headline.
+
+The selected category is already present in feed navigation and is not repeated
+per row. Analysis lifecycle is contextual Reader information rather than feed
+metadata, so normal article rows do not show analysis badges.
 
 Do not show generated summaries, thumbnails, cluster information, A–G codes, finding counts, rankings, or bias labels.
 

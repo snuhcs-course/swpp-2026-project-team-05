@@ -118,10 +118,10 @@ Functional requirements:
 │  FrameLESS          [검색][저장][계정] │
 │  정치   사회              최신 기사 ⌄ │
 │──────────────────────────────────────│
-│  연합뉴스 · 정치 · 12분 전    분석 완료 │
+│  연합뉴스 · 12분 전                    │
 │  기사 제목은 최대 두 줄로 표시        │
 │──────────────────────────────────────│
-│  MBC · 정치 · 35분 전         분석 중 │
+│  MBC · 35분 전                       │
 │  다음 기사 제목                       │
 │──────────────────────────────────────│
 │  ...                                 │
@@ -159,9 +159,12 @@ Required:
 
 - publisher;
 - publication time;
-- headline, normally capped at two lines for scanability;
-- politics/society category;
-- analysis state when useful.
+- headline, normally capped at two lines for scanability.
+
+The selected politics/society category is already visible in the feed
+navigation and is not repeated on every row. Analysis status belongs to the
+Reader where its consequence can be explained; the feed does not expose
+`READY`, `PARTIAL`, processing, or failure badges.
 
 Do not show:
 
@@ -170,6 +173,8 @@ Do not show:
 - finding or comparison counts;
 - cluster information;
 - publisher ranking, bias, or truth labels.
+- duplicate open/view actions when the headline or entire row already opens the
+  article.
 
 ### 4.3 Followed-source management
 
@@ -198,15 +203,9 @@ Do not show:
 | Empty Following | Distinguish no followed sources from no matching article in the category |
 | Next-page failure | Inline retry after the last loaded row |
 
-Analysis badges:
-
-| State | Feed treatment |
-| --- | --- |
-| `NOT_STARTED` | no badge |
-| `UPDATING` | `분석 중` |
-| `READY` | `분석 완료`; this does not promise that a visible finding exists |
-| `PARTIAL` | `일부 분석` |
-| `FAILED` | no failure badge; article remains ordinary readable content |
+Feed rows do not expose analysis lifecycle badges. A readable article remains a
+normal news item regardless of analysis availability; the Reader owns loading,
+partial, empty, and failure explanations.
 
 ## 5. Article Reader
 
@@ -508,8 +507,8 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Followed-source draft, save, cancel, and failure behavior
 - Search and saved-article entry actions
 - Initial loading, refresh, pagination, empty, and retry states
-- Article row with a long headline
-- Simplified available/preparing/absent analysis badges
+- Article row with a long headline and no redundant category, analysis, or open
+  labels
 
 ### Reader and analysis
 

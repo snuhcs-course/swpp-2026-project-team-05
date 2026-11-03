@@ -3,10 +3,12 @@ package com.swpp.team5.frameless.ui.screens
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
@@ -55,6 +57,7 @@ class NewsScreensInstrumentedTest {
         }
 
         compose.onNodeWithText("정부, 정책 전격 추진").assertIsDisplayed().performClick()
+        compose.onAllNodesWithText("분석 완료").assertCountEquals(0)
         compose.runOnIdle { assertEquals("article-1", selectedId) }
         compose.onNodeWithContentDescription("계정 메뉴").performClick()
         compose.onNodeWithText("reader").assertIsDisplayed()

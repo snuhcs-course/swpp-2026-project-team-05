@@ -685,8 +685,9 @@ user's follows or Following rows after an account switch on the same device.
 - Changes remain a local draft until `Save`; `Cancel` discards them.
 - Disable duplicate submission while saving. On failure, retain the prior
   server set and show an inline retryable error without closing the editor.
-- Article rows keep publisher, publication time, headline, and analysis state.
-  They do not add follow, save, reaction, or comparison controls.
+- Article rows keep publisher, publication time, and headline. They do not
+  repeat the selected category or expose analysis lifecycle, follow, save,
+  reaction, comparison, or duplicate open controls.
 - Closing global search restores the previous Latest or Following feed and
   scroll context.
 

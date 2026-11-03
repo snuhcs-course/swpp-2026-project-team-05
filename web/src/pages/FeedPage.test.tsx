@@ -138,6 +138,28 @@ describe('FeedPage search', () => {
     expect(orderFeedArticles(serverOrder, 'FOLLOWING', false)).toEqual(serverOrder)
   })
 
+  it('keeps feed rows free of analysis status and duplicate open actions', async () => {
+    const article = (id: string, title: string): ArticleSummary => ({
+      id,
+      title,
+      publisher: { code: 'yna', name: 'Yonhap News', logo_url: '' },
+      category: 'POLITICS',
+      published_at: '2026-11-01T12:00:00+09:00',
+      analysis_state: 'READY',
+      is_saved: false,
+    })
+    vi.mocked(api.articles).mockResolvedValueOnce({
+      items: [article('hero', '첫 번째 기사'), article('row', '두 번째 기사')],
+      next_cursor: null,
+    })
+
+    renderFeed()
+    expect(await screen.findByText('첫 번째 기사')).toBeInTheDocument()
+    expect(screen.getByText('두 번째 기사')).toBeInTheDocument()
+    expect(screen.queryByText('Analysis ready')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Open/ })).not.toBeInTheDocument()
+  })
+
   it('searches the full corpus even when Following is selected', async () => {
     renderFeed('/?category=POLITICS&scope=following')
     const input = screen.getByRole('searchbox', { name: 'Search articles' })
