@@ -240,7 +240,7 @@ private fun AnalysisNotice(analysis: ArticleAnalysisUi?, loading: Boolean, error
         analysis?.state == StoredAnalysisState.PARTIAL -> "검토가 끝난 표현만 표시하고 있어요."
         analysis?.state == StoredAnalysisState.READY && analysis.findings.isEmpty() ->
             "분석은 완료되었지만 현재 표시할 표현 특징을 확인하지 못했어요."
-        enabled && !analysis?.findings.isNullOrEmpty() -> "밑줄 친 표현을 누르면 설명과 다른 보도를 볼 수 있어요."
+        enabled && !analysis?.findings.isNullOrEmpty() -> "밑줄 친 표현을 누르면 비교 근거와 원문을 볼 수 있어요."
         else -> null
     }
     if (message != null) {
@@ -347,7 +347,31 @@ private fun FindingDetailSheet(finding: FindingUi, onDismiss: () -> Unit) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.93f)) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("이 표현에서 드러난 특징", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                // AI-assisted; manually reviewed: explicit close affordance for the comparison sheet.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "출처별 표현 비교",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "닫기",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Fl.Muted,
+                        modifier = Modifier
+                            .clickable(onClick = onDismiss)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = "표현 비교 닫기"
+                            }
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                }
                 Text("“${finding.markerText}”", fontFamily = Fl.Serif, fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold, color = Fl.InkDiff)
                 Row(
@@ -371,7 +395,7 @@ private fun FindingDetailSheet(finding: FindingUi, onDismiss: () -> Unit) {
                 HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(top = 6.dp))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("같은 내용을 다른 기사에서는", fontSize = 14.sp,
+                    Text("비교기사에는", fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     Caption("${pagerState.currentPage + 1} / ${finding.comparisons.size}")
                 }
@@ -476,14 +500,14 @@ private fun annotatedTarget(text: String, evidence: List<com.swpp.team5.frameles
     }
 
 private fun categoryLabel(code: String): String = when (code) {
-    "A" -> "보도 태도가 드러나는 표현"
-    "B" -> "발언을 규정하는 표현"
-    "C" -> "행위를 규정하는 표현"
-    "D" -> "정도를 강조하는 표현"
-    "E" -> "평가·감정이 담긴 표현"
-    "F" -> "한쪽의 명명이 반영된 표현"
-    "G" -> "확신·범주화가 드러나는 표현"
-    else -> "표현 특징"
+    "A" -> "보도 동사 차이"
+    "B" -> "발언 표현 차이"
+    "C" -> "행위 표현 차이"
+    "D" -> "강조 정도 차이"
+    "E" -> "평가·감정 표현"
+    "F" -> "명명 방식 차이"
+    "G" -> "확신·범주 표현"
+    else -> "표현 비교"
 }
 
 @Composable
