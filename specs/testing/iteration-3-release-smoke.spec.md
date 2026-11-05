@@ -18,17 +18,18 @@ not replace the 30-case AI module evaluation or the six frozen UAT stories in
 ## Frozen cases
 
 The cases are the six reviewed stories already placed first in the Android and
-Web feeds. Expected counts come from the reviewed `gold_v5` fixtures. A finding
-is one distinct reviewed source proposition; comparison evidence counts the
-linked publisher passages beneath those findings.
+Web feeds. Expected counts come from the reviewed `gold_v5` fixtures after the
+public API's display selection. A finding is one distinct reviewed source
+proposition. Comparison pages are deduplicated by publisher and capped at three
+publishers per finding; the raw fixture may retain additional reviewed passages.
 
 | Case | Reviewed source story | Expected findings | Expected comparison passages |
 | --- | --- | ---: | ---: |
 | `b08` | HD Hyundai Electric quarterly revenue | 2 | 3 |
-| `b12` | Shubao's first public appearance | 1 | 4 |
-| `b16` | Hong Joon-pyo resumes legal practice | 3 | 9 |
+| `b12` | Shubao's first public appearance | 1 | 3 |
+| `b16` | Hong Joon-pyo resumes legal practice | 3 | 8 |
 | `b33` | Hongdae and Itaewon right-side walking | 3 | 3 |
-| `b34` | Hanwha's first U.S. Navy ship order | 3 | 6 |
+| `b34` | Hanwha's first U.S. Navy ship order | 3 | 5 |
 | `b11` | Goheung space-launch industrial complex | 1 | 1 |
 
 ## Preconditions

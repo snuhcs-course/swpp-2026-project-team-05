@@ -126,10 +126,10 @@ the installed APK against the production API.
 | Case | Expected findings / passages | Observed | Reader latency | Result / deviation |
 | --- | ---: | ---: | ---: | --- |
 | `b08` HD Hyundai Electric | 2 / 3 | Pending | Pending | Pending |
-| `b12` Shubao | 1 / 4 | Pending | Pending | Pending |
-| `b16` Hong Joon-pyo | 3 / 9 | Pending | Pending | Pending |
+| `b12` Shubao | 1 / 3 | Pending | Pending | Pending |
+| `b16` Hong Joon-pyo | 3 / 8 | Pending | Pending | Pending |
 | `b33` Hongdae and Itaewon | 3 / 3 | Pending | Pending | Pending |
-| `b34` Hanwha U.S. Navy order | 3 / 6 | Pending | Pending | Pending |
+| `b34` Hanwha U.S. Navy order | 3 / 5 | Pending | Pending | Pending |
 | `b11` Goheung space complex | 1 / 1 | Pending | Pending | Pending |
 
 ## 7. Review cadence
