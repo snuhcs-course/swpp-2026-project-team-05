@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Frozen before the first release-candidate run |
+| Status | Frozen, then executed successfully on 2026-11-05 |
 | Owner | Android release owner |
 | Frozen on | 2026-11-05 |
 | Dataset | `server/fixtures/gold_v5/` |
@@ -106,3 +106,7 @@ python3 scripts/smoke_iteration3_release.py
 ```
 
 This command does not replace the installed-device procedure above.
+
+The first recorded run is in `docs/testing-documentation.md`. The specification
+above remains unchanged as the pre-run oracle; later runs append evidence rather
+than rewriting the criteria.

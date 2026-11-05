@@ -48,7 +48,7 @@ backend and Android coverage gates and uploads reports for 14 days.
 | Saved articles v1 | [`specs/testing/saved-articles.spec.md`](../specs/testing/saved-articles.spec.md) | Implemented with explicit remaining UI/security gaps |
 | Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Implemented with explicit remaining navigation/concurrency gaps |
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Six stories frozen for Iteration 3 against `ab8d9bf` |
-| Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Six reviewed stories frozen before the first run |
+| Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Passed 6/6 on `ff16cd1`; exact API structure matched 6/6 |
 
 ### Result recording template
 
@@ -123,14 +123,26 @@ shapes needed by the Reader: one-to-one, one-to-many, multiple findings, and a
 mix of single- and multi-source comparisons. Results are appended after running
 the installed APK against the production API.
 
-| Case | Expected findings / passages | Observed | Reader latency | Result / deviation |
-| --- | ---: | ---: | ---: | --- |
-| `b08` HD Hyundai Electric | 2 / 3 | Pending | Pending | Pending |
-| `b12` Shubao | 1 / 3 | Pending | Pending | Pending |
-| `b16` Hong Joon-pyo | 3 / 8 | Pending | Pending | Pending |
-| `b33` Hongdae and Itaewon | 3 / 3 | Pending | Pending | Pending |
-| `b34` Hanwha U.S. Navy order | 3 / 5 | Pending | Pending | Pending |
-| `b11` Goheung space complex | 1 / 1 | Pending | Pending | Pending |
+| Case | Expected findings / passages | Observed | API detail + analysis | Installed Reader | Result / deviation |
+| --- | ---: | ---: | ---: | --- | --- |
+| `b08` HD Hyundai Electric | 2 / 3 | 2 / 3 | 281 ms | Single- and multi-source previews opened | Pass |
+| `b12` Shubao | 1 / 3 | 1 / 3 | 260 ms | Three distinct publishers paged | Pass |
+| `b16` Hong Joon-pyo | 3 / 8 | 3 / 8 | 279 ms | Three findings; three distinct publishers paged for the sampled finding | Pass |
+| `b33` Hongdae and Itaewon | 3 / 3 | 3 / 3 | 241 ms | Findings switched without stale explanation | Pass |
+| `b34` Hanwha U.S. Navy order | 3 / 5 | 3 / 5 | 264 ms | Multi-source preview and grounded passage opened | Pass |
+| `b11` Goheung space complex | 1 / 1 | 1 / 1 | 256 ms | Single-source detail showed no pager | Pass |
+
+The API timing is the sum of the authenticated detail and analysis requests,
+measured by `scripts/smoke_iteration3_release.py`; it is not presented as
+tap-to-render UI latency. Median was 262 ms and maximum was 280 ms on the run.
+The installed Reader was also checked manually on the API 36 emulator with a
+fixed two-second observation window per story; every story was interactive by
+the observation point, with no crash, ANR, blank article, or infinite loading.
+
+Stateful checks also passed: toggling analysis did not change the visible body
+bounds, saving and reopening `b16` from Saved worked, and removing it made it
+disappear from Saved. The six frozen cases intentionally cover one-to-one,
+one-to-many, multiple-finding, and mixed single/multi-source structures.
 
 ## 7. Review cadence
 
@@ -145,6 +157,10 @@ the installed APK against the production API.
 
 ## 8. Iteration result log
 
-No new result is claimed by this governance change. Use the template in §2 after
-the current pull request's CI completes. Iteration 2 evidence and known gaps are
-preserved in the historical baseline linked above.
+| Date | Commit/build | Environment | Commands or procedure | Result | Evidence / open failure |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-05 | `ff16cd1`; APK SHA-256 `901c4a8bdc9ced21e32d0fe0129952979c43a4ddfcbc4ac0ca830ab4422f90e4` | GitHub Actions; production API; Android 16 / API 36 emulator | Verify workflow; `scripts/smoke_iteration3_release.py`; frozen six-story installed-Reader procedure | Pass: Django 381, Web 25, Android JVM 84; API 6/6; Reader 6/6 | [Verify run 42027115443](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/42027115443); Android lint: 0 errors, 28 warnings. No blocking deviation. |
+
+The APK was downloaded from the named CI run rather than rebuilt with a local
+signing key. Iteration 2 evidence and known gaps remain preserved in the
+historical baseline linked at the top of this document.

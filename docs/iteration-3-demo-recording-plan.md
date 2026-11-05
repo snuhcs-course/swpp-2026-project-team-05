@@ -9,7 +9,7 @@ failed interaction; restart the recording instead.
 - Install the APK from the Iteration 3 demo commit and confirm the six-story
   release smoke has passed.
 - Use the Society feed and the reviewed Shubao story. It has one clear finding
-  linked to four publishers, so the comparison hierarchy is visible without
+  with three displayed comparison publishers, so the hierarchy is visible without
   making the viewer decode several findings at once.
 - Enable analysis and remove the story from Saved if it is already saved.
 - Close notifications, use a stable network, and wait for the feed to finish
