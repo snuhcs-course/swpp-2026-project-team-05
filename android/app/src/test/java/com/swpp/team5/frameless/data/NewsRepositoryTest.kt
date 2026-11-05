@@ -107,7 +107,7 @@ class NewsRepositoryTest {
             followReplacementCalls += 1
             return publisherCodes
         }
-        override suspend fun articles(token: String, category: NewsCategory,
+        override suspend fun articles(token: String, category: NewsCategory?,
                                       scope: FeedScope, cursor: String?, limit: Int,
                                       query: String?): ArticlePage {
             lastToken = token

@@ -86,6 +86,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             session = session,
                             listState = feedListState,
                             onCategory = news::selectCategory,
+                            onSearchFilter = news::selectSearchFilter,
                             onScope = news::selectScope,
                             onSources = news::replaceFollowedPublishers,
                             onRefresh = news::refresh,

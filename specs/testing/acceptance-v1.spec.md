@@ -44,10 +44,10 @@ pages, a comparison-only article does not appear, and clearing search restores
 the ordinary feed.
 
 Procedure: perform all four searches on Web and Android; for each query verify
-that Politics and Society are both present with counts equal to their displayed
-matching rows plus any remaining paginated rows; load more in one category and
-verify the other category is unchanged; open a result; reload Web and verify
-search resets without rewriting the URL while typing; clear or close search;
+that the default All filter contains matching rows across categories, then select
+Politics and Society and verify each result set is narrowed correctly; load more
+in the active filter; open a result; reload Web and verify search resets without
+rewriting the URL while typing; clear or close search;
 verify the pre-search category and feed scope are retained.
 
 ## UAT-04 — Read an article with optional analysis

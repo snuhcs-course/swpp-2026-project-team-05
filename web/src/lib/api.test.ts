@@ -33,6 +33,16 @@ describe('articleQueryString', () => {
     expect(query.has('cursor')).toBe(false)
     expect(query.get('scope')).toBe('ALL')
   })
+
+  it('omits category for a corpus-wide search', () => {
+    const query = new URLSearchParams(articleQueryString({
+      query: '공통 검색어',
+    }))
+
+    expect(query.has('category')).toBe(false)
+    expect(query.get('q')).toBe('공통 검색어')
+    expect(query.get('scope')).toBe('ALL')
+  })
 })
 
 describe('publisher follows API', () => {

@@ -78,7 +78,7 @@ class AuthRepositoryTest {
         override suspend fun publishers(token: String) = error("unused")
         override suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>) =
             error("unused")
-        override suspend fun articles(token: String, category: NewsCategory,
+        override suspend fun articles(token: String, category: NewsCategory?,
                                       scope: FeedScope, cursor: String?, limit: Int,
                                       query: String?) = error("unused")
         override suspend fun article(token: String, articleId: String) = error("unused")

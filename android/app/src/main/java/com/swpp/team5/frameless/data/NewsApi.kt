@@ -18,7 +18,7 @@ internal interface NewsService {
     suspend fun logout(token: String)
     suspend fun publishers(token: String): List<PublisherItem>
     suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>): Set<String>
-    suspend fun articles(token: String, category: NewsCategory, scope: FeedScope,
+    suspend fun articles(token: String, category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, limit: Int = 20,
                          query: String? = null): ArticlePage
     suspend fun article(token: String, articleId: String): ArticleDetail
@@ -42,7 +42,7 @@ internal object NewsApi : NewsService {
     override suspend fun publishers(token: String): List<PublisherItem> = client.publishers(token)
     override suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>) =
         client.replaceFollowedPublishers(token, publisherCodes)
-    override suspend fun articles(token: String, category: NewsCategory,
+    override suspend fun articles(token: String, category: NewsCategory?,
                                   scope: FeedScope, cursor: String?, limit: Int,
                                   query: String?): ArticlePage =
         client.articles(token, category, scope, cursor, limit, query)
@@ -100,11 +100,11 @@ internal class NewsApiClient(baseUrl: String) {
         return root.optJSONArray("publisher_codes").orEmptyStrings().toSet()
     }
 
-    suspend fun articles(token: String, category: NewsCategory,
+    suspend fun articles(token: String, category: NewsCategory?,
                          scope: FeedScope = FeedScope.ALL, cursor: String? = null,
                          limit: Int = 20, query: String? = null): ArticlePage {
         val queryString = buildList {
-            add("category=${encode(category.wire)}")
+            category?.let { add("category=${encode(it.wire)}") }
             add("scope=${encode(scope.wire)}")
             add("limit=$limit")
             query?.takeIf { it.isNotBlank() }?.let { add("q=${encode(it)}") }
