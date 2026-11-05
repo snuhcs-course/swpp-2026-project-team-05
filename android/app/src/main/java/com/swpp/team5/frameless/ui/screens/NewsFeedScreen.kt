@@ -572,7 +572,7 @@ private fun CategoryTab(
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.height(44.dp).clickable(onClick = onClick)
+        Modifier.width(52.dp).height(44.dp).clickable(onClick = onClick)
             .semantics {
                 role = Role.Tab
                 contentDescription = "$label 섹션"

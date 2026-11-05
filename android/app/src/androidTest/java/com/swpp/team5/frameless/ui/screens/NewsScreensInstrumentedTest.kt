@@ -91,6 +91,13 @@ class NewsScreensInstrumentedTest {
             )
         }
 
+        compose.onNodeWithContentDescription("정치 섹션").assertIsDisplayed()
+        compose.onNodeWithContentDescription("사회 섹션").assertIsDisplayed()
+        val politicsWidth = compose.onNodeWithContentDescription("정치 섹션")
+            .fetchSemanticsNode().boundsInRoot.width
+        val societyWidth = compose.onNodeWithContentDescription("사회 섹션")
+            .fetchSemanticsNode().boundsInRoot.width
+        assertEquals(politicsWidth, societyWidth, 0.5f)
         compose.onNodeWithText("최신  ⌄").performClick()
         compose.onNodeWithContentDescription("최신 피드").assertIsSelected()
         compose.onNodeWithContentDescription("팔로잉 피드").assertIsNotSelected().performClick()
