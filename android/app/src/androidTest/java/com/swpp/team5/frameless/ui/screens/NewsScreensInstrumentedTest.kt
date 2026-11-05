@@ -173,6 +173,19 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("정치 검색 결과").assertIsDisplayed()
         compose.onAllNodesWithText("사회 검색 결과").assertCountEquals(0)
 
+        val searchPoliticsWidth = compose.onNodeWithContentDescription("정치 검색 결과 7개")
+            .fetchSemanticsNode().boundsInRoot.width
+        val searchSocietyWidth = compose.onNodeWithContentDescription("사회 검색 결과 3개")
+            .fetchSemanticsNode().boundsInRoot.width
+        compose.runOnIdle { state.value = state.value.copy(isSearchOpen = false) }
+        val ordinaryPoliticsWidth = compose.onNodeWithContentDescription("정치 섹션")
+            .fetchSemanticsNode().boundsInRoot.width
+        val ordinarySocietyWidth = compose.onNodeWithContentDescription("사회 섹션")
+            .fetchSemanticsNode().boundsInRoot.width
+        assertEquals(searchPoliticsWidth, ordinaryPoliticsWidth, 0.5f)
+        assertEquals(searchSocietyWidth, ordinarySocietyWidth, 0.5f)
+        compose.runOnIdle { state.value = state.value.copy(isSearchOpen = true) }
+
         compose.onNodeWithText("사회").performClick()
         compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
         compose.onAllNodesWithText("정치 검색 결과").assertCountEquals(0)

@@ -30,7 +30,7 @@ export function AppShell({
           <Link to="/" className="font-serif text-[22px] font-black tracking-[-0.045em]">
             FrameLESS
           </Link>
-          <nav className="ml-12 hidden h-full items-center gap-8 md:flex" aria-label="Primary navigation">
+          <nav className="ml-12 hidden h-full items-center gap-4 md:flex" aria-label="Primary navigation">
             {(['POLITICS', 'SOCIETY'] as const).map((category) => {
               const label = category === 'POLITICS' ? 'Politics' : 'Society'
               if (searchCategoryNavigation) {
@@ -40,11 +40,11 @@ export function AppShell({
                     type="button"
                     aria-pressed={searchCategoryNavigation.selected === category}
                     aria-label={`${label} ${searchCategoryNavigation.counts[category]} results`}
-                    className={cn('nav-link flex items-center gap-2', searchCategoryNavigation.selected === category && 'text-black')}
+                    className={cn('nav-link flex w-24 items-center gap-2', searchCategoryNavigation.selected === category && 'text-black')}
                     onClick={() => searchCategoryNavigation.onSelect(category)}
                   >
                     {label}
-                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-zinc-200 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-zinc-700">
+                    <span className="inline-flex h-5 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold tabular-nums text-zinc-700">
                       {searchCategoryNavigation.counts[category]}
                     </span>
                   </button>
@@ -54,9 +54,10 @@ export function AppShell({
                 <Link
                   key={category}
                   to={`/?category=${category}`}
-                  className={cn('nav-link', location.pathname === '/' && activeCategory === category && 'text-black')}
+                  className={cn('nav-link flex w-24 items-center gap-2', location.pathname === '/' && activeCategory === category && 'text-black')}
                 >
                   {label}
+                  <span aria-hidden className="invisible inline-flex h-5 w-8 shrink-0" />
                 </Link>
               )
             })}
@@ -95,7 +96,7 @@ export function AppShell({
                     }}
                   >
                     {label}
-                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px]">
+                    <span className="inline-flex h-5 w-8 items-center justify-center rounded-full bg-zinc-200 text-[10px] tabular-nums">
                       {searchCategoryNavigation.counts[category]}
                     </span>
                   </button>
