@@ -47,8 +47,10 @@ publishers per finding; the raw fixture may retain additional reviewed passages.
 2. Confirm that the Reader title and publisher match the selected row and that
    the stored article can be scrolled to its end without blank or duplicated
    blocks.
-3. Confirm that the analysis is ready and the number of findings and comparison
-   passages matches the frozen case table.
+3. Confirm that the analysis is ready and its marked phrases are usable. Run the
+   read-only API projection command below to assert the exact finding and
+   comparison-page counts in the frozen case table; the Reader does not expose
+   internal counts merely to make this test easier.
 4. Select at least one marked phrase. Confirm that the compact preview shows the
    shared explanation without replacing or moving the article text.
 5. Open the full comparison view. Confirm the publisher, compared passage, and
@@ -74,7 +76,8 @@ publishers per finding; the raw fixture may retain additional reviewed passages.
 ## Frozen success criteria
 
 - Core story flow: `6/6` pass.
-- Expected finding and comparison structure: `6/6` exact match.
+- Expected finding and comparison structure: `6/6` exact API match, with at
+  least one marked phrase opened successfully in the installed Reader per case.
 - Multi-source navigation: all applicable checked pages pass.
 - Crash, ANR, unrecoverable blank state, or infinite loading: `0` occurrences.
 - Analysis preference and save/remove state checks: both pass.
