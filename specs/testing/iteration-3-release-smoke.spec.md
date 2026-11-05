@@ -92,3 +92,14 @@ not rewritten to turn the run into a pass.
 Results belong in `docs/testing-documentation.md`. Record one row per case with
 observed counts, latency, pass/fail, and a concise deviation. A screen recording
 may support the run, but the demo video alone is not the test oracle.
+
+The read-only API projection can be reproduced without putting credentials in
+the repository:
+
+```sh
+FRAMELESS_SMOKE_ID='<team-test-user>' \
+FRAMELESS_SMOKE_PASSWORD='<password>' \
+python3 scripts/smoke_iteration3_release.py
+```
+
+This command does not replace the installed-device procedure above.
