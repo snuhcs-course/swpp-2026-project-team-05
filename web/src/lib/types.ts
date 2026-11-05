@@ -92,6 +92,7 @@ export interface Analysis {
 export interface ArticlePage {
   items: ArticleSummary[]
   next_cursor: string | null
+  total_count?: number
 }
 
 export interface SavedArticleMutation {

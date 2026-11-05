@@ -57,7 +57,11 @@ internal data class ArticleSummary(
     val savedAt: String? = null
 )
 
-internal data class ArticlePage(val items: List<ArticleSummary>, val nextCursor: String?)
+internal data class ArticlePage(
+    val items: List<ArticleSummary>,
+    val nextCursor: String?,
+    val totalCount: Int? = null
+)
 
 internal data class ArticleDetail(
     val id: String,

@@ -42,9 +42,12 @@ and body-only term, **then** matching feed-visible rows appear in deterministic
 pages, a comparison-only article does not appear, and clearing search restores
 the ordinary feed.
 
-Procedure: perform all four searches on Web and Android; open a result; reload Web
-and verify search resets without rewriting the URL while typing; clear or close
-search; verify the pre-search category and feed scope are retained.
+Procedure: perform all four searches on Web and Android; for each query verify
+that Politics and Society are both present with counts equal to their displayed
+matching rows plus any remaining paginated rows; load more in one category and
+verify the other category is unchanged; open a result; reload Web and verify
+search resets without rewriting the URL while typing; clear or close search;
+verify the pre-search category and feed scope are retained.
 
 ## UAT-04 — Read an article with optional analysis
 

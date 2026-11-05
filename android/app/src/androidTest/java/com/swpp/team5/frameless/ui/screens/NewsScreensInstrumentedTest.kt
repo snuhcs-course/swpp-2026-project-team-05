@@ -31,6 +31,7 @@ import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.data.TextRange
 import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
+import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -58,7 +59,7 @@ class NewsScreensInstrumentedTest {
             NewsFeedScreen(
                 state, session, listState,
                 onCategory = {}, onScope = {}, onSources = { _, _ -> },
-                onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = { selectedId = it }, onLogout = {}
             )
@@ -83,7 +84,7 @@ class NewsScreensInstrumentedTest {
             NewsFeedScreen(
                 state, session, rememberLazyListState(),
                 onCategory = {}, onScope = { selectedScope = it }, onSources = { _, _ -> },
-                onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = {}, onLogout = {}
             )
@@ -101,14 +102,17 @@ class NewsScreensInstrumentedTest {
             publishers = listOf(publisher),
             isSearchOpen = true,
             searchInput = "없는 기사",
-            activeSearchQuery = "없는 기사"
+            activeSearchQuery = "없는 기사",
+            searchSections = NewsCategory.entries.associateWith {
+                SearchSectionState(category = it, totalCount = 0)
+            }
         )
         val session = AppSession(NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry")
         compose.setContent {
             NewsFeedScreen(
                 state, session, rememberLazyListState(),
                 onCategory = {}, onScope = {}, onSources = { _, _ -> },
-                onRefresh = {}, onRetry = {}, onLoadMore = {},
+                onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = {}, onLogout = {}
             )
@@ -124,6 +128,49 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("기사 분석 기능을 준비하고 있어요").assertIsDisplayed()
         compose.onNodeWithText("검색으로 돌아가기").performClick()
         compose.onNodeWithText("검색 결과가 없어요").assertIsDisplayed()
+    }
+
+    @Test
+    fun searchGroupsBothCategoriesWithExactCounts() {
+        val politics = ArticleSummary(
+            "politics-1", publisher, "정치 검색 결과", NewsCategory.POLITICS,
+            "2026-11-05T12:00:00+09:00", StoredAnalysisState.READY
+        )
+        val society = ArticleSummary(
+            "society-1", publisher, "사회 검색 결과", NewsCategory.SOCIETY,
+            "2026-11-05T11:00:00+09:00", StoredAnalysisState.READY
+        )
+        val state = NewsFeedState(
+            publishers = listOf(publisher),
+            isSearchOpen = true,
+            searchInput = "검색어",
+            activeSearchQuery = "검색어",
+            searchSections = mapOf(
+                NewsCategory.POLITICS to SearchSectionState(
+                    NewsCategory.POLITICS, listOf(politics), totalCount = 7
+                ),
+                NewsCategory.SOCIETY to SearchSectionState(
+                    NewsCategory.SOCIETY, listOf(society), totalCount = 3
+                )
+            )
+        )
+        val session = AppSession(
+            NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry"
+        )
+        compose.setContent {
+            NewsFeedScreen(
+                state, session, rememberLazyListState(),
+                onCategory = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
+                onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
+                onSavedOpen = {}, onArticle = {}, onLogout = {}
+            )
+        }
+
+        compose.onNodeWithContentDescription("정치 검색 결과 7개").assertIsDisplayed()
+        compose.onNodeWithContentDescription("사회 검색 결과 3개").assertIsDisplayed()
+        compose.onNodeWithText("정치 검색 결과").assertIsDisplayed()
+        compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
     }
 
     @Test

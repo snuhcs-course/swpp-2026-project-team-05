@@ -113,7 +113,8 @@ internal class NewsApiClient(baseUrl: String) {
         val root = request("GET", "/api/v1/articles?$queryString", token = token)
         return ArticlePage(
             items = root.optJSONArray("items").orEmptyObjects().map(::articleSummary),
-            nextCursor = root.optString("next_cursor").takeIf { root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank() }
+            nextCursor = root.optString("next_cursor").takeIf { root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank() },
+            totalCount = root.optInt("total_count").takeIf { root.has("total_count") && !root.isNull("total_count") }
         )
     }
 

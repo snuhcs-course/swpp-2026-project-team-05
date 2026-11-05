@@ -15,6 +15,7 @@ import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,6 +55,7 @@ internal data class NewsFeedState(
     val searchInput: String = "",
     val activeSearchQuery: String = "",
     val isSearchPending: Boolean = false,
+    val searchSections: Map<NewsCategory, SearchSectionState> = emptyMap(),
     val nextCursor: String? = null,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -61,6 +63,20 @@ internal data class NewsFeedState(
     val error: String? = null,
     val nextPageError: String? = null
 )
+
+internal data class SearchSectionState(
+    val category: NewsCategory,
+    val items: List<ArticleSummary> = emptyList(),
+    val totalCount: Int = 0,
+    val nextCursor: String? = null,
+    val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val error: String? = null,
+    val nextPageError: String? = null
+)
+
+private fun emptySearchSections(loading: Boolean = false): Map<NewsCategory, SearchSectionState> =
+    NewsCategory.entries.associateWith { SearchSectionState(category = it, isLoading = loading) }
 
 internal data class ArticleReaderState(
     val articleId: String = "",
@@ -157,23 +173,32 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     fun refresh() {
         if (feed.isRefreshing) return
         feedJob?.cancel()
-        feed = feed.copy(isRefreshing = true, error = null)
         val query = feed.activeSearchQuery.takeIf { feed.isSearchOpen && it.isNotBlank() }
-        feedJob = viewModelScope.launch { loadFirstPage(query) }
+        feed = feed.copy(
+            isRefreshing = true,
+            error = null,
+            searchSections = if (query == null) feed.searchSections else
+                feed.searchSections.mapValues { (_, section) ->
+                    section.copy(isLoading = true, error = null, nextPageError = null)
+                }
+        )
+        feedJob = viewModelScope.launch {
+            if (query != null) loadSearchFirstPages(query) else loadFirstPage()
+        }
     }
 
     fun selectCategory(category: NewsCategory) {
         if (feed.category == category) return
+        if (feed.isSearchOpen) return
         feed = feed.copy(category = category)
         repository.saveCategory(category)
-        if (feed.isSearchOpen) feedBeforeSearch = null
         reloadForFilters()
     }
 
     fun selectScope(scope: FeedScope) {
         if (feed.scope == scope) return
+        if (feed.isSearchOpen) return
         feed = feed.copy(scope = scope)
-        if (feed.isSearchOpen) feedBeforeSearch = null
         reloadForFilters()
     }
 
@@ -224,6 +249,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             normalized.isEmpty() -> restoreOrdinaryFeedInsideSearch(value)
             normalized.length < 2 -> feed = feed.copy(
                 items = emptyList(),
+                searchSections = emptyMap(),
                 nextCursor = null,
                 activeSearchQuery = "",
                 isSearchPending = false,
@@ -260,6 +286,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         }
         feed = feed.copy(
             items = emptyList(),
+            searchSections = emptyMap(),
             nextCursor = null,
             isSearchOpen = false,
             searchInput = "",
@@ -271,7 +298,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             error = null,
             nextPageError = null
         )
-        feedJob = viewModelScope.launch { loadFirstPage(null) }
+        feedJob = viewModelScope.launch { loadFirstPage() }
     }
 
     private fun activateSearch(query: String) {
@@ -279,6 +306,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feedJob?.cancel()
         feed = feed.copy(
             items = emptyList(),
+            searchSections = emptySearchSections(loading = true),
             nextCursor = null,
             activeSearchQuery = query,
             isSearchPending = false,
@@ -288,7 +316,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             error = null,
             nextPageError = null
         )
-        feedJob = viewModelScope.launch { loadFirstPage(query) }
+        feedJob = viewModelScope.launch { loadSearchFirstPages(query) }
     }
 
     private fun restoreOrdinaryFeedInsideSearch(input: String) {
@@ -300,6 +328,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         }
         feed = feed.copy(
             items = emptyList(),
+            searchSections = emptyMap(),
             nextCursor = null,
             searchInput = input,
             activeSearchQuery = "",
@@ -310,7 +339,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             error = null,
             nextPageError = null
         )
-        feedJob = viewModelScope.launch { loadFirstPage(null) }
+        feedJob = viewModelScope.launch { loadFirstPage() }
     }
 
     private fun reloadForFilters() {
@@ -320,6 +349,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         val query = normalized.takeIf { feed.isSearchOpen && it.length >= 2 }
         feed = feed.copy(
             items = emptyList(),
+            searchSections = if (query == null) emptyMap() else emptySearchSections(loading = true),
             nextCursor = null,
             isLoading = true,
             isRefreshing = false,
@@ -329,19 +359,20 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             activeSearchQuery = query.orEmpty(),
             isSearchPending = false
         )
-        feedJob = viewModelScope.launch { loadFirstPage(query) }
+        feedJob = viewModelScope.launch {
+            if (query == null) loadFirstPage() else loadSearchFirstPages(query)
+        }
     }
 
-    private suspend fun loadFirstPage(query: String? = null) {
+    private suspend fun loadFirstPage() {
         val category = feed.category
-        val scope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
+        val scope = feed.scope
         try {
-            val page = repository.articles(category, scope, query = query)
-            val currentScope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
-            if (category != feed.category || scope != currentScope ||
-                query.orEmpty() != feed.activeSearchQuery) return
+            val page = repository.articles(category, scope)
+            if (category != feed.category || scope != feed.scope ||
+                feed.activeSearchQuery.isNotBlank()) return
             feed = feed.copy(
-                items = orderFeedItems(page.items, scope, query),
+                items = orderFeedItems(page.items, scope, null),
                 nextCursor = page.nextCursor,
                 isLoading = false,
                 isRefreshing = false,
@@ -355,21 +386,74 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         }
     }
 
+    private suspend fun loadSearchFirstPages(query: String) = coroutineScope {
+        NewsCategory.entries.forEach { category ->
+            launch { loadSearchSection(category, query) }
+        }
+    }
+
+    private suspend fun loadSearchSection(category: NewsCategory, query: String) {
+        try {
+            val page = repository.articles(category, FeedScope.ALL, query = query)
+            if (!feed.isSearchOpen || feed.activeSearchQuery != query) return
+            val updated = feed.searchSections.toMutableMap().apply {
+                this[category] = SearchSectionState(
+                    category = category,
+                    items = page.items,
+                    totalCount = page.totalCount ?: page.items.size,
+                    nextCursor = page.nextCursor
+                )
+            }
+            feed = feed.copy(
+                searchSections = updated,
+                isLoading = updated.values.any { it.isLoading },
+                isRefreshing = updated.values.any { it.isLoading },
+                error = null
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (isAuthFailure(failure)) authExpired = true
+            if (!feed.isSearchOpen || feed.activeSearchQuery != query) return
+            val updated = feed.searchSections.toMutableMap().apply {
+                val current = this[category] ?: SearchSectionState(category)
+                this[category] = current.copy(
+                    isLoading = false,
+                    error = failure.message ?: "검색 결과를 불러오지 못했어요."
+                )
+            }
+            feed = feed.copy(
+                searchSections = updated,
+                isLoading = updated.values.any { it.isLoading },
+                isRefreshing = updated.values.any { it.isLoading }
+            )
+        }
+    }
+
+    fun retrySearch(category: NewsCategory) {
+        val query = feed.activeSearchQuery
+        val section = feed.searchSections[category] ?: return
+        if (query.isBlank() || section.isLoading) return
+        feed = feed.copy(searchSections = feed.searchSections + (
+            category to section.copy(isLoading = true, error = null)
+        ))
+        viewModelScope.launch { loadSearchSection(category, query) }
+    }
+
     fun loadMore() {
+        if (feed.activeSearchQuery.isNotBlank()) return
         val cursor = feed.nextCursor ?: return
         if (feed.isLoadingMore || feed.isLoading || feed.isRefreshing) return
         feed = feed.copy(isLoadingMore = true, nextPageError = null)
         val category = feed.category
-        val query = feed.activeSearchQuery.takeIf { feed.isSearchOpen && it.isNotBlank() }
-        val scope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
+        val scope = feed.scope
         feedJob = viewModelScope.launch {
             try {
-                val page = repository.articles(category, scope, cursor, query)
-                val currentScope = if (query.isNullOrBlank()) feed.scope else FeedScope.ALL
-                if (category != feed.category || scope != currentScope ||
-                    query.orEmpty() != feed.activeSearchQuery) return@launch
+                val page = repository.articles(category, scope, cursor)
+                if (category != feed.category || scope != feed.scope ||
+                    feed.activeSearchQuery.isNotBlank()) return@launch
                 feed = feed.copy(
-                    items = orderFeedItems(feed.items + page.items, scope, query),
+                    items = orderFeedItems(feed.items + page.items, scope, null),
                     nextCursor = page.nextCursor,
                     isLoadingMore = false
                 )
@@ -379,6 +463,43 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                     isLoadingMore = false,
                     nextPageError = failure.message ?: "다음 기사를 불러오지 못했어요."
                 )
+            }
+        }
+    }
+
+    fun loadMoreSearch(category: NewsCategory) {
+        val query = feed.activeSearchQuery
+        val section = feed.searchSections[category] ?: return
+        val cursor = section.nextCursor ?: return
+        if (query.isBlank() || section.isLoading || section.isLoadingMore) return
+        feed = feed.copy(searchSections = feed.searchSections + (
+            category to section.copy(isLoadingMore = true, nextPageError = null)
+        ))
+        viewModelScope.launch {
+            try {
+                val page = repository.articles(category, FeedScope.ALL, cursor, query)
+                if (!feed.isSearchOpen || feed.activeSearchQuery != query) return@launch
+                val current = feed.searchSections[category] ?: return@launch
+                feed = feed.copy(searchSections = feed.searchSections + (
+                    category to current.copy(
+                        items = current.items + page.items,
+                        totalCount = page.totalCount ?: current.totalCount,
+                        nextCursor = page.nextCursor,
+                        isLoadingMore = false
+                    )
+                ))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                if (!feed.isSearchOpen || feed.activeSearchQuery != query) return@launch
+                val current = feed.searchSections[category] ?: return@launch
+                feed = feed.copy(searchSections = feed.searchSections + (
+                    category to current.copy(
+                        isLoadingMore = false,
+                        nextPageError = failure.message ?: "다음 검색 결과를 불러오지 못했어요."
+                    )
+                ))
             }
         }
     }
@@ -476,6 +597,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         saveError = null
         feed = feed.copy(items = feed.items.map { article ->
             if (article.id == articleId) article.copy(isSaved = target) else article
+        }, searchSections = feed.searchSections.mapValues { (_, section) ->
+            section.copy(items = section.items.map { article ->
+                if (article.id == articleId) article.copy(isSaved = target) else article
+            })
         })
         reader = reader.copy(article = reader.article?.let { article ->
             if (article.id == articleId) article.copy(isSaved = target) else article

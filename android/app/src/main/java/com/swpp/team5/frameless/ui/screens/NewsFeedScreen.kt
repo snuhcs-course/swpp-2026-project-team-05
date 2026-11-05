@@ -70,6 +70,7 @@ import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
+import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
 import java.time.Duration
 import java.time.OffsetDateTime
 
@@ -85,6 +86,8 @@ internal fun NewsFeedScreen(
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
+    onLoadMoreSearch: (NewsCategory) -> Unit,
+    onRetrySearch: (NewsCategory) -> Unit,
     onSearchOpen: () -> Unit,
     onSearchInput: (String) -> Unit,
     onSearchSubmit: () -> Unit,
@@ -106,7 +109,8 @@ internal fun NewsFeedScreen(
 
     LaunchedEffect(state.activeSearchQuery, state.isLoading) {
         showUrlAnalysisMock = false
-        if (state.activeSearchQuery.isNotBlank() && !state.isLoading && state.items.isNotEmpty()) {
+        if (state.activeSearchQuery.isNotBlank() && !state.isLoading &&
+            state.searchSections.values.any { it.items.isNotEmpty() }) {
             listState.scrollToItem(0)
         }
     }
@@ -118,7 +122,8 @@ internal fun NewsFeedScreen(
     }
 
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
-        if (state.items.isNotEmpty() && listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
+        if (state.activeSearchQuery.isBlank() && state.items.isNotEmpty() &&
+            listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
             onLoadMore()
         }
     }
@@ -172,29 +177,33 @@ internal fun NewsFeedScreen(
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    NewsCategory.entries.forEach { category ->
-                        CategoryTab(
-                            label = category.label,
-                            selected = state.category == category,
-                            onClick = { onCategory(category) }
-                        )
+            if (!state.isSearchOpen) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        NewsCategory.entries.forEach { category ->
+                            CategoryTab(
+                                label = category.label,
+                                selected = state.category == category,
+                                onClick = { onCategory(category) }
+                            )
+                        }
                     }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        if (state.scope == FeedScope.ALL) "최신  ⌄"
+                        else "팔로잉 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
+                        color = Fl.Ink2,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable { showFeedScope = true }
+                            .padding(horizontal = 4.dp, vertical = 12.dp)
+                            .semantics { role = Role.Button }
+                    )
                 }
-                Spacer(Modifier.weight(1f))
-                Text(
-                    if (state.scope == FeedScope.ALL) "최신  ⌄"
-                    else "팔로잉 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
-                    color = Fl.Ink2,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable { showFeedScope = true }
-                        .padding(horizontal = 4.dp, vertical = 12.dp)
-                        .semantics { role = Role.Button }
-                )
+            } else {
+                Spacer(Modifier.height(8.dp))
             }
         }
         HorizontalDivider(color = Fl.Line)
@@ -207,6 +216,18 @@ internal fun NewsFeedScreen(
                 onAction = { onSearchInput("") }
             )
             state.isSearchPending -> LoadingFeed()
+            state.activeSearchQuery.isNotBlank() -> SearchResultsFeed(
+                query = state.activeSearchQuery,
+                sections = state.searchSections,
+                listState = listState,
+                onRefresh = onRefresh,
+                onRetry = onRetry,
+                onRetrySection = onRetrySearch,
+                onLoadMore = onLoadMoreSearch,
+                onArticle = onArticle,
+                onAnalyzeLink = { showUrlAnalysisMock = true },
+                onClearSearch = { onSearchInput("") }
+            )
             state.isLoading && state.items.isEmpty() -> LoadingFeed()
             state.error != null && state.items.isEmpty() -> FeedMessage(
                 title = "기사를 불러오지 못했어요",
@@ -318,6 +339,191 @@ internal fun NewsFeedScreen(
     if (showUrlAnalysisMock) {
         UrlAnalysisMockSheet(onDismiss = { showUrlAnalysisMock = false })
     }
+}
+
+@Composable
+private fun SearchResultsFeed(
+    query: String,
+    sections: Map<NewsCategory, SearchSectionState>,
+    listState: LazyListState,
+    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
+    onRetrySection: (NewsCategory) -> Unit,
+    onLoadMore: (NewsCategory) -> Unit,
+    onArticle: (String) -> Unit,
+    onAnalyzeLink: () -> Unit,
+    onClearSearch: () -> Unit
+) {
+    val ordered = NewsCategory.entries.map { category ->
+        sections[category] ?: SearchSectionState(category = category, isLoading = true)
+    }
+    val initialLoading = ordered.all { it.isLoading && it.items.isEmpty() }
+    val allFailed = ordered.all { it.error != null }
+    val hasResults = ordered.any { it.totalCount > 0 || it.items.isNotEmpty() }
+
+    when {
+        initialLoading -> LoadingFeed()
+        allFailed -> FeedMessage(
+            title = "검색 결과를 불러오지 못했어요",
+            detail = "잠시 후 다시 시도해 주세요.",
+            action = "다시 시도",
+            onAction = onRetry
+        )
+        else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth().background(Fl.Inset)
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (ordered.any { it.isLoading }) "‘$query’ 검색 중…" else "‘$query’ · 전체 기사 검색",
+                        color = Fl.Muted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        "새로고침",
+                        fontSize = 11.sp,
+                        color = Fl.Accent,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable(
+                            enabled = ordered.none { it.isLoading },
+                            onClick = onRefresh
+                        ).padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            ordered.forEach { section ->
+                item(key = "header-${section.category.wire}") {
+                    SearchSectionHeader(section.category, section.totalCount)
+                }
+                when {
+                    section.isLoading && section.items.isEmpty() -> {
+                        item(key = "loading-${section.category.wire}") {
+                            Box(
+                                Modifier.fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    Modifier.size(20.dp), color = Fl.Accent, strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                    section.error != null -> {
+                        item(key = "error-${section.category.wire}") {
+                            FeedMessage(
+                                "${section.category.label} 검색 결과를 불러오지 못했어요",
+                                section.error,
+                                "다시 시도"
+                            ) { onRetrySection(section.category) }
+                        }
+                    }
+                    section.items.isEmpty() && hasResults -> {
+                        item(key = "empty-${section.category.wire}") {
+                            Text(
+                                "일치하는 기사가 없어요.",
+                                color = Fl.Muted,
+                                fontSize = 13.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 20.dp)
+                            )
+                        }
+                    }
+                }
+                items(section.items, key = { "${section.category.wire}-${it.id}" }) { article ->
+                    ArticleFeedRow(article = article, onClick = { onArticle(article.id) })
+                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
+                }
+                when {
+                    section.isLoadingMore -> {
+                        item(key = "more-loading-${section.category.wire}") {
+                            Box(
+                                Modifier.fillMaxWidth().padding(18.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    Modifier.size(20.dp), color = Fl.Accent, strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                    section.nextPageError != null -> {
+                        item(key = "more-error-${section.category.wire}") {
+                            FeedMessage(
+                                "다음 검색 결과를 불러오지 못했어요",
+                                section.nextPageError,
+                                "다시 시도"
+                            ) { onLoadMore(section.category) }
+                        }
+                    }
+                    section.nextCursor != null -> {
+                        item(key = "more-${section.category.wire}") {
+                            Text(
+                                "${section.category.label} 기사 더 보기",
+                                color = Fl.Accent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { onLoadMore(section.category) }
+                                    .padding(horizontal = 18.dp, vertical = 18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            if (!hasResults && ordered.none { it.isLoading || it.error != null }) {
+                item(key = "global-empty-search") {
+                    SearchNoResults(
+                        query = query,
+                        onAnalyzeLink = onAnalyzeLink,
+                        onClearSearch = onClearSearch
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun SearchSectionHeader(category: NewsCategory, totalCount: Int) {
+    Row(
+        Modifier.fillMaxWidth().background(Fl.Card)
+            .padding(start = 18.dp, end = 18.dp, top = 24.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            category.label,
+            fontFamily = Fl.Serif,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold,
+            color = Fl.Ink
+        )
+        Spacer(Modifier.width(8.dp))
+        Box(
+            Modifier.background(Fl.Inset, RoundedCornerShape(999.dp))
+                .padding(horizontal = 9.dp, vertical = 3.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                totalCount.toString(),
+                color = Fl.Ink2,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics {
+                    contentDescription = "${category.label} 검색 결과 ${totalCount}개"
+                }
+            )
+        }
+    }
+    HorizontalDivider(
+        color = Fl.Ink,
+        thickness = 2.dp,
+        modifier = Modifier.padding(horizontal = 18.dp)
+    )
 }
 
 @Composable
