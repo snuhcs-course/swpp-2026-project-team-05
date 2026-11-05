@@ -48,6 +48,7 @@ internal data class NewsFeedState(
     val publishers: List<PublisherItem> = emptyList(),
     val items: List<ArticleSummary> = emptyList(),
     val category: NewsCategory = NewsCategory.POLITICS,
+    val searchCategory: NewsCategory = NewsCategory.POLITICS,
     val scope: FeedScope = FeedScope.ALL,
     val isSavingSources: Boolean = false,
     val sourceSaveError: String? = null,
@@ -188,8 +189,13 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun selectCategory(category: NewsCategory) {
+        if (feed.isSearchOpen) {
+            if (feed.searchCategory != category) {
+                feed = feed.copy(searchCategory = category)
+            }
+            return
+        }
         if (feed.category == category) return
-        if (feed.isSearchOpen) return
         feed = feed.copy(category = category)
         repository.saveCategory(category)
         reloadForFilters()
@@ -237,7 +243,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             activeSearchQuery = "",
             isSearchPending = false
         )
-        feed = feed.copy(isSearchOpen = true)
+        feed = feed.copy(isSearchOpen = true, searchCategory = feed.category)
     }
 
     fun updateSearchInput(value: String) {
