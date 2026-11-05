@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -588,7 +587,8 @@ private fun CategoryTab(
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.widthIn(min = 44.dp).height(44.dp).clickable(onClick = onClick)
+        Modifier.width(if (count == null) 44.dp else 78.dp)
+            .height(44.dp).clickable(onClick = onClick)
             .semantics {
                 role = Role.Tab
                 if (count != null) {
