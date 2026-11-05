@@ -217,25 +217,24 @@ selected in the background and are restored when search closes.
 ┌──────────────────────────────────────┐
 │  [뒤로] [ 검색어________________ × ] │
 │──────────────────────────────────────│
-│  정치  27                            │
+│  [정치  27]   [사회  8]              │
 │──────────────────────────────────────│
 │  연합뉴스 · 12분 전                    │
 │  정치 분야 검색 결과                  │
 │  …검색어가 있는 본문 일부…             │
 │  [정치 기사 더 보기]                  │
-│                                      │
-│  사회  8                             │
-│──────────────────────────────────────│
-│  MBC · 20분 전                       │
-│  사회 분야 검색 결과                  │
 └──────────────────────────────────────┘
 ```
 
-- Politics and Society always have separate headers. The small neutral count
-  pill is the exact server count, not the number currently loaded.
+- Keep the existing Politics and Society category selector visible in search.
+  Add a small neutral exact-count pill to each tab; do not replace the selector
+  with two vertically stacked result groups.
+- Both categories are queried for the same normalized search, but only the
+  selected category's rows are visible. Switching tabs reuses the fetched result
+  and does not change the Web URL or issue a duplicate first-page request.
 - Each section owns its page cursor and load-more/error state. Loading or
   retrying one section must not clear or move the other section.
-- A section with zero matches keeps its header and shows a restrained empty row.
+- A selected section with zero matches keeps its tab and shows a restrained empty row.
   If both sections are empty, show the existing no-results state and URL-analysis
   preview entry below the section search outcome.
 - The existing compact article row and optional plain-text excerpt are reused.

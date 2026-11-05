@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -177,20 +178,27 @@ internal fun NewsFeedScreen(
                     }
                 }
             }
-            if (!state.isSearchOpen) {
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        NewsCategory.entries.forEach { category ->
-                            CategoryTab(
-                                label = category.label,
-                                selected = state.category == category,
-                                onClick = { onCategory(category) }
-                            )
-                        }
+            Spacer(Modifier.height(if (state.isSearchOpen) 8.dp else 12.dp))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    NewsCategory.entries.forEach { category ->
+                        val section = state.searchSections[category]
+                        CategoryTab(
+                            label = category.label,
+                            selected = if (state.isSearchOpen) {
+                                state.searchCategory == category
+                            } else {
+                                state.category == category
+                            },
+                            count = if (state.isSearchOpen && state.activeSearchQuery.isNotBlank() &&
+                                section != null && !section.isLoading) section.totalCount else null,
+                            onClick = { onCategory(category) }
+                        )
                     }
-                    Spacer(Modifier.weight(1f))
+                }
+                Spacer(Modifier.weight(1f))
+                if (!state.isSearchOpen) {
                     Text(
                         if (state.scope == FeedScope.ALL) "최신  ⌄"
                         else "팔로잉 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
@@ -202,8 +210,6 @@ internal fun NewsFeedScreen(
                             .semantics { role = Role.Button }
                     )
                 }
-            } else {
-                Spacer(Modifier.height(8.dp))
             }
         }
         HorizontalDivider(color = Fl.Line)
@@ -219,6 +225,7 @@ internal fun NewsFeedScreen(
             state.activeSearchQuery.isNotBlank() -> SearchResultsFeed(
                 query = state.activeSearchQuery,
                 sections = state.searchSections,
+                selectedCategory = state.searchCategory,
                 listState = listState,
                 onRefresh = onRefresh,
                 onRetry = onRetry,
@@ -345,6 +352,7 @@ internal fun NewsFeedScreen(
 private fun SearchResultsFeed(
     query: String,
     sections: Map<NewsCategory, SearchSectionState>,
+    selectedCategory: NewsCategory,
     listState: LazyListState,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
@@ -357,6 +365,8 @@ private fun SearchResultsFeed(
     val ordered = NewsCategory.entries.map { category ->
         sections[category] ?: SearchSectionState(category = category, isLoading = true)
     }
+    val selected = sections[selectedCategory] ?:
+        SearchSectionState(category = selectedCategory, isLoading = true)
     val initialLoading = ordered.all { it.isLoading && it.items.isEmpty() }
     val allFailed = ordered.all { it.error != null }
     val hasResults = ordered.any { it.totalCount > 0 || it.items.isNotEmpty() }
@@ -395,82 +405,77 @@ private fun SearchResultsFeed(
                     )
                 }
             }
-            ordered.forEach { section ->
-                item(key = "header-${section.category.wire}") {
-                    SearchSectionHeader(section.category, section.totalCount)
-                }
-                when {
-                    section.isLoading && section.items.isEmpty() -> {
-                        item(key = "loading-${section.category.wire}") {
-                            Box(
-                                Modifier.fillMaxWidth().padding(24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    Modifier.size(20.dp), color = Fl.Accent, strokeWidth = 2.dp
-                                )
-                            }
-                        }
-                    }
-                    section.error != null -> {
-                        item(key = "error-${section.category.wire}") {
-                            FeedMessage(
-                                "${section.category.label} 검색 결과를 불러오지 못했어요",
-                                section.error,
-                                "다시 시도"
-                            ) { onRetrySection(section.category) }
-                        }
-                    }
-                    section.items.isEmpty() && hasResults -> {
-                        item(key = "empty-${section.category.wire}") {
-                            Text(
-                                "일치하는 기사가 없어요.",
-                                color = Fl.Muted,
-                                fontSize = 13.sp,
-                                modifier = Modifier.fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 20.dp)
+            when {
+                selected.isLoading && selected.items.isEmpty() -> {
+                    item(key = "loading-${selected.category.wire}") {
+                        Box(
+                            Modifier.fillMaxWidth().padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                Modifier.size(20.dp), color = Fl.Accent, strokeWidth = 2.dp
                             )
                         }
                     }
                 }
-                items(section.items, key = { "${section.category.wire}-${it.id}" }) { article ->
-                    ArticleFeedRow(article = article, onClick = { onArticle(article.id) })
-                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
+                selected.error != null -> {
+                    item(key = "error-${selected.category.wire}") {
+                        FeedMessage(
+                            "${selected.category.label} 검색 결과를 불러오지 못했어요",
+                            selected.error,
+                            "다시 시도"
+                        ) { onRetrySection(selected.category) }
+                    }
                 }
-                when {
-                    section.isLoadingMore -> {
-                        item(key = "more-loading-${section.category.wire}") {
-                            Box(
-                                Modifier.fillMaxWidth().padding(18.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    Modifier.size(20.dp), color = Fl.Accent, strokeWidth = 2.dp
-                                )
-                            }
-                        }
+                selected.items.isEmpty() && hasResults -> {
+                    item(key = "empty-${selected.category.wire}") {
+                        Text(
+                            "${selected.category.label} 분야에는 일치하는 기사가 없어요.",
+                            color = Fl.Muted,
+                            fontSize = 13.sp,
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 24.dp)
+                        )
                     }
-                    section.nextPageError != null -> {
-                        item(key = "more-error-${section.category.wire}") {
-                            FeedMessage(
-                                "다음 검색 결과를 불러오지 못했어요",
-                                section.nextPageError,
-                                "다시 시도"
-                            ) { onLoadMore(section.category) }
-                        }
-                    }
-                    section.nextCursor != null -> {
-                        item(key = "more-${section.category.wire}") {
-                            Text(
-                                "${section.category.label} 기사 더 보기",
-                                color = Fl.Accent,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.fillMaxWidth()
-                                    .clickable { onLoadMore(section.category) }
-                                    .padding(horizontal = 18.dp, vertical = 18.dp)
+                }
+            }
+            items(selected.items, key = { "${selected.category.wire}-${it.id}" }) { article ->
+                ArticleFeedRow(article = article, onClick = { onArticle(article.id) })
+                HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
+            }
+            when {
+                selected.isLoadingMore -> {
+                    item(key = "more-loading-${selected.category.wire}") {
+                        Box(
+                            Modifier.fillMaxWidth().padding(18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                Modifier.size(20.dp), color = Fl.Accent, strokeWidth = 2.dp
                             )
                         }
+                    }
+                }
+                selected.nextPageError != null -> {
+                    item(key = "more-error-${selected.category.wire}") {
+                        FeedMessage(
+                            "다음 검색 결과를 불러오지 못했어요",
+                            selected.nextPageError,
+                            "다시 시도"
+                        ) { onLoadMore(selected.category) }
+                    }
+                }
+                selected.nextCursor != null -> {
+                    item(key = "more-${selected.category.wire}") {
+                        Text(
+                            "${selected.category.label} 기사 더 보기",
+                            color = Fl.Accent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { onLoadMore(selected.category) }
+                                .padding(horizontal = 18.dp, vertical = 18.dp)
+                        )
                     }
                 }
             }
@@ -486,44 +491,6 @@ private fun SearchResultsFeed(
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
-}
-
-@Composable
-private fun SearchSectionHeader(category: NewsCategory, totalCount: Int) {
-    Row(
-        Modifier.fillMaxWidth().background(Fl.Card)
-            .padding(start = 18.dp, end = 18.dp, top = 24.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            category.label,
-            fontFamily = Fl.Serif,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold,
-            color = Fl.Ink
-        )
-        Spacer(Modifier.width(8.dp))
-        Box(
-            Modifier.background(Fl.Inset, RoundedCornerShape(999.dp))
-                .padding(horizontal = 9.dp, vertical = 3.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                totalCount.toString(),
-                color = Fl.Ink2,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.semantics {
-                    contentDescription = "${category.label} 검색 결과 ${totalCount}개"
-                }
-            )
-        }
-    }
-    HorizontalDivider(
-        color = Fl.Ink,
-        thickness = 2.dp,
-        modifier = Modifier.padding(horizontal = 18.dp)
-    )
 }
 
 @Composable
@@ -614,16 +581,49 @@ private fun SearchHeader(
 }
 
 @Composable
-private fun CategoryTab(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun CategoryTab(
+    label: String,
+    selected: Boolean,
+    count: Int? = null,
+    onClick: () -> Unit
+) {
     Column(
-        Modifier.width(44.dp).height(44.dp).clickable(onClick = onClick)
-            .semantics { role = Role.Tab },
+        Modifier.widthIn(min = 44.dp).height(44.dp).clickable(onClick = onClick)
+            .semantics {
+                role = Role.Tab
+                if (count != null) {
+                    contentDescription = "$label 검색 결과 ${count}개"
+                }
+            },
         verticalArrangement = Arrangement.Bottom,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(label, fontSize = 15.sp, color = if (selected) Fl.Ink else Fl.Muted,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 8.dp))
+        Row(
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label,
+                fontSize = 15.sp,
+                color = if (selected) Fl.Ink else Fl.Muted,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            )
+            count?.let {
+                Box(
+                    Modifier.background(Fl.Inset, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        it.toString(),
+                        color = if (selected) Fl.Ink2 else Fl.Muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         Box(Modifier.height(2.dp).fillMaxWidth()
             .background(if (selected) Fl.Accent else androidx.compose.ui.graphics.Color.Transparent))
     }

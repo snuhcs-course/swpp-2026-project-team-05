@@ -172,7 +172,7 @@ describe('FeedPage search', () => {
     ), { timeout: 1000 })
   })
 
-  it('searches both categories and shows exact section counts', async () => {
+  it('searches both categories, keeps category navigation, and shows exact counts', async () => {
     const article = (id: string, title: string, category: 'POLITICS' | 'SOCIETY'): ArticleSummary => ({
       id,
       title,
@@ -204,9 +204,13 @@ describe('FeedPage search', () => {
     })
 
     expect(await screen.findByText('정치 검색 결과')).toBeInTheDocument()
-    expect(screen.getByText('사회 검색 결과')).toBeInTheDocument()
+    expect(screen.queryByText('사회 검색 결과')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Politics 7 results')).toHaveTextContent('7')
     expect(screen.getByLabelText('Society 3 results')).toHaveTextContent('3')
+
+    fireEvent.click(screen.getByLabelText('Society 3 results'))
+    expect(screen.getByText('사회 검색 결과')).toBeInTheDocument()
+    expect(screen.queryByText('정치 검색 결과')).not.toBeInTheDocument()
     await waitFor(() => {
       expect(api.articles).toHaveBeenCalledWith('test-token', expect.objectContaining({
         category: 'POLITICS', scope: 'ALL', query: '공통 검색어',
@@ -246,10 +250,13 @@ describe('FeedPage search', () => {
       target: { value: '분야별 오류' },
     })
 
-    expect(await screen.findByText('유지된 사회 결과')).toBeInTheDocument()
-    expect(screen.getByText('We could not search this section.')).toBeInTheDocument()
+    expect(await screen.findByText('We could not search this section.')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Society 1 results'))
+    expect(screen.getByText('유지된 사회 결과')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Politics 0 results'))
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('재시도한 정치 결과')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Society 1 results'))
     expect(screen.getByText('유지된 사회 결과')).toBeInTheDocument()
   })
 

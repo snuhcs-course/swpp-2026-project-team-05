@@ -131,7 +131,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun searchGroupsBothCategoriesWithExactCounts() {
+    fun searchKeepsCategoryTabsWithExactCountsAndShowsSelectedSection() {
         val politics = ArticleSummary(
             "politics-1", publisher, "정치 검색 결과", NewsCategory.POLITICS,
             "2026-11-05T12:00:00+09:00", StoredAnalysisState.READY
@@ -140,7 +140,7 @@ class NewsScreensInstrumentedTest {
             "society-1", publisher, "사회 검색 결과", NewsCategory.SOCIETY,
             "2026-11-05T11:00:00+09:00", StoredAnalysisState.READY
         )
-        val state = NewsFeedState(
+        val state = mutableStateOf(NewsFeedState(
             publishers = listOf(publisher),
             isSearchOpen = true,
             searchInput = "검색어",
@@ -153,14 +153,15 @@ class NewsScreensInstrumentedTest {
                     NewsCategory.SOCIETY, listOf(society), totalCount = 3
                 )
             )
-        )
+        ))
         val session = AppSession(
             NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry"
         )
         compose.setContent {
             NewsFeedScreen(
-                state, session, rememberLazyListState(),
-                onCategory = {}, onScope = {}, onSources = { _, _ -> },
+                state.value, session, rememberLazyListState(),
+                onCategory = { state.value = state.value.copy(searchCategory = it) },
+                onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = {}, onLogout = {}
@@ -170,7 +171,11 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithContentDescription("정치 검색 결과 7개").assertIsDisplayed()
         compose.onNodeWithContentDescription("사회 검색 결과 3개").assertIsDisplayed()
         compose.onNodeWithText("정치 검색 결과").assertIsDisplayed()
+        compose.onAllNodesWithText("사회 검색 결과").assertCountEquals(0)
+
+        compose.onNodeWithText("사회").performClick()
         compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
+        compose.onAllNodesWithText("정치 검색 결과").assertCountEquals(0)
     }
 
     @Test

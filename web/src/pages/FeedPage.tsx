@@ -27,6 +27,7 @@ export function FeedPage() {
   const [isComposing, setIsComposing] = useState(false)
   const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
   const [activeQuery, setActiveQuery] = useState('')
+  const [searchCategory, setSearchCategory] = useState<NewsCategory>(category)
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const queryTooShort = !isComposing && normalizedInput.length === 1
   const queryPending = !isComposing && normalizedInput.length >= 2 && activeQuery !== normalizedInput
@@ -131,6 +132,10 @@ export function FeedPage() {
   }
 
   function updateQuery(value: string) {
+    const nextNormalized = value.trim().replace(/\s+/g, ' ')
+    if (!activeQuery && normalizedInput.length < 2 && nextNormalized.length >= 2) {
+      setSearchCategory(category)
+    }
     setQueryInput(value)
     if (value.trim().length < 2) setActiveQuery('')
   }
@@ -142,7 +147,11 @@ export function FeedPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell searchCategoryNavigation={activeQuery ? {
+      selected: searchCategory,
+      counts: { POLITICS: politicsCount, SOCIETY: societyCount },
+      onSelect: setSearchCategory,
+    } : undefined}>
       <main className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
         <section className="border-b border-black py-8 lg:py-10">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -213,7 +222,7 @@ export function FeedPage() {
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
               <h2 className="text-sm font-black">
                 {activeQuery
-                  ? 'Search results'
+                  ? `Search results · ${categoryLabel(searchCategory)}`
                   : `${scope === 'FOLLOWING' ? 'Following' : categoryLabel(category)} Headlines`}
               </h2>
               <span className="text-xs text-zinc-500">
@@ -246,32 +255,33 @@ export function FeedPage() {
               </article>
             )}
             {activeQuery && !queryPending && !searchInitialLoading && (
-              <div className="space-y-10">
+              searchCategory === 'POLITICS' ? (
                 <SearchResultSection
-                  category="POLITICS"
-                  articles={politicsResults}
-                  totalCount={politicsCount}
-                  isLoading={politicsSearchQuery.isLoading}
-                  isError={politicsSearchQuery.isError}
-                  isFetchingNextPage={politicsSearchQuery.isFetchingNextPage}
-                  hasNextPage={politicsSearchQuery.hasNextPage}
-                  showEmptyState={searchHasResults}
-                  onRetry={() => void politicsSearchQuery.refetch()}
-                  onLoadMore={() => void politicsSearchQuery.fetchNextPage()}
-                />
+                    category="POLITICS"
+                    articles={politicsResults}
+                    totalCount={politicsCount}
+                    isLoading={politicsSearchQuery.isLoading}
+                    isError={politicsSearchQuery.isError}
+                    isFetchingNextPage={politicsSearchQuery.isFetchingNextPage}
+                    hasNextPage={politicsSearchQuery.hasNextPage}
+                    showEmptyState={searchHasResults}
+                    onRetry={() => void politicsSearchQuery.refetch()}
+                    onLoadMore={() => void politicsSearchQuery.fetchNextPage()}
+                  />
+              ) : (
                 <SearchResultSection
-                  category="SOCIETY"
-                  articles={societyResults}
-                  totalCount={societyCount}
-                  isLoading={societySearchQuery.isLoading}
-                  isError={societySearchQuery.isError}
-                  isFetchingNextPage={societySearchQuery.isFetchingNextPage}
-                  hasNextPage={societySearchQuery.hasNextPage}
-                  showEmptyState={searchHasResults}
-                  onRetry={() => void societySearchQuery.refetch()}
-                  onLoadMore={() => void societySearchQuery.fetchNextPage()}
-                />
-              </div>
+                    category="SOCIETY"
+                    articles={societyResults}
+                    totalCount={societyCount}
+                    isLoading={societySearchQuery.isLoading}
+                    isError={societySearchQuery.isError}
+                    isFetchingNextPage={societySearchQuery.isFetchingNextPage}
+                    hasNextPage={societySearchQuery.hasNextPage}
+                    showEmptyState={searchHasResults}
+                    onRetry={() => void societySearchQuery.refetch()}
+                    onLoadMore={() => void societySearchQuery.fetchNextPage()}
+                  />
+              )
             )}
             {!activeQuery && rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
             {!activeQuery && !articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
@@ -346,18 +356,7 @@ function SearchResultSection({
   onLoadMore,
 }: SearchResultSectionProps) {
   return (
-    <section aria-labelledby={`search-${category.toLowerCase()}`}>
-      <div className="flex items-center gap-2 border-b-2 border-black pb-3">
-        <h3 id={`search-${category.toLowerCase()}`} className="font-serif text-2xl font-black tracking-[-0.03em]">
-          {categoryLabel(category)}
-        </h3>
-        <span
-          className="inline-flex min-w-7 items-center justify-center rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-bold tabular-nums text-zinc-700"
-          aria-label={`${categoryLabel(category)} ${totalCount} results`}
-        >
-          {totalCount}
-        </span>
-      </div>
+    <section aria-label={`${categoryLabel(category)} search results`}>
       {isLoading && (
         <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-zinc-500">
           <LoaderCircle className="animate-spin" size={16} /> Searching this section…
