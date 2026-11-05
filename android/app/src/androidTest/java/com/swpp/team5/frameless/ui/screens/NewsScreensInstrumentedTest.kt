@@ -1,6 +1,7 @@
 package com.swpp.team5.frameless.ui.screens
 
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
@@ -152,6 +153,54 @@ class NewsScreensInstrumentedTest {
             .assertIsDisplayed()
         compose.onNodeWithContentDescription("표현 분석 표시").performClick()
         compose.runOnIdle { assertFalse(analysisEnabled) }
+    }
+
+    @Test
+    fun analysisToggleAddsMarkersWithoutMovingArticleContent() {
+        val body = "빠르게 확장했다."
+        val marker = "빠르게"
+        val article = ArticleDetail(
+            "article-stable-toggle", publisher, "사업 확장", body,
+            NewsCategory.POLITICS, "2026-10-31T12:00:00+09:00",
+            "https://example.com/article-stable-toggle", StoredAnalysisState.READY
+        )
+        val finding = FindingUi(
+            id = "finding-stable-toggle",
+            categories = listOf("D"),
+            scope = "BODY",
+            sentenceRange = TextRange(0, body.length),
+            sentenceText = body,
+            markerRange = TextRange(0, marker.length),
+            markerText = marker,
+            explanation = "확장 속도를 강조해요.",
+            comparisonOverview = "",
+            comparisons = emptyList()
+        )
+        val analysisEnabled = mutableStateOf(false)
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", listOf(finding)
+                    ),
+                    analysisEnabled = analysisEnabled.value
+                ),
+                onBack = {}, onRetry = {},
+                onAnalysisEnabled = { analysisEnabled.value = it },
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        val bodyNode = compose.onNodeWithText(body)
+        val topBefore = bodyNode.fetchSemanticsNode().boundsInRoot.top
+        compose.onNodeWithContentDescription("표현 분석 표시").performClick()
+        compose.waitForIdle()
+
+        assertEquals(topBefore, bodyNode.fetchSemanticsNode().boundsInRoot.top)
+        compose.onAllNodesWithText("밑줄 친 표현을 누르면", substring = true)
+            .assertCountEquals(0)
     }
 
     @Test

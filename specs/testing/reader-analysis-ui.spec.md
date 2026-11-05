@@ -46,6 +46,10 @@ comparison sheet.
 
 ### Android progressive disclosure
 
+- [Component] Turning verified marker styling on or off does not insert ordinary
+  instructional content or move the article text; status notices remain reserved
+  for loading, partial, unavailable, failed, and empty-result states.\
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > analysisToggleAddsMarkersWithoutMovingArticleContent`
 - [Component] Selecting an in-article marker first shows the compact finding
   preview while the expanded comparison sheet remains closed.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`

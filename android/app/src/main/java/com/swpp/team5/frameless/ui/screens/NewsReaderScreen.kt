@@ -239,7 +239,7 @@ private fun NewsReaderContent(
                     onPlainTextTap = { selected = null }
                 )
                 SourceLink(onClick = { uriHandler.openUri(article.originalUrl) })
-                AnalysisNotice(analysis, analysisLoading, analysisError, analysisEnabled)
+                AnalysisNotice(analysis, analysisLoading, analysisError)
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = Fl.Line)
                 Spacer(Modifier.height(20.dp))
@@ -286,7 +286,7 @@ private fun NewsReaderContent(
 }
 
 @Composable
-private fun AnalysisNotice(analysis: ArticleAnalysisUi?, loading: Boolean, error: String?, enabled: Boolean) {
+private fun AnalysisNotice(analysis: ArticleAnalysisUi?, loading: Boolean, error: String?) {
     val message = when {
         loading -> "저장된 표현 분석을 불러오는 중이에요. 기사는 그대로 읽을 수 있어요."
         error != null -> "표현 분석을 불러오지 못했어요. 기사는 그대로 읽을 수 있어요."
@@ -296,7 +296,6 @@ private fun AnalysisNotice(analysis: ArticleAnalysisUi?, loading: Boolean, error
         analysis?.state == StoredAnalysisState.PARTIAL -> "검토가 끝난 표현만 표시하고 있어요."
         analysis?.state == StoredAnalysisState.READY && analysis.findings.isEmpty() ->
             "분석은 완료되었지만 현재 표시할 표현 특징을 확인하지 못했어요."
-        enabled && !analysis?.findings.isNullOrEmpty() -> "밑줄 친 표현을 누르면 설명과 다른 보도를 볼 수 있어요."
         else -> null
     }
     if (message != null) {
