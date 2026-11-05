@@ -229,6 +229,8 @@ selected in the background and are restored when search closes.
 - Ordinary feed navigation remains unchanged. Search adds a separate compact
   `All / Politics / Society` filter row so section navigation and result
   filtering are not conflated.
+- Render filters as restrained text tabs with one selected underline. Do not use
+  filled pills, outlined buttons, or result-count badges for this navigation.
 - `All` is selected for every new normalized query and issues one corpus-wide
   request. Politics or Society is requested only after the user selects that
   filter; completed filter pages may be reused when switching back.

@@ -198,15 +198,17 @@ export function FeedPage() {
         </section>}
 
         {activeQuery && (
-          <nav className="flex items-center gap-1 border-b border-zinc-300 py-4" aria-label="Search filters">
+          <nav className="flex h-14 items-end gap-3 border-b border-zinc-300" aria-label="Search filters">
             {(['ALL', 'POLITICS', 'SOCIETY'] as const).map((filter) => (
               <button
                 key={filter}
                 type="button"
                 aria-pressed={searchFilter === filter}
                 className={cn(
-                  'min-w-20 px-4 py-2 text-sm font-bold transition-colors',
-                  searchFilter === filter ? 'bg-black text-white' : 'text-zinc-500 hover:text-black',
+                  'h-11 min-w-16 border-b-2 px-3 text-sm transition-colors',
+                  searchFilter === filter
+                    ? 'border-black font-bold text-black'
+                    : 'border-transparent font-medium text-zinc-500 hover:text-black',
                 )}
                 onClick={() => setSearchFilter(filter)}
               >

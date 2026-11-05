@@ -598,24 +598,29 @@ private fun SearchFilterTab(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    Box(
-        Modifier.padding(end = 6.dp)
-            .height(34.dp)
-            .width(64.dp)
-            .background(if (selected) Fl.Ink else Fl.Inset, RoundedCornerShape(8.dp))
-            .border(1.dp, if (selected) Fl.Ink else Fl.Line, RoundedCornerShape(8.dp))
+    Column(
+        Modifier.padding(end = 12.dp)
+            .width(52.dp)
+            .height(44.dp)
             .clickable(onClick = onClick)
             .semantics {
                 role = Role.Tab
                 contentDescription = "$label 검색 필터"
             },
-        contentAlignment = Alignment.Center
+        verticalArrangement = Arrangement.Bottom,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             label,
-            fontSize = 13.sp,
-            color = if (selected) Fl.Card else Fl.Ink2,
-            fontWeight = FontWeight.SemiBold
+            modifier = Modifier.padding(vertical = 8.dp),
+            fontSize = 14.sp,
+            color = if (selected) Fl.Ink else Fl.Muted,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+        )
+        Box(
+            Modifier.fillMaxWidth().height(2.dp).background(
+                if (selected) Fl.Accent else androidx.compose.ui.graphics.Color.Transparent
+            )
         )
     }
 }
