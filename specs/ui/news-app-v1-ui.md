@@ -229,6 +229,9 @@ selected in the background and are restored when search closes.
 - Keep the existing Politics and Society category selector visible in search.
   Add a small neutral exact-count pill to each tab; do not replace the selector
   with two vertically stacked result groups.
+- Category tabs, underlines, and reserved count slots keep the same dimensions
+  before and during search. A missing count, `0`, and multi-digit counts must not
+  move either label or the neighboring tab.
 - Both categories are queried for the same normalized search, but only the
   selected category's rows are visible. Switching tabs reuses the fetched result
   and does not change the Web URL or issue a duplicate first-page request.

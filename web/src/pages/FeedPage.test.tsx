@@ -111,8 +111,12 @@ describe('FeedPage search', () => {
     renderFeed()
     await waitFor(() => expect(api.articles).toHaveBeenCalled())
 
-    expect(screen.getAllByRole('link', { name: 'Politics' })).toHaveLength(1)
-    expect(screen.getAllByRole('link', { name: 'Society' })).toHaveLength(1)
+    const politics = screen.getByRole('link', { name: 'Politics' })
+    const society = screen.getByRole('link', { name: 'Society' })
+    expect(politics).toHaveClass('w-24')
+    expect(society).toHaveClass('w-24')
+    expect(politics.querySelector('[aria-hidden="true"]')).toHaveClass('w-8')
+    expect(society.querySelector('[aria-hidden="true"]')).toHaveClass('w-8')
     expect(screen.queryByRole('heading', { name: 'Section' })).not.toBeInTheDocument()
   })
 
@@ -205,8 +209,12 @@ describe('FeedPage search', () => {
 
     expect(await screen.findByText('정치 검색 결과')).toBeInTheDocument()
     expect(screen.queryByText('사회 검색 결과')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Politics 7 results')).toHaveTextContent('7')
-    expect(screen.getByLabelText('Society 3 results')).toHaveTextContent('3')
+    const politicsTab = screen.getByLabelText('Politics 7 results')
+    const societyTab = screen.getByLabelText('Society 3 results')
+    expect(politicsTab).toHaveClass('w-24')
+    expect(societyTab).toHaveClass('w-24')
+    expect(politicsTab.querySelector('span')).toHaveClass('w-8')
+    expect(societyTab.querySelector('span')).toHaveClass('w-8')
 
     fireEvent.click(screen.getByLabelText('Society 3 results'))
     expect(screen.getByText('사회 검색 결과')).toBeInTheDocument()
