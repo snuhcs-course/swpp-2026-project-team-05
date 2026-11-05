@@ -1,99 +1,76 @@
-# FrameLESS — Iteration 3 Demo
+# FrameLESS — Iteration 3 Working Demo
 
-FrameLESS is an article-first news reader for comparing how different
-publishers describe the same event. Readers can browse a familiar news feed,
-read the stored article in full, and inspect selected wording only when they
-want more context. FrameLESS presents source passages and differences; it does
-not decide which publisher is correct.
+FrameLESS is an Android news-reading app that helps users inspect how different outlets describe the same event. It presents source-linked wording differences without judging which outlet is correct or biased.
 
-## How to run the demo
-
-### Android Studio
-
-1. Clone this branch and open the `android/` directory in Android Studio.
-
-   ```sh
-   git clone --branch iteration-3-demo \
-     https://github.com/snuhcs-course/swpp-2026-project-team-05.git
-   cd swpp-2026-project-team-05/android
-   ```
-
-2. Use JDK 21 and install Android SDK 37. Let Gradle finish syncing.
-3. Start an Android emulator or connect an Android device with USB debugging
-   enabled.
-4. Run the `app` configuration. No local backend or API key is required; the
-   demo build uses `https://frameless-team05-api.vercel.app`.
-5. Sign in with a team test account supplied separately, or register a normal
-   account in the app. Credentials are not stored in this repository.
-
-The CI-built debug APK is also available from the latest successful `Verify`
-workflow artifact named `android-debug-apk-default-backend-no-live-check`.
+## Environment and how to run
 
 ### Environment used
 
 - macOS on Apple silicon
 - Android Studio 2025.3 with JetBrains Runtime 21
-- Android SDK 37
+- Android SDK 37 and the project Gradle wrapper
 - Android 16 / API 36 emulator
 - Samsung Galaxy S22 (`SM-S901N`) running Android 15
 - Production Django API and shared PostgreSQL database
 
+### Run the app
+
+1. Clone the repository and switch to the `iteration-3-demo` branch.
+2. Open the `android/` directory in Android Studio.
+3. Let Gradle sync, select the `app` run configuration, and run it on an Android phone or emulator.
+4. Sign in with a team-provided demo account or register a normal account. Keep the device online so the configured API can load the demo content.
+
+The demo build uses `https://frameless-team05-api.vercel.app`; no local backend or API key is required. Credentials are not stored in this repository.
+
+To build a debug APK from the repository root:
+
+```bash
+cd android
+./gradlew :app:assembleDebug
+```
+
+The generated APK is located at:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## What the demo demonstrates
 
-- Required sign-in and account-owned preferences
-- Politics and Society feeds with mutually exclusive Latest and Following
-  scopes
-- Server-side article search across both sections, including per-section result
-  counts
-- Full stored article reading with optional expression-analysis markers
-- A compact in-context explanation followed by a full comparison view
-- Grounded passages from up to three distinct comparison publishers
-- Saved articles that can be reopened and removed
-- Heuristic-evaluation follow-ups: clearer feed scope, steadier Reader position,
-  and predictable comparison navigation and dismissal
+The accompanying video demonstrates the following current Android implementation.
 
-The demo dataset contains 30 reviewed articles. A frozen six-article release
-smoke covers single-source, multi-source, multiple-finding, and mixed comparison
-structures. On 2026-11-05, the production API structure matched all six cases;
-the Android Reader flow also passed all six without a crash, blank article, or
-infinite loading. Full evidence is recorded in
-[`docs/testing-documentation.md`](docs/testing-documentation.md).
+| Flow | Demonstrated behavior |
+| --- | --- |
+| Account access | Signs in to the app with the prepared demo account. |
+| Source management | Opens **Manage sources**, selects or deselects news outlets, and saves the chosen source set. |
+| Feed exploration | Browses the curated feed, switches between topic tabs, and opens a selected article. |
+| Reader | Displays the full article, supports bookmarking, and exposes the **expression analysis** control. |
+| Highlighted expression | Turns analysis on and selects a highlighted expression in the Reader. |
+| Cross-source comparison | Opens a comparison sheet that groups passages about the same content from other outlets; the viewer can page through the related articles. |
+| Source traceability | Opens the original linked source for a comparison passage, then returns to the app. |
+| Saved articles | Saves an article and verifies that it appears in the Saved Articles screen. |
+
+The main end-to-end user flow is:
+
+```text
+Manage sources → Feed → Reader → expression analysis → highlighted expression
+→ comparison sheet → original source → return to Reader / Saved Articles
+```
+
+## Iteration 3 progress shown in this demo
+
+- Used the fixed, curated 30-article dataset for a stable Heuristic Evaluation (HE) environment.
+- Refined the Reader comparison UX: a compact in-context preview, clearer sheet wording, an explicit close action, predictable dismissal, and a readable source hierarchy.
+- Applied additional HE follow-ups: mutually exclusive feed-scope selection, stable Reader position when analysis is toggled, keyboard dismissal outside inputs, and recovery from an empty category search without result-count badges.
+- Added source-selection and saved-article flows around the core reading experience.
+- Confirmed the Android debug APK and manually smoke-tested the Feed → Reader → highlight → comparison → source-link path on a physical Android device.
+
+The frozen six-article release smoke covered single-source, multi-source, multiple-finding, and mixed-comparison structures. The production API structure and installed Android Reader flow both passed all six cases. Full procedures and evidence are recorded in [`docs/testing-documentation.md`](docs/testing-documentation.md).
 
 ## Demo video
 
-The final short recording will be added here before submission:
+The video is included in this branch at:
 
-- **Video:** _pending recording_
-- **Recording flow:**
-  [`docs/iteration-3-demo-recording-plan.md`](docs/iteration-3-demo-recording-plan.md)
+[`demo/iteration-3-demo.mp4`](./demo/iteration-3-demo.mp4)
 
-The planned 75–90 second recording shows the Society feed, cross-section search,
-the reviewed Shubao article, compact and full comparison views, analysis-toggle
-position stability, and the Saved flow. It starts signed in and does not expose
-credentials or notification content.
-
-## Repository layout
-
-| Path | Purpose |
-| --- | --- |
-| `android/` | Kotlin and Jetpack Compose Android client |
-| `server/` | Django API, persistence, analysis adapters, and reviewed fixtures |
-| `web/` | Vite and TypeScript desktop web client |
-| `specs/` | Product, UI, and behavioral testing specifications |
-| `docs/` | Architecture, testing evidence, and demo guidance |
-
-## Verification
-
-The `Verify` workflow runs Django tests, Web tests/lint/build, Android JVM tests,
-Android lint, and APK assembly. The recorded Iteration 3 candidate passed:
-
-- Django: 381 tests
-- Web: 25 tests
-- Android JVM: 84 tests, 0 failures
-- Android lint: 0 errors
-- Production six-article API projection: 6/6 exact matches
-- Installed Android Reader smoke: 6/6 core flows
-
-The reproducible read-only API projection is
-`scripts/smoke_iteration3_release.py`; credentials are supplied through local
-environment variables and never committed.
+It is approximately 1 minute 47 seconds and intentionally walks through the full interaction flow, including source management and saved articles as well as the core comparison feature.

@@ -33,6 +33,7 @@ import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
+import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
 import java.net.URI
 
 internal fun isValidMockArticleUrl(value: String): Boolean = try {
@@ -61,7 +62,8 @@ internal fun UrlAnalysisMockSheet(onDismiss: () -> Unit) {
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Fl.Card) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().dismissKeyboardOnTap()
+                .padding(horizontal = 22.dp, vertical = 12.dp),
             horizontalAlignment = if (previewing) Alignment.CenterHorizontally else Alignment.Start
         ) {
             if (previewing) {

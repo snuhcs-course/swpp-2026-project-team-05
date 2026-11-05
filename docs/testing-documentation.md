@@ -102,14 +102,16 @@ UAT results were completed early.
 
 ## 5. Heuristic evaluation follow-up
 
-The Iteration 3 implementation addressed three high-impact usability findings
-that were reproducible in the Android client:
+The Iteration 3 implementation addressed five reproducible usability findings
+in the Android client, including two small recovery and input refinements:
 
 | Observed issue | Change | Evidence |
 | --- | --- | --- |
 | Latest and Following looked like independent checkboxes and suggested that both could be active. | Replaced the ambiguous interaction with mutually exclusive feed-scope selection. | `85ac777`, PR #75 |
 | Selecting a marked phrase exposed too much comparison UI while the user was still reading, and the expanded view was difficult to dismiss predictably. | Added a compact in-context preview before the full comparison view and hardened close, drag, and navigation behavior. | `700df97`, PR #77 |
 | Turning analysis markers on or off moved the article away from the paragraph being read. | Preserved Reader position while applying the saved analysis preference. | `1a7b93f`, PR #78 |
+| The Android keyboard remained open after tapping ordinary content outside an input. | Added one non-consuming focus-dismissal behavior across authentication, search, and URL entry surfaces. | `NewsScreensInstrumentedTest.authFormDismissesKeyboardWhenTheUserTapsOrdinaryContent` |
+| A zero-result category message did not help the reader recover even when the same query had results elsewhere. | Added a restrained action that returns to the existing All results without adding result-count badges. | `NewsScreensInstrumentedTest.searchUsesAllPoliticsAndSocietyFiltersWithoutCountBadges` |
 
 These changes are implementation follow-up. The submitted HE spreadsheet remains
 the source of participant findings and severity ratings; this document does not
