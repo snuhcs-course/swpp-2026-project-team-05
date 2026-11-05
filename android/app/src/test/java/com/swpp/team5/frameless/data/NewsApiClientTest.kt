@@ -105,6 +105,11 @@ class NewsApiClientTest {
         assertTrue(requests.last().path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
         assertTrue(requests.last().path.contains("cursor=cursor+1"))
 
+        responses += Response(200, """{"items":[],"next_cursor":null,"total_count":0}""")
+        client.articles("token", null, query = "전체 검색")
+        assertFalse(requests.last().path.contains("category="))
+        assertTrue(requests.last().path.contains("q=%EC%A0%84%EC%B2%B4+%EA%B2%80%EC%83%89"))
+
         responses += Response(200, articleJson())
         val article = client.article("token", "article/id")
         assertEquals("정책 본문", article.body)

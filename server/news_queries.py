@@ -172,8 +172,8 @@ def list_articles(*, user: UserAccount, category: str | None,
             "search_rank", "-published_at", "-id"
         )
         # Count the exact searchable corpus before applying the continuation
-        # cursor. Clients use one request per category, so this is the stable
-        # section total rather than the size of the currently loaded page.
+        # cursor. This is the stable total for the active corpus or category
+        # filter rather than the size of the currently loaded page.
         total_count = queryset.count()
     else:
         queryset = queryset.order_by("-published_at", "-id")

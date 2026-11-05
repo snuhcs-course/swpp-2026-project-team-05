@@ -77,8 +77,7 @@ class NewsViewModelTest {
             pages += ArticlePage(serverOrder, null)
             pages += ArticlePage(serverOrder, null)
             pages += ArticlePage(serverOrder, null)
-            searchPages.getValue(NewsCategory.POLITICS) += ArticlePage(serverOrder, null, 3)
-            searchPages.getValue(NewsCategory.SOCIETY) += ArticlePage(emptyList(), null, 0)
+            searchPages.getValue(null) += ArticlePage(serverOrder, null, 3)
         }
         val viewModel = NewsViewModel(repository)
 
@@ -97,7 +96,7 @@ class NewsViewModelTest {
         mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
         assertEquals(
             listOf("regular", "panda", "hd"),
-            viewModel.feed.searchSections.getValue(NewsCategory.POLITICS).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.ALL).items.map { it.id }
         )
     }
 
@@ -182,10 +181,12 @@ class NewsViewModelTest {
     fun searchDebouncesServerQueryAndClosingRestoresFeed() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("ordinary")), null)
-            searchPages.getValue(NewsCategory.POLITICS) +=
-                ArticlePage(listOf(summary("politics-result")), "politics-more", 2)
+            searchPages.getValue(null) +=
+                ArticlePage(listOf(summary("politics-result")), "all-more", 2)
             searchPages.getValue(NewsCategory.SOCIETY) +=
                 ArticlePage(listOf(summary("society-result").copy(category = NewsCategory.SOCIETY)), null, 1)
+            searchPages.getValue(null) +=
+                ArticlePage(listOf(summary("politics-result-2")), null, 2)
         }
         val viewModel = NewsViewModel(repository)
         viewModel.initialize()
@@ -204,36 +205,31 @@ class NewsViewModelTest {
         assertEquals(FeedScope.ALL, repository.scopes.last())
         assertEquals(
             listOf("politics-result"),
-            viewModel.feed.searchSections.getValue(NewsCategory.POLITICS).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.ALL).items.map { it.id }
         )
-        assertEquals(2, viewModel.feed.searchSections.getValue(NewsCategory.POLITICS).totalCount)
-        assertEquals(
-            listOf("society-result"),
-            viewModel.feed.searchSections.getValue(NewsCategory.SOCIETY).items.map { it.id }
-        )
-        assertEquals(
-            listOf(NewsCategory.POLITICS, NewsCategory.SOCIETY),
-            repository.categories.takeLast(2)
-        )
+        assertEquals(2, viewModel.feed.searchSections.getValue(SearchFilter.ALL).totalCount)
+        assertEquals(null, repository.categories.last())
         assertEquals("정책 추진", viewModel.feed.activeSearchQuery)
 
-        val callsAfterSearch = repository.articlePageCalls
-        viewModel.selectCategory(NewsCategory.SOCIETY)
-        assertEquals(NewsCategory.SOCIETY, viewModel.feed.searchCategory)
+        viewModel.selectSearchFilter(SearchFilter.SOCIETY)
+        mainLooper.idle()
+        assertEquals(SearchFilter.SOCIETY, viewModel.feed.searchFilter)
         assertEquals(NewsCategory.POLITICS, viewModel.feed.category)
-        assertEquals(callsAfterSearch, repository.articlePageCalls)
+        assertEquals(
+            listOf("society-result"),
+            viewModel.feed.searchSections.getValue(SearchFilter.SOCIETY).items.map { it.id }
+        )
 
-        repository.searchPages.getValue(NewsCategory.POLITICS) +=
-            ArticlePage(listOf(summary("politics-result-2")), null, 2)
-        viewModel.loadMoreSearch(NewsCategory.POLITICS)
+        viewModel.selectSearchFilter(SearchFilter.ALL)
+        viewModel.loadMoreSearch(SearchFilter.ALL)
         mainLooper.idle()
         assertEquals(
             listOf("politics-result", "politics-result-2"),
-            viewModel.feed.searchSections.getValue(NewsCategory.POLITICS).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.ALL).items.map { it.id }
         )
         assertEquals(
             listOf("society-result"),
-            viewModel.feed.searchSections.getValue(NewsCategory.SOCIETY).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.SOCIETY).items.map { it.id }
         )
 
         viewModel.closeSearch()
@@ -244,13 +240,13 @@ class NewsViewModelTest {
     }
 
     @Test
-    fun searchRetriesOneCategoryWithoutDiscardingTheOther() {
+    fun searchRetriesOneFilterWithoutDiscardingTheOther() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("ordinary")), null)
-            categoryFailures[NewsCategory.POLITICS] = IllegalStateException("정치 검색 실패")
-            searchPages.getValue(NewsCategory.SOCIETY) += ArticlePage(
+            searchPages.getValue(null) += ArticlePage(
                 listOf(summary("society-ok").copy(category = NewsCategory.SOCIETY)), null, 1
             )
+            categoryFailures[NewsCategory.POLITICS] = IllegalStateException("정치 검색 실패")
         }
         val viewModel = NewsViewModel(repository)
         viewModel.initialize()
@@ -260,27 +256,30 @@ class NewsViewModelTest {
         mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
 
         assertEquals(
-            "정치 검색 실패",
-            viewModel.feed.searchSections.getValue(NewsCategory.POLITICS).error
-        )
-        assertEquals(
             listOf("society-ok"),
-            viewModel.feed.searchSections.getValue(NewsCategory.SOCIETY).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.ALL).items.map { it.id }
+        )
+
+        viewModel.selectSearchFilter(SearchFilter.POLITICS)
+        mainLooper.idle()
+        assertEquals(
+            "정치 검색 실패",
+            viewModel.feed.searchSections.getValue(SearchFilter.POLITICS).error
         )
 
         repository.categoryFailures.remove(NewsCategory.POLITICS)
         repository.searchPages.getValue(NewsCategory.POLITICS) +=
             ArticlePage(listOf(summary("politics-retried")), null, 1)
-        viewModel.retrySearch(NewsCategory.POLITICS)
+        viewModel.retrySearch(SearchFilter.POLITICS)
         mainLooper.idle()
 
         assertEquals(
             listOf("politics-retried"),
-            viewModel.feed.searchSections.getValue(NewsCategory.POLITICS).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.POLITICS).items.map { it.id }
         )
         assertEquals(
             listOf("society-ok"),
-            viewModel.feed.searchSections.getValue(NewsCategory.SOCIETY).items.map { it.id }
+            viewModel.feed.searchSections.getValue(SearchFilter.ALL).items.map { it.id }
         )
     }
 
@@ -379,10 +378,11 @@ class NewsViewModelTest {
 
     private inner class FakeNewsDataSource : NewsDataSource {
         val pages = ArrayDeque<ArticlePage>()
-        val searchPages = NewsCategory.entries.associateWith { ArrayDeque<ArticlePage>() }
+        val searchPages = (listOf<NewsCategory?>(null) + NewsCategory.entries)
+            .associateWith { ArrayDeque<ArticlePage>() }
         val savedPages = ArrayDeque<ArticlePage>()
         var pageFailure: Exception? = null
-        val categoryFailures = mutableMapOf<NewsCategory, Exception>()
+        val categoryFailures = mutableMapOf<NewsCategory?, Exception>()
         var articleFailure: Exception? = null
         var analysisFailure: Exception? = null
         var savedMutationFailure: Exception? = null
@@ -392,7 +392,7 @@ class NewsViewModelTest {
         var articlePageCalls = 0
         val queries = mutableListOf<String?>()
         val scopes = mutableListOf<FeedScope>()
-        val categories = mutableListOf<NewsCategory>()
+        val categories = mutableListOf<NewsCategory?>()
         val savedCategories = mutableListOf<NewsCategory>()
         val savedMutations = mutableListOf<Pair<String, Boolean>>()
 
@@ -401,7 +401,7 @@ class NewsViewModelTest {
             followedCodes = publisherCodes
             return publisherCodes
         }
-        override suspend fun articles(category: NewsCategory, scope: FeedScope,
+        override suspend fun articles(category: NewsCategory?, scope: FeedScope,
                                       cursor: String?, query: String?): ArticlePage {
             articlePageCalls += 1
             queries += query

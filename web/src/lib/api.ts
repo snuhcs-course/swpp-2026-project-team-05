@@ -30,7 +30,7 @@ export class ApiError extends Error {
 }
 
 export interface ArticleQuery {
-  category: NewsCategory
+  category?: NewsCategory
   scope?: FeedScope
   publishers?: string[]
   query?: string
@@ -38,7 +38,8 @@ export interface ArticleQuery {
 }
 
 export function articleQueryString({ category, scope = 'ALL', publishers = [], query, cursor }: ArticleQuery) {
-  const params = new URLSearchParams({ category, limit: '20' })
+  const params = new URLSearchParams({ limit: '20' })
+  if (category) params.set('category', category)
   params.set('scope', scope)
   publishers.forEach((publisher) => params.append('publisher', publisher))
   if (query) params.set('q', query)

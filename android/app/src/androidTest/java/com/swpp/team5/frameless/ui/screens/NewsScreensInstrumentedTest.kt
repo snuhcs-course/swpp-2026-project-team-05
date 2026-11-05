@@ -31,6 +31,7 @@ import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.data.TextRange
 import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
+import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,7 +59,7 @@ class NewsScreensInstrumentedTest {
             val listState = rememberLazyListState()
             NewsFeedScreen(
                 state, session, listState,
-                onCategory = {}, onScope = {}, onSources = { _, _ -> },
+                onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = { selectedId = it }, onLogout = {}
@@ -83,7 +84,7 @@ class NewsScreensInstrumentedTest {
         compose.setContent {
             NewsFeedScreen(
                 state, session, rememberLazyListState(),
-                onCategory = {}, onScope = { selectedScope = it }, onSources = { _, _ -> },
+                onCategory = {}, onSearchFilter = {}, onScope = { selectedScope = it }, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = {}, onLogout = {}
@@ -103,15 +104,15 @@ class NewsScreensInstrumentedTest {
             isSearchOpen = true,
             searchInput = "없는 기사",
             activeSearchQuery = "없는 기사",
-            searchSections = NewsCategory.entries.associateWith {
-                SearchSectionState(category = it, totalCount = 0)
-            }
+            searchSections = mapOf(
+                SearchFilter.ALL to SearchSectionState(filter = SearchFilter.ALL)
+            )
         )
         val session = AppSession(NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry")
         compose.setContent {
             NewsFeedScreen(
                 state, session, rememberLazyListState(),
-                onCategory = {}, onScope = {}, onSources = { _, _ -> },
+                onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = {}, onLogout = {}
@@ -131,7 +132,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun searchKeepsCategoryTabsWithExactCountsAndShowsSelectedSection() {
+    fun searchUsesAllPoliticsAndSocietyFiltersWithoutCountBadges() {
         val politics = ArticleSummary(
             "politics-1", publisher, "정치 검색 결과", NewsCategory.POLITICS,
             "2026-11-05T12:00:00+09:00", StoredAnalysisState.READY
@@ -146,11 +147,11 @@ class NewsScreensInstrumentedTest {
             searchInput = "검색어",
             activeSearchQuery = "검색어",
             searchSections = mapOf(
-                NewsCategory.POLITICS to SearchSectionState(
-                    NewsCategory.POLITICS, listOf(politics), totalCount = 7
+                SearchFilter.ALL to SearchSectionState(
+                    SearchFilter.ALL, listOf(politics, society), totalCount = 10
                 ),
-                NewsCategory.SOCIETY to SearchSectionState(
-                    NewsCategory.SOCIETY, listOf(society), totalCount = 3
+                SearchFilter.SOCIETY to SearchSectionState(
+                    SearchFilter.SOCIETY, listOf(society), totalCount = 3
                 )
             )
         ))
@@ -160,7 +161,8 @@ class NewsScreensInstrumentedTest {
         compose.setContent {
             NewsFeedScreen(
                 state.value, session, rememberLazyListState(),
-                onCategory = { state.value = state.value.copy(searchCategory = it) },
+                onCategory = {},
+                onSearchFilter = { state.value = state.value.copy(searchFilter = it) },
                 onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
@@ -168,25 +170,15 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithContentDescription("정치 검색 결과 7개").assertIsDisplayed()
-        compose.onNodeWithContentDescription("사회 검색 결과 3개").assertIsDisplayed()
+        compose.onNodeWithContentDescription("전체 검색 필터").assertIsDisplayed()
+        compose.onNodeWithContentDescription("정치 검색 필터").assertIsDisplayed()
+        compose.onNodeWithContentDescription("사회 검색 필터").assertIsDisplayed()
         compose.onNodeWithText("정치 검색 결과").assertIsDisplayed()
-        compose.onAllNodesWithText("사회 검색 결과").assertCountEquals(0)
+        compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
+        compose.onAllNodesWithText("7").assertCountEquals(0)
+        compose.onAllNodesWithText("3").assertCountEquals(0)
 
-        val searchPoliticsWidth = compose.onNodeWithContentDescription("정치 검색 결과 7개")
-            .fetchSemanticsNode().boundsInRoot.width
-        val searchSocietyWidth = compose.onNodeWithContentDescription("사회 검색 결과 3개")
-            .fetchSemanticsNode().boundsInRoot.width
-        compose.runOnIdle { state.value = state.value.copy(isSearchOpen = false) }
-        val ordinaryPoliticsWidth = compose.onNodeWithContentDescription("정치 섹션")
-            .fetchSemanticsNode().boundsInRoot.width
-        val ordinarySocietyWidth = compose.onNodeWithContentDescription("사회 섹션")
-            .fetchSemanticsNode().boundsInRoot.width
-        assertEquals(searchPoliticsWidth, ordinaryPoliticsWidth, 0.5f)
-        assertEquals(searchSocietyWidth, ordinarySocietyWidth, 0.5f)
-        compose.runOnIdle { state.value = state.value.copy(isSearchOpen = true) }
-
-        compose.onNodeWithText("사회").performClick()
+        compose.onNodeWithContentDescription("사회 검색 필터").performClick()
         compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
         compose.onAllNodesWithText("정치 검색 결과").assertCountEquals(0)
     }

@@ -43,7 +43,7 @@ ordinary feed.
 - [Integration] Category and publisher filters compose with search, and hidden or
   comparison-only articles never appear.\
   Tested by: `tests.test_news_api.NewsApiTests.test_search_combines_filters_and_excludes_non_feed_articles`
-- [Integration] `total_count` is exact for each category after feed-visibility
+- [Integration] `total_count` is exact for the active corpus or category filter after feed-visibility
   filters and remains the pre-cursor total on later pages; ordinary feed pages
   omit the field.\
   Tested by: `tests.test_news_api.NewsApiTests.test_search_total_count_matches_each_visible_category_before_pagination`, `tests.test_news_api.NewsApiTests.test_search_validates_query_length_and_feed_shape_is_unchanged`
@@ -82,18 +82,19 @@ ordinary feed.
   Tested by: `web/src/lib/api.test.ts > articleQueryString > encodes search, filters, and cursor without losing repeated publishers`
 - [Unit] Ordinary feed requests omit search-only parameters.\
   Tested by: `web/src/lib/api.test.ts > articleQueryString > keeps the ordinary feed request free of search-only parameters`
+- [Unit] A corpus-wide search omits the category parameter.\
+  Tested by: `web/src/lib/api.test.ts > articleQueryString > omits category for a corpus-wide search`
 - [Component] Search input remains local and does not mutate the URL. Korean IME
   composition does not submit an unfinished query; after composition ends,
   debounce sends only the final normalized query.\
   Tested by: `web/src/pages/FeedPage.test.tsx > keeps IME input local and searches only after composition ends`
-- [Component] One query searches Politics and Society with `ALL` scope, keeps the
-  pre-search URL state and existing category navigation, renders exact count
-  pills on both category selectors, and shows rows only for the selected
-  category.\
-  Tested by: `web/src/pages/FeedPage.test.tsx > searches both categories, keeps category navigation, and shows exact counts`
-- [Component] Failure in one Web category does not discard the successful
-  category, and retry refreshes only the failed section.\
-  Tested by: `web/src/pages/FeedPage.test.tsx > keeps a successful category visible while retrying the failed category`
+- [Component] A new query first searches the full corpus, keeps ordinary feed
+  navigation and URL state intact, then requests a category only when its search
+  filter is selected. No result-count badges are rendered.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > searches the full corpus first and filters by category without changing feed navigation`
+- [Component] Failure and retry belong to the active Web filter, while completed
+  filter pages remain reusable.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > retries the active search filter and preserves cached results across filters`
 - [Component] Clear returns to feed; filter changes reset pagination; loading,
   empty, and error states remain distinct.\
   Tip: extend `FeedPage.test.tsx` with filter and failure-state cases.
@@ -109,16 +110,15 @@ ordinary feed.
   service.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
 - [Unit] Input shorter than two characters does not search; rapid input is
-  debounced to the latest query; both categories search independently; closing
+  debounced to the latest query; the full corpus is searched first; closing
   search restores the existing feed.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
-- [Component] The existing Politics and Society tabs remain selectable during
-  search, expose their exact result counts, and show only the selected section's
-  rows without issuing another request. Their bounds remain unchanged when the
-  count slot changes from hidden to zero or a multi-digit value.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchKeepsCategoryTabsWithExactCountsAndShowsSelectedSection`
-- [Unit] Failure and retry are isolated to one Android category section.\
-  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchRetriesOneCategoryWithoutDiscardingTheOther`
+- [Component] Search exposes dedicated All, Politics, and Society filters without
+  count badges; All can contain mixed-category rows and a selected category shows
+  only that filter's rows.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchUsesAllPoliticsAndSocietyFiltersWithoutCountBadges`
+- [Unit] Failure and retry are isolated to one Android search filter.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchRetriesOneFilterWithoutDiscardingTheOther`
 - [Unit] A response from a request that became obsolete after a newer request
   started cannot replace the newer result.\
   Tip: add a controllable delayed data source and complete requests out of order.
@@ -144,7 +144,7 @@ ordinary feed.
 | Corpus membership | visible feed / comparison-only / hidden | Product spec §2.2 |
 | Ordering | cross-tier / same-tier timestamp / ID tie | Product spec §2.4 |
 | Cursor state | same context / changed query / changed filter / tampered | Product spec §3.1 |
-| Client state | pre-search / pending / two category sections / partial failure / empty / restored feed | Product spec §§5–6 |
+| Client state | pre-search / pending / All/category filter / active-filter failure / empty / restored feed | Product spec §§5–6 |
 
 ## Human review checkpoint
 
