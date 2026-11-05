@@ -587,20 +587,18 @@ private fun CategoryTab(
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.width(if (count == null) 44.dp else 78.dp)
-            .height(44.dp).clickable(onClick = onClick)
+        Modifier.width(78.dp).height(44.dp).clickable(onClick = onClick)
             .semantics {
                 role = Role.Tab
-                if (count != null) {
-                    contentDescription = "$label 검색 결과 ${count}개"
-                }
+                contentDescription = if (count == null) "$label 섹션"
+                else "$label 검색 결과 ${count}개"
             },
         verticalArrangement = Arrangement.Bottom,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 5.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -609,19 +607,21 @@ private fun CategoryTab(
                 color = if (selected) Fl.Ink else Fl.Muted,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             )
-            count?.let {
-                Box(
-                    Modifier.background(Fl.Inset, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 7.dp, vertical = 2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        it.toString(),
-                        color = if (selected) Fl.Ink2 else Fl.Muted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            Box(
+                Modifier.size(width = 28.dp, height = 18.dp)
+                    .background(
+                        if (count == null) androidx.compose.ui.graphics.Color.Transparent else Fl.Inset,
+                        RoundedCornerShape(999.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    count?.toString().orEmpty(),
+                    color = if (selected) Fl.Ink2 else Fl.Muted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
             }
         }
         Box(Modifier.height(2.dp).fillMaxWidth()

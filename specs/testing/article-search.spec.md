@@ -114,7 +114,8 @@ ordinary feed.
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
 - [Component] The existing Politics and Society tabs remain selectable during
   search, expose their exact result counts, and show only the selected section's
-  rows without issuing another request.\
+  rows without issuing another request. Their bounds remain unchanged when the
+  count slot changes from hidden to zero or a multi-digit value.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchKeepsCategoryTabsWithExactCountsAndShowsSelectedSection`
 - [Unit] Failure and retry are isolated to one Android category section.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchRetriesOneCategoryWithoutDiscardingTheOther`
