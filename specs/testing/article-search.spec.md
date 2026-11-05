@@ -87,8 +87,10 @@ ordinary feed.
   debounce sends only the final normalized query.\
   Tested by: `web/src/pages/FeedPage.test.tsx > keeps IME input local and searches only after composition ends`
 - [Component] One query searches Politics and Society with `ALL` scope, keeps the
-  pre-search URL state, and renders exact count pills for both sections.\
-  Tested by: `web/src/pages/FeedPage.test.tsx > searches both categories and shows exact section counts`
+  pre-search URL state and existing category navigation, renders exact count
+  pills on both category selectors, and shows rows only for the selected
+  category.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > searches both categories, keeps category navigation, and shows exact counts`
 - [Component] Failure in one Web category does not discard the successful
   category, and retry refreshes only the failed section.\
   Tested by: `web/src/pages/FeedPage.test.tsx > keeps a successful category visible while retrying the failed category`
@@ -110,8 +112,10 @@ ordinary feed.
   debounced to the latest query; both categories search independently; closing
   search restores the existing feed.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
-- [Component] Politics and Society headers expose their exact result counts.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchGroupsBothCategoriesWithExactCounts`
+- [Component] The existing Politics and Society tabs remain selectable during
+  search, expose their exact result counts, and show only the selected section's
+  rows without issuing another request.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchKeepsCategoryTabsWithExactCountsAndShowsSelectedSection`
 - [Unit] Failure and retry are isolated to one Android category section.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchRetriesOneCategoryWithoutDiscardingTheOther`
 - [Unit] A response from a request that became obsolete after a newer request

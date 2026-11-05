@@ -217,6 +217,12 @@ class NewsViewModelTest {
         )
         assertEquals("정책 추진", viewModel.feed.activeSearchQuery)
 
+        val callsAfterSearch = repository.articlePageCalls
+        viewModel.selectCategory(NewsCategory.SOCIETY)
+        assertEquals(NewsCategory.SOCIETY, viewModel.feed.searchCategory)
+        assertEquals(NewsCategory.POLITICS, viewModel.feed.category)
+        assertEquals(callsAfterSearch, repository.articlePageCalls)
+
         repository.searchPages.getValue(NewsCategory.POLITICS) +=
             ArticlePage(listOf(summary("politics-result-2")), null, 2)
         viewModel.loadMoreSearch(NewsCategory.POLITICS)
@@ -232,6 +238,7 @@ class NewsViewModelTest {
 
         viewModel.closeSearch()
         assertFalse(viewModel.feed.isSearchOpen)
+        assertEquals(NewsCategory.POLITICS, viewModel.feed.category)
         assertEquals(listOf("ordinary"), viewModel.feed.items.map { it.id })
         assertEquals(4, repository.articlePageCalls)
     }
