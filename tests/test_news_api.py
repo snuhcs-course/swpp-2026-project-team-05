@@ -65,7 +65,7 @@ class NewsApiTests(TestCase):
         )
 
     def _article(self, *, publisher, title, body, published_at, url, visible=True,
-                 feed_visible=True):
+                 feed_visible=True, category=NewsCategory.POLITICS):
         return Article.objects.create(
             publisher=publisher,
             story_cluster=self.cluster,
@@ -73,7 +73,7 @@ class NewsApiTests(TestCase):
             title=title,
             body_text=body,
             content_hash="0" * 64,
-            category=NewsCategory.POLITICS,
+            category=category,
             published_at=published_at,
             visibility=ArticleVisibility.VISIBLE if visible else ArticleVisibility.HIDDEN,
             is_feed_visible=feed_visible,
@@ -666,6 +666,65 @@ class NewsApiTests(TestCase):
             [str(self.source.id)],
         )
 
+    def test_search_total_count_matches_each_visible_category_before_pagination(self):
+        now = timezone.now()
+        society = self._article(
+            publisher=self.mbc,
+            title="정부 사회 정책 점검",
+            body="사회 분야 정부 정책을 점검한다.",
+            published_at=now - timedelta(minutes=5),
+            url="https://example.com/society-search",
+            category=NewsCategory.SOCIETY,
+        )
+        self._article(
+            publisher=self.yna,
+            title="정부 숨김 기사",
+            body="검색에서 제외되어야 한다.",
+            published_at=now,
+            url="https://example.com/hidden-search",
+            visible=False,
+        )
+        self._article(
+            publisher=self.yna,
+            title="정부 비교 전용 기사",
+            body="검색에서 제외되어야 한다.",
+            published_at=now,
+            url="https://example.com/comparison-search",
+            feed_visible=False,
+        )
+
+        politics = self.client.get(
+            "/api/v1/articles",
+            {"q": "정부", "category": "POLITICS", "limit": 1},
+            **self.auth,
+        )
+        society_response = self.client.get(
+            "/api/v1/articles",
+            {"q": "정부", "category": "SOCIETY", "limit": 1},
+            **self.auth,
+        )
+
+        self.assertEqual(politics.status_code, 200)
+        self.assertEqual(politics.json()["total_count"], 2)
+        self.assertEqual(len(politics.json()["items"]), 1)
+        self.assertTrue(politics.json()["next_cursor"])
+        second_page = self.client.get(
+            "/api/v1/articles",
+            {
+                "q": "정부",
+                "category": "POLITICS",
+                "limit": 1,
+                "cursor": politics.json()["next_cursor"],
+            },
+            **self.auth,
+        )
+        self.assertEqual(second_page.json()["total_count"], 2)
+        self.assertEqual(society_response.json()["total_count"], 1)
+        self.assertEqual(
+            [row["id"] for row in society_response.json()["items"]],
+            [str(society.id)],
+        )
+
     def test_search_cursor_is_bound_to_query_and_paginates_ranked_results(self):
         first = self.client.get(
             "/api/v1/articles", {"q": "정부", "limit": 1}, **self.auth
@@ -695,6 +754,7 @@ class NewsApiTests(TestCase):
 
         feed = self.client.get("/api/v1/articles", **self.auth)
         self.assertNotIn("search_excerpt", feed.json()["items"][0])
+        self.assertNotIn("total_count", feed.json())
 
     def test_comparison_article_is_readable_but_excluded_from_feed(self):
         self.target.is_feed_visible = False

@@ -91,7 +91,7 @@ class NewsApiClientTest {
           "items":[{"id":"a1","publisher":{"code":"yna","name":"연합뉴스","logo_url":null},
             "title":"정책 추진","category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
             "analysis_state":"READY","is_saved":true,
-            "search_excerpt":"…정책 추진을 검토했다…"}],"next_cursor":"cursor-2"}
+            "search_excerpt":"…정책 추진을 검토했다…"}],"next_cursor":"cursor-2","total_count":7}
         """)
         val page = client.articles(
             "token", NewsCategory.POLITICS, FeedScope.FOLLOWING, "cursor 1", 10, "정책 추진"
@@ -100,6 +100,7 @@ class NewsApiClientTest {
         assertEquals("…정책 추진을 검토했다…", page.items.single().searchExcerpt)
         assertTrue(page.items.single().isSaved)
         assertEquals("cursor-2", page.nextCursor)
+        assertEquals(7, page.totalCount)
         assertTrue(requests.last().path.contains("scope=FOLLOWING"))
         assertTrue(requests.last().path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
         assertTrue(requests.last().path.contains("cursor=cursor+1"))

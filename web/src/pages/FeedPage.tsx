@@ -11,7 +11,7 @@ import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { orderFeedArticles } from '../lib/feedOrdering'
 import { articleRouteState } from '../lib/navigation'
-import type { FeedScope, NewsCategory, Publisher } from '../lib/types'
+import type { ArticleSummary, FeedScope, NewsCategory, Publisher } from '../lib/types'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
 
 export function FeedPage() {
@@ -49,19 +49,42 @@ export function FeedPage() {
     queryFn: () => api.publishers(token),
   })
 
-  const effectiveScope: FeedScope = activeQuery ? 'ALL' : scope
-
   const articlesQuery = useInfiniteQuery({
-    queryKey: ['articles', userId, category, effectiveScope, activeQuery],
+    queryKey: ['articles', userId, category, scope],
     queryFn: ({ pageParam }) => api.articles(token, {
       category,
-      scope: effectiveScope,
-      query: activeQuery || undefined,
+      scope,
       cursor: pageParam,
     }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-    enabled: !queryTooShort,
+    enabled: !activeQuery && !queryTooShort,
+  })
+
+  const politicsSearchQuery = useInfiniteQuery({
+    queryKey: ['article-search', userId, 'POLITICS', activeQuery],
+    queryFn: ({ pageParam }) => api.articles(token, {
+      category: 'POLITICS',
+      scope: 'ALL',
+      query: activeQuery,
+      cursor: pageParam,
+    }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: Boolean(activeQuery) && !queryPending && !queryTooShort,
+  })
+
+  const societySearchQuery = useInfiniteQuery({
+    queryKey: ['article-search', userId, 'SOCIETY', activeQuery],
+    queryFn: ({ pageParam }) => api.articles(token, {
+      category: 'SOCIETY',
+      scope: 'ALL',
+      query: activeQuery,
+      cursor: pageParam,
+    }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: Boolean(activeQuery) && !queryPending && !queryTooShort,
   })
 
   const followMutation = useMutation({
@@ -82,12 +105,19 @@ export function FeedPage() {
 
   const articles = useMemo(
     () => {
-      if (queryPending || queryTooShort) return []
+      if (queryPending || queryTooShort || activeQuery) return []
       const loaded = articlesQuery.data?.pages.flatMap((page) => page.items) ?? []
-      return orderFeedArticles(loaded, scope, Boolean(activeQuery))
+      return orderFeedArticles(loaded, scope, false)
     },
     [activeQuery, articlesQuery.data, queryPending, queryTooShort, scope],
   )
+  const politicsResults = politicsSearchQuery.data?.pages.flatMap((page) => page.items) ?? []
+  const societyResults = societySearchQuery.data?.pages.flatMap((page) => page.items) ?? []
+  const politicsCount = politicsSearchQuery.data?.pages[0]?.total_count ?? politicsResults.length
+  const societyCount = societySearchQuery.data?.pages[0]?.total_count ?? societyResults.length
+  const searchHasResults = politicsCount + societyCount > 0
+  const searchInitialLoading = Boolean(activeQuery) &&
+    politicsSearchQuery.isLoading && societySearchQuery.isLoading
   const hero = articles[0]
   const rest = articles.slice(1)
   const followedCount = publisherQuery.data?.filter((publisher) => publisher.is_followed).length ?? 0
@@ -151,7 +181,7 @@ export function FeedPage() {
           </div>
         </section>
 
-        <section className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-300 py-4" aria-label="Feed scope">
+        {!activeQuery && <section className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-300 py-4" aria-label="Feed scope">
           <div className="flex items-center gap-1 border border-zinc-300 p-1">
             <button
               type="button"
@@ -176,14 +206,14 @@ export function FeedPage() {
           }}>
             <Settings2 size={16} /> Manage sources
           </button>
-        </section>
+        </section>}
 
         <div className="mx-auto max-w-5xl">
           <section className="min-w-0 py-6 lg:py-9">
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
               <h2 className="text-sm font-black">
                 {activeQuery
-                  ? `Search results · ${categoryLabel(category)}`
+                  ? 'Search results'
                   : `${scope === 'FOLLOWING' ? 'Following' : categoryLabel(category)} Headlines`}
               </h2>
               <span className="text-xs text-zinc-500">
@@ -196,10 +226,10 @@ export function FeedPage() {
             {queryTooShort && (
               <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">Enter at least 2 characters to search.</div>
             )}
-            {(queryPending || articlesQuery.isLoading) && !queryTooShort && (
+            {(queryPending || (!activeQuery && articlesQuery.isLoading) || searchInitialLoading) && !queryTooShort && (
               <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading the latest coverage…</div>
             )}
-            {articlesQuery.isError && !queryTooShort && (
+            {!activeQuery && articlesQuery.isError && !queryTooShort && (
               <div className="border border-red-300 p-8 text-center text-sm text-red-700">We could not load the feed. Please try again shortly.</div>
             )}
             {!activeQuery && hero && !queryPending && (
@@ -215,14 +245,38 @@ export function FeedPage() {
                 </Link>
               </article>
             )}
-            {activeQuery
-              ? articles.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)
-              : rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
-            {!articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
+            {activeQuery && !queryPending && !searchInitialLoading && (
+              <div className="space-y-10">
+                <SearchResultSection
+                  category="POLITICS"
+                  articles={politicsResults}
+                  totalCount={politicsCount}
+                  isLoading={politicsSearchQuery.isLoading}
+                  isError={politicsSearchQuery.isError}
+                  isFetchingNextPage={politicsSearchQuery.isFetchingNextPage}
+                  hasNextPage={politicsSearchQuery.hasNextPage}
+                  showEmptyState={searchHasResults}
+                  onRetry={() => void politicsSearchQuery.refetch()}
+                  onLoadMore={() => void politicsSearchQuery.fetchNextPage()}
+                />
+                <SearchResultSection
+                  category="SOCIETY"
+                  articles={societyResults}
+                  totalCount={societyCount}
+                  isLoading={societySearchQuery.isLoading}
+                  isError={societySearchQuery.isError}
+                  isFetchingNextPage={societySearchQuery.isFetchingNextPage}
+                  hasNextPage={societySearchQuery.hasNextPage}
+                  showEmptyState={searchHasResults}
+                  onRetry={() => void societySearchQuery.refetch()}
+                  onLoadMore={() => void societySearchQuery.fetchNextPage()}
+                />
+              </div>
+            )}
+            {!activeQuery && rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
+            {!activeQuery && !articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
               <div className="border-y border-zinc-300 px-5 py-20 text-center text-sm text-zinc-500">
-                {activeQuery ? (
-                  <UrlAnalysisMock key={activeQuery} query={activeQuery} />
-                ) : scope === 'FOLLOWING' && followedCount === 0 ? (
+                {scope === 'FOLLOWING' && followedCount === 0 ? (
                   <>
                     <p>Choose a few trusted sources to build your Following feed.</p>
                     <Button className="mt-5" onClick={() => setSourcesOpen(true)}>Manage sources</Button>
@@ -237,7 +291,13 @@ export function FeedPage() {
                 )}
               </div>
             )}
-            {articlesQuery.hasNextPage && !queryPending && !queryTooShort && (
+            {activeQuery && !queryPending && !searchInitialLoading &&
+              !politicsSearchQuery.isError && !societySearchQuery.isError && !searchHasResults && (
+                <div className="border-y border-zinc-300 px-5 py-12 text-center text-sm text-zinc-500">
+                  <UrlAnalysisMock key={activeQuery} query={activeQuery} />
+                </div>
+              )}
+            {!activeQuery && articlesQuery.hasNextPage && !queryPending && !queryTooShort && (
               <Button variant="outline" className="mt-7 w-full" disabled={articlesQuery.isFetchingNextPage} onClick={() => void articlesQuery.fetchNextPage()}>
                 {articlesQuery.isFetchingNextPage ? 'Loading…' : 'Load more stories'}
               </Button>
@@ -257,5 +317,69 @@ export function FeedPage() {
         />
       )}
     </AppShell>
+  )
+}
+
+interface SearchResultSectionProps {
+  category: NewsCategory
+  articles: ArticleSummary[]
+  totalCount: number
+  isLoading: boolean
+  isError: boolean
+  isFetchingNextPage: boolean
+  hasNextPage: boolean
+  showEmptyState: boolean
+  onRetry: () => void
+  onLoadMore: () => void
+}
+
+function SearchResultSection({
+  category,
+  articles,
+  totalCount,
+  isLoading,
+  isError,
+  isFetchingNextPage,
+  hasNextPage,
+  showEmptyState,
+  onRetry,
+  onLoadMore,
+}: SearchResultSectionProps) {
+  return (
+    <section aria-labelledby={`search-${category.toLowerCase()}`}>
+      <div className="flex items-center gap-2 border-b-2 border-black pb-3">
+        <h3 id={`search-${category.toLowerCase()}`} className="font-serif text-2xl font-black tracking-[-0.03em]">
+          {categoryLabel(category)}
+        </h3>
+        <span
+          className="inline-flex min-w-7 items-center justify-center rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-bold tabular-nums text-zinc-700"
+          aria-label={`${categoryLabel(category)} ${totalCount} results`}
+        >
+          {totalCount}
+        </span>
+      </div>
+      {isLoading && (
+        <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-zinc-500">
+          <LoaderCircle className="animate-spin" size={16} /> Searching this section…
+        </div>
+      )}
+      {isError && (
+        <div className="border-b border-zinc-300 py-8 text-sm text-red-700">
+          <p>We could not search this section.</p>
+          <Button variant="outline" className="mt-4" onClick={onRetry}>Try again</Button>
+        </div>
+      )}
+      {!isLoading && !isError && articles.map((article, index) => (
+        <ArticleRow key={article.id} article={article} index={index} />
+      ))}
+      {!isLoading && !isError && totalCount === 0 && showEmptyState && (
+        <p className="border-b border-zinc-300 py-7 text-sm text-zinc-500">No matching stories in this section.</p>
+      )}
+      {hasNextPage && !isError && (
+        <Button variant="outline" className="mt-5 w-full" disabled={isFetchingNextPage} onClick={onLoadMore}>
+          {isFetchingNextPage ? 'Loading…' : `Load more ${categoryLabel(category).toLowerCase()} stories`}
+        </Button>
+      )}
+    </section>
   )
 }

@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implementation baseline |
-| Version | 1.6 (implemented news-product baseline) |
-| Date | 2026-11-03 |
+| Version | 1.7 (implemented news-product baseline) |
+| Date | 2026-11-05 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -27,7 +27,7 @@ Register or log in
         ↓
 Browse politics or society articles
         ↓
-Choose Latest or Following, or search all feed articles
+Choose Latest or Following, or search all Politics and Society feed articles
         ↓
 Read one stored article in full
         ↓
@@ -478,11 +478,18 @@ Response:
       "search_excerpt": null
     }
   ],
-  "next_cursor": "opaque-or-null"
+  "next_cursor": "opaque-or-null",
+  "total_count": 27
 }
 ```
 
-The cursor represents the last `(published_at, id)` pair and is validated with Django signing. Feed payloads do not include body or findings.
+`total_count` is a search-only field: it is the exact result count for the same
+visibility, category, publisher, and scope filters before cursor application.
+Ordinary feed pages omit it. Android and Web issue parallel `POLITICS` and
+`SOCIETY` search requests so each category has an independent first page,
+count, cursor, and failure boundary. The cursor represents the last ranked
+position and is validated with Django signing. Feed payloads do not include body
+or findings.
 
 ### 6.4 Article detail
 

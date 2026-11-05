@@ -65,7 +65,7 @@ describe('FeedPage search', () => {
 
     await waitFor(() => expect(api.articles).toHaveBeenCalledWith(
       'test-token',
-      expect.objectContaining({ query: undefined }),
+      expect.objectContaining({ category: 'POLITICS', scope: 'ALL' }),
     ))
     vi.mocked(api.articles).mockClear()
 
@@ -170,6 +170,87 @@ describe('FeedPage search', () => {
       'test-token',
       expect.objectContaining({ scope: 'ALL', query: '중수청' }),
     ), { timeout: 1000 })
+  })
+
+  it('searches both categories and shows exact section counts', async () => {
+    const article = (id: string, title: string, category: 'POLITICS' | 'SOCIETY'): ArticleSummary => ({
+      id,
+      title,
+      category,
+      publisher: { code: 'yna', name: 'Yonhap News', logo_url: '' },
+      published_at: '2026-11-05T12:00:00+09:00',
+      analysis_state: 'READY',
+      is_saved: false,
+    })
+    vi.mocked(api.articles).mockImplementation(async (_token, options) => {
+      if (!options.query) return { items: [], next_cursor: null }
+      if (options.category === 'POLITICS') {
+        return {
+          items: [article('politics-1', '정치 검색 결과', 'POLITICS')],
+          next_cursor: null,
+          total_count: 7,
+        }
+      }
+      return {
+        items: [article('society-1', '사회 검색 결과', 'SOCIETY')],
+        next_cursor: null,
+        total_count: 3,
+      }
+    })
+
+    renderFeed('/?category=POLITICS&scope=following')
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search articles' }), {
+      target: { value: '공통 검색어' },
+    })
+
+    expect(await screen.findByText('정치 검색 결과')).toBeInTheDocument()
+    expect(screen.getByText('사회 검색 결과')).toBeInTheDocument()
+    expect(screen.getByLabelText('Politics 7 results')).toHaveTextContent('7')
+    expect(screen.getByLabelText('Society 3 results')).toHaveTextContent('3')
+    await waitFor(() => {
+      expect(api.articles).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        category: 'POLITICS', scope: 'ALL', query: '공통 검색어',
+      }))
+      expect(api.articles).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        category: 'SOCIETY', scope: 'ALL', query: '공통 검색어',
+      }))
+    })
+    expect(screen.getByLabelText('location-search')).toHaveTextContent('category=POLITICS')
+    expect(screen.getByLabelText('location-search')).toHaveTextContent('scope=following')
+  })
+
+  it('keeps a successful category visible while retrying the failed category', async () => {
+    const politics: ArticleSummary = {
+      id: 'politics-retried',
+      title: '재시도한 정치 결과',
+      category: 'POLITICS',
+      publisher: { code: 'yna', name: 'Yonhap News', logo_url: '' },
+      published_at: '2026-11-05T12:00:00+09:00',
+      analysis_state: 'READY',
+      is_saved: false,
+    }
+    const society: ArticleSummary = { ...politics, id: 'society-ok', title: '유지된 사회 결과', category: 'SOCIETY' }
+    let politicsAttempts = 0
+    vi.mocked(api.articles).mockImplementation(async (_token, options) => {
+      if (!options.query) return { items: [], next_cursor: null }
+      if (options.category === 'POLITICS' && politicsAttempts++ === 0) throw new Error('offline')
+      if (options.category === 'POLITICS') {
+        return { items: [politics], next_cursor: null, total_count: 1 }
+      }
+      return { items: [society], next_cursor: null, total_count: 1 }
+    })
+
+    const user = userEvent.setup()
+    renderFeed()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search articles' }), {
+      target: { value: '분야별 오류' },
+    })
+
+    expect(await screen.findByText('유지된 사회 결과')).toBeInTheDocument()
+    expect(screen.getByText('We could not search this section.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('재시도한 정치 결과')).toBeInTheDocument()
+    expect(screen.getByText('유지된 사회 결과')).toBeInTheDocument()
   })
 
   it('previews URL analysis only after a zero-result search without sending the URL', async () => {

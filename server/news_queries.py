@@ -171,6 +171,10 @@ def list_articles(*, user: UserAccount, category: str | None,
         queryset = apply_article_search(queryset, query).order_by(
             "search_rank", "-published_at", "-id"
         )
+        # Count the exact searchable corpus before applying the continuation
+        # cursor. Clients use one request per category, so this is the stable
+        # section total rather than the size of the currently loaded page.
+        total_count = queryset.count()
     else:
         queryset = queryset.order_by("-published_at", "-id")
 
@@ -196,7 +200,7 @@ def list_articles(*, user: UserAccount, category: str | None,
     rows = list(queryset[:limit + 1])
     has_more = len(rows) > limit
     visible = rows[:limit]
-    return {
+    payload = {
         "items": [article_summary_payload(row, query) for row in visible],
         "next_cursor": (
             encode_cursor(
@@ -207,6 +211,9 @@ def list_articles(*, user: UserAccount, category: str | None,
             if has_more and visible else None
         ),
     }
+    if query:
+        payload["total_count"] = total_count
+    return payload
 
 
 def get_article(article_id: UUID, *, user: UserAccount | None = None) -> Article | None:

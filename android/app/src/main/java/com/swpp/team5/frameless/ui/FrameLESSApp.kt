@@ -91,6 +91,8 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             onRefresh = news::refresh,
                             onRetry = news::retryFeed,
                             onLoadMore = news::loadMore,
+                            onLoadMoreSearch = news::loadMoreSearch,
+                            onRetrySearch = news::retrySearch,
                             onSearchOpen = news::openSearch,
                             onSearchInput = news::updateSearchInput,
                             onSearchSubmit = news::submitSearch,

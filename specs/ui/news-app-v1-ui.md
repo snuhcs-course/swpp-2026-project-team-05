@@ -1,6 +1,6 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: v1.8 implemented Android and Web baseline
+Status: v1.9 implemented Android and Web baseline
 
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
@@ -206,6 +206,42 @@ Do not show:
 Feed rows do not expose analysis lifecycle badges. A readable article remains a
 normal news item regardless of analysis availability; the Reader owns loading,
 partial, empty, and failure explanations.
+
+### 4.5 Global search results
+
+Search is global across the two supported categories even when the user entered
+it from one category or from Following. The pre-search category and scope remain
+selected in the background and are restored when search closes.
+
+```text
+┌──────────────────────────────────────┐
+│  [뒤로] [ 검색어________________ × ] │
+│──────────────────────────────────────│
+│  정치  27                            │
+│──────────────────────────────────────│
+│  연합뉴스 · 12분 전                    │
+│  정치 분야 검색 결과                  │
+│  …검색어가 있는 본문 일부…             │
+│  [정치 기사 더 보기]                  │
+│                                      │
+│  사회  8                             │
+│──────────────────────────────────────│
+│  MBC · 20분 전                       │
+│  사회 분야 검색 결과                  │
+└──────────────────────────────────────┘
+```
+
+- Politics and Society always have separate headers. The small neutral count
+  pill is the exact server count, not the number currently loaded.
+- Each section owns its page cursor and load-more/error state. Loading or
+  retrying one section must not clear or move the other section.
+- A section with zero matches keeps its header and shows a restrained empty row.
+  If both sections are empty, show the existing no-results state and URL-analysis
+  preview entry below the section search outcome.
+- The existing compact article row and optional plain-text excerpt are reused.
+  Do not add result cards, relevance scores, analysis badges, or thumbnails.
+- A new normalized query resets both sections. Search never rewrites the Web URL
+  and never applies the pre-search Following filter.
 
 ## 5. Article Reader
 
@@ -517,6 +553,7 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Latest/Following switching and distinct empty states
 - Followed-source draft, save, cancel, and failure behavior
 - Search and saved-article entry actions
+- Global search category headers, exact count pills, and independent pagination
 - Initial loading, refresh, pagination, empty, and retry states
 - Article row with a long headline and no redundant category, analysis, or open
   labels
@@ -543,7 +580,9 @@ The UI is complete when:
 
 - users can register or log in and reach the all-publisher feed directly;
 - users can switch politics/society and Latest/Following without losing state;
-- users can search all feed-visible articles and return to the prior feed;
+- users can search all feed-visible articles across Politics and Society, see
+  exact category counts, paginate either section independently, and return to
+  the prior feed;
 - users can save an article and return from its Reader to the saved list;
 - every visible article is readable regardless of analysis status;
 - Android analysis can be toggled without changing article content or position;

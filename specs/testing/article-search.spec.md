@@ -5,7 +5,7 @@
 | Status | Implemented; intent review inherited from the product specification |
 | Owner | Article search feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§2–8 |
-| Last reviewed | 2026-11-02 |
+| Last reviewed | 2026-11-05 |
 
 ## Scope
 
@@ -16,8 +16,8 @@ ordinary feed.
 
 ### Non-goals
 
-- Semantic search, suggestions, typo correction, exact result counts, and
-  searching analysis text or comparison-only articles.
+- Semantic search, suggestions, typo correction, and searching analysis text or
+  comparison-only articles.
 - Proving the editorial quality of an article or its analysis.
 
 ## Preconditions
@@ -43,6 +43,10 @@ ordinary feed.
 - [Integration] Category and publisher filters compose with search, and hidden or
   comparison-only articles never appear.\
   Tested by: `tests.test_news_api.NewsApiTests.test_search_combines_filters_and_excludes_non_feed_articles`
+- [Integration] `total_count` is exact for each category after feed-visibility
+  filters and remains the pre-cursor total on later pages; ordinary feed pages
+  omit the field.\
+  Tested by: `tests.test_news_api.NewsApiTests.test_search_total_count_matches_each_visible_category_before_pagination`, `tests.test_news_api.NewsApiTests.test_search_validates_query_length_and_feed_shape_is_unchanged`
 - [Unit] A body excerpt is grounded, bounded to the configured maximum, and uses
   ellipses when surrounding text is omitted.\
   Tested by: `tests.test_article_search.ArticleSearchTextTests.test_excerpt_is_bounded_and_contains_the_grounded_match`
@@ -82,6 +86,12 @@ ordinary feed.
   composition does not submit an unfinished query; after composition ends,
   debounce sends only the final normalized query.\
   Tested by: `web/src/pages/FeedPage.test.tsx > keeps IME input local and searches only after composition ends`
+- [Component] One query searches Politics and Society with `ALL` scope, keeps the
+  pre-search URL state, and renders exact count pills for both sections.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > searches both categories and shows exact section counts`
+- [Component] Failure in one Web category does not discard the successful
+  category, and retry refreshes only the failed section.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > keeps a successful category visible while retrying the failed category`
 - [Component] Clear returns to feed; filter changes reset pagination; loading,
   empty, and error states remain distinct.\
   Tip: extend `FeedPage.test.tsx` with filter and failure-state cases.
@@ -97,8 +107,13 @@ ordinary feed.
   service.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
 - [Unit] Input shorter than two characters does not search; rapid input is
-  debounced to the latest query; closing search restores the existing feed.\
+  debounced to the latest query; both categories search independently; closing
+  search restores the existing feed.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
+- [Component] Politics and Society headers expose their exact result counts.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchGroupsBothCategoriesWithExactCounts`
+- [Unit] Failure and retry are isolated to one Android category section.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchRetriesOneCategoryWithoutDiscardingTheOther`
 - [Unit] A response from a request that became obsolete after a newer request
   started cannot replace the newer result.\
   Tip: add a controllable delayed data source and complete requests out of order.
@@ -124,7 +139,7 @@ ordinary feed.
 | Corpus membership | visible feed / comparison-only / hidden | Product spec §2.2 |
 | Ordering | cross-tier / same-tier timestamp / ID tie | Product spec §2.4 |
 | Cursor state | same context / changed query / changed filter / tampered | Product spec §3.1 |
-| Client state | pre-search / pending / results / empty / error / restored feed | Product spec §§5–6 |
+| Client state | pre-search / pending / two category sections / partial failure / empty / restored feed | Product spec §§5–6 |
 
 ## Human review checkpoint
 

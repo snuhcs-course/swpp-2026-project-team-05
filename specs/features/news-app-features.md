@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented baseline |
-| Version | 0.4 |
-| Date | 2026-11-03 |
+| Version | 0.5 |
+| Date | 2026-11-05 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -127,8 +127,9 @@ Parameters:
 | `limit` | No | Existing range of 1 to 50; clients use 20 |
 | `cursor` | No | Opaque continuation cursor issued for the same search context |
 
-The response keeps the existing article-page shape. While `q` is active, article
-summaries include the nullable field below:
+The response keeps the existing article-page shape. While `q` is active, the
+page also carries the exact `total_count` for the same filters before cursor
+application, and article summaries include the nullable field below:
 
 ```json
 {
@@ -143,13 +144,15 @@ summaries include the nullable field below:
       "search_excerpt": "…본문에서 검색어가 포함된 주변 문장…"
     }
   ],
-  "next_cursor": "opaque-or-null"
+  "next_cursor": "opaque-or-null",
+  "total_count": 27
 }
 ```
 
-The API does not return an exact total count in v1. Counting the full result set
-on every keystroke adds cost without improving the main search flow. Clients show
-the loaded results and whether another page is available.
+`total_count` is present only while `q` is active. It counts the exact searchable
+corpus after visibility, category, publisher, and scope filters and before the
+cursor, so it remains stable across pages of one search context. Ordinary feed
+responses do not add this search-only field.
 
 ### 3.1 Cursor integrity
 
@@ -217,10 +220,13 @@ signal and may also become an explicit user-selected filter.
 - Start automatic search after at least two normalized characters.
 - Debounce typing by approximately 300 ms.
 - Cancel or ignore an obsolete request when the query changes.
-- Include the active category. Search uses the complete `ALL` feed scope rather
+- Search Politics and Society in parallel, regardless of the feed category that
+  was selected before search. Both requests use the complete `ALL` scope rather
   than silently restricting results to followed publishers.
-- Reset the list position and cursor when query or category changes.
-- Continue using server cursor pagination near the end of the list.
+- Render one section per category with its exact count. Each section owns its
+  items, continuation cursor, loading state, error, retry, and load-more action.
+- Reset both category sections when the query changes. Closing search restores
+  the category, scope, items, and scroll context from before search.
 
 ### 5.3 States
 
@@ -234,9 +240,11 @@ The screen must distinguish:
 - initial-search failure with retry;
 - next-page failure without discarding loaded results.
 
-Results reuse the existing compact article row. A returned search excerpt appears
-below the headline in restrained secondary text. Opening a result uses the
-existing Reader and analysis flow.
+Results reuse the existing compact article row under `정치` and `사회` headers.
+The small count beside each header equals the number of matching feed-visible
+articles in that category, not merely the loaded page size. A returned search
+excerpt appears below the headline in restrained secondary text. Opening a
+result uses the existing Reader and analysis flow.
 
 The search field has an accessibility label, the clear and back controls have
 distinct button descriptions, and IME search submits immediately.
@@ -247,14 +255,17 @@ distinct button descriptions, and IME search submits immediately.
   editorial black-and-white visual system.
 - Keep the draft and active search query in local UI state. Typing must not
   rewrite the browser URL; reload starts from the ordinary feed.
-- Preserve the category in the URL. Search-result links still open the stable
+- Preserve the category and feed scope in the URL, but do not use either to
+  restrict an active search. Search-result links still open the stable
   article route, but v1 does not provide a shareable search-results URL.
 - Debounce typing by approximately 300 ms while allowing Enter to submit
   immediately.
 - Respect IME composition: do not debounce or submit an unfinished Korean input,
   and start the delay only after composition ends.
-- Changing query or category resets the result cursor.
-- Reuse existing article layouts and show the optional excerpt as secondary text.
+- A new query resets both category sections. Each section paginates and retries
+  independently so a large Politics result set cannot hide Society results.
+- Reuse existing article layouts, show exact category counts, and show the
+  optional excerpt as secondary text.
 - Provide explicit loading, no-results, error, retry, and clear-search states.
 - Keep the layout usable without horizontal overflow at phone and desktop widths.
 
