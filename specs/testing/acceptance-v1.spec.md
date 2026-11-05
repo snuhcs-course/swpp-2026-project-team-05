@@ -2,10 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Proposed for Iteration 3 intent review and freeze |
+| Status | Intent-reviewed and frozen for Iteration 3 |
 | Owner | Team |
 | Source requirements | [`../product/news-app-v1.md`](../product/news-app-v1.md), [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md), [`../features/news-app-features.md`](../features/news-app-features.md) |
-| Last reviewed | 2026-11-02 |
+| Last reviewed | 2026-11-05 |
+| Frozen against | `main` at `ab8d9bf` |
 
 This plan defines stable user-facing procedures. After the team freezes it for
 Iteration 3, do not rewrite a failed criterion; fix the product and rerun it.

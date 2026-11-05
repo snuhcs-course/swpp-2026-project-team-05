@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Living team document |
-| Current revision | 2026-11-03 |
+| Current revision | 2026-11-05 |
 | Historical baseline | [`testing-documentation-iter2.md`](testing-documentation-iter2.md) |
 
 This page is the maintainable entry point for the testing plan and measured
@@ -47,7 +47,8 @@ backend and Android coverage gates and uploads reports for 14 days.
 | Article search v1 | [`specs/testing/article-search.spec.md`](../specs/testing/article-search.spec.md) | Implemented with explicit remaining UI/race-condition gaps |
 | Saved articles v1 | [`specs/testing/saved-articles.spec.md`](../specs/testing/saved-articles.spec.md) | Implemented with explicit remaining UI/security gaps |
 | Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Implemented with explicit remaining navigation/concurrency gaps |
-| News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Proposed; team freeze required for Iteration 3 |
+| News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Six stories frozen for Iteration 3 against `ab8d9bf` |
+| Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Six reviewed stories frozen before the first run |
 
 ### Result recording template
 
@@ -92,12 +93,46 @@ of public artifacts.
 
 ## 4. Acceptance testing plan
 
-The five proposed stable user stories and concrete procedures are in
-`specs/testing/acceptance-v1.spec.md`. Freeze them with a team-reviewed commit for
-Iteration 3. From Iteration 4 onward, record per-story pass/fail, tester, date,
-client/build, backend revision, database seed, deviations, and evidence here.
+The six stable user stories and concrete procedures are frozen in
+`specs/testing/acceptance-v1.spec.md` against `main` commit `ab8d9bf`. From
+Iteration 4 onward, record per-story pass/fail, tester, date, client/build,
+backend revision, database seed, deviations, and evidence here. The smaller
+Iteration 3 release smoke below is integration evidence, not a claim that formal
+UAT results were completed early.
 
-## 5. Review cadence
+## 5. Heuristic evaluation follow-up
+
+The Iteration 3 implementation addressed three high-impact usability findings
+that were reproducible in the Android client:
+
+| Observed issue | Change | Evidence |
+| --- | --- | --- |
+| Latest and Following looked like independent checkboxes and suggested that both could be active. | Replaced the ambiguous interaction with mutually exclusive feed-scope selection. | `85ac777`, PR #75 |
+| Selecting a marked phrase exposed too much comparison UI while the user was still reading, and the expanded view was difficult to dismiss predictably. | Added a compact in-context preview before the full comparison view and hardened close, drag, and navigation behavior. | `700df97`, PR #77 |
+| Turning analysis markers on or off moved the article away from the paragraph being read. | Preserved Reader position while applying the saved analysis preference. | `1a7b93f`, PR #78 |
+
+These changes are implementation follow-up. The submitted HE spreadsheet remains
+the source of participant findings and severity ratings; this document does not
+replace or reconstruct that sheet.
+
+## 6. Iteration 3 release-candidate smoke
+
+The frozen six-story procedure and success criteria are in
+`specs/testing/iteration-3-release-smoke.spec.md`. It samples the reviewed data
+shapes needed by the Reader: one-to-one, one-to-many, multiple findings, and a
+mix of single- and multi-source comparisons. Results are appended after running
+the installed APK against the production API.
+
+| Case | Expected findings / passages | Observed | Reader latency | Result / deviation |
+| --- | ---: | ---: | ---: | --- |
+| `b08` HD Hyundai Electric | 2 / 3 | Pending | Pending | Pending |
+| `b12` Shubao | 1 / 3 | Pending | Pending | Pending |
+| `b16` Hong Joon-pyo | 3 / 8 | Pending | Pending | Pending |
+| `b33` Hongdae and Itaewon | 3 / 3 | Pending | Pending | Pending |
+| `b34` Hanwha U.S. Navy order | 3 / 5 | Pending | Pending | Pending |
+| `b11` Goheung space complex | 1 / 1 | Pending | Pending | Pending |
+
+## 7. Review cadence
 
 - **Every feature PR:** specification link, focused tests, regression test for a
   bug, and green affected suites.
@@ -108,7 +143,7 @@ client/build, backend revision, database seed, deviations, and evidence here.
 - **Before a live demo or release:** Web smoke, installed Android smoke, API and
   database revision recorded together.
 
-## 6. Iteration result log
+## 8. Iteration result log
 
 No new result is claimed by this governance change. Use the template in §2 after
 the current pull request's CI completes. Iteration 2 evidence and known gaps are
