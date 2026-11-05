@@ -237,7 +237,12 @@ selected in the background and are restored when search closes.
 - The active filter owns its cursor, load-more, loading, and retry state. Filters
   do not show result-count badges, relevance scores, or layout-changing metadata.
 - An empty category filter shows a restrained category-specific message. An
-  empty `All` result shows the existing no-results state and URL-analysis preview.
+  inline `전체 검색 결과 보기` action returns to `All` without changing the
+  query. An empty `All` result shows the existing no-results state and
+  URL-analysis preview.
+- On Android, tapping ordinary content outside a focused search, authentication,
+  or URL field dismisses the keyboard without consuming the tapped control's
+  action.
 - The existing compact article row and optional plain-text excerpt are reused.
   Do not add result cards, relevance scores, analysis badges, or thumbnails.
 - A new normalized query resets the active filter to `All`. Search never rewrites the Web URL

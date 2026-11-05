@@ -65,6 +65,7 @@ import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
+import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
@@ -130,7 +131,7 @@ internal fun NewsFeedScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Fl.Card)) {
+    Column(Modifier.fillMaxSize().background(Fl.Card).dismissKeyboardOnTap()) {
         Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             if (state.isSearchOpen) {
                 SearchHeader(
@@ -236,7 +237,8 @@ internal fun NewsFeedScreen(
                 onLoadMore = onLoadMoreSearch,
                 onArticle = onArticle,
                 onAnalyzeLink = { showUrlAnalysisMock = true },
-                onClearSearch = { onSearchInput("") }
+                onClearSearch = { onSearchInput("") },
+                onShowAllResults = { onSearchFilter(SearchFilter.ALL) }
             )
             state.isLoading && state.items.isEmpty() -> LoadingFeed()
             state.error != null && state.items.isEmpty() -> FeedMessage(
@@ -362,7 +364,8 @@ private fun SearchResultsFeed(
     onLoadMore: (SearchFilter) -> Unit,
     onArticle: (String) -> Unit,
     onAnalyzeLink: () -> Unit,
-    onClearSearch: () -> Unit
+    onClearSearch: () -> Unit,
+    onShowAllResults: () -> Unit
 ) {
     val selected = sections[selectedFilter] ?:
         SearchSectionState(filter = selectedFilter, isLoading = true)
@@ -413,13 +416,26 @@ private fun SearchResultsFeed(
                 }
                 selected.items.isEmpty() && selected.filter != SearchFilter.ALL -> {
                     item(key = "empty-${selected.filter.name}") {
-                        Text(
-                            "${selected.filter.label} 분야에는 일치하는 기사가 없어요.",
-                            color = Fl.Muted,
-                            fontSize = 13.sp,
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(horizontal = 18.dp, vertical = 24.dp)
-                        )
+                        Column(
+                            Modifier.fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                "${selected.filter.label} 분야에는 일치하는 기사가 없어요.",
+                                color = Fl.Muted,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                "전체 검색 결과 보기",
+                                color = Fl.Accent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.clickable(onClick = onShowAllResults)
+                                    .padding(vertical = 4.dp)
+                                    .semantics { role = Role.Button }
+                            )
+                        }
                     }
                 }
             }

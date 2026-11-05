@@ -35,6 +35,7 @@ import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.FlCard
+import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
 import com.swpp.team5.frameless.data.AnalysisHistoryItem
 import com.swpp.team5.frameless.ui.viewmodel.AnalysisHistoryState
 import java.net.URI
@@ -57,6 +58,7 @@ internal fun ImportScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .dismissKeyboardOnTap()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally

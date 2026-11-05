@@ -6,6 +6,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -105,6 +107,28 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
+    fun authFormDismissesKeyboardWhenTheUserTapsOrdinaryContent() {
+        compose.setContent {
+            LoginScreen(
+                identifier = "",
+                password = "",
+                loading = false,
+                error = null,
+                onIdentifier = {},
+                onPassword = {},
+                onLogin = {},
+                onRegister = {}
+            )
+        }
+
+        val identifier = compose.onNodeWithText("이메일 또는 사용자 이름")
+        identifier.performClick().assertIsFocused()
+        compose.onNodeWithText("다른 보도를\n함께 읽는 뉴스")
+            .performTouchInput { click() }
+        identifier.assertIsNotFocused()
+    }
+
+    @Test
     fun zeroResultSearchPreviewsUrlAnalysisWithoutSubmitting() {
         val state = NewsFeedState(
             publishers = listOf(publisher),
@@ -130,8 +154,12 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("계속").performClick()
         compose.onNodeWithText("http:// 또는 https://로 시작하는 전체 기사 주소를 입력해 주세요.")
             .assertIsDisplayed()
-        compose.onNodeWithContentDescription("기사 URL 입력")
-            .performTextInput("https://news.example.com/story")
+        val urlInput = compose.onNodeWithContentDescription("기사 URL 입력")
+        urlInput.performTextInput("https://news.example.com/story")
+        urlInput.assertIsFocused()
+        compose.onNodeWithText("공개된 뉴스 기사 주소를 입력해", substring = true)
+            .performTouchInput { click() }
+        compose.onNodeWithContentDescription("기사 URL 입력").assertIsNotFocused()
         compose.onNodeWithText("계속").performClick()
         compose.onNodeWithText("기사 분석 기능을 준비하고 있어요").assertIsDisplayed()
         compose.onNodeWithText("검색으로 돌아가기").performClick()
@@ -156,6 +184,9 @@ class NewsScreensInstrumentedTest {
             searchSections = mapOf(
                 SearchFilter.ALL to SearchSectionState(
                     SearchFilter.ALL, listOf(politics, society), totalCount = 10
+                ),
+                SearchFilter.POLITICS to SearchSectionState(
+                    SearchFilter.POLITICS, emptyList(), totalCount = 0
                 ),
                 SearchFilter.SOCIETY to SearchSectionState(
                     SearchFilter.SOCIETY, listOf(society), totalCount = 3
@@ -184,6 +215,14 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
         compose.onAllNodesWithText("7").assertCountEquals(0)
         compose.onAllNodesWithText("3").assertCountEquals(0)
+        compose.onNodeWithContentDescription("기사 검색어").assertIsFocused()
+
+        compose.onNodeWithContentDescription("정치 검색 필터").performClick()
+        compose.onNodeWithContentDescription("기사 검색어").assertIsNotFocused()
+        compose.onNodeWithText("정치 분야에는 일치하는 기사가 없어요.").assertIsDisplayed()
+        compose.onNodeWithText("전체 검색 결과 보기").assertIsDisplayed().performClick()
+        compose.onNodeWithText("정치 검색 결과").assertIsDisplayed()
+        compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("사회 검색 필터").performClick()
         compose.onNodeWithText("사회 검색 결과").assertIsDisplayed()

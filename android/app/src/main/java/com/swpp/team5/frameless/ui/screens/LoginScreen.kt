@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
+import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
 
 @Composable
 internal fun LoginScreen(
@@ -137,7 +138,8 @@ internal fun RegistrationScreen(
 @Composable
 private fun AuthFrame(content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
+        Modifier.fillMaxSize().dismissKeyboardOnTap()
+            .verticalScroll(rememberScrollState()).padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
