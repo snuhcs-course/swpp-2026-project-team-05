@@ -272,6 +272,27 @@ describe('FeedPage search', () => {
     expect(screen.getByText('유지된 사회 결과')).toBeInTheDocument()
   })
 
+  it('resets a category filter to All when the search query changes', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    const input = screen.getByRole('searchbox', { name: 'Search articles' })
+
+    await user.type(input, '첫 검색어')
+    await screen.findByRole('button', { name: 'All', pressed: true })
+    await user.click(screen.getByRole('button', { name: 'Society' }))
+    expect(screen.getByRole('button', { name: 'Society' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.clear(input)
+    await user.type(input, '새 검색어')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'All' }))
+      .toHaveAttribute('aria-pressed', 'true'))
+    await waitFor(() => expect(api.articles).toHaveBeenCalledWith(
+      'test-token',
+      expect.objectContaining({ category: undefined, query: '새 검색어' }),
+    ))
+  })
+
   it('previews URL analysis only after a zero-result search without sending the URL', async () => {
     const user = userEvent.setup()
     renderFeed()

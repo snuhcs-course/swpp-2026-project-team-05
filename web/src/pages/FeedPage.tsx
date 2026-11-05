@@ -43,9 +43,12 @@ export function FeedPage() {
 
   useEffect(() => {
     if (isComposing || normalizedInput.length < 2) return
-    const timer = window.setTimeout(() => setActiveQuery(normalizedInput), 300)
+    const timer = window.setTimeout(() => {
+      if (normalizedInput !== activeQuery) setSearchFilter('ALL')
+      setActiveQuery(normalizedInput)
+    }, 300)
     return () => window.clearTimeout(timer)
-  }, [isComposing, normalizedInput])
+  }, [activeQuery, isComposing, normalizedInput])
 
   const publisherQuery = useQuery({
     queryKey: ['publishers', userId],
@@ -127,7 +130,10 @@ export function FeedPage() {
   function submitSearch(event: FormEvent) {
     event.preventDefault()
     if (isComposing) return
-    if (normalizedInput.length >= 2) setActiveQuery(normalizedInput)
+    if (normalizedInput.length >= 2) {
+      if (normalizedInput !== activeQuery) setSearchFilter('ALL')
+      setActiveQuery(normalizedInput)
+    }
   }
 
   return (
