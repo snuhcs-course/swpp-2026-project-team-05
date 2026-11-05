@@ -220,12 +220,13 @@ signal and may also become an explicit user-selected filter.
 - Start automatic search after at least two normalized characters.
 - Debounce typing by approximately 300 ms.
 - Cancel or ignore an obsolete request when the query changes.
-- Search Politics and Society in parallel, regardless of the feed category that
-  was selected before search. Both requests use the complete `ALL` scope rather
-  than silently restricting results to followed publishers.
-- Render one section per category with its exact count. Each section owns its
-  items, continuation cursor, loading state, error, retry, and load-more action.
-- Reset both category sections when the query changes. Closing search restores
+- Search the complete Politics and Society corpus with one uncategorized request,
+  regardless of the feed category selected before search. A Politics or Society
+  request is made only after that search filter is selected. All search requests
+  use the complete `ALL` scope rather than followed publishers.
+- Render a dedicated `전체 / 정치 / 사회` filter without count badges. Each
+  loaded filter owns its items, continuation cursor, error, retry, and load-more state.
+- Reset the active filter to `전체` when the query changes. Closing search restores
   the category, scope, items, and scroll context from before search.
 
 ### 5.3 States
@@ -240,10 +241,8 @@ The screen must distinguish:
 - initial-search failure with retry;
 - next-page failure without discarding loaded results.
 
-Results reuse the existing compact article row under `정치` and `사회` headers.
-The small count beside each header equals the number of matching feed-visible
-articles in that category, not merely the loaded page size. A returned search
-excerpt appears below the headline in restrained secondary text. Opening a
+Results reuse the existing compact article row. A returned search excerpt
+appears below the headline in restrained secondary text. Opening a
 result uses the existing Reader and analysis flow.
 
 The search field has an accessibility label, the clear and back controls have
@@ -262,10 +261,10 @@ distinct button descriptions, and IME search submits immediately.
   immediately.
 - Respect IME composition: do not debounce or submit an unfinished Korean input,
   and start the delay only after composition ends.
-- A new query resets both category sections. Each section paginates and retries
-  independently so a large Politics result set cannot hide Society results.
-- Reuse existing article layouts, show exact category counts, and show the
-  optional excerpt as secondary text.
+- A new query resets to the All filter. Each loaded filter paginates and retries
+  independently and can be reused when the user switches back.
+- Reuse existing article layouts and show the optional excerpt as secondary text;
+  do not show result-count badges.
 - Provide explicit loading, no-results, error, retry, and clear-search states.
 - Keep the layout usable without horizontal overflow at phone and desktop widths.
 

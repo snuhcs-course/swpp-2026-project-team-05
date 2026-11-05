@@ -217,32 +217,30 @@ selected in the background and are restored when search closes.
 ┌──────────────────────────────────────┐
 │  [뒤로] [ 검색어________________ × ] │
 │──────────────────────────────────────│
-│  [정치  27]   [사회  8]              │
+│  [전체]   [정치]   [사회]             │
 │──────────────────────────────────────│
 │  연합뉴스 · 12분 전                    │
 │  정치 분야 검색 결과                  │
 │  …검색어가 있는 본문 일부…             │
-│  [정치 기사 더 보기]                  │
+│  [기사 더 보기]                       │
 └──────────────────────────────────────┘
 ```
 
-- Keep the existing Politics and Society category selector visible in search.
-  Add a small neutral exact-count pill to each tab; do not replace the selector
-  with two vertically stacked result groups.
-- Category tabs, underlines, and reserved count slots keep the same dimensions
-  before and during search. A missing count, `0`, and multi-digit counts must not
-  move either label or the neighboring tab.
-- Both categories are queried for the same normalized search, but only the
-  selected category's rows are visible. Switching tabs reuses the fetched result
-  and does not change the Web URL or issue a duplicate first-page request.
-- Each section owns its page cursor and load-more/error state. Loading or
-  retrying one section must not clear or move the other section.
-- A selected section with zero matches keeps its tab and shows a restrained empty row.
-  If both sections are empty, show the existing no-results state and URL-analysis
-  preview entry below the section search outcome.
+- Ordinary feed navigation remains unchanged. Search adds a separate compact
+  `All / Politics / Society` filter row so section navigation and result
+  filtering are not conflated.
+- Render filters as restrained text tabs with one selected underline. Do not use
+  filled pills, outlined buttons, or result-count badges for this navigation.
+- `All` is selected for every new normalized query and issues one corpus-wide
+  request. Politics or Society is requested only after the user selects that
+  filter; completed filter pages may be reused when switching back.
+- The active filter owns its cursor, load-more, loading, and retry state. Filters
+  do not show result-count badges, relevance scores, or layout-changing metadata.
+- An empty category filter shows a restrained category-specific message. An
+  empty `All` result shows the existing no-results state and URL-analysis preview.
 - The existing compact article row and optional plain-text excerpt are reused.
   Do not add result cards, relevance scores, analysis badges, or thumbnails.
-- A new normalized query resets both sections. Search never rewrites the Web URL
+- A new normalized query resets the active filter to `All`. Search never rewrites the Web URL
   and never applies the pre-search Following filter.
 
 ## 5. Article Reader
@@ -555,7 +553,7 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Latest/Following switching and distinct empty states
 - Followed-source draft, save, cancel, and failure behavior
 - Search and saved-article entry actions
-- Global search category headers, exact count pills, and independent pagination
+- Global search with All/Politics/Society filters and active-filter pagination
 - Initial loading, refresh, pagination, empty, and retry states
 - Article row with a long headline and no redundant category, analysis, or open
   labels
@@ -582,8 +580,8 @@ The UI is complete when:
 
 - users can register or log in and reach the all-publisher feed directly;
 - users can switch politics/society and Latest/Following without losing state;
-- users can search all feed-visible articles across Politics and Society, see
-  exact category counts, paginate either section independently, and return to
+- users can search all feed-visible articles across Politics and Society, narrow
+  results with category filters, paginate the active result set, and return to
   the prior feed;
 - users can save an article and return from its Reader to the saved list;
 - every visible article is readable regardless of analysis status;

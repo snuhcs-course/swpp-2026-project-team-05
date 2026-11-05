@@ -5,19 +5,7 @@ import { useAuth } from '../auth/useAuth'
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 
-interface SearchCategoryNavigation {
-  selected: 'POLITICS' | 'SOCIETY'
-  counts: Record<'POLITICS' | 'SOCIETY', number>
-  onSelect: (category: 'POLITICS' | 'SOCIETY') => void
-}
-
-export function AppShell({
-  children,
-  searchCategoryNavigation,
-}: {
-  children: ReactNode
-  searchCategoryNavigation?: SearchCategoryNavigation
-}) {
+export function AppShell({ children }: { children: ReactNode }) {
   const { session, logout } = useAuth()
   const location = useLocation()
   const activeCategory = new URLSearchParams(location.search).get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS'
@@ -33,31 +21,13 @@ export function AppShell({
           <nav className="ml-12 hidden h-full items-center gap-4 md:flex" aria-label="Primary navigation">
             {(['POLITICS', 'SOCIETY'] as const).map((category) => {
               const label = category === 'POLITICS' ? 'Politics' : 'Society'
-              if (searchCategoryNavigation) {
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    aria-pressed={searchCategoryNavigation.selected === category}
-                    aria-label={`${label} ${searchCategoryNavigation.counts[category]} results`}
-                    className={cn('nav-link flex w-24 items-center gap-2', searchCategoryNavigation.selected === category && 'text-black')}
-                    onClick={() => searchCategoryNavigation.onSelect(category)}
-                  >
-                    {label}
-                    <span className="inline-flex h-5 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold tabular-nums text-zinc-700">
-                      {searchCategoryNavigation.counts[category]}
-                    </span>
-                  </button>
-                )
-              }
               return (
                 <Link
                   key={category}
                   to={`/?category=${category}`}
-                  className={cn('nav-link flex w-24 items-center gap-2', location.pathname === '/' && activeCategory === category && 'text-black')}
+                  className={cn('nav-link', location.pathname === '/' && activeCategory === category && 'text-black')}
                 >
                   {label}
-                  <span aria-hidden className="invisible inline-flex h-5 w-8 shrink-0" />
                 </Link>
               )
             })}
@@ -85,24 +55,7 @@ export function AppShell({
             <div className="flex flex-col gap-3 text-sm font-semibold">
               {(['POLITICS', 'SOCIETY'] as const).map((category) => {
                 const label = category === 'POLITICS' ? 'Politics' : 'Society'
-                return searchCategoryNavigation ? (
-                  <button
-                    key={category}
-                    type="button"
-                    className="flex items-center gap-2 text-left"
-                    onClick={() => {
-                      searchCategoryNavigation.onSelect(category)
-                      setMenuOpen(false)
-                    }}
-                  >
-                    {label}
-                    <span className="inline-flex h-5 w-8 items-center justify-center rounded-full bg-zinc-200 text-[10px] tabular-nums">
-                      {searchCategoryNavigation.counts[category]}
-                    </span>
-                  </button>
-                ) : (
-                  <Link key={category} to={`/?category=${category}`} onClick={() => setMenuOpen(false)}>{label}</Link>
-                )
+                return <Link key={category} to={`/?category=${category}`} onClick={() => setMenuOpen(false)}>{label}</Link>
               })}
               <Link to="/saved" onClick={() => setMenuOpen(false)}>Saved</Link>
               <button className="mt-2 flex items-center gap-2 border-t border-zinc-300 pt-3 text-left" onClick={() => void logout()}>

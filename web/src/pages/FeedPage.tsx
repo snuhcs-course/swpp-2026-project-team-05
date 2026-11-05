@@ -14,6 +14,8 @@ import { articleRouteState } from '../lib/navigation'
 import type { ArticleSummary, FeedScope, NewsCategory, Publisher } from '../lib/types'
 import { categoryLabel, cn, formatDate } from '../lib/utils'
 
+type SearchFilter = 'ALL' | NewsCategory
+
 export function FeedPage() {
   const { session } = useAuth()
   const token = session!.token
@@ -27,7 +29,7 @@ export function FeedPage() {
   const [isComposing, setIsComposing] = useState(false)
   const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
   const [activeQuery, setActiveQuery] = useState('')
-  const [searchCategory, setSearchCategory] = useState<NewsCategory>(category)
+  const [searchFilter, setSearchFilter] = useState<SearchFilter>('ALL')
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const queryTooShort = !isComposing && normalizedInput.length === 1
   const queryPending = !isComposing && normalizedInput.length >= 2 && activeQuery !== normalizedInput
@@ -41,9 +43,12 @@ export function FeedPage() {
 
   useEffect(() => {
     if (isComposing || normalizedInput.length < 2) return
-    const timer = window.setTimeout(() => setActiveQuery(normalizedInput), 300)
+    const timer = window.setTimeout(() => {
+      if (normalizedInput !== activeQuery) setSearchFilter('ALL')
+      setActiveQuery(normalizedInput)
+    }, 300)
     return () => window.clearTimeout(timer)
-  }, [isComposing, normalizedInput])
+  }, [activeQuery, isComposing, normalizedInput])
 
   const publisherQuery = useQuery({
     queryKey: ['publishers', userId],
@@ -62,23 +67,10 @@ export function FeedPage() {
     enabled: !activeQuery && !queryTooShort,
   })
 
-  const politicsSearchQuery = useInfiniteQuery({
-    queryKey: ['article-search', userId, 'POLITICS', activeQuery],
+  const searchQuery = useInfiniteQuery({
+    queryKey: ['article-search', userId, searchFilter, activeQuery],
     queryFn: ({ pageParam }) => api.articles(token, {
-      category: 'POLITICS',
-      scope: 'ALL',
-      query: activeQuery,
-      cursor: pageParam,
-    }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-    enabled: Boolean(activeQuery) && !queryPending && !queryTooShort,
-  })
-
-  const societySearchQuery = useInfiniteQuery({
-    queryKey: ['article-search', userId, 'SOCIETY', activeQuery],
-    queryFn: ({ pageParam }) => api.articles(token, {
-      category: 'SOCIETY',
+      category: searchFilter === 'ALL' ? undefined : searchFilter,
       scope: 'ALL',
       query: activeQuery,
       cursor: pageParam,
@@ -112,13 +104,8 @@ export function FeedPage() {
     },
     [activeQuery, articlesQuery.data, queryPending, queryTooShort, scope],
   )
-  const politicsResults = politicsSearchQuery.data?.pages.flatMap((page) => page.items) ?? []
-  const societyResults = societySearchQuery.data?.pages.flatMap((page) => page.items) ?? []
-  const politicsCount = politicsSearchQuery.data?.pages[0]?.total_count ?? politicsResults.length
-  const societyCount = societySearchQuery.data?.pages[0]?.total_count ?? societyResults.length
-  const searchHasResults = politicsCount + societyCount > 0
-  const searchInitialLoading = Boolean(activeQuery) &&
-    politicsSearchQuery.isLoading && societySearchQuery.isLoading
+  const searchResults = searchQuery.data?.pages.flatMap((page) => page.items) ?? []
+  const searchInitialLoading = Boolean(activeQuery) && searchQuery.isLoading
   const hero = articles[0]
   const rest = articles.slice(1)
   const followedCount = publisherQuery.data?.filter((publisher) => publisher.is_followed).length ?? 0
@@ -134,7 +121,7 @@ export function FeedPage() {
   function updateQuery(value: string) {
     const nextNormalized = value.trim().replace(/\s+/g, ' ')
     if (!activeQuery && normalizedInput.length < 2 && nextNormalized.length >= 2) {
-      setSearchCategory(category)
+      setSearchFilter('ALL')
     }
     setQueryInput(value)
     if (value.trim().length < 2) setActiveQuery('')
@@ -143,15 +130,14 @@ export function FeedPage() {
   function submitSearch(event: FormEvent) {
     event.preventDefault()
     if (isComposing) return
-    if (normalizedInput.length >= 2) setActiveQuery(normalizedInput)
+    if (normalizedInput.length >= 2) {
+      if (normalizedInput !== activeQuery) setSearchFilter('ALL')
+      setActiveQuery(normalizedInput)
+    }
   }
 
   return (
-    <AppShell searchCategoryNavigation={activeQuery ? {
-      selected: searchCategory,
-      counts: { POLITICS: politicsCount, SOCIETY: societyCount },
-      onSelect: setSearchCategory,
-    } : undefined}>
+    <AppShell>
       <main className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
         <section className="border-b border-black py-8 lg:py-10">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -217,12 +203,33 @@ export function FeedPage() {
           </button>
         </section>}
 
+        {activeQuery && (
+          <nav className="flex h-14 items-end gap-3 border-b border-zinc-300" aria-label="Search filters">
+            {(['ALL', 'POLITICS', 'SOCIETY'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                aria-pressed={searchFilter === filter}
+                className={cn(
+                  'h-11 min-w-16 border-b-2 px-3 text-sm transition-colors',
+                  searchFilter === filter
+                    ? 'border-black font-bold text-black'
+                    : 'border-transparent font-medium text-zinc-500 hover:text-black',
+                )}
+                onClick={() => setSearchFilter(filter)}
+              >
+                {filter === 'ALL' ? 'All' : categoryLabel(filter)}
+              </button>
+            ))}
+          </nav>
+        )}
+
         <div className="mx-auto max-w-5xl">
           <section className="min-w-0 py-6 lg:py-9">
             <div className="mb-5 flex items-center justify-between border-b border-black pb-3">
               <h2 className="text-sm font-black">
                 {activeQuery
-                  ? `Search results · ${categoryLabel(searchCategory)}`
+                  ? searchFilter === 'ALL' ? 'Search results' : `Search results · ${categoryLabel(searchFilter)}`
                   : `${scope === 'FOLLOWING' ? 'Following' : categoryLabel(category)} Headlines`}
               </h2>
               <span className="text-xs text-zinc-500">
@@ -255,33 +262,17 @@ export function FeedPage() {
               </article>
             )}
             {activeQuery && !queryPending && !searchInitialLoading && (
-              searchCategory === 'POLITICS' ? (
-                <SearchResultSection
-                    category="POLITICS"
-                    articles={politicsResults}
-                    totalCount={politicsCount}
-                    isLoading={politicsSearchQuery.isLoading}
-                    isError={politicsSearchQuery.isError}
-                    isFetchingNextPage={politicsSearchQuery.isFetchingNextPage}
-                    hasNextPage={politicsSearchQuery.hasNextPage}
-                    showEmptyState={searchHasResults}
-                    onRetry={() => void politicsSearchQuery.refetch()}
-                    onLoadMore={() => void politicsSearchQuery.fetchNextPage()}
-                  />
-              ) : (
-                <SearchResultSection
-                    category="SOCIETY"
-                    articles={societyResults}
-                    totalCount={societyCount}
-                    isLoading={societySearchQuery.isLoading}
-                    isError={societySearchQuery.isError}
-                    isFetchingNextPage={societySearchQuery.isFetchingNextPage}
-                    hasNextPage={societySearchQuery.hasNextPage}
-                    showEmptyState={searchHasResults}
-                    onRetry={() => void societySearchQuery.refetch()}
-                    onLoadMore={() => void societySearchQuery.fetchNextPage()}
-                  />
-              )
+              <SearchResultSection
+                filter={searchFilter}
+                query={activeQuery}
+                articles={searchResults}
+                isLoading={searchQuery.isLoading}
+                isError={searchQuery.isError}
+                isFetchingNextPage={searchQuery.isFetchingNextPage}
+                hasNextPage={searchQuery.hasNextPage}
+                onRetry={() => void searchQuery.refetch()}
+                onLoadMore={() => void searchQuery.fetchNextPage()}
+              />
             )}
             {!activeQuery && rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
             {!activeQuery && !articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
@@ -301,12 +292,6 @@ export function FeedPage() {
                 )}
               </div>
             )}
-            {activeQuery && !queryPending && !searchInitialLoading &&
-              !politicsSearchQuery.isError && !societySearchQuery.isError && !searchHasResults && (
-                <div className="border-y border-zinc-300 px-5 py-12 text-center text-sm text-zinc-500">
-                  <UrlAnalysisMock key={activeQuery} query={activeQuery} />
-                </div>
-              )}
             {!activeQuery && articlesQuery.hasNextPage && !queryPending && !queryTooShort && (
               <Button variant="outline" className="mt-7 w-full" disabled={articlesQuery.isFetchingNextPage} onClick={() => void articlesQuery.fetchNextPage()}>
                 {articlesQuery.isFetchingNextPage ? 'Loading…' : 'Load more stories'}
@@ -331,32 +316,31 @@ export function FeedPage() {
 }
 
 interface SearchResultSectionProps {
-  category: NewsCategory
+  filter: SearchFilter
+  query: string
   articles: ArticleSummary[]
-  totalCount: number
   isLoading: boolean
   isError: boolean
   isFetchingNextPage: boolean
   hasNextPage: boolean
-  showEmptyState: boolean
   onRetry: () => void
   onLoadMore: () => void
 }
 
 function SearchResultSection({
-  category,
+  filter,
+  query,
   articles,
-  totalCount,
   isLoading,
   isError,
   isFetchingNextPage,
   hasNextPage,
-  showEmptyState,
   onRetry,
   onLoadMore,
 }: SearchResultSectionProps) {
+  const filterLabel = filter === 'ALL' ? 'all' : categoryLabel(filter).toLowerCase()
   return (
-    <section aria-label={`${categoryLabel(category)} search results`}>
+    <section aria-label={`${filterLabel} search results`}>
       {isLoading && (
         <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-zinc-500">
           <LoaderCircle className="animate-spin" size={16} /> Searching this section…
@@ -371,12 +355,20 @@ function SearchResultSection({
       {!isLoading && !isError && articles.map((article, index) => (
         <ArticleRow key={article.id} article={article} index={index} />
       ))}
-      {!isLoading && !isError && totalCount === 0 && showEmptyState && (
-        <p className="border-b border-zinc-300 py-7 text-sm text-zinc-500">No matching stories in this section.</p>
+      {!isLoading && !isError && articles.length === 0 && (
+        filter === 'ALL' ? (
+          <div className="border-y border-zinc-300 px-5 py-12 text-center text-sm text-zinc-500">
+            <UrlAnalysisMock key={query} query={query} />
+          </div>
+        ) : (
+          <p className="border-b border-zinc-300 py-7 text-sm text-zinc-500">
+            No matching {filterLabel} stories.
+          </p>
+        )
       )}
       {hasNextPage && !isError && (
         <Button variant="outline" className="mt-5 w-full" disabled={isFetchingNextPage} onClick={onLoadMore}>
-          {isFetchingNextPage ? 'Loading…' : `Load more ${categoryLabel(category).toLowerCase()} stories`}
+          {isFetchingNextPage ? 'Loading…' : 'Load more stories'}
         </Button>
       )}
     </section>

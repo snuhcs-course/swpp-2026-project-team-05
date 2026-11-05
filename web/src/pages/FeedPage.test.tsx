@@ -113,10 +113,9 @@ describe('FeedPage search', () => {
 
     const politics = screen.getByRole('link', { name: 'Politics' })
     const society = screen.getByRole('link', { name: 'Society' })
-    expect(politics).toHaveClass('w-24')
-    expect(society).toHaveClass('w-24')
-    expect(politics.querySelector('[aria-hidden="true"]')).toHaveClass('w-8')
-    expect(society.querySelector('[aria-hidden="true"]')).toHaveClass('w-8')
+    expect(politics).toHaveAttribute('href', '/?category=POLITICS')
+    expect(society).toHaveAttribute('href', '/?category=SOCIETY')
+    expect(screen.queryByLabelText('Search filters')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Section' })).not.toBeInTheDocument()
   })
 
@@ -176,7 +175,7 @@ describe('FeedPage search', () => {
     ), { timeout: 1000 })
   })
 
-  it('searches both categories, keeps category navigation, and shows exact counts', async () => {
+  it('searches the full corpus first and filters by category without changing feed navigation', async () => {
     const article = (id: string, title: string, category: 'POLITICS' | 'SOCIETY'): ArticleSummary => ({
       id,
       title,
@@ -195,10 +194,18 @@ describe('FeedPage search', () => {
           total_count: 7,
         }
       }
-      return {
+      if (options.category === 'SOCIETY') return {
         items: [article('society-1', '사회 검색 결과', 'SOCIETY')],
         next_cursor: null,
         total_count: 3,
+      }
+      return {
+        items: [
+          article('politics-1', '정치 검색 결과', 'POLITICS'),
+          article('society-1', '사회 검색 결과', 'SOCIETY'),
+        ],
+        next_cursor: null,
+        total_count: 10,
       }
     })
 
@@ -208,21 +215,18 @@ describe('FeedPage search', () => {
     })
 
     expect(await screen.findByText('정치 검색 결과')).toBeInTheDocument()
-    expect(screen.queryByText('사회 검색 결과')).not.toBeInTheDocument()
-    const politicsTab = screen.getByLabelText('Politics 7 results')
-    const societyTab = screen.getByLabelText('Society 3 results')
-    expect(politicsTab).toHaveClass('w-24')
-    expect(societyTab).toHaveClass('w-24')
-    expect(politicsTab.querySelector('span')).toHaveClass('w-8')
-    expect(societyTab.querySelector('span')).toHaveClass('w-8')
-
-    fireEvent.click(screen.getByLabelText('Society 3 results'))
     expect(screen.getByText('사회 검색 결과')).toBeInTheDocument()
+    const filters = screen.getByLabelText('Search filters')
+    expect(filters).toHaveTextContent('AllPoliticsSociety')
+    expect(screen.queryByText(/\d+ results/)).not.toBeInTheDocument()
+    await waitFor(() => expect(api.articles).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      category: undefined, scope: 'ALL', query: '공통 검색어',
+    })))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Society' }))
+    expect(await screen.findByText('사회 검색 결과')).toBeInTheDocument()
     expect(screen.queryByText('정치 검색 결과')).not.toBeInTheDocument()
     await waitFor(() => {
-      expect(api.articles).toHaveBeenCalledWith('test-token', expect.objectContaining({
-        category: 'POLITICS', scope: 'ALL', query: '공통 검색어',
-      }))
       expect(api.articles).toHaveBeenCalledWith('test-token', expect.objectContaining({
         category: 'SOCIETY', scope: 'ALL', query: '공통 검색어',
       }))
@@ -231,7 +235,7 @@ describe('FeedPage search', () => {
     expect(screen.getByLabelText('location-search')).toHaveTextContent('scope=following')
   })
 
-  it('keeps a successful category visible while retrying the failed category', async () => {
+  it('retries the active search filter and preserves cached results across filters', async () => {
     const politics: ArticleSummary = {
       id: 'politics-retried',
       title: '재시도한 정치 결과',
@@ -249,6 +253,7 @@ describe('FeedPage search', () => {
       if (options.category === 'POLITICS') {
         return { items: [politics], next_cursor: null, total_count: 1 }
       }
+      if (options.category === 'SOCIETY') return { items: [society], next_cursor: null, total_count: 1 }
       return { items: [society], next_cursor: null, total_count: 1 }
     })
 
@@ -258,14 +263,34 @@ describe('FeedPage search', () => {
       target: { value: '분야별 오류' },
     })
 
+    expect(await screen.findByText('유지된 사회 결과')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Politics' }))
     expect(await screen.findByText('We could not search this section.')).toBeInTheDocument()
-    await user.click(screen.getByLabelText('Society 1 results'))
-    expect(screen.getByText('유지된 사회 결과')).toBeInTheDocument()
-    await user.click(screen.getByLabelText('Politics 0 results'))
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('재시도한 정치 결과')).toBeInTheDocument()
-    await user.click(screen.getByLabelText('Society 1 results'))
+    await user.click(screen.getByRole('button', { name: 'Society' }))
     expect(screen.getByText('유지된 사회 결과')).toBeInTheDocument()
+  })
+
+  it('resets a category filter to All when the search query changes', async () => {
+    const user = userEvent.setup()
+    renderFeed()
+    const input = screen.getByRole('searchbox', { name: 'Search articles' })
+
+    await user.type(input, '첫 검색어')
+    await screen.findByRole('button', { name: 'All', pressed: true })
+    await user.click(screen.getByRole('button', { name: 'Society' }))
+    expect(screen.getByRole('button', { name: 'Society' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.clear(input)
+    await user.type(input, '새 검색어')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'All' }))
+      .toHaveAttribute('aria-pressed', 'true'))
+    await waitFor(() => expect(api.articles).toHaveBeenCalledWith(
+      'test-token',
+      expect.objectContaining({ category: undefined, query: '새 검색어' }),
+    ))
   })
 
   it('previews URL analysis only after a zero-result search without sending the URL', async () => {
