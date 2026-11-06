@@ -67,7 +67,7 @@ After reading the first result, I sent:
 ```
 
 ```
-it말고 세계정치사회경제로 제한해서 30개 세트를 다시 만들어보자. 비교기사도5건으로 늘리자.
+it말고 세계정치사회경제로 제한해서 30개 세트를 다시 만들어보자. 비교기사도5건으로 늘리자. 그리고 지금 이 함수의 output이 어떻게 나오고 있었어?
 ```
 
 ```
@@ -209,7 +209,7 @@ Fixes reported by the verifier: 319
 | T4 | About 37% of items (34 of 92, estimated from a word list) have the marked word only in the comparison article, while the database stores the source side. A neutral phrase can then appear as evaluative (b13, '입원한 곳이기도 하다') | Reading the stored data while writing the criteria | Not fixed. Listed for a team decision |
 | T4 | `server/fixtures/gold_v5/README.md` calls the data human-reviewed, but the records I can confirm show only model annotation and model review | Comparing the README with the run records | Not fixed yet. Listed for a team decision, and treated as model output in the evaluation |
 | T4 | One case (b36) has sentences from another article mixed into a comparison article's body | Checking cases for the evaluation set | Excluded from the evaluation set. It is still in the dataset |
-| T1 | Some sources were read only through other papers (Martin & White, van Leeuwen) or only in part | I asked for the reading level of each source | The evidence table states how far each source was read |
+| T1 | Part of the Korean sources had not been read further than the first pass, and some sources are known only through other papers (Martin & White, van Leeuwen) | Reading the literature report | I asked for the 14 Korean papers to be read further. The evidence table states how far each source was read |
 
 ### **Verification practices we used**
 
