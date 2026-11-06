@@ -21,9 +21,6 @@ I used Claude Code as my main assistant for the A–G rubric and for the dataset
 | Tool | Model / version | Used by | Main purpose |
 | ----- | ----- | ----- | ----- |
 | Claude Code | Claude Opus 5.5 | Junseo Heo | Literature search, rubric drafts, experiments, analysis scripts, evaluation set |
-| Claude Code workflows (subagents) | Claude Opus 5.5 | Junseo Heo | Annotating and reviewing 30 cases, building issue maps, blind LLM judging |
-
-I also ran the product's Gemini models on real articles to compare results. Gemini found fewer differences than Opus, so I made the dataset with Opus only.
 
 ---
 
@@ -56,8 +53,7 @@ The prompts below are verbatim. Article text stays out of this report because th
 **Prompt**
 
 ```
-일단 정답지를 30개를 만들어보자.
-정답지에는 기사전문, 기사 전문에서 어떤 부분이 A~G에 들어가는지, 그 부분이 다른 기사에서는 어떻게 나오는지 순으로 이것들만해서 30개기사에 대해서 정답세트를 만들어줘. 
+최근 기사 기준으로 기사전문, 기사 전문에서 어떤 부분이 A~G에 들어가는지, 그 부분이 다른 기사에서는 어떻게 나오는지 순으로 30개 기사에 대해서 한번 진행해줘. 
 ```
 
 **Output (excerpt)**
@@ -103,7 +99,7 @@ d => 기저효과가 영향을 미쳤다 / 기저효과가 컸다
 e => 네발로 걷기 시작 / 네발로 아장아장 걷기 시작
 f => 러시아 경유딜 / 러시아산 경유공급 합의
 
-이게 실제 다른 부분들인가? 내가 검토를 해본 부분인데 왜 다르게 구분한거야? 의미상으로 같은 부분인거 아닌가
+이게 실제 다른 부분들인가?  의미상으로 같은 부분인거 아닌가?
 ```
 
 **Output (excerpt)** — Claude Code proposed that Python find the differences and the model only confirm them. I asked to test this first. No model was called for the rule steps; two LLM judges labelled the results.
@@ -139,16 +135,13 @@ Rules finding new differences on their own:  11 of 120 real (9%)
 **Prompt**
 
 ```
-이걸 지금 다른 형태로 볼 수 있나? 이거를 조금 다르게 생각하면 한 주제 안에 여러언론사들의 기사들을 일괄 찾고, 그 기사들에 대해서 '묶음(?)'으로 분석을 하는 방식이 가능할 것 같은데 어떻게 생각해
+이걸 지금 다른 형태로 볼 수 있나? 이거를 조금 다르게 생각하면 한 주제 안에 여러언론사들의 기사들을 일괄 찾고, 그 기사들에 대해서 '묶음'으로 분석을 하는 방식이 가능할 것 같은데 어떻게 생각해
 ```
 
 ```
-그래서 정답세트가 있는데 명제는 조금 작은 단위인것 같고 조금 확장시켜서 한 내용을 잡고 같은 주제를 어떻게 말했는지로 정리하는 것은 어때?
+명제는 조금 작은 단위인것 같고 조금 확장시켜서 한 내용을 잡고 같은 쟁점을 어떻게 말했는지로 정리하자?
 ```
 
-```
-그러면 그 정답세트 2 30개를 가지고 저렇게 쟁점지도를 정리해보자
-```
 
 **Output (excerpt)**
 
