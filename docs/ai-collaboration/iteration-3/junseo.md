@@ -31,12 +31,12 @@ I also ran the product's Gemini models on real articles to compare results. Gemi
 
 | \# | Task | Related deliverable | AI role | Contribution level | Human owner |
 | ----- | ----- | ----- | ----- | ----- | ----- |
-| T1 | Find a basis for the A–G categories in NLP, linguistics, and Korean-language studies | Rubric evidence table | Searched, summarized | High | Junseo Heo |
+| T1 | Find a basis for the A–G categories in NLP, linguistics, and Korean-language studies | Rubric evidence table | Searched, summarized | Medium | Junseo Heo |
 | T2 | Refine the rubric through v5: judgment order, categories set by slot, exclusions, three certainty stages, rule checks | [`feat/reader-ag-rubric-v5`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efd31e1), `gold_brief.md` | Drafted, Generated code | High | Junseo Heo |
-| T3 | Test whether rules can find or check A–G differences without a model | Rule experiment report | Generated code, Judged | High | Junseo Heo |
+| T3 | Test whether rules can find or check A–G differences without a model | Rule experiment report | Generated code, Judged | Medium | Junseo Heo |
 | T4 | Build the 30-case dataset and convert it to the app's JSON format | [`server/fixtures/gold_v5/`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/a53f441) | Generated code, Generated annotations | High | Junseo Heo |
 | T5 | Build an issue map for each of the 30 cases | Issue maps (review artifact) | Generated, Verified | High | Junseo Heo |
-| T6 | Write the A–G and withheld criteria, and package the five-event evaluation set | Criteria document, evaluation workbook | Drafted, Generated code | High | Junseo Heo |
+| T6 | Write the A–G and withheld criteria, and package the five-event evaluation set | Criteria document, evaluation workbook | Drafted, Generated code | Medium | Junseo Heo |
 
 ---
 
@@ -57,21 +57,7 @@ The prompts below are verbatim. Article text stays out of this report because th
 
 ```
 일단 정답지를 30개를 만들어보자.
-정답지에는 기사전문, 기사 전문에서 어떤 부분이 A~G에 들어가는지, 그 부분이 다른 기사에서는 어떻게 나오는지 순으로 이것들만해서 30개기사에 대해서 정답세트를 만들어줘. gemini는 필요없고 opus로만 진행해줘
-```
-
-After reading the first result, I sent:
-
-```
-원래 A부터G가 이렇게 적게나와? 보수적이라서 그런가? 평균적으로 1개아니면 2개밖에 없다는거잖아
-```
-
-```
-it말고 세계정치사회경제로 제한해서 30개 세트를 다시 만들어보자. 비교기사도5건으로 늘리자. 그리고 지금 이 함수의 output이 어떻게 나오고 있었어?
-```
-
-```
-판정은 안해도 될것 같아. 검토만 간단하게 빠르게 병렬로 확인해보자
+정답지에는 기사전문, 기사 전문에서 어떤 부분이 A~G에 들어가는지, 그 부분이 다른 기사에서는 어떻게 나오는지 순으로 이것들만해서 30개기사에 대해서 정답세트를 만들어줘. 
 ```
 
 **Output (excerpt)**
@@ -118,12 +104,6 @@ e => 네발로 걷기 시작 / 네발로 아장아장 걷기 시작
 f => 러시아 경유딜 / 러시아산 경유공급 합의
 
 이게 실제 다른 부분들인가? 내가 검토를 해본 부분인데 왜 다르게 구분한거야? 의미상으로 같은 부분인거 아닌가
-```
-
-Then:
-
-```
-근데 지금 instruction을 모델에 주입해서 하는데 너무 llm dependent하지 않나? 다른 방버이 없어?
 ```
 
 **Output (excerpt)** — Claude Code proposed that Python find the differences and the model only confirm them. I asked to test this first. No model was called for the rule steps; two LLM judges labelled the results.
