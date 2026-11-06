@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Living team document |
-| Current revision | 2026-11-05 |
+| Current revision | 2026-11-06 |
 | Historical baseline | [`testing-documentation-iter2.md`](testing-documentation-iter2.md) |
 
 This page is the maintainable entry point for the testing plan and measured
@@ -47,6 +47,9 @@ backend and Android coverage gates and uploads reports for 14 days.
 | Article search v1 | [`specs/testing/article-search.spec.md`](../specs/testing/article-search.spec.md) | Implemented with explicit remaining UI/race-condition gaps |
 | Saved articles v1 | [`specs/testing/saved-articles.spec.md`](../specs/testing/saved-articles.spec.md) | Implemented with explicit remaining UI/security gaps |
 | Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Implemented with explicit remaining navigation/concurrency gaps |
+| Reader analysis hierarchy | [`specs/testing/reader-analysis-ui.spec.md`](../specs/testing/reader-analysis-ui.spec.md) | Implemented from reviewed HE feedback; remaining device back-navigation gap is explicit |
+| URL-analysis preview | [`specs/testing/url-analysis-mock.spec.md`](../specs/testing/url-analysis-mock.spec.md) | Implemented as a client-only mock; no upload or analysis is claimed |
+| Evaluation feed opening order | [`specs/testing/feed-opening-order.spec.md`](../specs/testing/feed-opening-order.spec.md) | Implemented as an isolated, temporary evaluation-build behavior |
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Six stories frozen for Iteration 3 against `ab8d9bf` |
 | Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Passed 6/6 on `ff16cd1`; exact API structure matched 6/6 |
 
@@ -136,7 +139,9 @@ the installed APK against the production API.
 
 The API timing is the sum of the authenticated detail and analysis requests,
 measured by `scripts/smoke_iteration3_release.py`; it is not presented as
-tap-to-render UI latency. Median was 262 ms and maximum was 280 ms on the run.
+tap-to-render UI latency. Per-case table values sum the two request times after
+each was rounded to a whole millisecond. The reported median of 262 ms and
+maximum of 280 ms were computed from the unrounded combined timings.
 The installed Reader was also checked manually on the API 36 emulator with a
 fixed two-second observation window per story; every story was interactive by
 the observation point, with no crash, ANR, blank article, or infinite loading.
@@ -162,7 +167,9 @@ one-to-many, multiple-finding, and mixed single/multi-source structures.
 | Date | Commit/build | Environment | Commands or procedure | Result | Evidence / open failure |
 | --- | --- | --- | --- | --- | --- |
 | 2026-11-05 | `ff16cd1`; APK SHA-256 `901c4a8bdc9ced21e32d0fe0129952979c43a4ddfcbc4ac0ca830ab4422f90e4` | GitHub Actions; production API; Android 16 / API 36 emulator | Verify workflow; `scripts/smoke_iteration3_release.py`; frozen six-story installed-Reader procedure | Pass: Django 381, Web 25, Android JVM 84; API 6/6; Reader 6/6 | [Verify run 42027115443](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/42027115443); Android lint: 0 errors, 28 warnings. No blocking deviation. |
+| 2026-11-06 | `f1a669f`; APK SHA-256 `04bd3bcbf2dad3281b399f8d7d98f469ce786b98682232efc354afe95d5ab640` | Local macOS; SQLite; Node 24; Android Studio JBR 21 | Canonical backend, Web, and Android commands from `AGENTS.md`; backend and Android coverage gates | Pass: Django 381, Web 27, Android JVM 84; Web lint/build; Android lint/build; all enforced coverage gates | A clean Python environment exposed that the OpenRouter client used `httpx` directly without declaring it; `requirements.txt` now declares it explicitly. Compose views remain a tracked device-test gap. The live API and six-story installed-Reader smoke were not rerun, so the 11/05 integration evidence remains the applicable result. |
 
-The APK was downloaded from the named CI run rather than rebuilt with a local
-signing key. Iteration 2 evidence and known gaps remain preserved in the
-historical baseline linked at the top of this document.
+The 11/05 APK was downloaded from the named CI run rather than rebuilt locally.
+The 11/06 APK digest belongs only to the local regression build recorded in its
+row. Iteration 2 evidence and known gaps remain preserved in the historical
+baseline linked at the top of this document.
