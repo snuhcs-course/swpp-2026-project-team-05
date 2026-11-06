@@ -20,7 +20,7 @@ failed interaction; restart the recording instead.
 | Time | Action | What it demonstrates |
 | --- | --- | --- |
 | 0–6 s | Show the signed-in Society / Latest feed, then briefly switch to Following and back. | News-app feed and mutually exclusive scope selection. |
-| 6–16 s | Open search and enter `슈바오`; pause on the Politics and Society result counts. | Server-side search across sections with counts matching visible results. |
+| 6–16 s | Open search and enter `슈바오`; briefly show the All, Politics, and Society filters, then open the Society result. | Server-side search across sections with a compact recovery path between filters. |
 | 16–27 s | Open the Shubao result; show matching title/publisher and scroll enough to reveal the marked phrase. | Complete stored article and analysis integrated in the Reader. |
 | 27–38 s | Tap the marked phrase and pause on the compact preview. | Analysis can be inspected without leaving the reading context. |
 | 38–58 s | Open the full comparison, page through at least three publishers, and pause on one grounded passage. | Shared explanation, cross-publisher evidence, and multi-source navigation. |

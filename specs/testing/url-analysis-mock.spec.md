@@ -32,7 +32,8 @@ layer contract in this iteration.
 
 - [Component] A completed zero-result search opens the URL-analysis bottom
   sheet, rejects an invalid URL, previews preparation for a valid HTTP(S) URL,
-  and returns to the unchanged search state.\
+  dismisses field focus when ordinary sheet content is tapped, and returns to
+  the unchanged search state.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.zeroResultSearchPreviewsUrlAnalysisWithoutSubmitting`
 - [Unit] URL validation accepts trimmed absolute HTTP(S) URLs with a host and
   rejects empty, relative, hostless, and non-HTTP(S) values.\

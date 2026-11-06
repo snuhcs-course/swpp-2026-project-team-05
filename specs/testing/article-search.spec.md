@@ -115,7 +115,8 @@ ordinary feed.
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
 - [Component] Search exposes dedicated All, Politics, and Society filters without
   count badges; All can contain mixed-category rows and a selected category shows
-  only that filter's rows.\
+  only that filter's rows. A category with no matches offers an explicit return
+  to the existing All results, and selecting filters releases input focus.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.searchUsesAllPoliticsAndSocietyFiltersWithoutCountBadges`
 - [Unit] Failure and retry are isolated to one Android search filter.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchRetriesOneFilterWithoutDiscardingTheOther`
