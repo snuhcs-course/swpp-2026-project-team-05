@@ -1,0 +1,1005 @@
+{
+  "name": "b17",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "\"연봉 2천만원에 16시간 근무\"…헤이지니 '노동착취' 폭로 파장",
+    "publisher": "한국경제TV",
+    "published_at": "2026-10-27 13:18:17",
+    "url": "https://n.news.naver.com/mnews/article/215/0001270621"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "\"하루 16시간 일하고 연봉 2천만원\"…헤이니지 前직원 폭로 파장",
+      "publisher": "노컷뉴스",
+      "published_at": "2026-10-27 11:08:10",
+      "url": "https://n.news.naver.com/mnews/article/079/0004203260?sid=102"
+    },
+    "A2": {
+      "title": "\"연봉 2000만원, 하루 16시간 근무\"…'400만 유튜버' 헤이지니 前직원 폭로",
+      "publisher": "TV조선",
+      "published_at": "2026-10-27 10:28:39",
+      "url": "https://n.news.naver.com/mnews/article/448/0000647190?sid=102"
+    },
+    "A3": {
+      "title": "“연봉 2000만원·하루 16시간 근무”…헤이지니 전 직원, 산재 인정 주장",
+      "publisher": "매일경제",
+      "published_at": "2026-10-27 08:20:10",
+      "url": "https://n.news.naver.com/mnews/article/009/0005754390?sid=102"
+    },
+    "A4": {
+      "title": "헤이지니 전 직원 폭로 “연봉 2000만원, 하루 16시간 일해”",
+      "publisher": "헤럴드경제",
+      "published_at": "2026-10-27 06:50:09",
+      "url": "https://n.news.naver.com/mnews/article/016/0002714633?sid=102"
+    },
+    "A5": {
+      "title": "\"연봉 2천만원에 16시간 근무\"…'413만 유튜버' 헤이지니 회사, 전 직원들 잇단 폭로",
+      "publisher": "매일신문",
+      "published_at": "2026-10-27 16:12:08",
+      "url": "https://n.news.naver.com/mnews/article/088/0001036809?sid=102"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "구독자 413만여 명을 둔 유명 키즈 유튜버 헤이지니(본명 강혜진) 회사에 다녔던 직원이 하루 16시간을 일하고 연봉 2천만원을 받았다고 주장해 파장이 일고 있다.",
+            "start": 0,
+            "end": 91
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "구독자 413만여 명을 둔 유명 키즈 유튜버 헤이지니(본명 강혜진) 회사에 다녔던 직원이 하루 16시간을 일하고 연봉 2천만원을 받았다고 주장해 파장이 일고 있다.",
+            "start": 0,
+            "end": 91
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에는 헤이지니의 회사에서 근무하다 공황장애를 앓게 됐고 극단적인 선택까지 시도했다는 전 직원 A씨의 폭로 글이 올라왔다.",
+            "start": 104,
+            "end": 184
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에 올라온 글 작성자 A씨에 따르면 그는 헤이지니의 오랜 친구로 지난 2016년 12월 중국어 채널 크리에이터로 함께 일하자는 제안을 받았다.",
+            "start": 92,
+            "end": 184
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "중국어 채널의 콘텐츠 제작부터 운영까지 대부분의 업무를 혼자 맡았으며, 휴일에도 쉬지 못한 채 늦은 시간까지 일하는 날이 반복됐다고 한다.",
+            "start": 426,
+            "end": 503
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "그러나 A씨는 해당 채널 운영에 필요한 업무를 사실상 혼자 도맡았다.",
+            "start": 185,
+            "end": 223
+          },
+          "difference_summary": "채널 업무를 혼자 맡고 늦게까지 일했다는 A씨 쪽 내용을 원문은 전언 '-다고 한다'로 처리했지만, A1은 '사실상 혼자 도맡았다'로 단언해 기자가 사실로 확정한다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "반복됐다고 한다",
+                "start": 494,
+                "end": 502
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "사실상 혼자 도맡았다",
+                "start": 211,
+                "end": 222
+              },
+              "note": "채널 업무를 혼자 맡고 늦게까지 일했다는 A씨 쪽 내용을 원문은 전언 '-다고 한다'로 처리했지만, A1은 '사실상 혼자 도맡았다'로 단언해 기자가 사실로 확정한다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "A씨는 회사가 처음에는 산재 신청을 돕겠다는 태도를 보였지만, 이후 업무와 질병의 관련성을 부인하는 내용의 의견서를 제출했다고 주장했다.",
+            "start": 609,
+            "end": 685
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 3,
+            "quote": "건강이 악화된 A씨는 산업재해를 신청했는데, 처음에는 도와 주겠다던 회사가 업무와 질병의 관련성을 부인하는 의견서를 제출했다고 전했다.",
+            "start": 309,
+            "end": 384
+          },
+          "difference_summary": "회사가 처음엔 돕겠다고 했다가 업무 관련성을 부인하는 의견서를 냈다는 같은 A씨 발언을, 원문은 기능·태도 동사 '주장했다'로 받았지만 A1은 중립 동사 '전했다'로 받았다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 7,
+                "quote": "제출했다고 주장했다",
+                "start": 674,
+                "end": 684
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 3,
+                "quote": "제출했다고 전했다",
+                "start": 374,
+                "end": 383
+              },
+              "note": "회사가 처음엔 돕겠다고 했다가 업무 관련성을 부인하는 의견서를 냈다는 같은 A씨 발언을, 원문은 기능·태도 동사 '주장했다'로 받았지만 A1은 중립 동사 '전했다'로 받았다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "다만 산재 인정 이후에도 건강 상태가 쉽게 나아지지 않았고, 같은 해 4월 극단적인 선택을 시도할 정도로 심각한 어려움을 겪었다고 털어놨다.",
+            "start": 729,
+            "end": 807
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 3,
+            "quote": "그러나 극단적 선택까지 시도하는 등 증상이 호전되지 않아 현재까지 병원 치료를 받고 있다.",
+            "start": 408,
+            "end": 458
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_7",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 10,
+            "quote": "그는 \"내겐 아직도 끝나지 않은 고통인데, 방송에서는 제가 겪었던 현실과 너무나 다른 모습이 나오고 있었다. 특정인을 비난하거나 공격하기 위해서가 아닌 실제 근무 환경과 산업재해 신청 과정, 그 과정에서 겪었던 일들을 알리기 위해 글을 썼다\"고 강조했다.",
+            "start": 911,
+            "end": 1053
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "그는 \"내겐 아직도 끝나지 않은 고통인데, 방송에서는 제가 겪었던 현실과 너무나 다른 모습이 나오고 있었다\"며 \"특정인을 비난하거나 공격하기 위해서가 아닌 실제 근무 환경과 산업재해 신청 과정, 그 과정에서 겪었던 일들을 알리기 위해 글을 썼다\"고 주장했다.",
+            "start": 459,
+            "end": 603
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "구독자 413만 명을 보유한 키즈 유튜버 헤이지니(36·본명 강혜진)의 회사에서 일했던 직원이 장시간 노동으로 정신질환을 앓게 됐다고 주장해 논란이 일고 있다.",
+            "start": 0,
+            "end": 89
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "구독자 413만 명을 보유한 키즈 유튜버 헤이지니(36·본명 강혜진)의 회사에서 일했던 직원이 장시간 노동으로 정신질환을 앓게 됐다고 주장해 논란이 일고 있다.",
+            "start": 0,
+            "end": 89
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에는 헤이지니의 회사에서 근무하다 공황장애를 앓게 됐고 극단적인 선택까지 시도했다는 전 직원 A씨의 폭로 글이 올라왔다.",
+            "start": 104,
+            "end": 184
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "27일 온라인 커뮤니티 등에 따르면 헤이지니의 전 직원 A씨는 최근 글을 올려 과거 근무 환경과 산업재해 신청 과정에서 겪은 일을 공개했다.",
+            "start": 91,
+            "end": 169
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "중국어 채널의 콘텐츠 제작부터 운영까지 대부분의 업무를 혼자 맡았으며, 휴일에도 쉬지 못한 채 늦은 시간까지 일하는 날이 반복됐다고 한다.",
+            "start": 426,
+            "end": 503
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "하지만 실제로는 영상 대본 작성과 번역부터 성우 섭외, 더빙 감독, 편집, 업로드까지 중국어 채널 운영 업무를 사실상 혼자 떠맡았다는 주장이다.",
+            "start": 245,
+            "end": 325
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "A씨는 회사가 처음에는 산재 신청을 돕겠다는 태도를 보였지만, 이후 업무와 질병의 관련성을 부인하는 내용의 의견서를 제출했다고 주장했다.",
+            "start": 609,
+            "end": 685
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 8,
+            "quote": "A씨는 회사가 처음에는 협조하겠다고 했지만, 나중에는 업무와 질병의 연관성을 부인하는 의견서를 근로복지공단에 제출했다고 주장했다.",
+            "start": 555,
+            "end": 627
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "다만 산재 인정 이후에도 건강 상태가 쉽게 나아지지 않았고, 같은 해 4월 극단적인 선택을 시도할 정도로 심각한 어려움을 겪었다고 털어놨다.",
+            "start": 729,
+            "end": 807
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 11,
+            "quote": "이후에도 증상이 나아지지 않아 같은 해 4월 극단적 선택을 시도했으며, 현재까지 치료를 받고 있다고 전했다.",
+            "start": 734,
+            "end": 794
+          },
+          "difference_summary": "산재 인정 뒤에도 나아지지 않아 극단적 선택을 시도했다는 같은 A씨 발언을, 원문은 고통을 털어놓는 서술적 동사 '털어놨다'로 받았지만 A2는 중립 동사 '전했다', A3은 거리를 두는 '주장했다'로 받았다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 8,
+                "quote": "어려움을 겪었다고 털어놨다",
+                "start": 792,
+                "end": 806
+              },
+              "related_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 11,
+                "quote": "받고 있다고 전했다",
+                "start": 783,
+                "end": 793
+              },
+              "note": "산재 인정 뒤에도 나아지지 않아 극단적 선택을 시도했다는 같은 A씨 발언을, 원문은 고통을 털어놓는 서술적 동사 '털어놨다'로 받았지만 A2는 중립 동사 '전했다', A3은 거리를 두는 '주장했다'로 받았다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_7",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 10,
+            "quote": "그는 \"내겐 아직도 끝나지 않은 고통인데, 방송에서는 제가 겪었던 현실과 너무나 다른 모습이 나오고 있었다. 특정인을 비난하거나 공격하기 위해서가 아닌 실제 근무 환경과 산업재해 신청 과정, 그 과정에서 겪었던 일들을 알리기 위해 글을 썼다\"고 강조했다.",
+            "start": 911,
+            "end": 1053
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 13,
+            "quote": "그는 \"내게는 아직도 끝나지 않은 고통인데 방송에서는 내가 겪었던 현실과 너무나 다른 모습이 나오고 있었다\"며 폭로 배경을 설명했다.",
+            "start": 883,
+            "end": 957
+          },
+          "difference_summary": "방송과 현실이 다르고 비난하려고 쓴 글이 아니라는 같은 인용을 원문은 기능·태도 동사 '강조했다'로 받았지만, A2 '설명했다', A3 '덧붙였다', A4 '적었다'는 중립 동사여서 발언에 싣는 무게가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 10,
+                "quote": "고 강조했다",
+                "start": 1046,
+                "end": 1052
+              },
+              "related_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 13,
+                "quote": "폭로 배경을 설명했다",
+                "start": 945,
+                "end": 956
+              },
+              "note": "방송과 현실이 다르고 비난하려고 쓴 글이 아니라는 같은 인용을 원문은 기능·태도 동사 '강조했다'로 받았지만, A2 '설명했다', A3 '덧붙였다', A4 '적었다'는 중립 동사여서 발언에 싣는 무게가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "키즈 크리에이터 헤이지니(본명 강혜진)의 회사 전 직원이 연봉 2000만원에 하루 최대 16시간씩 근무하다 공황장애를 얻었다고 주장하며 산업재해 인정 사실을 공개했다.",
+            "start": 0,
+            "end": 93
+          },
+          "difference_summary": "원문은 전 직원이 장시간 노동과 산재 인정을 공개한 일을 서술적·환기 동사 '폭로해'로 받았지만, A3은 같은 내용을 기능·태도 동사 '주장하며'로 받아 거리를 둔다. A1·A2는 제목이나 본문의 다른 곳에서 '폭로'를 쓰므로 매체 간 차이로 보지 않는다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "폭로해",
+                "start": 88,
+                "end": 91
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "주장하며",
+                "start": 71,
+                "end": 75
+              },
+              "note": "원문은 전 직원이 장시간 노동과 산재 인정을 공개한 일을 서술적·환기 동사 '폭로해'로 받았지만, A3은 같은 내용을 기능·태도 동사 '주장하며'로 받아 거리를 둔다. A1·A2는 제목이나 본문의 다른 곳에서 '폭로'를 쓰므로 매체 간 차이로 보지 않는다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "키즈 크리에이터 헤이지니(본명 강혜진)의 회사 전 직원이 연봉 2000만원에 하루 최대 16시간씩 근무하다 공황장애를 얻었다고 주장하며 산업재해 인정 사실을 공개했다.",
+            "start": 0,
+            "end": 93
+          },
+          "difference_summary": "원문은 폭로의 반향을 기자의 말 '파문이 일고 있다'로 쟁점화했지만, A3·A5는 대응하는 리드 문장에서 이런 쟁점 규정 없이 공개·폭로 사실만 전해 사안을 보는 평가가 다르다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "파문이 일고 있다",
+                "start": 92,
+                "end": 101
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "산업재해 인정 사실을 공개했다",
+                "start": 76,
+                "end": 92
+              },
+              "note": "원문은 폭로의 반향을 기자의 말 '파문이 일고 있다'로 쟁점화했지만, A3·A5는 대응하는 리드 문장에서 이런 쟁점 규정 없이 공개·폭로 사실만 전해 사안을 보는 평가가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에는 헤이지니의 회사에서 근무하다 공황장애를 앓게 됐고 극단적인 선택까지 시도했다는 전 직원 A씨의 폭로 글이 올라왔다.",
+            "start": 104,
+            "end": 184
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "지난 21일 한 온라인 커뮤니티에는 헤이지니와 오랜 친구 사이였으며 그의 회사에서 근무했다는 A씨의 글이 올라왔다.",
+            "start": 95,
+            "end": 159
+          },
+          "difference_summary": "같은 커뮤니티 게시글을 원문은 '폭로 글'이라고 불렀지만, A3은 기사 전체에서 '폭로'라는 말을 쓰지 않고 중립적인 '글'로만 불러 발언의 성격 규정이 다르다.",
+          "expression_differences": [
+            {
+              "code": "B",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "폭로 글이 올라왔다",
+                "start": 173,
+                "end": 183
+              },
+              "related_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "A씨의 글이 올라왔다",
+                "start": 147,
+                "end": 158
+              },
+              "note": "같은 커뮤니티 게시글을 원문은 '폭로 글'이라고 불렀지만, A3은 기사 전체에서 '폭로'라는 말을 쓰지 않고 중립적인 '글'로만 불러 발언의 성격 규정이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "중국어 채널의 콘텐츠 제작부터 운영까지 대부분의 업무를 혼자 맡았으며, 휴일에도 쉬지 못한 채 늦은 시간까지 일하는 날이 반복됐다고 한다.",
+            "start": 426,
+            "end": 503
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "그러나 실제 회사에 들어간 뒤에는 영상 대본 작성과 번역, 성우 섭외, 더빙 감독, 영상 편집과 업로드 등 중국어 채널 운영 전반을 혼자 담당하게 됐다고 주장했다.",
+            "start": 309,
+            "end": 400
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "A씨는 회사가 처음에는 산재 신청을 돕겠다는 태도를 보였지만, 이후 업무와 질병의 관련성을 부인하는 내용의 의견서를 제출했다고 주장했다.",
+            "start": 609,
+            "end": 685
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "A씨는 건강이 악화되자 회사에 산업재해를 신청하겠다는 뜻을 전했고, 처음에는 회사 측도 협조하겠다는 입장이었다고 주장했다.",
+            "start": 689,
+            "end": 757
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "다만 산재 인정 이후에도 건강 상태가 쉽게 나아지지 않았고, 같은 해 4월 극단적인 선택을 시도할 정도로 심각한 어려움을 겪었다고 털어놨다.",
+            "start": 729,
+            "end": 807
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 17,
+            "paragraph_index": 13,
+            "quote": "A씨는 산재 인정 이후에도 증상이 나아지지 않았으며 2020년 4월 극단적인 선택을 시도했고, 현재까지 대학병원에서 치료받고 있다고 주장했다.",
+            "start": 1298,
+            "end": 1377
+          },
+          "difference_summary": "산재 인정 뒤에도 나아지지 않아 극단적 선택을 시도했다는 같은 A씨 발언을, 원문은 고통을 털어놓는 서술적 동사 '털어놨다'로 받았지만 A2는 중립 동사 '전했다', A3은 거리를 두는 '주장했다'로 받았다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 8,
+                "quote": "어려움을 겪었다고 털어놨다",
+                "start": 792,
+                "end": 806
+              },
+              "related_marker": {
+                "sentence_index": 17,
+                "paragraph_index": 13,
+                "quote": "치료받고 있다고 주장했다",
+                "start": 1363,
+                "end": 1376
+              },
+              "note": "산재 인정 뒤에도 나아지지 않아 극단적 선택을 시도했다는 같은 A씨 발언을, 원문은 고통을 털어놓는 서술적 동사 '털어놨다'로 받았지만 A2는 중립 동사 '전했다', A3은 거리를 두는 '주장했다'로 받았다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_7",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 10,
+            "quote": "그는 \"내겐 아직도 끝나지 않은 고통인데, 방송에서는 제가 겪었던 현실과 너무나 다른 모습이 나오고 있었다. 특정인을 비난하거나 공격하기 위해서가 아닌 실제 근무 환경과 산업재해 신청 과정, 그 과정에서 겪었던 일들을 알리기 위해 글을 썼다\"고 강조했다.",
+            "start": 911,
+            "end": 1053
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 25,
+            "paragraph_index": 18,
+            "quote": "A씨는 “제가 이 글을 쓰는 이유는 특정인을 비난하거나 공격하기 위해서가 아니다”며 “제가 직접 경험한 근무 환경과 산업재해 신청 과정, 그리고 그 과정에서 겪었던 일들을 알리기 위해서”라고 덧붙였다.",
+            "start": 1843,
+            "end": 1955
+          },
+          "difference_summary": "방송과 현실이 다르고 비난하려고 쓴 글이 아니라는 같은 인용을 원문은 기능·태도 동사 '강조했다'로 받았지만, A2 '설명했다', A3 '덧붙였다', A4 '적었다'는 중립 동사여서 발언에 싣는 무게가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 10,
+                "quote": "고 강조했다",
+                "start": 1046,
+                "end": 1052
+              },
+              "related_marker": {
+                "sentence_index": 25,
+                "paragraph_index": 18,
+                "quote": "라고 덧붙였다",
+                "start": 1947,
+                "end": 1954
+              },
+              "note": "방송과 현실이 다르고 비난하려고 쓴 글이 아니라는 같은 인용을 원문은 기능·태도 동사 '강조했다'로 받았지만, A2 '설명했다', A3 '덧붙였다', A4 '적었다'는 중립 동사여서 발언에 싣는 무게가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "[헤럴드경제=김보영 기자] 구독자 413만명을 보유한 키즈 크리에이터 헤이지니(본명 강혜진)의 전 직원이 연봉 2000만원 수준에 하루 최대 16시간씩 일했다고 폭로해 논란이 일고 있다.",
+            "start": 0,
+            "end": 104
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "[헤럴드경제=김보영 기자] 구독자 413만명을 보유한 키즈 크리에이터 헤이지니(본명 강혜진)의 전 직원이 연봉 2000만원 수준에 하루 최대 16시간씩 일했다고 폭로해 논란이 일고 있다.",
+            "start": 0,
+            "end": 104
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에는 헤이지니의 회사에서 근무하다 공황장애를 앓게 됐고 극단적인 선택까지 시도했다는 전 직원 A씨의 폭로 글이 올라왔다.",
+            "start": 104,
+            "end": 184
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "지난 21일 온라인 커뮤니티 보배드림에는 헤이지니의 오랜 친구이자 전 직원이었다고 밝힌 A씨의 폭로 글이 올라왔다.",
+            "start": 106,
+            "end": 170
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "중국어 채널의 콘텐츠 제작부터 운영까지 대부분의 업무를 혼자 맡았으며, 휴일에도 쉬지 못한 채 늦은 시간까지 일하는 날이 반복됐다고 한다.",
+            "start": 426,
+            "end": 503
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "하지만 막상 입사한 후에는 크리에이터가 아닌 일반 직원으로 근무했으며, 영상 대본 작성과 번역부터 성우 섭외, 더빙 감독, 영상 편집까지 중국어 유튜브 채널 운영에 필요한 업무를 사실상 혼자 담당했다고 주장했다.",
+            "start": 232,
+            "end": 350
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "A씨는 회사가 처음에는 산재 신청을 돕겠다는 태도를 보였지만, 이후 업무와 질병의 관련성을 부인하는 내용의 의견서를 제출했다고 주장했다.",
+            "start": 609,
+            "end": 685
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 6,
+            "quote": "A씨는 산재 신청을 도와주겠다던 회사가 오히려 자신의 질병을 의심하거나 치료 목적으로 다녀온 여행을 문제 삼는 등 상처를 줬다고 주장했다.",
+            "start": 584,
+            "end": 661
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "다만 산재 인정 이후에도 건강 상태가 쉽게 나아지지 않았고, 같은 해 4월 극단적인 선택을 시도할 정도로 심각한 어려움을 겪었다고 털어놨다.",
+            "start": 729,
+            "end": 807
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 7,
+            "quote": "하지만 같은 해 4월에는 극단적인 선택을 시도할 정도로 상태가 악화했으며, 현재도 치료를 받고 있는 것으로 전해졌다.",
+            "start": 775,
+            "end": 840
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_7",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 10,
+            "quote": "그는 \"내겐 아직도 끝나지 않은 고통인데, 방송에서는 제가 겪었던 현실과 너무나 다른 모습이 나오고 있었다. 특정인을 비난하거나 공격하기 위해서가 아닌 실제 근무 환경과 산업재해 신청 과정, 그 과정에서 겪었던 일들을 알리기 위해 글을 썼다\"고 강조했다.",
+            "start": 911,
+            "end": 1053
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 9,
+            "quote": "그는 “이 글을 쓰는 이유는 특정인을 비난하거나 공격하기 위해서가 아니다”라며 “직접 경험한 근무 환경과 산업 재해 신청 과정, 그리고 그 과정에서 겪었던 일들을 알리기 위해서다”라고 적었다.",
+            "start": 968,
+            "end": 1075
+          },
+          "difference_summary": "방송과 현실이 다르고 비난하려고 쓴 글이 아니라는 같은 인용을 원문은 기능·태도 동사 '강조했다'로 받았지만, A2 '설명했다', A3 '덧붙였다', A4 '적었다'는 중립 동사여서 발언에 싣는 무게가 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 10,
+                "quote": "고 강조했다",
+                "start": 1046,
+                "end": 1052
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 9,
+                "quote": "라고 적었다",
+                "start": 1068,
+                "end": 1074
+              },
+              "note": "방송과 현실이 다르고 비난하려고 쓴 글이 아니라는 같은 인용을 원문은 기능·태도 동사 '강조했다'로 받았지만, A2 '설명했다', A3 '덧붙였다', A4 '적었다'는 중립 동사여서 발언에 싣는 무게가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유튜브 구독자 413만명을 보유한 키즈 크리에이터 헤이지니(36·본명 강혜진)의 전 직원이 연봉 2000만원을 받으며 하루 최대 16시간 근무하는 등 과도한 업무로 산업재해를 인정받았다고 폭로했다.",
+            "start": 0,
+            "end": 110
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유명 키즈 유튜버 헤이지니(36·본명 강혜진)가 운영하던 회사의 전 직원이 장시간 노동으로 공황장애를 겪었으며, 회사 측과 갈등 끝에 산업재해를 인정받았다고 폭로해 파문이 일고 있다.",
+            "start": 0,
+            "end": 102
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "유튜브 구독자 413만명을 보유한 키즈 크리에이터 헤이지니(36·본명 강혜진)의 전 직원이 연봉 2000만원을 받으며 하루 최대 16시간 근무하는 등 과도한 업무로 산업재해를 인정받았다고 폭로했다.",
+            "start": 0,
+            "end": 110
+          },
+          "difference_summary": "원문은 폭로의 반향을 기자의 말 '파문이 일고 있다'로 쟁점화했지만, A3·A5는 대응하는 리드 문장에서 이런 쟁점 규정 없이 공개·폭로 사실만 전해 사안을 보는 평가가 다르다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "파문이 일고 있다",
+                "start": 92,
+                "end": 101
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "인정받았다고 폭로했다",
+                "start": 98,
+                "end": 109
+              },
+              "note": "원문은 폭로의 반향을 기자의 말 '파문이 일고 있다'로 쟁점화했지만, A3·A5는 대응하는 리드 문장에서 이런 쟁점 규정 없이 공개·폭로 사실만 전해 사안을 보는 평가가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에는 헤이지니의 회사에서 근무하다 공황장애를 앓게 됐고 극단적인 선택까지 시도했다는 전 직원 A씨의 폭로 글이 올라왔다.",
+            "start": 104,
+            "end": 184
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 1,
+            "quote": "최근 한 온라인 커뮤니티에는 헤이지니의 친구이자 헤이지니 회사의 전 직원인 A씨가 근무 중 공황장애를 앓게 됐고 극단적인 선택까지 시도했다는 내용의 글이 올라왔다.",
+            "start": 212,
+            "end": 303
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "중국어 채널의 콘텐츠 제작부터 운영까지 대부분의 업무를 혼자 맡았으며, 휴일에도 쉬지 못한 채 늦은 시간까지 일하는 날이 반복됐다고 한다.",
+            "start": 426,
+            "end": 503
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 4,
+            "quote": "이 과정에서 과도한 업무와 야근에 시달렸다고 한다.",
+            "start": 551,
+            "end": 579
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "A씨는 회사가 처음에는 산재 신청을 돕겠다는 태도를 보였지만, 이후 업무와 질병의 관련성을 부인하는 내용의 의견서를 제출했다고 주장했다.",
+            "start": 609,
+            "end": 685
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 5,
+            "quote": "그는 이후 산업재해를 신청하는 과정에서 회사의 태도가 돌변했다고도 주장했다.",
+            "start": 793,
+            "end": 835
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "다만 산재 인정 이후에도 건강 상태가 쉽게 나아지지 않았고, 같은 해 4월 극단적인 선택을 시도할 정도로 심각한 어려움을 겪었다고 털어놨다.",
+            "start": 729,
+            "end": 807
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 6,
+            "quote": "A씨는 2020년 1월 산업재해를 인정받았으나 같은 해 4월 극단적인 선택을 시도할 정도로 상태가 악화했다고 한다.",
+            "start": 971,
+            "end": 1035
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_7",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 10,
+            "quote": "그는 \"내겐 아직도 끝나지 않은 고통인데, 방송에서는 제가 겪었던 현실과 너무나 다른 모습이 나오고 있었다. 특정인을 비난하거나 공격하기 위해서가 아닌 실제 근무 환경과 산업재해 신청 과정, 그 과정에서 겪었던 일들을 알리기 위해 글을 썼다\"고 강조했다.",
+            "start": 911,
+            "end": 1053
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "G",
+      "source_quote": "KBS '사장님 귀는 당나귀 귀'에서",
+      "comparison_article": "A5",
+      "comparison_quote": "KBS2 '사장님 귀는 당나귀 귀'로 추정된다",
+      "why": "원문의 프로그램명은 'A씨는 …괴로웠다고 제보의 이유를 밝혔다'라는 간접인용 안에 있어 기자의 말이 아니고, 문장 끝 서술어의 확신 차이도 아니므로 제외한다."
+    }
+  ]
+}

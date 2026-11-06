@@ -1,0 +1,163 @@
+import type {
+  Analysis,
+  ApiErrorBody,
+  ArticleDetail,
+  ArticlePage,
+  FeedScope,
+  NewsCategory,
+  Publisher,
+  SavedArticleMutation,
+  Session,
+  User,
+} from './types'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+export class ApiError extends Error {
+  status: number
+  fields: Record<string, string>
+
+  constructor(
+    message: string,
+    status: number,
+    fields: Record<string, string> = {},
+  ) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.fields = fields
+  }
+}
+
+export interface ArticleQuery {
+  category?: NewsCategory
+  scope?: FeedScope
+  publishers?: string[]
+  query?: string
+  cursor?: string
+}
+
+export function articleQueryString({ category, scope = 'ALL', publishers = [], query, cursor }: ArticleQuery) {
+  const params = new URLSearchParams({ limit: '20' })
+  if (category) params.set('category', category)
+  params.set('scope', scope)
+  publishers.forEach((publisher) => params.append('publisher', publisher))
+  if (query) params.set('q', query)
+  if (cursor) params.set('cursor', cursor)
+  return params.toString()
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string,
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ApiErrorBody
+    const errorCode = body.error?.code
+    const englishMessage: Record<string, string> = {
+      AUTH_REQUIRED: 'Your session has expired. Please sign in again.',
+      INVALID_CREDENTIALS: 'We could not verify those credentials.',
+      VALIDATION_ERROR: 'Please review the details and try again.',
+      NOT_FOUND: 'The requested item could not be found.',
+      INVALID_CURSOR: 'The feed has changed. Please refresh and try again.',
+    }
+    throw new ApiError(
+      (errorCode && englishMessage[errorCode]) ?? 'We could not complete the request.',
+      response.status,
+      body.error?.fields,
+    )
+  }
+  if (response.status === 204) return undefined as T
+  return response.json() as Promise<T>
+}
+
+export const api = {
+  login(identifier: string, password: string) {
+    return request<Session>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+    })
+  },
+
+  register(email: string, username: string, password: string) {
+    return request<Session>('/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, username, password, password_confirmation: password }),
+    })
+  },
+
+  logout(token: string) {
+    return request<void>('/api/v1/auth/logout', { method: 'POST' }, token)
+  },
+
+  async me(token: string) {
+    const body = await request<{ user: User }>('/api/v1/auth/me', {}, token)
+    return body.user
+  },
+
+  async publishers(token: string) {
+    const body = await request<{ items: Publisher[] }>('/api/v1/publishers', {}, token)
+    return body.items
+  },
+
+  async replaceFollowedPublishers(token: string, publisherCodes: string[]) {
+    const body = await request<{ publisher_codes: string[] }>(
+      '/api/v1/me/followed-publishers',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ publisher_codes: publisherCodes }),
+      },
+      token,
+    )
+    return body.publisher_codes
+  },
+
+  articles(token: string, options: ArticleQuery) {
+    return request<ArticlePage>(
+      `/api/v1/articles?${articleQueryString(options)}`,
+      {},
+      token,
+    )
+  },
+
+  article(token: string, id: string) {
+    return request<ArticleDetail>(`/api/v1/articles/${id}`, {}, token)
+  },
+
+  analysis(token: string, id: string) {
+    return request<Analysis>(`/api/v1/articles/${id}/analysis`, {}, token)
+  },
+
+  savedArticles(token: string, cursor?: string) {
+    const params = new URLSearchParams({ limit: '20' })
+    if (cursor) params.set('cursor', cursor)
+    return request<ArticlePage>(`/api/v1/saved-articles?${params}`, {}, token)
+  },
+
+  saveArticle(token: string, id: string) {
+    return request<SavedArticleMutation>(
+      `/api/v1/saved-articles/${id}`,
+      { method: 'PUT' },
+      token,
+    )
+  },
+
+  removeSavedArticle(token: string, id: string) {
+    return request<void>(
+      `/api/v1/saved-articles/${id}`,
+      { method: 'DELETE' },
+      token,
+    )
+  },
+}

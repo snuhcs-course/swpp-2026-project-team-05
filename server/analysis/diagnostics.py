@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import contextmanager
-from contextvars import ContextVar
+from contextvars import ContextVar, copy_context
+from functools import wraps
 from time import perf_counter
-from typing import Iterator
+from typing import Any, Callable, Iterator
 
 
 analysis_id: ContextVar[str] = ContextVar("analysis_id", default="-")
@@ -20,6 +21,17 @@ def log_event(logger: logging.Logger, event: str, *, level: int = logging.INFO, 
         payload["stage"] = _stage.get()
     payload.update(fields)
     logger.log(level, "analysis %s", json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+
+
+def submit_with_context(executor: Any, function: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Carry request diagnostics into one worker without sharing its Context."""
+    context = copy_context()
+
+    @wraps(function)
+    def run(*worker_args: Any, **worker_kwargs: Any) -> Any:
+        return context.run(function, *worker_args, **worker_kwargs)
+
+    return executor.submit(run, *args, **kwargs)
 
 
 @contextmanager
@@ -38,7 +50,8 @@ def analysis_stage(logger: logging.Logger, name: str, **fields: object) -> Itera
             error_type=type(exc).__name__,
             **fields,
         )
-        logger.exception("Analysis stage failed: analysis_id=%s stage=%s", analysis_id.get(), name)
+        # The structured event above is enough to locate the failing stage.
+        # Tracebacks can include article text or provider response details.
         raise
     else:
         log_event(

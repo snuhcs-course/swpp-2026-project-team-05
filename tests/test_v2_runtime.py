@@ -1,0 +1,513 @@
+"""Offline checks for bounded and privacy-conscious v2 execution."""
+
+import json
+import os
+from copy import deepcopy
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from time import monotonic
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+import httpx
+from django.test import SimpleTestCase
+from google.genai.errors import APIError
+
+from server.analysis.diagnostics import analysis_id
+from server.analysis.v2.model_client import (GeminiJSONClient, OpenRouterJSONClient,
+                                             MetricsJSONClient, ModelHTTPError, ModelUnavailableError)
+from server.analysis.v2.pipeline import (_completion_summary, _initial_result, _record_failure,
+                                         complete_rubric_analysis, run_analysis_pipeline)
+from server.analysis.v2.result_output import OperationError, make_error_record
+
+
+URL = "https://news.example.com/source"
+SOURCE = {"url": URL, "title": "가상 기사", "body": "가상의 본문", "publisher": "가상일보",
+          "published_at": "", "sentences": []}
+
+
+class _FakeClient:
+    model = "fake-model"
+    temperature = 1.0
+    seed = 42
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate_json(self, **request):
+        self.calls += 1
+        return {"ok": True}
+
+
+class RuntimeTests(SimpleTestCase):
+    @patch.dict(os.environ, {"OPENROUTER_API_KEY": "synthetic-team-key"}, clear=True)
+    def test_pipeline_selects_team_provider_and_separates_cache_settings(self):
+        client = _FakeClient()
+        client.close = Mock()
+        discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",
+                     "errors": [], "warnings": [], "source_article": deepcopy(SOURCE),
+                     "source_analysis": {"claims": [], "core_event": "가상 사건"},
+                     "search": {"candidates": []}, "selection": {"claim_comparisons": []},
+                     "comparison_status": "no_matches"}
+        with (patch("server.analysis.v2.pipeline.prepare_article", return_value=deepcopy(SOURCE)),
+              patch("server.analysis.v2.pipeline._create_model_client", return_value=client) as factory,
+              patch("server.analysis.v2.pipeline.run_discovery_pipeline", return_value=discovery),
+              patch("server.analysis.v2.pipeline.complete_rubric_analysis",
+                    side_effect=lambda value, **kwargs: {**value, "completed_stage": 5,
+                                                          "rubric_analysis": {}})):
+            result = run_analysis_pipeline(URL, use_cache=False)
+        self.assertEqual(result["completed_stage"], 5)
+        self.assertEqual(factory.call_args.args[0]["provider"], "openrouter")
+        self.assertEqual(result["reproducibility"]["settings"]["provider"], "openrouter")
+        self.assertNotIn("synthetic-team-key", json.dumps(result))
+        client.close.assert_called_once()
+
+    def test_openrouter_metrics_limits_request_to_remaining_budget(self):
+        client = object.__new__(OpenRouterJSONClient)
+        client.model = "google/gemini-3.8-flash"
+        client.seed, client.temperature, client.task_models = 42, 1.0, {}
+        client._client = SimpleNamespace(post=Mock(return_value=SimpleNamespace(
+            status_code=200, content=b'{"ok":true}',
+            json=lambda: {"choices": [{"message": {"content": '{"ok":true}'},
+                                         "finish_reason": "stop"}]},
+        )))
+        recorder = MetricsJSONClient(client, deadline_at=monotonic() + 10.0)
+        self.assertEqual(recorder.generate_json(name="source_event_claims_queries",
+                       instructions="synthetic", input_data={}, schema={"type": "object"}),
+                       {"ok": True})
+        self.assertLessEqual(client._client.post.call_args.kwargs["timeout"], 10.0)
+
+    def test_openrouter_429_retry_after_and_credit_error_are_safe(self):
+        client = object.__new__(OpenRouterJSONClient)
+        client.model = "google/gemini-3.8-flash"
+        client.seed, client.temperature, client.task_models = 42, 1.0, {}
+        success = SimpleNamespace(status_code=200, content=b'{"ok":true}',
+                                  json=lambda: {"choices": [{"message": {"content": '{"ok":true}'},
+                                                               "finish_reason": "stop"}]})
+        limited = SimpleNamespace(status_code=429, headers={"Retry-After": "2"},
+                                  content=b'MODEL_SECRET')
+        client._client = SimpleNamespace(post=Mock(side_effect=[limited, success]))
+        with patch("server.analysis.v2.model_client.sleep") as sleeper:
+            self.assertEqual(client.generate_json(name="source_analysis", instructions="synthetic",
+                             input_data={}, schema={"type": "object"}), {"ok": True})
+        sleeper.assert_called_once_with(2.0)
+        self.assertEqual(client._client.post.call_count, 2)
+        client._client.post = Mock(return_value=SimpleNamespace(
+            status_code=402, headers={}, content=b'MODEL_SECRET'))
+        with self.assertRaises(ModelHTTPError) as raised:
+            client.generate_json(name="source_analysis", instructions="synthetic",
+                                 input_data={}, schema={"type": "object"})
+        error = make_error_record(raised.exception, stage="source_analysis")
+        self.assertEqual(error["code"], "MODEL_HTTP_ERROR")
+        self.assertEqual(error["http_status"], 402)
+        self.assertFalse(error["retryable"])
+        self.assertNotIn("MODEL_SECRET", str(error))
+
+    def test_metrics_client_does_not_copy_model_transcripts(self):
+        # AI-assisted synthetic test: the wrapper keeps counters, never prompt/body/response copies.
+        client = _FakeClient()
+        recorder = MetricsJSONClient(client)
+        response = recorder.generate_json(name="source_analysis", instructions="PROMPT_SECRET",
+                                          input_data={"body": "ARTICLE_SECRET"}, schema={})
+        self.assertEqual(response, {"ok": True})
+        self.assertFalse(hasattr(recorder, "records"))
+        self.assertNotIn("PROMPT_SECRET", repr(vars(recorder)))
+        self.assertNotIn("ARTICLE_SECRET", repr(vars(recorder)))
+        self.assertEqual(recorder.execution_summary()["model_calls"], 1)
+        self.assertEqual(recorder.execution_summary()["attempted_calls"], 1)
+
+    def test_metrics_count_failed_attempt_without_retaining_input(self):
+        client = _FakeClient()
+        client.generate_json = Mock(side_effect=RuntimeError("MODEL_SECRET"))
+        recorder = MetricsJSONClient(client)
+        with self.assertRaises(RuntimeError):
+            recorder.generate_json(name="bad name ARTICLE_SECRET", input_data={"body": "ARTICLE_SECRET"})
+        summary = recorder.execution_summary()
+        self.assertEqual((summary["attempted_calls"], summary["failed_calls"], summary["model_calls"]),
+                         (1, 1, 0))
+        self.assertEqual(summary["task_counts"], {})
+        self.assertNotIn("ARTICLE_SECRET", repr(recorder.attempts))
+
+    def test_expired_budget_stops_before_model_call(self):
+        client = _FakeClient()
+        recorder = MetricsJSONClient(client, deadline_at=monotonic() - 1)
+        with self.assertRaises(TimeoutError):
+            recorder.generate_json(name="source_analysis", input_data={})
+        self.assertEqual(client.calls, 0)
+
+    def test_failure_log_rejects_unknown_dynamic_error_code(self):
+        token = analysis_id.set("synthetic123")
+        try:
+            with self.assertLogs("server.analysis.v2.pipeline", level="WARNING") as captured:
+                _record_failure(_initial_result(URL), OperationError("ARTICLE_SECRET", code="ARTICLE_SECRET"),
+                                "source_analysis")
+        finally:
+            analysis_id.reset(token)
+        self.assertIn("analysis_id=synthetic123", captured.output[0])
+        self.assertIn("error_code=PROCESSING_FAILED", captured.output[0])
+        self.assertNotIn("ARTICLE_SECRET", captured.output[0])
+
+    def test_uncached_pipeline_uses_metrics_and_keeps_result_contract(self):
+        client = _FakeClient()
+        source = deepcopy(SOURCE)
+        discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",
+                     "errors": [], "warnings": [], "source_article": source,
+                     "source_analysis": {"claims": [], "core_event": "가상 사건"},
+                     "search": {"candidates": []},
+                     "selection": {"claim_comparisons": [], "verification_detached_calls_at_cutoff": 2},
+                     "comparison_status": "no_matches"}
+
+        def fake_discovery(*args, **kwargs):
+            recorder = kwargs["client"]
+            self.assertIsInstance(recorder, MetricsJSONClient)
+            self.assertFalse(hasattr(recorder, "records"))
+            recorder.generate_json(name="source_analysis", instructions="PROMPT_SECRET",
+                                   input_data={"body": "ARTICLE_SECRET"}, schema={})
+            return deepcopy(discovery)
+
+        def fake_rubric(value, **kwargs):
+            return {**value, "completed_stage": 5, "rubric_analysis": {}}
+
+        token = analysis_id.set("synthetic123")
+        try:
+            with (TemporaryDirectory() as directory,
+                  patch("server.analysis.v2.pipeline.prepare_article", return_value=source),
+                  patch("server.analysis.v2.pipeline.run_discovery_pipeline", side_effect=fake_discovery),
+                  patch("server.analysis.v2.pipeline.complete_rubric_analysis", side_effect=fake_rubric),
+                  self.assertLogs("server.analysis.v2.pipeline", level="INFO") as captured):
+                result = run_analysis_pipeline(URL, client=client, use_cache=False, cache_dir=directory)
+                self.assertEqual(list(Path(directory).iterdir()), [])
+        finally:
+            analysis_id.reset(token)
+        self.assertEqual(result["completed_stage"], 5)
+        self.assertEqual(result["reproducibility"]["execution"]["model_calls"], 1)
+        self.assertEqual(result["reproducibility"]["execution"]["attempted_calls"], 1)
+        self.assertEqual(result["reproducibility"]["execution"]["verification_detached_calls_at_cutoff"], 2)
+        self.assertIsNone(result["reproducibility"]["snapshot_path"])
+        self.assertEqual(result["reproducibility"]["snapshot_id_basis"], "result_without_model_transcript")
+        self.assertNotIn("PROMPT_SECRET", json.dumps(result))
+        logs = "\n".join(captured.output)
+        self.assertIn('"analysis_id":"synthetic123"', logs)
+        self.assertIn('"stage":"rubric_analysis"', logs)
+        self.assertIn('"duration_ms":', logs)
+        self.assertIn('"event":"model_execution"', logs)
+        self.assertIn('"attempted_calls":1', logs)
+        self.assertIn('"verification_detached_calls_at_cutoff":2', logs)
+        self.assertNotIn("PROMPT_SECRET", logs)
+        self.assertNotIn("ARTICLE_SECRET", logs)
+        completed = [json.loads(line.split("analysis ", 1)[1]) for line in captured.output
+                     if '"event":"analysis_completed"' in line]
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0]["analysis_id"], "synthetic123")
+        self.assertEqual(completed[0]["execution_status"], "success")
+        self.assertEqual(completed[0]["verification"], {"detached_call_count_at_cutoff": 2})
+        self.assertEqual(completed[0]["model_task_attempt_counts"], {"source_analysis": 1})
+        self.assertGreaterEqual(completed[0]["model_task_elapsed_ms_sum"]["source_analysis"], 0)
+        self.assertEqual(set(completed[0]["stage_elapsed_ms"]),
+                         {"source_fetch", "discovery", "rubric_analysis"})
+
+    def test_completion_summary_counts_deferred_candidates_without_logging_ids_or_text(self):
+        result = {"execution_status": "partial", "errors": [
+            {"code": "SEARCH_TIMEOUT", "message": "ARTICLE_SECRET", "url": "URL_SECRET"},
+            {"code": "PROMPT_SECRET"}],
+            "display_selection": {"truncated": True},
+            "reader_analysis": {"article_failures": [{"article_id": "URL_SECRET"}],
+                                "i1_status": "withheld", "expression_review": {"status": "partial"}},
+            "selection": {"verification_llm_calls": 4,
+                          "verification_rounds": [{"deferred_ids": ["URL_SECRET", "A2"]},
+                                                  {"deferred_ids": ["A2"]},
+                                                  {"deferred_ids": None},
+                                                  {"deferred_ids": "URL_SECRET"}]}}
+        original = deepcopy(result)
+        summary = _completion_summary(result, {"search": 1200, "URL_SECRET": 9000},
+                                      {"task_counts": {"verify_selected_candidate_bodies": 3,
+                                                       "URL_SECRET": 1},
+                                       "task_failure_counts": {"verify_selected_candidate_bodies": 1},
+                                       "task_duration_ms": {"verify_selected_candidate_bodies": 1500,
+                                                            "PROMPT_SECRET-unsafe": 500}}, 240000)
+        self.assertEqual(result, original)
+        self.assertEqual(summary["verification"], {"attempted_call_count": 4,
+                                                    "deferred_candidate_count": 2})
+        self.assertEqual(summary["model_task_attempt_counts"],
+                         {"verify_selected_candidate_bodies": 4})
+        self.assertEqual(summary["stage_elapsed_ms"], {"search": 1200})
+        self.assertEqual(summary["partial_reason_codes"], [
+            "DISPLAY_SELECTION_TRUNCATED", "PROCESSING_FAILED", "READER_ALIGNMENT_FAILED",
+            "READER_EXPRESSION_INCOMPLETE", "READER_I1_INCOMPLETE", "SEARCH_TIMEOUT",
+            "VERIFICATION_DEFERRED"])
+        encoded = json.dumps(summary)
+        self.assertNotIn("ARTICLE_SECRET", encoded)
+        self.assertNotIn("PROMPT_SECRET", encoded)
+        self.assertNotIn("URL_SECRET", encoded)
+
+    def test_completion_summary_counts_reader_funnel_and_projected_markers_without_content(self):
+        def article(article_id, body):
+            sentences = []
+            offset = 0
+            for index, text in enumerate(body.split("\n")):
+                sentences.append({"sentence_index": index, "paragraph_index": index,
+                                  "start": offset, "end": offset + len(text), "text": text})
+                offset += len(text) + 1
+            return {"candidate_id": article_id, "url": f"https://{article_id}.example/ARTICLE_SECRET",
+                    "title": "ARTICLE_SECRET", "body": body, "sentences": sentences}
+
+        source = article("source", "ARTICLE_SECRET 강조했다.\n별도 발표가 있었다.")
+        first = source["sentences"][0]
+        second = source["sentences"][1]
+        a = article("A", "상대는 말했다.")
+        b = article("B", "다른 내용이다.")
+
+        def evidence(sentence, quote):
+            start = sentence["start"] + sentence["text"].index(quote)
+            return {"scope": "body", "sentence_index": sentence["sentence_index"],
+                    "start": start, "end": start + len(quote), "quote": quote}
+
+        source_mark = evidence(first, "강조했다")
+        related_mark = evidence(a["sentences"][0], "말했다")
+        source_evidence = evidence(first, first["text"])
+        second_evidence = evidence(second, second["text"])
+        related_evidence = evidence(a["sentences"][0], a["sentences"][0]["text"])
+        result = {
+            "execution_status": "success", "errors": [], "source_article": source,
+            "search": {"candidates": [a, b]},
+            "display_selection": {"selected_article_ids": ["A", "B"]},
+            "reader_analysis": {
+                "source_sentence_ledger": [
+                    {"sentence_index": 0, "scope": "central", "unit_ids": ["u1"]},
+                    {"sentence_index": 1, "scope": "central", "unit_ids": ["u2"]}],
+                "source_units": [
+                    {"unit_id": "u1", "content": "ARTICLE_SECRET", "source_evidence": source_evidence},
+                    {"unit_id": "u2", "content": "별도 발표", "source_evidence": second_evidence}],
+                "article_alignments": {
+                    "A": {"unit_alignments": [
+                        {"unit_id": "u1", "relation": "same", "related_evidence": related_evidence,
+                         "expression_differences": [
+                             {"code": "A", "source_marker": source_mark, "related_marker": related_mark,
+                              "note": "구체적 보도동사 차이"},
+                             {"code": "B", "source_marker": source_mark, "related_marker": related_mark,
+                              "note": "추가 검토의 차이"}]},
+                        {"unit_id": "u2", "relation": "related_only",
+                         "related_evidence": evidence(b["sentences"][0], b["sentences"][0]["text"]),
+                         "expression_differences": []}]},
+                    "B": {"unit_alignments": [
+                        {"unit_id": "u1", "relation": "absent", "related_evidence": None,
+                         "expression_differences": []},
+                        {"unit_id": "u2", "relation": "absent", "related_evidence": None,
+                         "expression_differences": []}]},
+                },
+                "expression_review": {"eligible_pair_count": 1, "reviewed_pair_count": 1,
+                                      "attempted_pair_count": 1, "accepted_finding_count": 1,
+                                      "withheld_finding_count": 2, "deferred_pair_count": 0,
+                                      "omitted_pair_count": 0},
+                "independent_article_groups": [["A"], ["B"]],
+                "i1_stars": [{"unit_id": "u2", "status": "distinctive_in_checked_articles",
+                              "checked_article_count": 2, "source_evidence": second_evidence}],
+                "i1_review_unresolved_unit_ids": [], "i1_title_ambiguous_unit_ids": [],
+                "i1_status": "complete", "article_failures": [],
+            },
+        }
+        original = deepcopy(result)
+        summary = _completion_summary(result, {}, None, 1000)
+        self.assertEqual(result, original)
+        funnel = summary["reader_funnel"]
+        self.assertEqual(funnel["source_sentence_scopes"],
+                         {"central": 2, "supporting": 0, "separate": 0, "non_content": 0})
+        self.assertEqual((funnel["source_unit_count"], funnel["aligned_unit_count"],
+                          funnel["observed_unit_alignment_count"]), (2, 4, 1))
+        self.assertEqual((funnel["expression_alignment_finding_count"],
+                          funnel["expression_final_finding_count"]), (1, 2))
+        self.assertEqual(funnel["expression_review"]["withheld_finding_count"], 2)
+        self.assertEqual(funnel["i1"]["first_pass_absence_review_candidate_count"], 1)
+        self.assertEqual(funnel["reader_output"],
+                         {"pair_count": 1, "highlight_count": 1, "star_count": 1})
+        encoded = json.dumps(summary)
+        for secret in ("ARTICLE_SECRET", "https://", "u1", "u2"):
+            self.assertNotIn(secret, encoded)
+
+        result["reader_analysis"]["i1_stars"] = []
+        result["reader_analysis"]["i1_review_unresolved_unit_ids"] = []
+        # A separate review may find the content in a title/body: first-pass
+        # candidate count remains one even though no star or unresolved ID does.
+        observed_on_recheck = _completion_summary(result, {}, None, 1000)["reader_funnel"]["i1"]
+        self.assertEqual((observed_on_recheck["first_pass_absence_review_candidate_count"],
+                          observed_on_recheck["star_count"],
+                          observed_on_recheck["unresolved_unit_count"]), (1, 0, 0))
+
+        result["reader_analysis"]["article_alignments"]["B"]["unit_alignments"][1]["relation"] = "uncertain"
+        result["reader_analysis"]["i1_review_unresolved_unit_ids"] = ["u2"]
+        first_pass_uncertain = _completion_summary(result, {}, None, 1000)["reader_funnel"]["i1"]
+        self.assertEqual(first_pass_uncertain["first_pass_absence_review_candidate_count"], 0)
+        self.assertEqual(first_pass_uncertain["first_pass_uncertain_unit_count"], 1)
+
+    def test_completion_summary_keeps_safe_reader_counts_when_projection_is_malformed(self):
+        result = {"execution_status": "partial", "errors": [],
+                  "display_selection": {"selected_article_ids": []},
+                  "search": {"candidates": []}, "source_article": None,
+                  "reader_analysis": {"source_sentence_ledger": [
+                      {"scope": "supporting", "text": "ARTICLE_SECRET"}],
+                      "source_units": [], "article_alignments": {},
+                      "i1_stars": [], "i1_review_unresolved_unit_ids": [],
+                      "i1_title_ambiguous_unit_ids": []}}
+        summary = _completion_summary(result, {}, None, 1000)
+        self.assertEqual(summary["reader_funnel"]["source_sentence_scopes"]["supporting"], 1)
+        self.assertEqual(summary["reader_funnel"]["source_unit_count"], 0)
+        self.assertNotIn("reader_output", summary["reader_funnel"])
+        self.assertNotIn("ARTICLE_SECRET", json.dumps(summary))
+
+        result["reader_analysis"]["source_sentence_ledger"] = [{"scope": ["ARTICLE_SECRET"]}]
+        malformed = _completion_summary(result, {}, None, 1000)
+        self.assertEqual(malformed["execution_status"], "partial")
+        self.assertEqual(malformed["reader_funnel"]["source_sentence_scopes"],
+                         {"central": 0, "supporting": 0, "separate": 0, "non_content": 0})
+        self.assertNotIn("ARTICLE_SECRET", json.dumps(malformed))
+
+    def test_completion_summary_logs_failed_stage_without_model_client(self):
+        with (patch("server.analysis.v2.pipeline.prepare_article",
+                    side_effect=OperationError("ARTICLE_SECRET", code="ARTICLE_TIMEOUT")),
+              self.assertLogs("server.analysis.v2.pipeline", level="INFO") as captured):
+            result = run_analysis_pipeline(URL, client=_FakeClient(), use_cache=False)
+        completed = [json.loads(line.split("analysis ", 1)[1]) for line in captured.output
+                     if '"event":"analysis_completed"' in line]
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0]["execution_status"], "failed")
+        self.assertIn("ARTICLE_TIMEOUT", completed[0]["partial_reason_codes"])
+        self.assertIn("source_fetch", completed[0]["stage_elapsed_ms"])
+        self.assertNotIn("model_task_attempt_counts", completed[0])
+        self.assertNotIn("ARTICLE_SECRET", "\n".join(captured.output))
+        self.assertEqual(result["errors"][0]["code"], "ARTICLE_TIMEOUT")
+
+    def test_budget_expiry_after_discovery_preserves_stage_four(self):
+        client = _FakeClient()
+        discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",
+                     "errors": [], "warnings": [], "source_article": deepcopy(SOURCE),
+                     "source_analysis": {"claims": [], "core_event": "가상 사건"},
+                     "search": {"candidates": []}, "selection": {"claim_comparisons": []},
+                     "comparison_status": "available", "rubric_analysis": None}
+        with (patch("server.analysis.v2.pipeline.prepare_article", return_value=deepcopy(SOURCE)),
+              patch("server.analysis.v2.pipeline.run_discovery_pipeline", return_value=discovery),
+              patch("server.analysis.v2.pipeline.complete_rubric_analysis") as rubric,
+              patch("server.analysis.v2.pipeline.monotonic", side_effect=[100.0, 100.1, 100.2, 101.0])):
+            result = run_analysis_pipeline(URL, client=client, use_cache=False,
+                                           execution_budget_seconds=0.5)
+        rubric.assert_not_called()
+        self.assertEqual(result["completed_stage"], 4)
+        self.assertEqual(result["execution_status"], "partial")
+        self.assertEqual(result["comparison_status"], "available")
+        self.assertEqual(result["errors"][0]["code"], "MODEL_TIMEOUT")
+
+    def test_gemini_call_limits_sdk_timeout_to_remaining_budget(self):
+        # No provider call: a local fake captures the SDK config sent by the adapter.
+        client = object.__new__(GeminiJSONClient)
+        client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+        client._client = SimpleNamespace(models=SimpleNamespace(generate_content=Mock(
+            return_value=SimpleNamespace(text='{"ok":true}'))))
+        result = client.generate_json(name="source_analysis", instructions="synthetic",
+                                      input_data={}, schema={"type": "object"},
+                                      timeout_budget_ms=45000)
+        self.assertEqual(result, {"ok": True})
+        config = client._client.models.generate_content.call_args.kwargs["config"]
+        self.assertLessEqual(config["http_options"].timeout, 45000)
+        self.assertEqual(config["http_options"].retry_options.attempts, 1)
+
+    def test_gemini_transport_failures_have_safe_retryable_codes(self):
+        for transport_error, expected_type, expected_code in (
+            (httpx.ReadTimeout("MODEL_SECRET"), TimeoutError, "MODEL_TIMEOUT"),
+            (httpx.ConnectError("MODEL_SECRET"), ModelUnavailableError, "MODEL_UNAVAILABLE"),
+            (httpx.ReadError("MODEL_SECRET"), ModelUnavailableError, "MODEL_UNAVAILABLE"),
+            (httpx.RemoteProtocolError("MODEL_SECRET"), ModelUnavailableError, "MODEL_UNAVAILABLE"),
+            (httpx.ProxyError("MODEL_SECRET"), ModelUnavailableError, "MODEL_UNAVAILABLE"),
+        ):
+            with self.subTest(expected_code=expected_code):
+                client = object.__new__(GeminiJSONClient)
+                client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+                client._client = SimpleNamespace(models=SimpleNamespace(generate_content=Mock(
+                    side_effect=transport_error)))
+                with self.assertRaises(expected_type) as raised:
+                    client.generate_json(name="source_analysis", instructions="synthetic",
+                                         input_data={}, schema={"type": "object"})
+                error = make_error_record(raised.exception, stage="source_analysis")
+                self.assertEqual(error["code"], expected_code)
+                self.assertTrue(error["retryable"])
+                self.assertNotIn("MODEL_SECRET", str(error))
+
+    def test_gemini_retries_429_after_provider_retry_delay(self):
+        error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
+                                          "details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo",
+                                                       "retryDelay": "17s"}]}})
+        client = object.__new__(GeminiJSONClient)
+        client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+        response = SimpleNamespace(text='{"ok":true}')
+        generate = Mock(side_effect=[error, response])
+        client._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+        with patch("server.analysis.v2.model_client.sleep") as sleeper:
+            result = client.generate_json(name="source_analysis", instructions="synthetic",
+                                          input_data={}, schema={"type": "object"},
+                                          timeout_budget_ms=90000)
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(generate.call_count, 2)
+        sleeper.assert_called_once_with(17.0)
+
+    def test_gemini_429_fallback_backoff_is_bounded(self):
+        error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}})
+        client = object.__new__(GeminiJSONClient)
+        client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+        generate = Mock(side_effect=error)
+        client._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+        with (patch("server.analysis.v2.model_client.sleep") as sleeper,
+              patch("server.analysis.v2.model_client.uniform", return_value=0.0)):
+            with self.assertRaises(RuntimeError) as raised:
+                client.generate_json(name="source_analysis", instructions="synthetic",
+                                     input_data={}, schema={"type": "object"})
+        self.assertEqual(generate.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleeper.call_args_list], [12.0, 24.0])
+        self.assertEqual(make_error_record(raised.exception, stage="source_analysis")["code"],
+                         "MODEL_RATE_LIMITED")
+
+    def test_gemini_does_not_retry_daily_quota_or_sleep_past_budget(self):
+        quota_error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
+                                                "details": [{"violations": [{
+                                                    "quotaId": "GenerateRequestsPerDayPerProjectPerModel"}]}]}})
+        delayed_error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}},
+                                 response=SimpleNamespace(headers={"Retry-After": "50"}))
+        long_delay_error = APIError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}},
+                                    response=SimpleNamespace(headers={"Retry-After": "120"}))
+        for error, budget_ms in ((quota_error, 90000), (delayed_error, 45000),
+                                 (long_delay_error, 240000)):
+            with self.subTest(budget_ms=budget_ms):
+                client = object.__new__(GeminiJSONClient)
+                client.model, client.temperature, client.seed = "fake-model", 1.0, 42
+                generate = Mock(side_effect=error)
+                client._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+                with patch("server.analysis.v2.model_client.sleep") as sleeper:
+                    with self.assertRaises(RuntimeError) as raised:
+                        client.generate_json(name="source_analysis", instructions="synthetic",
+                                             input_data={}, schema={"type": "object"},
+                                             timeout_budget_ms=budget_ms)
+                self.assertEqual(generate.call_count, 1)
+                sleeper.assert_not_called()
+                self.assertEqual(make_error_record(raised.exception, stage="source_analysis")["code"],
+                                 "MODEL_RATE_LIMITED")
+
+    def test_related_article_unverified_retryability_is_preserved(self):
+        discovery = {"completed_stage": 4, "status": "ready", "execution_status": "success",
+                     "errors": [], "warnings": [], "source_article": deepcopy(SOURCE),
+                     "source_analysis": {"core_event": "가상 사건", "claims": [{
+                         "claim_id": "C1", "claim": "가상의 주장", "claim_kind": "reported_fact",
+                         "speaker": "", "evidence": {"quote": "가상의 본문"},
+                     }]},
+                     "search": {"candidates": [{"candidate_id": "A1"}], "errors": [],
+                                "fetch_failures": [], "queries": [], "search_status": "success"},
+                     "selection": {"claim_comparisons": [{"claim_id": "C1",
+                                                           "articles": [{"candidate_id": "A1"}]}],
+                                   "same_event_ids": ["A1"], "event_baseline_ids": [], "assessments": []},
+                     "comparison_status": "available", "rubric_analysis": None}
+        for retryable in (False, True):
+            with self.subTest(retryable=retryable), patch(
+                "server.analysis.v2.pipeline.analyze_selected_articles",
+                return_value={"warnings": [], "article_annotation_failures": [
+                    {"article_id": "A1", "retryable": retryable}], "expression_failures": []},
+            ):
+                result = complete_rubric_analysis(discovery, client=_FakeClient())
+            self.assertEqual(result["execution_status"], "partial")
+            self.assertEqual(result["errors"][0]["code"], "RUBRIC_ARTICLE_UNVERIFIED")
+            self.assertEqual(result["errors"][0]["retryable"], retryable)

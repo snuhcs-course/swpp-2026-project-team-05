@@ -1,0 +1,335 @@
+{
+  "name": "b08",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "HD현대일렉트릭, 3분기 매출 1조1799억원 '역대 최대'",
+    "publisher": "디지털데일리",
+    "published_at": "2026-10-27 13:56:06",
+    "url": "https://n.news.naver.com/mnews/article/138/0002246164"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "HD현대일렉, 3Q 영업익 2845억…\"추가 발주 계속, AI 수요 더 커져\"(종합)",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 16:59:42",
+      "url": "https://n.news.naver.com/mnews/article/421/0009253462?sid=101"
+    },
+    "A2": {
+      "title": "HD현대일렉트릭 \"빅테크 발주 요구 계속…내년 배전변압기 매출 3000억원 전망\"",
+      "publisher": "MTN 머니투데이방송",
+      "published_at": "2026-10-27T15:53:53+09:00",
+      "url": "https://news.mtn.co.kr/article/2026102715471115008"
+    },
+    "A3": {
+      "title": "HD현대일렉 “단일 분기 역대 최대 매출…청주 배전캠퍼스 확장에 2000억 투입”",
+      "publisher": "서울경제",
+      "published_at": "2026-10-27 18:02:16",
+      "url": "https://n.news.naver.com/mnews/article/011/0004675764?sid=101"
+    },
+    "A4": {
+      "title": "HD현대일렉트릭, 배전·BESS로 최대 매출…빅테크 수주에 증설 나선다(종합)",
+      "publisher": "데일리안",
+      "published_at": "2026-10-27 16:10:08",
+      "url": "https://n.news.naver.com/mnews/article/119/0003147645?sid=101"
+    },
+    "A5": {
+      "title": "HD현대일렉트릭, 3분기 영업익 2845억원…‘청주 공장에 1980억원 추가 투자’",
+      "publisher": "아시아투데이",
+      "published_at": "2026-10-27T14:15:41+09:00",
+      "url": "https://www.asiatoday.co.kr/kn/view.php?key=20261027010009344"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "상반기 대규모 수주에 따른 기저효과가 영향을 미쳤다.",
+            "start": 402,
+            "end": 431
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 6,
+            "quote": "이는 올해 상반기 32억 3100만 달러에 달하는 대규모 수주를 기록한 데 따른 기저효과 등이 반영된 결과다.",
+            "start": 759,
+            "end": 820
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 4,
+            "quote": "반면 3분기 말 수주잔고는 88억4300만달러로 전분기보다 4.2%, 전년동기보다 26.6% 증가했다.",
+            "start": 432,
+            "end": 489
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 6,
+            "quote": "3분기 말 기준 수주잔고는 전 분기 대비해서도 4.2% 증가한 88억 4300만 달러로 견조한 수주 기반을 유지했다.",
+            "start": 821,
+            "end": 886
+          },
+          "difference_summary": "같은 수주잔고 증가를 원문은 수치로만 적었지만, A1과 A2는 기자의 목소리로 '견조한 수주 기반을 유지했다'는 긍정 평가를 덧붙였다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 4,
+                "quote": "26.6% 증가했다",
+                "start": 478,
+                "end": 488
+              },
+              "related_marker": {
+                "sentence_index": 15,
+                "paragraph_index": 6,
+                "quote": "견조한 수주 기반을 유지했다",
+                "start": 870,
+                "end": 885
+              },
+              "note": "같은 수주잔고 증가를 원문은 수치로만 적었지만, A1과 A2는 기자의 목소리로 '견조한 수주 기반을 유지했다'는 긍정 평가를 덧붙였다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "상반기 대규모 수주에 따른 기저효과가 영향을 미쳤다.",
+            "start": 402,
+            "end": 431
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 7,
+            "quote": "이는 올해 상반기 32억3100만 달러에 달하는 대규모 수주를 기록한 데 따른 기저효과 등이 반영된 결과다.",
+            "start": 838,
+            "end": 898
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 4,
+            "quote": "반면 3분기 말 수주잔고는 88억4300만달러로 전분기보다 4.2%, 전년동기보다 26.6% 증가했다.",
+            "start": 432,
+            "end": 489
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 7,
+            "quote": "하지만 3분기 말 기준 수주잔고는 전 분기 대비해서도 4.2% 증가한 88억 4300만 달러로 견조한 수주 기반을 유지했다.",
+            "start": 899,
+            "end": 968
+          },
+          "difference_summary": "같은 수주잔고 증가를 원문은 수치로만 적었지만, A1과 A2는 기자의 목소리로 '견조한 수주 기반을 유지했다'는 긍정 평가를 덧붙였다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 4,
+                "quote": "26.6% 증가했다",
+                "start": 478,
+                "end": 488
+              },
+              "related_marker": {
+                "sentence_index": 16,
+                "paragraph_index": 7,
+                "quote": "견조한 수주 기반을 유지했다",
+                "start": 952,
+                "end": 967
+              },
+              "note": "같은 수주잔고 증가를 원문은 수치로만 적었지만, A1과 A2는 기자의 목소리로 '견조한 수주 기반을 유지했다'는 긍정 평가를 덧붙였다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "상반기 대규모 수주에 따른 기저효과가 영향을 미쳤다.",
+            "start": 402,
+            "end": 431
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 6,
+            "quote": "회사 측은 수요가 정점을 지났다는 이른바 ‘피크아웃’ 우려를 의식한 듯 “올해 상반기 32억 3100만 달러에 달하는 대규모 수주를 기록한 데 따른 기저효과 등이 반영된 결과”라며 “견조한 수주 기반을 유지하고 있다”고 설명했다.",
+            "start": 531,
+            "end": 659
+          },
+          "difference_summary": "원문은 수주 감소 원인을 기자의 단언으로 적었지만, A3는 같은 설명 앞에 '피크아웃 우려를 의식한 듯'이라는 기자의 해석을 붙여 회사 설명을 방어적 대응으로 규정했다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 4,
+                "quote": "기저효과가 영향을 미쳤다",
+                "start": 417,
+                "end": 430
+              },
+              "related_marker": {
+                "sentence_index": 11,
+                "paragraph_index": 6,
+                "quote": "‘피크아웃’ 우려를 의식한 듯",
+                "start": 554,
+                "end": 570
+              },
+              "note": "원문은 수주 감소 원인을 기자의 단언으로 적었지만, A3는 같은 설명 앞에 '피크아웃 우려를 의식한 듯'이라는 기자의 해석을 붙여 회사 설명을 방어적 대응으로 규정했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 4,
+            "quote": "반면 3분기 말 수주잔고는 88억4300만달러로 전분기보다 4.2%, 전년동기보다 26.6% 증가했다.",
+            "start": 432,
+            "end": 489
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 6,
+            "quote": "수주잔고는 88억 4300만 달러로 1년 전보다 26.6% 늘었지만, 3분기 신규 수주는 9억 8000만 달러로 전년 동기 대비 19.1% 감소했다.",
+            "start": 447,
+            "end": 530
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "상반기 대규모 수주에 따른 기저효과가 영향을 미쳤다.",
+            "start": 402,
+            "end": 431
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 23,
+            "paragraph_index": 14,
+            "quote": "회사는 최근 수주 감소에 대해 상반기의 높은 기저와 이미 채워진 생산 슬롯의 영향을 설명했다.",
+            "start": 1161,
+            "end": 1213
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 4,
+            "quote": "반면 3분기 말 수주잔고는 88억4300만달러로 전분기보다 4.2%, 전년동기보다 26.6% 증가했다.",
+            "start": 432,
+            "end": 489
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 22,
+            "paragraph_index": 13,
+            "quote": "다만 수주잔고는 88억4300만 달러로 전년 동기 대비 26.6%, 전분기 대비 4.2% 증가했다.",
+            "start": 1105,
+            "end": 1160
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "상반기 대규모 수주에 따른 기저효과가 영향을 미쳤다.",
+            "start": 402,
+            "end": 431
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 16,
+            "paragraph_index": 7,
+            "quote": "회사는 상반기 32억3100만달러의 대규모 수주를 기록한 데 따른 기저효과 등이 반영됐다고 설명했다.",
+            "start": 762,
+            "end": 818
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 4,
+            "quote": "반면 3분기 말 수주잔고는 88억4300만달러로 전분기보다 4.2%, 전년동기보다 26.6% 증가했다.",
+            "start": 432,
+            "end": 489
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 17,
+            "paragraph_index": 7,
+            "quote": "다만 3분기 말 수주잔고는 전 분기보다 4.2% 증가한 88억4300만달러를 기록했다.",
+            "start": 819,
+            "end": 867
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

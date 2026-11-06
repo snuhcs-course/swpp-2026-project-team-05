@@ -1,0 +1,67 @@
+{
+  "name": "b01",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "李대통령, 촉법소년 연령 하향에 “충분히 검토 후 결론”",
+    "publisher": "이데일리",
+    "published_at": "2026-10-27 15:22:16",
+    "url": "https://n.news.naver.com/mnews/article/018/0006397166"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "법무부, 촉법소년 하향안 관련 보고…李대통령 \"충분히 검토\"",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 16:25:08",
+      "url": "https://n.news.naver.com/mnews/article/001/0016403865?sid=100"
+    },
+    "A2": {
+      "title": "촉법소년 '만 12세 일괄 하향' 여론 우세…李대통령 \"충분히 검토해 결론\"",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 15:39:00",
+      "url": "https://n.news.naver.com/mnews/article/421/0009253097?sid=100"
+    },
+    "A3": {
+      "title": "촉법소년 조정 ‘12세 vs 13세’…李대통령 “충분히 검토해 결론내달라”",
+      "publisher": "매일경제",
+      "published_at": "2026-10-27 17:11:07",
+      "url": "https://n.news.naver.com/mnews/article/009/0005754762?sid=100"
+    },
+    "A4": {
+      "title": "이 대통령, 법무부 촉법소년 하향안 보고에 “충분히 검토 후 결론”",
+      "publisher": "한겨레",
+      "published_at": "2026-10-27 18:24:14",
+      "url": "https://n.news.naver.com/mnews/article/028/0002829432?sid=100"
+    },
+    "A5": {
+      "title": "李대통령, 형사미성년 기준 하향에 \"충분히 검토 뒤 최종결론\"",
+      "publisher": "노컷뉴스",
+      "published_at": "2026-10-27 16:02:08",
+      "url": "https://n.news.naver.com/mnews/article/079/0004203478?sid=100"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "원문의 기자 서술 중 비교 기사와 같은 내용을 말하는 부분을 모두 대조했지만 A-G 차이가 없다. 핵심 문장(S#2 '주문했다', S#3 '밝혔다', S#7 '제안했다', S#6 '제시했었다', S#9 '심의·의결했다')은 다섯 비교 기사 모두 같은 동사를 쓰거나 같은 중립 군의 동사(전했다·보고했다)를 쓴다. 비교 기사의 '권고안'은 판단이 담긴 명명이 아니라 공론화 권고안을 가리키는 이름이다. 판단이 갈릴 만한 후보는 S#5 '추가 의견 수렴을 지시했다'와 A4#3 '공론화를 거듭 요청한 바 있다'(지시/요청)뿐이다. 하지만 기사마다 회의 시점이 다르고(원문 8월 14일, A2 6월, A4 7월 보고 이후), '거듭'은 원문의 '추가'·'또 해보자'가 사실 근거가 된다. 또 지시와 요청 사이에 독자가 느낄 태도 차이가 분명하지 않아 '애매하면 넣지 않는다' 원칙에 따라 뺐다. 그 밖에 비교 기사의 '것으로 예상된다/보인다'(A1#6, A3#15, A4#5), '고민이 깊어지고 있다'(A3#0), '사회적 논란'(A3#4), 여론조사 결과 서술(A2#2, A2#4, A3#1)은 원문에 대응 문장이 없는 정보다. 원문 S#4의 '입장을 밝힌 바 있다'는 A2#9의 '밝힌 바 있다'와 같다. A2#8의 '지적하면서'는 원문에 없는 다른 인용을 받는 동사다.",
+  "negatives": []
+}

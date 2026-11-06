@@ -1,0 +1,670 @@
+{
+  "name": "b21",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "\"EU, 내년 초 중국산 제품에 긴급수입제한 확대\"....무역전쟁 우려",
+    "publisher": "파이낸셜뉴스",
+    "published_at": "2026-10-27 11:09:14",
+    "url": "https://n.news.naver.com/mnews/article/014/0005595008"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "EU, 中수입품 규제 확대…화학제품·가구·기계류 세이프가드 추진",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 09:00:07",
+      "url": "https://n.news.naver.com/mnews/article/421/0009251533?sid=104"
+    },
+    "A2": {
+      "title": "중국산 하이브리드車 수입 제한한 EU, 기계·화학도 제한 추진",
+      "publisher": "동아일보",
+      "published_at": "2026-10-27 15:41:09",
+      "url": "https://n.news.naver.com/mnews/article/020/0003758017?sid=104"
+    },
+    "A3": {
+      "title": "“EU, 中제품 긴급수입제한 확대”… 세계 무역갈등 격화",
+      "publisher": "문화일보",
+      "published_at": "2026-10-27 12:05:15",
+      "url": "https://n.news.naver.com/mnews/article/021/0002828165?sid=104"
+    },
+    "A4": {
+      "title": "고사 위기 EU의 초강수 … \"中화학·기계 수입 제한\"",
+      "publisher": "매일경제",
+      "published_at": "2026-10-27 17:32:09",
+      "url": "https://n.news.naver.com/mnews/article/009/0005754828?sid=101"
+    },
+    "A5": {
+      "title": "자동차 다음은 화학제품·가구·기계… EU, 중국산 수입 더 줄인다",
+      "publisher": "조선비즈",
+      "published_at": "2026-10-27 10:54:12",
+      "url": "https://n.news.naver.com/mnews/article/366/0001200536?sid=104"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "[파이낸셜뉴스]중국산 하이브리드 차량의 수입 물량에 상한선을 두기로 한 유럽연합(EU)이 내년 초 다른 중국산 제품들로 수입 제한 조치를 확대할 방침이다.",
+            "start": 74,
+            "end": 160
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 이창규 기자 = 유럽연합(EU)이 대중국 무역적자를 줄이기 위해 중국산 수입품을 억제하는 조치에 나선다.",
+            "start": 69,
+            "end": 136
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "EU는 중국산 화학 제품, 가구, 기계 등의 수입을 줄이는 계획을 논의하고 있는 것으로 26일(현지시간) 알려졌다.",
+            "start": 162,
+            "end": 226
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "26일(현지시간) 블룸버그 통신에 따르면, 복수의 소식통은 EU가 중국산 화학제품과 가구, 기계류 등의 수입을 줄이는 세이프가드(긴급수입제한조치)를 도입할 계획이라며 수입 물량 제한이나 관세 부과 형태로 시행될 수 있으며 이르면 내년 1분기에 발표될 수 있다고 밝혔다.",
+            "start": 138,
+            "end": 288
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "EU가 중국산 하이브리드 차량에서 그치지 않고 수입 제한 대상을 확대하려는 건 중국과의 심각한 무역 불균형을 바로잡기 위해서다.",
+            "start": 406,
+            "end": 477
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(서울=뉴스1) 이창규 기자 = 유럽연합(EU)이 대중국 무역적자를 줄이기 위해 중국산 수입품을 억제하는 조치에 나선다.",
+            "start": 69,
+            "end": 136
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 6,
+            "quote": "이 조치는 유럽경제지역(EEA) 외 다른 국가에도 적용될 전망이다.",
+            "start": 685,
+            "end": 722
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 10,
+            "quote": "이어 새로운 세이프가드 조치는 하이브리드 차량에 적용될 예정인 조치나 앞서 철강 제품에 도입된 조치와 마찬가지로 세계무역기구(WTO) 규정을 준수하는 방식으로 시행될 것이라며 유럽경제지역(EEA) 밖의 다른 국가들에도 적용될 것이라고 덧붙였다.",
+            "start": 906,
+            "end": 1042
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "EU가 하이브리드 차량을 넘어 추가 무역 장벽을 시행할 경우 중국과의 무역 긴장이 다시 고조될 전망이다.",
+            "start": 791,
+            "end": 849
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "[파이낸셜뉴스]중국산 하이브리드 차량의 수입 물량에 상한선을 두기로 한 유럽연합(EU)이 내년 초 다른 중국산 제품들로 수입 제한 조치를 확대할 방침이다.",
+            "start": 74,
+            "end": 160
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "유럽연합(EU)이 내년 초 중국산 제품에 대한 수입 제한 조치 확대를 추진한다고 블룸버그통신 등이 26일(현지 시간) 보도했다.",
+            "start": 21,
+            "end": 92
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "EU는 중국산 화학 제품, 가구, 기계 등의 수입을 줄이는 계획을 논의하고 있는 것으로 26일(현지시간) 알려졌다.",
+            "start": 162,
+            "end": 226
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "복수의 EU 통상 관계자들은 블룸버그에 “중국산 화학 제품, 가구, 기계 등의 수입을 줄이는 계획을 논의하고 있다”고 밝혔다.",
+            "start": 173,
+            "end": 243
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "EU가 중국산 하이브리드 차량에서 그치지 않고 수입 제한 대상을 확대하려는 건 중국과의 심각한 무역 불균형을 바로잡기 위해서다.",
+            "start": 406,
+            "end": 477
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 3,
+            "quote": "이번 조치는 중국과의 심각한 무역 불균형 때문으로 풀이된다.",
+            "start": 312,
+            "end": 345
+          },
+          "difference_summary": "수입 제한 확대의 배경이 무역 불균형이라는 같은 기자 서술을 원문은 '위해서다'로 단언했지만 A2는 '때문으로 풀이된다'로 해석으로 처리해 확신 정도가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 5,
+                "quote": "바로잡기 위해서다",
+                "start": 467,
+                "end": 476
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 3,
+                "quote": "무역 불균형 때문으로 풀이된다",
+                "start": 328,
+                "end": 344
+              },
+              "note": "수입 제한 확대의 배경이 무역 불균형이라는 같은 기자 서술을 원문은 '위해서다'로 단언했지만 A2는 '때문으로 풀이된다'로 해석으로 처리해 확신 정도가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 6,
+            "quote": "이 조치는 유럽경제지역(EEA) 외 다른 국가에도 적용될 전망이다.",
+            "start": 685,
+            "end": 722
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "EU가 하이브리드 차량을 넘어 추가 무역 장벽을 시행할 경우 중국과의 무역 긴장이 다시 고조될 전망이다.",
+            "start": 791,
+            "end": 849
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 6,
+            "quote": "EU와 중국의 무역 긴장감 또한 높아지고 있다.",
+            "start": 785,
+            "end": 811
+          },
+          "difference_summary": "EU의 수입 제한 확대로 인한 EU·중국 무역 긴장을 원문은 조건부 '전망이다'로 추정했지만 A2·A4는 '높아지고/고조되고 있다'로 이미 진행 중인 사실처럼 단정해 확신 차이가 뚜렷하다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 7,
+                "quote": "다시 고조될 전망이다",
+                "start": 837,
+                "end": 848
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 6,
+                "quote": "무역 긴장감 또한 높아지고 있다",
+                "start": 793,
+                "end": 810
+              },
+              "note": "EU의 수입 제한 확대로 인한 EU·중국 무역 긴장을 원문은 조건부 '전망이다'로 추정했지만 A2·A4는 '높아지고/고조되고 있다'로 이미 진행 중인 사실처럼 단정해 확신 차이가 뚜렷하다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "[파이낸셜뉴스]중국산 하이브리드 차량의 수입 물량에 상한선을 두기로 한 유럽연합(EU)이 내년 초 다른 중국산 제품들로 수입 제한 조치를 확대할 방침이다.",
+            "start": 74,
+            "end": 160
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "中 “압박으로 이익 얻으려 말라”유럽연합(EU)이 중국산 하이브리드 자동차에 이어 화학제품과 가구, 기계류까지 수입 제한을 확대하는 방안을 추진하면서 세계 주요 경제권의 무역 갈등이 격화하고 있다.",
+            "start": 17,
+            "end": 127
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "EU는 중국산 화학 제품, 가구, 기계 등의 수입을 줄이는 계획을 논의하고 있는 것으로 26일(현지시간) 알려졌다.",
+            "start": 162,
+            "end": 226
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "26일(현지시간) 블룸버그통신에 따르면 EU는 중국산 화학제품과 가구, 기계류 등에 대한 긴급수입제한조치(세이프가드)를 검토하고 있다.",
+            "start": 222,
+            "end": 297
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "EU가 중국산 하이브리드 차량에서 그치지 않고 수입 제한 대상을 확대하려는 건 중국과의 심각한 무역 불균형을 바로잡기 위해서다.",
+            "start": 406,
+            "end": 477
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 3,
+            "quote": "이번 조치의 배경에는 중국과의 구조적인 무역 불균형이 있다.",
+            "start": 469,
+            "end": 502
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 6,
+            "quote": "이 조치는 유럽경제지역(EEA) 외 다른 국가에도 적용될 전망이다.",
+            "start": 685,
+            "end": 722
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "EU가 하이브리드 차량을 넘어 추가 무역 장벽을 시행할 경우 중국과의 무역 긴장이 다시 고조될 전망이다.",
+            "start": 791,
+            "end": 849
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "[파이낸셜뉴스]중국산 하이브리드 차량의 수입 물량에 상한선을 두기로 한 유럽연합(EU)이 내년 초 다른 중국산 제품들로 수입 제한 조치를 확대할 방침이다.",
+            "start": 74,
+            "end": 160
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "유럽연합(EU)이 대중국 무역 적자를 해소하기 위해 중국산 하이브리드차에 이어 화학·가구·직구 소포까지 제한하면서 EU와 중국 간 무역 긴장이 고조되고 있다.",
+            "start": 87,
+            "end": 175
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "EU는 중국산 화학 제품, 가구, 기계 등의 수입을 줄이는 계획을 논의하고 있는 것으로 26일(현지시간) 알려졌다.",
+            "start": 162,
+            "end": 226
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 6,
+            "quote": "26일(현지시간) 블룸버그 등에 따르면 EU는 이르면 내년 1분기 중 중국산 화학제품과 가구, 기계 등의 수입을 제한하는 세이프가드 조치 발표 방안을 검토하고 있다.",
+            "start": 237,
+            "end": 329
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "EU가 중국산 하이브리드 차량에서 그치지 않고 수입 제한 대상을 확대하려는 건 중국과의 심각한 무역 불균형을 바로잡기 위해서다.",
+            "start": 406,
+            "end": 477
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "여기에서 그치지 않고 수입 제한 대상을 확대하려는 건 중국과의 심각한 무역 불균형을 바로잡기 위해서다.",
+            "start": 561,
+            "end": 618
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 6,
+            "quote": "이 조치는 유럽경제지역(EEA) 외 다른 국가에도 적용될 전망이다.",
+            "start": 685,
+            "end": 722
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "EU가 하이브리드 차량을 넘어 추가 무역 장벽을 시행할 경우 중국과의 무역 긴장이 다시 고조될 전망이다.",
+            "start": 791,
+            "end": 849
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "유럽연합(EU)이 대중국 무역 적자를 해소하기 위해 중국산 하이브리드차에 이어 화학·가구·직구 소포까지 제한하면서 EU와 중국 간 무역 긴장이 고조되고 있다.",
+            "start": 87,
+            "end": 175
+          },
+          "difference_summary": "EU의 수입 제한 확대로 인한 EU·중국 무역 긴장을 원문은 조건부 '전망이다'로 추정했지만 A2·A4는 '높아지고/고조되고 있다'로 이미 진행 중인 사실처럼 단정해 확신 차이가 뚜렷하다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 7,
+                "quote": "다시 고조될 전망이다",
+                "start": 837,
+                "end": 848
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "무역 긴장이 고조되고 있다",
+                "start": 160,
+                "end": 174
+              },
+              "note": "EU의 수입 제한 확대로 인한 EU·중국 무역 긴장을 원문은 조건부 '전망이다'로 추정했지만 A2·A4는 '높아지고/고조되고 있다'로 이미 진행 중인 사실처럼 단정해 확신 차이가 뚜렷하다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "[파이낸셜뉴스]중국산 하이브리드 차량의 수입 물량에 상한선을 두기로 한 유럽연합(EU)이 내년 초 다른 중국산 제품들로 수입 제한 조치를 확대할 방침이다.",
+            "start": 74,
+            "end": 160
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "유럽연합(EU)이 중국산 하이브리드 자동차에 이어 화학제품과 가구, 기계류 등의 수입을 제한하는 방안을 검토하고 있다.",
+            "start": 58,
+            "end": 124
+          },
+          "difference_summary": "같은 EU의 수입 제한 확대 계획을 원문은 '방침이다'로 정해진 계획처럼 단정한 반면 A5는 '방안을 검토하고 있다'로 검토 단계로 낮춰 써 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 2,
+                "quote": "확대할 방침이다",
+                "start": 151,
+                "end": 159
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "수입을 제한하는 방안을 검토하고 있다",
+                "start": 103,
+                "end": 123
+              },
+              "note": "같은 EU의 수입 제한 확대 계획을 원문은 '방침이다'로 정해진 계획처럼 단정한 반면 A5는 '방안을 검토하고 있다'로 검토 단계로 낮춰 써 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "EU는 중국산 화학 제품, 가구, 기계 등의 수입을 줄이는 계획을 논의하고 있는 것으로 26일(현지시간) 알려졌다.",
+            "start": 162,
+            "end": 226
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 3,
+            "quote": "현재 화학제품과 가구, 기계류 등이 검토 대상에 오른 것으로 파악됐다.",
+            "start": 345,
+            "end": 384
+          },
+          "difference_summary": "화학·가구·기계 수입 축소 논의라는 같은 사실을 원문은 전언('것으로 알려졌다')으로 쓴 반면 A5는 '것으로 파악됐다'로 확인된 사실처럼 써 증거성 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 3,
+                "quote": "논의하고 있는 것으로 26일(현지시간) 알려졌다",
+                "start": 199,
+                "end": 225
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 3,
+                "quote": "검토 대상에 오른 것으로 파악됐다",
+                "start": 365,
+                "end": 383
+              },
+              "note": "화학·가구·기계 수입 축소 논의라는 같은 사실을 원문은 전언('것으로 알려졌다')으로 쓴 반면 A5는 '것으로 파악됐다'로 확인된 사실처럼 써 증거성 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 5,
+            "quote": "EU가 중국산 하이브리드 차량에서 그치지 않고 수입 제한 대상을 확대하려는 건 중국과의 심각한 무역 불균형을 바로잡기 위해서다.",
+            "start": 406,
+            "end": 477
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 6,
+            "quote": "EU가 수입 제한을 확대하려는 이유는 대중국 무역적자가 커지고 있기 때문이다.",
+            "start": 721,
+            "end": 764
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 6,
+            "quote": "이 조치는 유럽경제지역(EEA) 외 다른 국가에도 적용될 전망이다.",
+            "start": 685,
+            "end": 722
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 5,
+            "quote": "다만 블룸버그에 따르면 새 조치는 세계무역기구(WTO) 규정에 맞춰 중국 외 유럽경제지역(EEA) 밖 국가에도 적용될 예정이다.",
+            "start": 648,
+            "end": 719
+          },
+          "difference_summary": "새 조치가 EEA 밖 국가에도 적용된다는 같은 내용을 원문은 '전망이다'(추정)로 쓴 반면 A5는 '예정이다'(계획·단언)로 써 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 6,
+                "quote": "적용될 전망이다",
+                "start": 713,
+                "end": 721
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 5,
+                "quote": "적용될 예정이다",
+                "start": 710,
+                "end": 718
+              },
+              "note": "새 조치가 EEA 밖 국가에도 적용된다는 같은 내용을 원문은 '전망이다'(추정)로 쓴 반면 A5는 '예정이다'(계획·단언)로 써 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 7,
+            "quote": "EU가 하이브리드 차량을 넘어 추가 무역 장벽을 시행할 경우 중국과의 무역 긴장이 다시 고조될 전망이다.",
+            "start": 791,
+            "end": 849
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "G",
+      "source_quote": "다시 고조될 전망이다",
+      "comparison_article": "A3",
+      "comparison_quote": "무역 갈등이 격화하고 있다",
+      "why": "A3 문장은 EU와 중국 사이가 아니라 세계 주요 경제권 전반의 무역 갈등을 말하므로 같은 대상이 아니어서 비교에서 빼고 absent로 바꿨다."
+    }
+  ]
+}

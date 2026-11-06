@@ -1,0 +1,543 @@
+{
+  "name": "b16",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "[한 손 뉴스] 변호사 업무 재개한 홍준표, 대선 경선 관계자 변호 맡아(종합)",
+    "publisher": "국제신문",
+    "published_at": "2026-10-27 19:23:24",
+    "url": "https://n.news.naver.com/mnews/article/658/0000159637"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "홍준표, 측근 영장심사 직접 변론…\"직원들 사건 만들어낸 것\"(종합)",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 13:52:34",
+      "url": "https://n.news.naver.com/mnews/article/001/0016403129?sid=102"
+    },
+    "A2": {
+      "title": "홍준표, ‘대구시장 선거 캠프’ 측근 구속 위기에 직접 변호",
+      "publisher": "조선일보",
+      "published_at": "2026-10-27 11:12:21",
+      "url": "https://n.news.naver.com/mnews/article/023/0004006157?sid=102"
+    },
+    "A3": {
+      "title": "측근 구속 위기에 '변호인'으로 나선 홍준표 \"내 직원이었다\"",
+      "publisher": "오마이뉴스",
+      "published_at": "2026-10-27 13:01:20",
+      "url": "https://n.news.naver.com/mnews/article/047/0002533631?sid=100"
+    },
+    "A4": {
+      "title": "'정계 은퇴' 홍준표, 25년 만에 법정 변론 \"내가 타깃…나설 수밖에\"",
+      "publisher": "아시아경제",
+      "published_at": "2026-10-27 18:00:20",
+      "url": "https://n.news.naver.com/mnews/article/277/0005834224?sid=102"
+    },
+    "A5": {
+      "title": "'변호사'로 측근 영장 심사 참석한 홍준표···\"마음대로 영장 청구\"",
+      "publisher": "대구MBC",
+      "published_at": "2026-10-27 15:05:09",
+      "url": "https://n.news.naver.com/mnews/article/657/0000056733?sid=102"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "홍준표 전 대구시장이 대선 경선 때 함께 일한 관계자들의 구속영장 심사에 변호인으로 나섰다.",
+            "start": 0,
+            "end": 51
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(대구=연합뉴스) 최수호 김선형 기자 = 지난해 4월 정계 은퇴를 선언한 홍준표 전 대구시장이 27일 정치자금 부정 지출 혐의로 구속영장이 청구된 측근들의 변호인으로 대구지법에 모습을 드러냈다.",
+            "start": 86,
+            "end": 194
+          },
+          "difference_summary": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+          "expression_differences": [
+            {
+              "code": "F",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "함께 일한 관계자들",
+                "start": 20,
+                "end": 30
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "측근들의 변호인으로",
+                "start": 168,
+                "end": 178
+              },
+              "note": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "경찰은 홍 전 시장 관련 ‘명태균 여론조사비 대납 의혹’을 수사하는 과정에서 별도 혐의를 포착한 것으로 알려졌다.",
+            "start": 265,
+            "end": 328
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 22,
+            "paragraph_index": 22,
+            "quote": "이후 올해 3월 사건을 다시 넘겨받아 피의자들을 상대로 압수수색 등을 진행하는 과정에서 당초 고발 사건과 별개의 범죄 혐의를 추가로 확인했다.",
+            "start": 1751,
+            "end": 1830
+          },
+          "difference_summary": "경찰이 대납 의혹을 수사하다 별도 혐의를 찾아냈다는 같은 사실을 원문은 전언('것으로 알려졌다')으로 썼고, A1·A2·A5는 단언('확인했다', '포착해 신청했다')으로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 2,
+                "quote": "포착한 것으로 알려졌다",
+                "start": 315,
+                "end": 327
+              },
+              "related_marker": {
+                "sentence_index": 22,
+                "paragraph_index": 22,
+                "quote": "추가로 확인했다",
+                "start": 1821,
+                "end": 1829
+              },
+              "note": "경찰이 대납 의혹을 수사하다 별도 혐의를 찾아냈다는 같은 사실을 원문은 전언('것으로 알려졌다')으로 썼고, A1·A2·A5는 단언('확인했다', '포착해 신청했다')으로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 2,
+            "quote": "홍 전 시장은 영장 사건이 여론조사비 의혹과는 별건이라며 “무리한 수사”라고 주장했다.",
+            "start": 329,
+            "end": 377
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 24,
+            "paragraph_index": 24,
+            "quote": "홍 전 시장은 전날 자신의 페이스북에서도 \"무리한 수사로 보인다\"며 \"정계 은퇴한 나까지 타깃으로 삼고 하는 수사라서 부득이하게 직접 나설 수밖에 없다\"고 밝혔다.",
+            "start": 1896,
+            "end": 1987
+          },
+          "difference_summary": "홍 전 시장이 '무리한 수사'라고 한 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받았고, A1과 A4는 중립 동사 '밝혔다'와 '설명했다'로 받아서 보도 동사의 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 2,
+                "quote": "“무리한 수사”라고 주장했다",
+                "start": 361,
+                "end": 376
+              },
+              "related_marker": {
+                "sentence_index": 24,
+                "paragraph_index": 24,
+                "quote": "나설 수밖에 없다\"고 밝혔다",
+                "start": 1971,
+                "end": 1986
+              },
+              "note": "홍 전 시장이 '무리한 수사'라고 한 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받았고, A1과 A4는 중립 동사 '밝혔다'와 '설명했다'로 받아서 보도 동사의 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "홍준표 전 대구시장이 대선 경선 때 함께 일한 관계자들의 구속영장 심사에 변호인으로 나섰다.",
+            "start": 0,
+            "end": 51
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "이날 영장실질심사를 받은 과거 선거 캠프 회계책임자 등 지인 2명을 변호하기 위해서다.",
+            "start": 29,
+            "end": 77
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "경찰은 홍 전 시장 관련 ‘명태균 여론조사비 대납 의혹’을 수사하는 과정에서 별도 혐의를 포착한 것으로 알려졌다.",
+            "start": 265,
+            "end": 328
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 1,
+            "quote": "경찰은 ‘명태균 여론조사비 대납’ 의혹을 수사하다 홍 전 시장 대선 경선 캠프 관계자들이 선거 자금을 부정 지출하고 선거관리위원회에 허위 보고한 혐의를 포착해 구속영장을 신청했다.",
+            "start": 145,
+            "end": 245
+          },
+          "difference_summary": "경찰이 대납 의혹을 수사하다 별도 혐의를 찾아냈다는 같은 사실을 원문은 전언('것으로 알려졌다')으로 썼고, A1·A2·A5는 단언('확인했다', '포착해 신청했다')으로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 2,
+                "quote": "포착한 것으로 알려졌다",
+                "start": 315,
+                "end": 327
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 1,
+                "quote": "혐의를 포착해 구속영장을 신청했다",
+                "start": 226,
+                "end": 244
+              },
+              "note": "경찰이 대납 의혹을 수사하다 별도 혐의를 찾아냈다는 같은 사실을 원문은 전언('것으로 알려졌다')으로 썼고, A1·A2·A5는 단언('확인했다', '포착해 신청했다')으로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 2,
+            "quote": "홍 전 시장은 영장 사건이 여론조사비 의혹과는 별건이라며 “무리한 수사”라고 주장했다.",
+            "start": 329,
+            "end": 377
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "홍준표 전 대구시장이 대선 경선 때 함께 일한 관계자들의 구속영장 심사에 변호인으로 나섰다.",
+            "start": 0,
+            "end": 51
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "'명태균 여론조사 대납 의혹'으로 수사를 받고 있는 홍준표 전 대구시장이 27일 오전 '정치자금 부정 지출' 혐의를 받는 측근의 구속 전 피의자신문에 변호인으로 참석했다.",
+            "start": 163,
+            "end": 258
+          },
+          "difference_summary": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+          "expression_differences": [
+            {
+              "code": "F",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "함께 일한 관계자들",
+                "start": 20,
+                "end": 30
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 3,
+                "quote": "혐의를 받는 측근의",
+                "start": 224,
+                "end": 234
+              },
+              "note": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "경찰은 홍 전 시장 관련 ‘명태균 여론조사비 대납 의혹’을 수사하는 과정에서 별도 혐의를 포착한 것으로 알려졌다.",
+            "start": 265,
+            "end": 328
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 22,
+            "paragraph_index": 15,
+            "quote": "이후 지난 3월 다시 넘겨받아 피의자들을 상대로 압수수색을 진행하는 등의 과정에서 별개의 범죄 혐의를 추가로 확인한 것으로 알려졌다.",
+            "start": 1523,
+            "end": 1597
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 2,
+            "quote": "홍 전 시장은 영장 사건이 여론조사비 의혹과는 별건이라며 “무리한 수사”라고 주장했다.",
+            "start": 329,
+            "end": 377
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 23,
+            "paragraph_index": 16,
+            "quote": "현재 여론조사비 대납 의혹 관련 모든 혐의를 부인하고 있는 홍 전 시장은 전날 페이스북에 \"나는 명태균을 개인적으로 만난 일도 없고 그에게 여론조사를 맡긴 일도 전혀 없다\"며 이번 사건은 \"여론조사비 대납 사건과는 관련 없는 별건 수사\"라고 주장했다.",
+            "start": 1598,
+            "end": 1738
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "홍준표 전 대구시장이 대선 경선 때 함께 일한 관계자들의 구속영장 심사에 변호인으로 나섰다.",
+            "start": 0,
+            "end": 51
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 1,
+            "quote": "정치자금 부정 지출 혐의에 직접 변론나서지난해 4월 정계 은퇴를 선언한 홍준표 전 대구시장이 25년 만에 변호사로 재등록한 후 측근들을 위해 법정 변론에 나섰다.",
+            "start": 24,
+            "end": 114
+          },
+          "difference_summary": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+          "expression_differences": [
+            {
+              "code": "F",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "함께 일한 관계자들",
+                "start": 20,
+                "end": 30
+              },
+              "related_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 1,
+                "quote": "측근들을 위해",
+                "start": 95,
+                "end": 102
+              },
+              "note": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "경찰은 홍 전 시장 관련 ‘명태균 여론조사비 대납 의혹’을 수사하는 과정에서 별도 혐의를 포착한 것으로 알려졌다.",
+            "start": 265,
+            "end": 328
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 2,
+            "quote": "홍 전 시장은 영장 사건이 여론조사비 의혹과는 별건이라며 “무리한 수사”라고 주장했다.",
+            "start": 329,
+            "end": 377
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 8,
+            "quote": "이어 직접 변호에 나선 이유로 수사가 무리하게 진행되고 있다며 \"오는 11월 19일이 공소시효 만료라는데 정계 은퇴한 나까지 타깃으로 삼고 하는 수사라서 부득이하게 직접 나설 수밖에 없다\"고 설명했다.",
+            "start": 893,
+            "end": 1005
+          },
+          "difference_summary": "홍 전 시장이 '무리한 수사'라고 한 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받았고, A1과 A4는 중립 동사 '밝혔다'와 '설명했다'로 받아서 보도 동사의 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 2,
+                "quote": "“무리한 수사”라고 주장했다",
+                "start": 361,
+                "end": 376
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 8,
+                "quote": "나설 수밖에 없다\"고 설명했다",
+                "start": 988,
+                "end": 1004
+              },
+              "note": "홍 전 시장이 '무리한 수사'라고 한 같은 발언을 원문은 기능·태도 동사 '주장했다'로 받았고, A1과 A4는 중립 동사 '밝혔다'와 '설명했다'로 받아서 보도 동사의 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "홍준표 전 대구시장이 대선 경선 때 함께 일한 관계자들의 구속영장 심사에 변호인으로 나섰다.",
+            "start": 0,
+            "end": 51
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 0,
+            "paragraph_index": 0,
+            "quote": "홍준표 전 대구시장이 2021년 국민의힘 대통령 후보 경선 당시 선거자금 집행 의혹으로 구속 위기에 놓인 측근을 위해 직접 법원에 나와 변론했습니다.",
+            "start": 0,
+            "end": 83
+          },
+          "difference_summary": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+          "expression_differences": [
+            {
+              "code": "F",
+              "source_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "함께 일한 관계자들",
+                "start": 20,
+                "end": 30
+              },
+              "related_marker": {
+                "sentence_index": 0,
+                "paragraph_index": 0,
+                "quote": "측근을 위해",
+                "start": 59,
+                "end": 65
+              },
+              "note": "영장심사 대상자라는 같은 사람들을 원문은 중립적인 '관계자들'로 불렀고, 비교 기사 다수는 홍 전 시장과 가깝다는 뜻이 담긴 '측근'으로 불러 명명이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "경찰은 홍 전 시장 관련 ‘명태균 여론조사비 대납 의혹’을 수사하는 과정에서 별도 혐의를 포착한 것으로 알려졌다.",
+            "start": 265,
+            "end": 328
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 10,
+            "quote": "경찰은 여론 조사비 대납 의혹으로 시민단체에 고발된 홍 전 시장과 박 씨 등 4명을 수사하다가 당초 고발 사건과 별개의 범죄 혐의를 추가로 확인했습니다.",
+            "start": 857,
+            "end": 942
+          },
+          "difference_summary": "경찰이 대납 의혹을 수사하다 별도 혐의를 찾아냈다는 같은 사실을 원문은 전언('것으로 알려졌다')으로 썼고, A1·A2·A5는 단언('확인했다', '포착해 신청했다')으로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 2,
+                "quote": "포착한 것으로 알려졌다",
+                "start": 315,
+                "end": 327
+              },
+              "related_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 10,
+                "quote": "추가로 확인했습니다",
+                "start": 931,
+                "end": 941
+              },
+              "note": "경찰이 대납 의혹을 수사하다 별도 혐의를 찾아냈다는 같은 사실을 원문은 전언('것으로 알려졌다')으로 썼고, A1·A2·A5는 단언('확인했다', '포착해 신청했다')으로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 2,
+            "quote": "홍 전 시장은 영장 사건이 여론조사비 의혹과는 별건이라며 “무리한 수사”라고 주장했다.",
+            "start": 329,
+            "end": 377
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

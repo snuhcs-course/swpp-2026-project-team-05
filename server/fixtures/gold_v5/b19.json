@@ -1,0 +1,663 @@
+{
+  "name": "b19",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "美민주, 트럼프 '러시아 경유 딜' 조사 준비…엡스틴 의혹도 정조준",
+    "publisher": "아시아경제",
+    "published_at": "2026-10-27 09:01:15",
+    "url": "https://n.news.naver.com/mnews/article/277/0005833787"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "美민주, 트럼프의 '러시아 경유 딜' 정조준…엡스틴 특검도 요구(종합)",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 06:17:08",
+      "url": "https://n.news.naver.com/mnews/article/001/0016401806?sid=104"
+    },
+    "A2": {
+      "title": "美민주당, 의회 탈환 시 트럼프-러시아 경유 합의 조사 추진",
+      "publisher": "뉴시스",
+      "published_at": "2026-10-27 00:45:47",
+      "url": "https://n.news.naver.com/mnews/article/003/0014279813?sid=104"
+    },
+    "A3": {
+      "title": "트럼프 지면 '목에 칼'…美민주, 러시아 경유딜 의혹 등 '정조준'",
+      "publisher": "노컷뉴스",
+      "published_at": "2026-10-27 09:24:13",
+      "url": "https://n.news.naver.com/mnews/article/079/0004203170?sid=104"
+    },
+    "A4": {
+      "title": "美 민주당, 의회 탈환 시 트럼프 전방위 조사…러시아 거래·엡스틴 의혹 겨냥 | 아주경제",
+      "publisher": "",
+      "published_at": "2026-10-27T06:32:54+09:00",
+      "url": "https://www.ajunews.com/view/20261027062945482"
+    },
+    "A5": {
+      "title": "트럼프, 또 '부정선거' 음모론…민주당은 '경유딜·엡스틴'",
+      "publisher": "뉴스토마토",
+      "published_at": "2026-10-27T17:34:23+09:00",
+      "url": "http://www.newstomato.com/ReadNews.aspx?no=1318152&inflow=N"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "민주당이 중간선거에서 다수당을 탈환할 경우 트럼프 행정부를 겨냥한 의회 차원의 조사가 본격화할 가능성이 커졌다.",
+            "start": 116,
+            "end": 178
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "(워싱턴=연합뉴스) 홍정규 특파원 = 미국 민주당이 다음달 중간선거에서 연방의회를 장악하는 즉시 도널드 트럼프 대통령의 '러시아 경유 딜'과 '엡스틴 의혹'을 정조준할 태세다.",
+            "start": 84,
+            "end": 182
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "이런 논란은 트럼프 대통령이 지난 9일 블라디미르 푸틴 러시아 대통령과 러시아산 경유를 미국 및 세계 시장에 공급하기로 합의했다고 발표하면서 불거졌다.",
+            "start": 608,
+            "end": 692
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 11,
+            "quote": "트럼프 대통령은 총 480만t 규모의 러시아산 경유를 미국과 세계 시장에 대규모로 공급하기로 블라디미르 푸틴 러시아 대통령과 합의했다고 지난 9일 발표했다.",
+            "start": 1122,
+            "end": 1209
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "트럼프 대통령은 중간선거를 앞두고 에너지 가격을 안정시키겠다는 입장이지만, 민주당과 일부 공화당 의원들은 이런 거래가 우크라이나 전쟁을 수행하는 러시아에 자금을 제공할 수 있다는 점에서 국가안보상 우려가 크다고 비판하고 있다.",
+            "start": 693,
+            "end": 819
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 12,
+            "quote": "이는 미국이 러시아의 전쟁을 지원하는 꼴이라는 비판이 민주당뿐 아니라 공화당에서도 제기됐다.",
+            "start": 1268,
+            "end": 1319
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 5,
+            "quote": "민주당은 트럼프 대통령과 엡스틴의 관계에 대한 의혹도 다시 제기하고 나섰다.",
+            "start": 821,
+            "end": 863
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 18,
+            "paragraph_index": 14,
+            "quote": "민주당은 중간선거 이후 트럼프 대통령이 미성년자 성착취범인 고(故) 제프리 엡스틴의 범행에 연루됐다는 의혹을 파헤칠 특별검사 임명도 추진할 방침이다.",
+            "start": 1551,
+            "end": 1634
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 7,
+            "quote": "트럼프 대통령은 엡스틴의 범죄에 관여했거나 이를 알고 있었다는 의혹을 여러 차례 부인해왔다.",
+            "start": 1049,
+            "end": 1100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 21,
+            "paragraph_index": 17,
+            "quote": "트럼프 대통령은 엡스틴의 범죄에 관여했거나 이를 알고 있었다는 의혹을 여러 차례 부인한 바 있다.",
+            "start": 1848,
+            "end": 1902
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "민주당이 중간선거에서 다수당을 탈환할 경우 트럼프 행정부를 겨냥한 의회 차원의 조사가 본격화할 가능성이 커졌다.",
+            "start": 116,
+            "end": 178
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "민주당이 오는 11월 중간선거에서 상·하원 가운데 한 곳이라도 다수당 지위를 탈환할 경우 트럼프 행정부와 러시아 간 합의에 대한 의회 조사가 본격화할 전망이다.",
+            "start": 179,
+            "end": 268
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "이런 논란은 트럼프 대통령이 지난 9일 블라디미르 푸틴 러시아 대통령과 러시아산 경유를 미국 및 세계 시장에 공급하기로 합의했다고 발표하면서 불거졌다.",
+            "start": 608,
+            "end": 692
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 10,
+            "quote": "트럼프 대통령은 이달 초 러시아산 수출품을 세계 시장과 미국에 공급하기 위한 합의가 이뤄졌다고 주장했다.",
+            "start": 1026,
+            "end": 1084
+          },
+          "difference_summary": "트럼프가 푸틴과 경유 공급에 합의했다는 같은 발언을 원문은 중립 동사 '발표'로 받았고, A2는 기능·태도 동사 '주장했다'로 받아 거리를 두었다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 8,
+                "paragraph_index": 4,
+                "quote": "합의했다고 발표하면서",
+                "start": 675,
+                "end": 686
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 10,
+                "quote": "합의가 이뤄졌다고 주장했다",
+                "start": 1069,
+                "end": 1083
+              },
+              "note": "트럼프가 푸틴과 경유 공급에 합의했다는 같은 발언을 원문은 중립 동사 '발표'로 받았고, A2는 기능·태도 동사 '주장했다'로 받아 거리를 두었다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "트럼프 대통령은 중간선거를 앞두고 에너지 가격을 안정시키겠다는 입장이지만, 민주당과 일부 공화당 의원들은 이런 거래가 우크라이나 전쟁을 수행하는 러시아에 자금을 제공할 수 있다는 점에서 국가안보상 우려가 크다고 비판하고 있다.",
+            "start": 693,
+            "end": 819
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 9,
+            "quote": "러시아산 유 수입이 허용될 경우 러시아의 우크라이나 침공 전쟁 자금 조달에 기여할 수 있다는 우려도 제기했다.",
+            "start": 963,
+            "end": 1024
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 5,
+            "quote": "민주당은 트럼프 대통령과 엡스틴의 관계에 대한 의혹도 다시 제기하고 나섰다.",
+            "start": 821,
+            "end": 863
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 7,
+            "quote": "트럼프 대통령은 엡스틴의 범죄에 관여했거나 이를 알고 있었다는 의혹을 여러 차례 부인해왔다.",
+            "start": 1049,
+            "end": 1100
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "민주당이 중간선거에서 다수당을 탈환할 경우 트럼프 행정부를 겨냥한 의회 차원의 조사가 본격화할 가능성이 커졌다.",
+            "start": 116,
+            "end": 178
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "미국 민주당이 다가오는 중간선거에서 연방의회 통제권을 탈환할 경우, 도널드 트럼프 대통령을 겨냥한 대대적인 사정 폭풍을 몰아칠 것으로 보인다.",
+            "start": 100,
+            "end": 179
+          },
+          "difference_summary": "민주당이 다수당을 되찾으면 트럼프를 겨냥한 조사가 본격화한다는 같은 기자 서술을 A3만 '대대적인 사정 폭풍을 몰아칠'로 써서 행위의 강도를 크게 높였다.",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 1,
+                "paragraph_index": 0,
+                "quote": "의회 차원의 조사가 본격화할",
+                "start": 153,
+                "end": 168
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "대대적인 사정 폭풍을 몰아칠",
+                "start": 155,
+                "end": 170
+              },
+              "note": "민주당이 다수당을 되찾으면 트럼프를 겨냥한 조사가 본격화한다는 같은 기자 서술을 A3만 '대대적인 사정 폭풍을 몰아칠'로 써서 행위의 강도를 크게 높였다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "이런 논란은 트럼프 대통령이 지난 9일 블라디미르 푸틴 러시아 대통령과 러시아산 경유를 미국 및 세계 시장에 공급하기로 합의했다고 발표하면서 불거졌다.",
+            "start": 608,
+            "end": 692
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 8,
+            "quote": "앞서 트럼프 대통령은 블라디미르 러시아 대통령과 총 480만t 규모의 러시아산 경유를 미국과 세계 시장에 공급하기로 합의하고 관련 관세법안 시행을 보류했다.",
+            "start": 515,
+            "end": 602
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "트럼프 대통령은 중간선거를 앞두고 에너지 가격을 안정시키겠다는 입장이지만, 민주당과 일부 공화당 의원들은 이런 거래가 우크라이나 전쟁을 수행하는 러시아에 자금을 제공할 수 있다는 점에서 국가안보상 우려가 크다고 비판하고 있다.",
+            "start": 693,
+            "end": 819
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 9,
+            "quote": "그러나 이는 2022년 초당적 합의로 제정된 '러시아산 석유 수입 금지법'에 정면으로 위배될 뿐만 아니라, 러시아의 우크라이나 전쟁 자금을 우회 지원하는 것이라는 거센 비판에 직면했다.",
+            "start": 603,
+            "end": 706
+          },
+          "difference_summary": "경유 거래가 러시아의 전쟁 자금이 된다는 같은 비판에 원문은 정도어를 붙이지 않았고, A3는 기자 서술로 '거센'을 더해 비판의 강도를 키웠다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 4,
+                "quote": "비판하고 있다",
+                "start": 811,
+                "end": 818
+              },
+              "related_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 9,
+                "quote": "거센 비판에 직면했다",
+                "start": 694,
+                "end": 705
+              },
+              "note": "경유 거래가 러시아의 전쟁 자금이 된다는 같은 비판에 원문은 정도어를 붙이지 않았고, A3는 기자 서술로 '거센'을 더해 비판의 강도를 키웠다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 5,
+            "quote": "민주당은 트럼프 대통령과 엡스틴의 관계에 대한 의혹도 다시 제기하고 나섰다.",
+            "start": 821,
+            "end": 863
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 10,
+            "quote": "여기에 민주당은 트럼프 대통령을 둘러싼 또 다른 대형 악재인 '제프리 엡스틴 스캔들'마저 정조준하고 있다.",
+            "start": 707,
+            "end": 766
+          },
+          "difference_summary": "민주당이 다시 문제 삼은 같은 엡스틴 의혹을 원문은 평가 없이 '의혹'으로만 썼고, A3는 기자의 평가어 '또 다른 대형 악재'를 붙였다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 5,
+                "quote": "트럼프 대통령과 엡스틴의 관계에 대한 의혹도",
+                "start": 826,
+                "end": 850
+              },
+              "related_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 10,
+                "quote": "또 다른 대형 악재인",
+                "start": 729,
+                "end": 740
+              },
+              "note": "민주당이 다시 문제 삼은 같은 엡스틴 의혹을 원문은 평가 없이 '의혹'으로만 썼고, A3는 기자의 평가어 '또 다른 대형 악재'를 붙였다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 7,
+            "quote": "트럼프 대통령은 엡스틴의 범죄에 관여했거나 이를 알고 있었다는 의혹을 여러 차례 부인해왔다.",
+            "start": 1049,
+            "end": 1100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 13,
+            "quote": "트럼프 대통령은 과거 엡스틴과의 교류 사실을 인정하면서도 범죄 관여 의혹은 완강히 부인해 왔으나, 민주당의 파상 공세로 인해 피할 수 없는 정치적 시험대에 오르게 될 전망이다.",
+            "start": 927,
+            "end": 1025
+          },
+          "difference_summary": "트럼프가 엡스틴 범죄 관여 의혹을 부인해 온 같은 사실을 원문은 횟수만 적었고, A3는 정도어 '완강히'를 붙여 부인의 강도를 높였다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 7,
+                "quote": "여러 차례 부인해왔다",
+                "start": 1088,
+                "end": 1099
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 13,
+                "quote": "완강히 부인해 왔으나",
+                "start": 969,
+                "end": 980
+              },
+              "note": "트럼프가 엡스틴 범죄 관여 의혹을 부인해 온 같은 사실을 원문은 횟수만 적었고, A3는 정도어 '완강히'를 붙여 부인의 강도를 높였다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "민주당이 중간선거에서 다수당을 탈환할 경우 트럼프 행정부를 겨냥한 의회 차원의 조사가 본격화할 가능성이 커졌다.",
+            "start": 116,
+            "end": 178
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "이런 논란은 트럼프 대통령이 지난 9일 블라디미르 푸틴 러시아 대통령과 러시아산 경유를 미국 및 세계 시장에 공급하기로 합의했다고 발표하면서 불거졌다.",
+            "start": 608,
+            "end": 692
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "트럼프 대통령은 중간선거를 앞두고 에너지 가격을 안정시키겠다는 입장이지만, 민주당과 일부 공화당 의원들은 이런 거래가 우크라이나 전쟁을 수행하는 러시아에 자금을 제공할 수 있다는 점에서 국가안보상 우려가 크다고 비판하고 있다.",
+            "start": 693,
+            "end": 819
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 2,
+            "quote": "또 러시아산 경유 수입이 러시아의 우크라이나 전쟁에 자금을 제공할 수 있다는 점에서 국가안보 우려도 제기했다.",
+            "start": 335,
+            "end": 396
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 5,
+            "quote": "민주당은 트럼프 대통령과 엡스틴의 관계에 대한 의혹도 다시 제기하고 나섰다.",
+            "start": 821,
+            "end": 863
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 4,
+            "quote": "민주당은 트럼프 대통령의 엡스타인 관련 의혹에 대해서도 조사 확대를 추진하고 있다.",
+            "start": 502,
+            "end": 548
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 7,
+            "quote": "트럼프 대통령은 엡스틴의 범죄에 관여했거나 이를 알고 있었다는 의혹을 여러 차례 부인해왔다.",
+            "start": 1049,
+            "end": 1100
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 6,
+            "quote": "트럼프 대통령은 엡스타인의 범죄에 관여하거나 이를 알고 있었다는 의혹을 거듭 부인해왔다.",
+            "start": 771,
+            "end": 820
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 1,
+            "paragraph_index": 0,
+            "quote": "민주당이 중간선거에서 다수당을 탈환할 경우 트럼프 행정부를 겨냥한 의회 차원의 조사가 본격화할 가능성이 커졌다.",
+            "start": 116,
+            "end": 178
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 44,
+            "paragraph_index": 20,
+            "quote": "민주당이 의회 다수당을 확보하면 러시아산 경유 거래와 엡스틴 의혹에 대한 조사·청문회를 본격화할 수 있습니다.",
+            "start": 2560,
+            "end": 2621
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 4,
+            "quote": "이런 논란은 트럼프 대통령이 지난 9일 블라디미르 푸틴 러시아 대통령과 러시아산 경유를 미국 및 세계 시장에 공급하기로 합의했다고 발표하면서 불거졌다.",
+            "start": 608,
+            "end": 692
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 29,
+            "paragraph_index": 15,
+            "quote": "트럼프 대통령이 지난 9일 블라디미르 푸틴 러시아 대통령과 러시아산 경유 공급에 합의하고 미 재무부가 관련 제재를 한시적으로 면제한 데 따른 조치입니다.",
+            "start": 1614,
+            "end": 1699
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 4,
+            "quote": "트럼프 대통령은 중간선거를 앞두고 에너지 가격을 안정시키겠다는 입장이지만, 민주당과 일부 공화당 의원들은 이런 거래가 우크라이나 전쟁을 수행하는 러시아에 자금을 제공할 수 있다는 점에서 국가안보상 우려가 크다고 비판하고 있다.",
+            "start": 693,
+            "end": 819
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 5,
+            "quote": "민주당은 트럼프 대통령과 엡스틴의 관계에 대한 의혹도 다시 제기하고 나섰다.",
+            "start": 821,
+            "end": 863
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 38,
+            "paragraph_index": 18,
+            "quote": "민주당은 정책적 책임을 넘어 트럼프 대통령 개인의 과거 의혹까지 다시 쟁점화하고 있습니다.",
+            "start": 2201,
+            "end": 2251
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 7,
+            "quote": "트럼프 대통령은 엡스틴의 범죄에 관여했거나 이를 알고 있었다는 의혹을 여러 차례 부인해왔다.",
+            "start": 1049,
+            "end": 1100
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": [
+    {
+      "code": "A",
+      "source_quote": "의혹을 제기했다",
+      "comparison_article": "A1",
+      "comparison_quote": "이라고 주장했다",
+      "why": "원문 '의혹을 제기했다'는 '-라는 + 명사' 자리라 A 자리와 맞지 않고, 내용을 이미 검증되지 않은 의혹으로 규정해 '주장했다'와 같은 기능·태도 수준이므로 군 차이가 뚜렷하지 않다."
+    },
+    {
+      "code": "A",
+      "source_quote": "의혹을 제기했다",
+      "comparison_article": "A3",
+      "comparison_quote": "적극적으로 가담했다고 주장했다",
+      "why": "원문 '의혹을 제기했다'는 '주장했다'와 같은 기능·태도 수준의 거리 두기라 보도 동사 군 차이가 뚜렷하지 않다."
+    },
+    {
+      "code": "A",
+      "source_quote": "의혹을 제기했다",
+      "comparison_article": "A4",
+      "comparison_quote": "적극적으로 가담했다고 주장하며",
+      "why": "원문 '의혹을 제기했다'는 '주장하며'와 같은 기능·태도 수준의 거리 두기라 보도 동사 군 차이가 뚜렷하지 않다."
+    }
+  ]
+}

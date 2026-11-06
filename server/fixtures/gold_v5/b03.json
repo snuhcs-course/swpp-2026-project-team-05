@@ -1,0 +1,867 @@
+{
+  "name": "b03",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "‘비자발급 보류’ 정청래 “美 행정당국, 굉장히 유감”",
+    "publisher": "매경이코노미",
+    "published_at": "2026-10-27 14:32:13",
+    "url": "https://n.news.naver.com/mnews/article/024/0000109203"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "정청래 \"비자 발급 문제, 미국 행정당국에 굉장히 유감\"",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 11:23:40",
+      "url": "https://n.news.naver.com/mnews/article/001/0016402673?sid=100"
+    },
+    "A2": {
+      "title": "정청래 “비자 지연 美당국에 유감”…野 “한미관계 어떻길래”",
+      "publisher": "동아일보",
+      "published_at": "2026-10-27 14:54:15",
+      "url": "https://n.news.naver.com/mnews/article/020/0003757993?sid=100"
+    },
+    "A3": {
+      "title": "정청래 \"미국 비자 보류 유감…초당적으로 美에 항의할 일\"",
+      "publisher": "한국경제",
+      "published_at": "2026-10-27 11:05:12",
+      "url": "https://n.news.naver.com/mnews/article/015/0005346921?sid=100"
+    },
+    "A4": {
+      "title": "외통위 국감, ‘한미 관계’ ‘대북 결의안’ 논쟁…정청래 “비자 발급, 미국 당국에 유감”",
+      "publisher": "KBS",
+      "published_at": "2026-10-27 11:50:52",
+      "url": "https://n.news.naver.com/mnews/article/056/0012281581?sid=100"
+    },
+    "A5": {
+      "title": "정청래 \"비자 보류, 정부 아니라 미국에 항의해야\"",
+      "publisher": "오마이뉴스",
+      "published_at": "2026-10-27 15:21:10",
+      "url": "https://n.news.naver.com/mnews/article/047/0002533665?sid=100"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "야당을 향해서도 유감을 표했다.",
+            "start": 251,
+            "end": 268
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이어 야당을 향해 \"미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 하는데, 이것이 마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다\"고 언급했다.",
+            "start": 346,
+            "end": 474
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "정 의원은 “미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 한다”며 “마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다”고 했다.",
+            "start": 269,
+            "end": 388
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "이어 야당을 향해 \"미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 하는데, 이것이 마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다\"고 언급했다.",
+            "start": 346,
+            "end": 474
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "이에 외통위 야당 간사인 김대식 국민의힘 의원은 “우리가 지금 한미관계가 돈독하냐고 묻고 있는 것”이라며 “대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일”이라고 했다.",
+            "start": 620,
+            "end": 741
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 10,
+            "quote": "그러자 외통위 야당 간사인 국민의힘 김대식 의원은 \"그래서 우리가 지금 한미관계가 돈독하냐고 묻고 있는 것\"이라며 \"대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일\"이라고 받아쳤다.",
+            "start": 1090,
+            "end": 1218
+          },
+          "difference_summary": "김대식 의원의 같은 '한미관계가 돈독하냐고 묻는 것' 발언을 S는 중립 동사 '했다'로 받았지만 A1은 서술적·환기 동사 '받아쳤다', A4는 기능·태도 동사 '반박했습니다'로 받아 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 7,
+                "quote": "이라고 했다",
+                "start": 734,
+                "end": 740
+              },
+              "related_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 10,
+                "quote": "이라고 받아쳤다",
+                "start": 1209,
+                "end": 1217
+              },
+              "note": "김대식 의원의 같은 '한미관계가 돈독하냐고 묻는 것' 발언을 S는 중립 동사 '했다'로 받았지만 A1은 서술적·환기 동사 '받아쳤다', A4는 기능·태도 동사 '반박했습니다'로 받아 군이 다르다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "이어 “외교부도 책임이 있다. 의원 외교를 적극 뒷받침해주는 것이 외교부의 역할 아니겠는가”라고 했다.",
+            "start": 742,
+            "end": 799
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 11,
+            "quote": "김 의원은 또 \"외교부도 책임이 있다. 의원 외교를 적극 뒷받침해주는 것이 외교부의 역할 아니겠는가. 응분의 책임이 있다\"고 했다.",
+            "start": 1220,
+            "end": 1293
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "미국 비자를 신청했지만 발급이 보류되면서 구주(유럽)반으로 옮겨 국정감사를 진행했다.",
+            "start": 834,
+            "end": 881
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "앞서 정 의원은 이번 국정감사에서 외통위 미주반에 편성돼 미국 비자를 신청했지만, 미국이 비자 발급을 보류하면서 구주반으로 긴급 변경해 유럽 국감에 참여했다.",
+            "start": 590,
+            "end": 678
+          },
+          "difference_summary": "유럽반으로 옮긴 같은 사실을 S는 정도어 없이 '옮겨'로 썼지만 A1 '긴급 변경해', A2 '급히 일정을 바꿨다'는 정도어를 붙여 다급함을 강조했다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 8,
+                "quote": "구주(유럽)반으로 옮겨",
+                "start": 857,
+                "end": 869
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 6,
+                "quote": "구주반으로 긴급 변경해",
+                "start": 653,
+                "end": 665
+              },
+              "note": "유럽반으로 옮긴 같은 사실을 S는 정도어 없이 '옮겨'로 썼지만 A1 '긴급 변경해', A2 '급히 일정을 바꿨다'는 정도어를 붙여 다급함을 강조했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 10,
+            "quote": "정 의원은 당시 농성을 주도해 국가보안법 위반 등 혐의로 징역형을 선고받아 복역한 바 있다.",
+            "start": 1023,
+            "end": 1074
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 7,
+            "quote": "정 의원은 1989년 미국 대사관저 점거 농성 사건을 주도해 국가보안법 위반 혐의로 수감된 이력과 관련해서도 \"(도널드 그레그 당시 주한미국대사가) 저한테 '대학생들이 애국심이었다, 그 심정으로 의정 활동도 잘하라'고 격려도 받고 그래서 풀고 화해도 하고 다 했다\"고 설명했다.",
+            "start": 680,
+            "end": 835
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "야당을 향해서도 유감을 표했다.",
+            "start": 251,
+            "end": 268
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "자신의 비자 발급 지연 문제를 두고 한미동맹 관계에 균열의 징후라고 지적한 국민의힘을 향해선 “미국 행정당국의 이런 업무처리 방식에 대해 우리가 비판을 하고 항의를 해야 되는데 이것이 마치 ‘한미동맹이 깨졌다’는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 상당히 유감스럽다”고 비판했다.",
+            "start": 463,
+            "end": 634
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "정 의원은 “미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 한다”며 “마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다”고 했다.",
+            "start": 269,
+            "end": 388
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "자신의 비자 발급 지연 문제를 두고 한미동맹 관계에 균열의 징후라고 지적한 국민의힘을 향해선 “미국 행정당국의 이런 업무처리 방식에 대해 우리가 비판을 하고 항의를 해야 되는데 이것이 마치 ‘한미동맹이 깨졌다’는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 상당히 유감스럽다”고 비판했다.",
+            "start": 463,
+            "end": 634
+          },
+          "difference_summary": "정 의원의 같은 '상당히 유감스럽다' 발언을 S는 중립 동사 '했다'로 받았지만 A2 '비판했다', A3 '지적했다', A5 '주장했다'는 기능·태도 군 동사로 받아 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "고 했다",
+                "start": 383,
+                "end": 387
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 5,
+                "quote": "고 비판했다",
+                "start": 627,
+                "end": 633
+              },
+              "note": "정 의원의 같은 '상당히 유감스럽다' 발언을 S는 중립 동사 '했다'로 받았지만 A2 '비판했다', A3 '지적했다', A5 '주장했다'는 기능·태도 군 동사로 받아 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "이에 외통위 야당 간사인 김대식 국민의힘 의원은 “우리가 지금 한미관계가 돈독하냐고 묻고 있는 것”이라며 “대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일”이라고 했다.",
+            "start": 620,
+            "end": 741
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 9,
+            "quote": "외통위 야당 간사인 국민의힘 김대식 의원은 “그래서 우리가 지금 한미관계가 돈독하냐 이것을 묻고 있는 것”이라며 “대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일”이라고 밝혔다.",
+            "start": 1039,
+            "end": 1165
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "이어 “외교부도 책임이 있다. 의원 외교를 적극 뒷받침해주는 것이 외교부의 역할 아니겠는가”라고 했다.",
+            "start": 742,
+            "end": 799
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "미국 비자를 신청했지만 발급이 보류되면서 구주(유럽)반으로 옮겨 국정감사를 진행했다.",
+            "start": 834,
+            "end": 881
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "정 의원은 이달 중순 미주 지역 재외공관 국정감사에 참석하려 했으나 미국 측으로부터 비자가 제때 발급되지 않아 유럽 지역으로 급히 일정을 바꿨다.",
+            "start": 154,
+            "end": 235
+          },
+          "difference_summary": "유럽반으로 옮긴 같은 사실을 S는 정도어 없이 '옮겨'로 썼지만 A1 '긴급 변경해', A2 '급히 일정을 바꿨다'는 정도어를 붙여 다급함을 강조했다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 8,
+                "quote": "구주(유럽)반으로 옮겨",
+                "start": 857,
+                "end": 869
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 2,
+                "quote": "유럽 지역으로 급히 일정을 바꿨다",
+                "start": 216,
+                "end": 234
+              },
+              "note": "유럽반으로 옮긴 같은 사실을 S는 정도어 없이 '옮겨'로 썼지만 A1 '긴급 변경해', A2 '급히 일정을 바꿨다'는 정도어를 붙여 다급함을 강조했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 10,
+            "quote": "정 의원은 당시 농성을 주도해 국가보안법 위반 등 혐의로 징역형을 선고받아 복역한 바 있다.",
+            "start": 1023,
+            "end": 1074
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 8,
+            "paragraph_index": 7,
+            "quote": "1989년 미국 대사관저 점거 농성 사건에 연루돼 국가보안법 위반 혐의로 수감된 이력에 대해서도 “(도널드 그레그 당시 주한미국대사가) 저한테 ‘대학생들이 애국심이었다, 그 심정으로 의정 활동도 잘하라’고 격려도 받고 그래서 풀고 화해도 하고 다 했다”고 설명했다.",
+            "start": 750,
+            "end": 898
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "야당을 향해서도 유감을 표했다.",
+            "start": 251,
+            "end": 268
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "정청래 더불어민주당 의원이 미국 비자 발급 지연으로 국정감사 방문지를 바꾼 데 대해 미국 당국을 비판하면서, 이를 한미동맹 균열로 연결하는 야당 공세에는 선을 그었다.",
+            "start": 83,
+            "end": 176
+          },
+          "difference_summary": "야당을 향한 정 의원의 같은 대응을 S는 기자 서술로 '유감을 표했다'고 썼지만 A3는 '선을 그었다', A5는 '직접 반박한 것이다'로 써 더 단호하고 맞서는 행위로 서술했다.",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "유감을 표했다",
+                "start": 260,
+                "end": 267
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "선을 그었다",
+                "start": 169,
+                "end": 175
+              },
+              "note": "야당을 향한 정 의원의 같은 대응을 S는 기자 서술로 '유감을 표했다'고 썼지만 A3는 '선을 그었다', A5는 '직접 반박한 것이다'로 써 더 단호하고 맞서는 행위로 서술했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "정 의원은 “미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 한다”며 “마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다”고 했다.",
+            "start": 269,
+            "end": 388
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "정 의원은 \"미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 하는데, 이것이 마치 한미동맹이 깨졌다는 식으로 우리 국익을 손상시키는 듯한 논란으로 이어진 것에 상당히 유감스럽다\"고 지적했다.",
+            "start": 395,
+            "end": 513
+          },
+          "difference_summary": "정 의원의 같은 '상당히 유감스럽다' 발언을 S는 중립 동사 '했다'로 받았지만 A2 '비판했다', A3 '지적했다', A5 '주장했다'는 기능·태도 군 동사로 받아 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "고 했다",
+                "start": 383,
+                "end": 387
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 5,
+                "quote": "고 지적했다",
+                "start": 506,
+                "end": 512
+              },
+              "note": "정 의원의 같은 '상당히 유감스럽다' 발언을 S는 중립 동사 '했다'로 받았지만 A2 '비판했다', A3 '지적했다', A5 '주장했다'는 기능·태도 군 동사로 받아 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "이에 외통위 야당 간사인 김대식 국민의힘 의원은 “우리가 지금 한미관계가 돈독하냐고 묻고 있는 것”이라며 “대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일”이라고 했다.",
+            "start": 620,
+            "end": 741
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "김대식 국민의힘 간사는 \"대한민국 국회의원이고 대한민국의 국정감사를 가는 입장에서 비자가 거부됐다, 보류됐다, 이것은 있을 수 없는 일\"이라며 \"적극적으로 우리 의원들의 의원 외교를 뒷받침해주는 것이 외교부 역할 아니냐. 외교부에 응분의 책임이 있다\"고 말했다.",
+            "start": 922,
+            "end": 1068
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "이어 “외교부도 책임이 있다. 의원 외교를 적극 뒷받침해주는 것이 외교부의 역할 아니겠는가”라고 했다.",
+            "start": 742,
+            "end": 799
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 8,
+            "quote": "김대식 국민의힘 간사는 \"대한민국 국회의원이고 대한민국의 국정감사를 가는 입장에서 비자가 거부됐다, 보류됐다, 이것은 있을 수 없는 일\"이라며 \"적극적으로 우리 의원들의 의원 외교를 뒷받침해주는 것이 외교부 역할 아니냐. 외교부에 응분의 책임이 있다\"고 말했다.",
+            "start": 922,
+            "end": 1068
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "미국 비자를 신청했지만 발급이 보류되면서 구주(유럽)반으로 옮겨 국정감사를 진행했다.",
+            "start": 834,
+            "end": 881
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "앞서 그는 재외공관 국정감사 미주반에 배정돼 미국 비자를 신청했으나 발급이 지연되자 방문지를 유럽으로 바꾼 바 있다.",
+            "start": 328,
+            "end": 393
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 10,
+            "quote": "정 의원은 당시 농성을 주도해 국가보안법 위반 등 혐의로 징역형을 선고받아 복역한 바 있다.",
+            "start": 1023,
+            "end": 1074
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "야당을 향해서도 유감을 표했다.",
+            "start": 251,
+            "end": 268
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이어 \"그렇다면 미국 행정 당국의 이런 업무 처리 방식에 대해서 우리가 비판하고 항의를 해야 되는데, 이것이 마치 한미동맹이 깨졌다는 식으로 우리 국익을 손상시키는 듯한 이런 논란으로 이어진 것에 대해서 상당히 유감스럽다\"고 덧붙였습니다.",
+            "start": 239,
+            "end": 372
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "정 의원은 “미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 한다”며 “마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다”고 했다.",
+            "start": 269,
+            "end": 388
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "이어 \"그렇다면 미국 행정 당국의 이런 업무 처리 방식에 대해서 우리가 비판하고 항의를 해야 되는데, 이것이 마치 한미동맹이 깨졌다는 식으로 우리 국익을 손상시키는 듯한 이런 논란으로 이어진 것에 대해서 상당히 유감스럽다\"고 덧붙였습니다.",
+            "start": 239,
+            "end": 372
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "이에 외통위 야당 간사인 김대식 국민의힘 의원은 “우리가 지금 한미관계가 돈독하냐고 묻고 있는 것”이라며 “대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일”이라고 했다.",
+            "start": 620,
+            "end": 741
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 5,
+            "quote": "이에 국민의힘 간사인 김대식 의원은 \"그래서 우리가 지금 한미 관계가 돈독하냐, 이거를 묻고 있는 것\"이라고 반박했습니다.",
+            "start": 528,
+            "end": 596
+          },
+          "difference_summary": "김대식 의원의 같은 '한미관계가 돈독하냐고 묻는 것' 발언을 S는 중립 동사 '했다'로 받았지만 A1은 서술적·환기 동사 '받아쳤다', A4는 기능·태도 동사 '반박했습니다'로 받아 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 7,
+                "quote": "이라고 했다",
+                "start": 734,
+                "end": 740
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 5,
+                "quote": "이라고 반박했습니다",
+                "start": 585,
+                "end": 595
+              },
+              "note": "김대식 의원의 같은 '한미관계가 돈독하냐고 묻는 것' 발언을 S는 중립 동사 '했다'로 받았지만 A1은 서술적·환기 동사 '받아쳤다', A4는 기능·태도 동사 '반박했습니다'로 받아 군이 다르다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "이어 “외교부도 책임이 있다. 의원 외교를 적극 뒷받침해주는 것이 외교부의 역할 아니겠는가”라고 했다.",
+            "start": 742,
+            "end": 799
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 6,
+            "quote": "김 의원은 \"대한민국 국회의원이고 대한민국의 국정감사를 가는 입장에서 비자가 거부됐다, 보류됐다는 사실은 있을 수 없는 일\"이라며 \"그런 측면에서 외교부도 책임이 있다고 생각한다\"고 지적했습니다.",
+            "start": 597,
+            "end": 706
+          },
+          "difference_summary": "김 의원의 같은 '외교부도 책임이 있다' 발언을 S는 중립 동사 '했다'로 받았지만 A4는 기능·태도 군 동사 '지적했습니다'로 받아 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 10,
+                "paragraph_index": 7,
+                "quote": "라고 했다",
+                "start": 793,
+                "end": 798
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 6,
+                "quote": "고 지적했습니다",
+                "start": 697,
+                "end": 705
+              },
+              "note": "김 의원의 같은 '외교부도 책임이 있다' 발언을 S는 중립 동사 '했다'로 받았지만 A4는 기능·태도 군 동사 '지적했습니다'로 받아 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "미국 비자를 신청했지만 발급이 보류되면서 구주(유럽)반으로 옮겨 국정감사를 진행했다.",
+            "start": 834,
+            "end": 881
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 10,
+            "quote": "정 의원은 당시 농성을 주도해 국가보안법 위반 등 혐의로 징역형을 선고받아 복역한 바 있다.",
+            "start": 1023,
+            "end": 1074
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "야당을 향해서도 유감을 표했다.",
+            "start": 251,
+            "end": 268
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "앞서 박충권 국민의힘 의원이 '한·미동맹 파탄'의 예로 '외통위원에 대한 미국의 비자 발급 거부'를 언급하자 당사자로서 직접 반박한 것이다.",
+            "start": 309,
+            "end": 387
+          },
+          "difference_summary": "야당을 향한 정 의원의 같은 대응을 S는 기자 서술로 '유감을 표했다'고 썼지만 A3는 '선을 그었다', A5는 '직접 반박한 것이다'로 써 더 단호하고 맞서는 행위로 서술했다.",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "유감을 표했다",
+                "start": 260,
+                "end": 267
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 5,
+                "quote": "당사자로서 직접 반박한 것이다",
+                "start": 370,
+                "end": 386
+              },
+              "note": "야당을 향한 정 의원의 같은 대응을 S는 기자 서술로 '유감을 표했다'고 썼지만 A3는 '선을 그었다', A5는 '직접 반박한 것이다'로 써 더 단호하고 맞서는 행위로 서술했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "정 의원은 “미국 행정당국의 이런 업무 처리 방식에 대해 우리가 비판하고 항의해야 한다”며 “마치 한미동맹이 깨졌다는 식으로 국익을 마치 손상시키는 듯한 논란으로 이어진 것에 대해 저는 상당히 유감스럽다”고 했다.",
+            "start": 269,
+            "end": 388
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 10,
+            "quote": "그는 이어 \"그렇다면 미국 행정 당국의 이런 업무 처리 방식에 대해서 우리가 비판을 하고 항의를 해야 되는데, 이것이 마치 한·미 동맹이 깨졌다는 식으로 우리 국익을 손상시키는 논란으로 이어진 것에 대해서 저는 상당히 유감스럽다\"면서 \"이런 부분은 여야를 초월해서 초당적으로 미국에 항의할 내용이지 우리 정부를 공격할 내용이 아니다\"라고 주장했다.",
+            "start": 1063,
+            "end": 1257
+          },
+          "difference_summary": "정 의원의 같은 '상당히 유감스럽다' 발언을 S는 중립 동사 '했다'로 받았지만 A2 '비판했다', A3 '지적했다', A5 '주장했다'는 기능·태도 군 동사로 받아 군이 다르다.",
+          "expression_differences": [
+            {
+              "code": "A",
+              "source_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "고 했다",
+                "start": 383,
+                "end": 387
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 10,
+                "quote": "라고 주장했다",
+                "start": 1249,
+                "end": 1256
+              },
+              "note": "정 의원의 같은 '상당히 유감스럽다' 발언을 S는 중립 동사 '했다'로 받았지만 A2 '비판했다', A3 '지적했다', A5 '주장했다'는 기능·태도 군 동사로 받아 군이 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "이에 외통위 야당 간사인 김대식 국민의힘 의원은 “우리가 지금 한미관계가 돈독하냐고 묻고 있는 것”이라며 “대한민국 국회의원이 국정감사를 가는 입장에서 비자가 거부됐다거나 보류됐다는 건 있을 수 없는 일”이라고 했다.",
+            "start": 620,
+            "end": 741
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_4",
+          "source_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 7,
+            "quote": "이어 “외교부도 책임이 있다. 의원 외교를 적극 뒷받침해주는 것이 외교부의 역할 아니겠는가”라고 했다.",
+            "start": 742,
+            "end": 799
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_5",
+          "source_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 8,
+            "quote": "미국 비자를 신청했지만 발급이 보류되면서 구주(유럽)반으로 옮겨 국정감사를 진행했다.",
+            "start": 834,
+            "end": 881
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "재외공관에 대한 국정감사를 위해 미국을 방문하려다 미국 정부의 입국허가(비자)가 나오지 않아 감사 대상을 유럽 지역 공관으로 바꾸었던 정청래 더불어민주당 의원이 27일 국회 외교통일위원회 종합국감에서 한 신상발언의 일부다.",
+            "start": 184,
+            "end": 308
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_6",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 10,
+            "quote": "정 의원은 당시 농성을 주도해 국가보안법 위반 등 혐의로 징역형을 선고받아 복역한 바 있다.",
+            "start": 1023,
+            "end": 1074
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 9,
+            "paragraph_index": 7,
+            "quote": "1989년 10월 당시 대학생이던 정 의원 등이 미국 대사관저를 습격했고 당시의 미국대사가 그레그 대사였는데 그를 2014년 방문한 것이다.",
+            "start": 543,
+            "end": 621
+          },
+          "difference_summary": "1989년 미국 대사관저에서 한 같은 행위를 S는 '농성'으로 서술했지만 A5는 기자 서술로 '습격했고'라고 써 행위의 강도와 폭력성을 크게 높였다.",
+          "expression_differences": [
+            {
+              "code": "C",
+              "source_marker": {
+                "sentence_index": 15,
+                "paragraph_index": 10,
+                "quote": "농성을 주도해",
+                "start": 1032,
+                "end": 1039
+              },
+              "related_marker": {
+                "sentence_index": 9,
+                "paragraph_index": 7,
+                "quote": "미국 대사관저를 습격했고",
+                "start": 570,
+                "end": 583
+              },
+              "note": "1989년 미국 대사관저에서 한 같은 행위를 S는 '농성'으로 서술했지만 A5는 기자 서술로 '습격했고'라고 써 행위의 강도와 폭력성을 크게 높였다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

@@ -1,0 +1,305 @@
+{
+  "name": "b22",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "홍콩 매체 \"中 5중전회서 중앙위원회 45명 제명 가능성\"",
+    "publisher": "연합뉴스",
+    "published_at": "2026-10-27 16:31:36",
+    "url": "https://n.news.naver.com/mnews/article/001/0016403893"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "\"5중전회서 중앙위 45명 제명될 듯…류젠차오, 과장급 강등\"",
+      "publisher": "뉴시스",
+      "published_at": "2026-10-27 18:59:54",
+      "url": "https://n.news.naver.com/mnews/article/003/0014282473?sid=104"
+    },
+    "A2": {
+      "title": "홍콩 매체 \"작년 해임 류젠차오 中대외연락부장, 장관→과장 강등\"",
+      "publisher": "뉴스1",
+      "published_at": "2026-10-27 15:59:06",
+      "url": "https://n.news.naver.com/mnews/article/421/0009253194?sid=104"
+    },
+    "A3": {
+      "title": "“지난해 해임 류젠차오 中 대외연락부장, 장관→과장 수직 강등”",
+      "publisher": "데일리안",
+      "published_at": "2026-10-27 19:41:10",
+      "url": "https://n.news.naver.com/mnews/article/119/0003147768?sid=104"
+    },
+    "A4": {
+      "title": "중국 권력 핵심부 '45명 제명설'...5중전회서 무슨 일이 - ㅍㅍㅅㅅ PPSS",
+      "publisher": "ㅍㅍㅅㅅ PPSS",
+      "published_at": "2026-10-27T17:09:17+09:00",
+      "url": "https://www.ppss.kr/news/articleView.html?idxno=317624"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 12,
+            "quote": "2024년 미중 대화 재개 국면에 류 전 부장이 미국 워싱턴DC와 뉴욕을 방문하면서 미국 현지에서는 2023년 친강 전 외교부장의 갑작스러운 실각으로 공석이 된 중국 외교부 수장 자리를 그가 맡을 것이라는 이야기가 돌기도 한 것으로 전해진다.",
+            "start": 1094,
+            "end": 1229
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 13,
+            "paragraph_index": 11,
+            "quote": "영국 옥스퍼드대에서 국제관계학을 전공한 류 전 부장은 1980년대 공산당에 들어와 외교부 대변인, 주필리핀 대사, 주인도네시아 대사 등을 지냈으며 친 전 부장이 해임된 뒤 한때 후임 외교부장으로 유력하게 거론되다가 낙마했다．",
+            "start": 1057,
+            "end": 1182
+          },
+          "difference_summary": "류젠차오가 친강 실각 뒤 외교부장 후임으로 거론됐다는 같은 사실을 원문은 '이야기가 돌기도 한' 정도로 쓴 반면 A1·A2·A3는 기자 서술에 '유력하게·유력 후보·강력하게'라는 정도어를 붙여 후보로서의 무게를 키웠다(원문은 기사 안 어디에도 '유력'을 쓰지 않음).",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 12,
+                "quote": "그가 맡을 것이라는 이야기가 돌기도 한",
+                "start": 1198,
+                "end": 1219
+              },
+              "related_marker": {
+                "sentence_index": 13,
+                "paragraph_index": 11,
+                "quote": "후임 외교부장으로 유력하게 거론되다가",
+                "start": 1156,
+                "end": 1176
+              },
+              "note": "류젠차오가 친강 실각 뒤 외교부장 후임으로 거론됐다는 같은 사실을 원문은 '이야기가 돌기도 한' 정도로 쓴 반면 A1·A2·A3는 기자 서술에 '유력하게·유력 후보·강력하게'라는 정도어를 붙여 후보로서의 무게를 키웠다(원문은 기사 안 어디에도 '유력'을 쓰지 않음).",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 13,
+            "quote": "그러나 류 전 부장은 작년 7월 말 해외 출장을 마치고 귀국한 뒤부터 공식 행사에 모습을 드러내지 않았고, 대외연락부는 류하이싱 현 부장 체제로 재편됐다.",
+            "start": 1231,
+            "end": 1317
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 10,
+            "quote": "류 전 부장은 지난해 7월 이후 모습을 나타내지 않은 데 이어 같은 해 10월 후임에 류하이싱이 임명되면서 구금설이 제기됐다.",
+            "start": 985,
+            "end": 1055
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 12,
+            "quote": "2024년 미중 대화 재개 국면에 류 전 부장이 미국 워싱턴DC와 뉴욕을 방문하면서 미국 현지에서는 2023년 친강 전 외교부장의 갑작스러운 실각으로 공석이 된 중국 외교부 수장 자리를 그가 맡을 것이라는 이야기가 돌기도 한 것으로 전해진다.",
+            "start": 1094,
+            "end": 1229
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 12,
+            "paragraph_index": 9,
+            "quote": "특히 2023년 '불륜설' 등에 휩싸였던 친강 당시 외교부장이 돌연 해임된 이후 차기 외교부장 유력 후보로 거론되기도 했다.",
+            "start": 752,
+            "end": 821
+          },
+          "difference_summary": "류젠차오가 친강 실각 뒤 외교부장 후임으로 거론됐다는 같은 사실을 원문은 '이야기가 돌기도 한' 정도로 쓴 반면 A1·A2·A3는 기자 서술에 '유력하게·유력 후보·강력하게'라는 정도어를 붙여 후보로서의 무게를 키웠다(원문은 기사 안 어디에도 '유력'을 쓰지 않음).",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 12,
+                "quote": "그가 맡을 것이라는 이야기가 돌기도 한",
+                "start": 1198,
+                "end": 1219
+              },
+              "related_marker": {
+                "sentence_index": 12,
+                "paragraph_index": 9,
+                "quote": "차기 외교부장 유력 후보로 거론되기도 했다",
+                "start": 797,
+                "end": 820
+              },
+              "note": "류젠차오가 친강 실각 뒤 외교부장 후임으로 거론됐다는 같은 사실을 원문은 '이야기가 돌기도 한' 정도로 쓴 반면 A1·A2·A3는 기자 서술에 '유력하게·유력 후보·강력하게'라는 정도어를 붙여 후보로서의 무게를 키웠다(원문은 기사 안 어디에도 '유력'을 쓰지 않음).",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 13,
+            "quote": "그러나 류 전 부장은 작년 7월 말 해외 출장을 마치고 귀국한 뒤부터 공식 행사에 모습을 드러내지 않았고, 대외연락부는 류하이싱 현 부장 체제로 재편됐다.",
+            "start": 1231,
+            "end": 1317
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "류젠차오는 지난해 7월 말 해외 순방을 마치고 귀국한 뒤 공개 석상에서 자취를 감췄다.",
+            "start": 413,
+            "end": 461
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 12,
+            "quote": "2024년 미중 대화 재개 국면에 류 전 부장이 미국 워싱턴DC와 뉴욕을 방문하면서 미국 현지에서는 2023년 친강 전 외교부장의 갑작스러운 실각으로 공석이 된 중국 외교부 수장 자리를 그가 맡을 것이라는 이야기가 돌기도 한 것으로 전해진다.",
+            "start": 1094,
+            "end": 1229
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 6,
+            "quote": "특히 친 전 부장이 낙마한 뒤 왕이 정치국 위원 겸 외교부장의 후임으로 강력하게 거론될 정도로 승승장구했다.",
+            "start": 906,
+            "end": 966
+          },
+          "difference_summary": "류젠차오가 친강 실각 뒤 외교부장 후임으로 거론됐다는 같은 사실을 원문은 '이야기가 돌기도 한' 정도로 쓴 반면 A1·A2·A3는 기자 서술에 '유력하게·유력 후보·강력하게'라는 정도어를 붙여 후보로서의 무게를 키웠다(원문은 기사 안 어디에도 '유력'을 쓰지 않음).",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 12,
+                "quote": "그가 맡을 것이라는 이야기가 돌기도 한",
+                "start": 1198,
+                "end": 1219
+              },
+              "related_marker": {
+                "sentence_index": 14,
+                "paragraph_index": 6,
+                "quote": "후임으로 강력하게 거론될 정도로",
+                "start": 941,
+                "end": 958
+              },
+              "note": "류젠차오가 친강 실각 뒤 외교부장 후임으로 거론됐다는 같은 사실을 원문은 '이야기가 돌기도 한' 정도로 쓴 반면 A1·A2·A3는 기자 서술에 '유력하게·유력 후보·강력하게'라는 정도어를 붙여 후보로서의 무게를 키웠다(원문은 기사 안 어디에도 '유력'을 쓰지 않음).",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 13,
+            "quote": "그러나 류 전 부장은 작년 7월 말 해외 출장을 마치고 귀국한 뒤부터 공식 행사에 모습을 드러내지 않았고, 대외연락부는 류하이싱 현 부장 체제로 재편됐다.",
+            "start": 1231,
+            "end": 1317
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 6,
+            "quote": "그러나 지난해 7월 말 아프리카 순방을 마치고 귀국한 직후 공개 석상에서 돌연 사라지면서 사정 당국의 조사를 받고 있다는 소문이 확산했다.",
+            "start": 967,
+            "end": 1044
+          },
+          "difference_summary": "류젠차오가 지난해 7월 말 귀국한 뒤 공개 석상에 나오지 않았다는 같은 사실을 원문은 '모습을 드러내지 않았고'로 담담하게 쓴 반면 A3는 기자 서술에 '돌연'을 더해 사라진 일의 갑작스러움을 강조했다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 15,
+                "paragraph_index": 13,
+                "quote": "공식 행사에 모습을 드러내지 않았고",
+                "start": 1270,
+                "end": 1289
+              },
+              "related_marker": {
+                "sentence_index": 15,
+                "paragraph_index": 6,
+                "quote": "공개 석상에서 돌연 사라지면서",
+                "start": 1000,
+                "end": 1016
+              },
+              "note": "류젠차오가 지난해 7월 말 귀국한 뒤 공개 석상에 나오지 않았다는 같은 사실을 원문은 '모습을 드러내지 않았고'로 담담하게 쓴 반면 A3는 기자 서술에 '돌연'을 더해 사라진 일의 갑작스러움을 강조했다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 14,
+            "paragraph_index": 12,
+            "quote": "2024년 미중 대화 재개 국면에 류 전 부장이 미국 워싱턴DC와 뉴욕을 방문하면서 미국 현지에서는 2023년 친강 전 외교부장의 갑작스러운 실각으로 공석이 된 중국 외교부 수장 자리를 그가 맡을 것이라는 이야기가 돌기도 한 것으로 전해진다.",
+            "start": 1094,
+            "end": 1229
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 22,
+            "paragraph_index": 16,
+            "quote": "당시 미국 현지에서는 2023년 친강 전 외교부장의 갑작스러운 실각 이후 류 전 부장이 중국 외교부 수장에 오를 수 있다는 관측이 제기되기도 했다.",
+            "start": 1404,
+            "end": 1486
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 13,
+            "quote": "그러나 류 전 부장은 작년 7월 말 해외 출장을 마치고 귀국한 뒤부터 공식 행사에 모습을 드러내지 않았고, 대외연락부는 류하이싱 현 부장 체제로 재편됐다.",
+            "start": 1231,
+            "end": 1317
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 23,
+            "paragraph_index": 17,
+            "quote": "그러나 류 전 부장은 지난해 7월 말 해외 출장을 마치고 귀국한 뒤 공식 행사에 모습을 드러내지 않았다.",
+            "start": 1487,
+            "end": 1545
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

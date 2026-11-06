@@ -1,0 +1,256 @@
+{
+  "name": "b12",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "에버랜드 막내 판다 '슈바오' 30일 첫 나들이…쌍둥이 언니들은 작별 준비",
+    "publisher": "데일리안",
+    "published_at": "2026-10-27 09:38:13",
+    "url": "https://n.news.naver.com/mnews/article/119/0003147364"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "에버랜드, 막내 판다 '슈바오' 30일 일반 공개",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 10:00:02",
+      "url": "https://n.news.naver.com/mnews/article/001/0016402148?sid=103"
+    },
+    "A2": {
+      "title": "171g→9kg ‘뿅! 커져’…막내 슈바오 30일부터 관람객 공개",
+      "publisher": "한겨레",
+      "published_at": "2026-10-27 10:28:13",
+      "url": "https://n.news.naver.com/mnews/article/028/0002829326?sid=103"
+    },
+    "A3": {
+      "title": "아기 판다 슈바오, 30일 공개…쌍둥이 언니들과 마지막 동반 관람",
+      "publisher": "경향신문",
+      "published_at": "2026-10-27 10:52:00",
+      "url": "https://n.news.naver.com/mnews/article/032/0003478737?sid=103"
+    },
+    "A4": {
+      "title": "막둥이 판다 '슈바오' 30일 첫 나들이…12월엔 언니들과 작별",
+      "publisher": "머니투데이",
+      "published_at": "2026-10-27 14:22:17",
+      "url": "https://n.news.naver.com/mnews/article/008/0005432276?sid=103"
+    },
+    "A5": {
+      "title": "\"푸바오가 다시 온 줄\"...귀여움 쏙 빼닮은 동생 '슈바오' 30일 공개",
+      "publisher": "JTBC",
+      "published_at": "2026-10-27 17:26:07",
+      "url": "https://n.news.naver.com/mnews/article/437/0000517756?sid=102"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 5,
+            "quote": "태어날 당시 171g에 불과했던 몸무게는 현재 9kg을 넘어섰다.",
+            "start": 394,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 6,
+            "paragraph_index": 5,
+            "quote": "출생 당시 171ｇ이던 몸무게는 생후 5개월을 앞둔 현재 9㎏을 넘어서며 건강하게 자라고 있다.",
+            "start": 374,
+            "end": 427
+          },
+          "difference_summary": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 5,
+                "quote": "171g에 불과했던",
+                "start": 401,
+                "end": 411
+              },
+              "related_marker": {
+                "sentence_index": 6,
+                "paragraph_index": 5,
+                "quote": "171ｇ이던",
+                "start": 380,
+                "end": 386
+              },
+              "note": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 5,
+            "quote": "태어날 당시 171g에 불과했던 몸무게는 현재 9kg을 넘어섰다.",
+            "start": 394,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 4,
+            "quote": "태어날 때 171g이던 몸무게는 생후 5개월째인 현재 9㎏을 넘어섰다.",
+            "start": 304,
+            "end": 343
+          },
+          "difference_summary": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 5,
+                "quote": "171g에 불과했던",
+                "start": 401,
+                "end": 411
+              },
+              "related_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 4,
+                "quote": "171g이던",
+                "start": 310,
+                "end": 316
+              },
+              "note": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 5,
+            "quote": "태어날 당시 171g에 불과했던 몸무게는 현재 9kg을 넘어섰다.",
+            "start": 394,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 2,
+            "quote": "태어날 당시 171g이었던 몸무게는 현재 9㎏을 넘어섰다.",
+            "start": 308,
+            "end": 340
+          },
+          "difference_summary": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 5,
+                "quote": "171g에 불과했던",
+                "start": 401,
+                "end": 411
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 2,
+                "quote": "171g이었던",
+                "start": 315,
+                "end": 322
+              },
+              "note": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 5,
+            "quote": "태어날 당시 171g에 불과했던 몸무게는 현재 9kg을 넘어섰다.",
+            "start": 394,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 5,
+            "paragraph_index": 4,
+            "quote": "출생 당시 171g이었던 슈바오의 몸무게는 현재 9㎏을 넘어섰다.",
+            "start": 324,
+            "end": 360
+          },
+          "difference_summary": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+          "expression_differences": [
+            {
+              "code": "D",
+              "source_marker": {
+                "sentence_index": 7,
+                "paragraph_index": 5,
+                "quote": "171g에 불과했던",
+                "start": 401,
+                "end": 411
+              },
+              "related_marker": {
+                "sentence_index": 5,
+                "paragraph_index": 4,
+                "quote": "171g이었던",
+                "start": 330,
+                "end": 337
+              },
+              "note": "출생 당시 몸무게 171g이라는 같은 수치에 원문(과 A5)은 정도어 '불과'를 붙여 작았음을 강조했지만, A1~A4는 '171g이던/이었던'으로 정도어 없이 적었다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 7,
+            "paragraph_index": 5,
+            "quote": "태어날 당시 171g에 불과했던 몸무게는 현재 9kg을 넘어섰다.",
+            "start": 394,
+            "end": 430
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 10,
+            "paragraph_index": 10,
+            "quote": "다섯달 전 태어날 때 171g에 불과했던 몸무게는 현재 9kg을 넘어섰습니다.",
+            "start": 529,
+            "end": 572
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}

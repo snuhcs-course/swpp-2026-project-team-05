@@ -1,0 +1,441 @@
+{
+  "name": "b13",
+  "kind": "gold",
+  "rubric": "v5",
+  "source_article": {
+    "title": "흉기난동범 최충락, 구치소서 자해…의식불명 피해자 입원한 병원 이송",
+    "publisher": "주간조선",
+    "published_at": "2026-10-27 16:20:14",
+    "url": "https://n.news.naver.com/mnews/article/053/0000062619"
+  },
+  "related_articles": {
+    "A1": {
+      "title": "'흉기난동범' 최충락, 구치소서 자해행위…병원 이송돼 치료",
+      "publisher": "연합뉴스",
+      "published_at": "2026-10-27 14:09:34",
+      "url": "https://n.news.naver.com/mnews/article/001/0016403217?sid=102"
+    },
+    "A2": {
+      "title": "‘인천 흉기 난동범’ 최충락, 구치소서 자해···병원 이송, 치료 후 복귀",
+      "publisher": "경향신문",
+      "published_at": "2026-10-27 14:46:00",
+      "url": "https://n.news.naver.com/mnews/article/032/0003478783?sid=101"
+    },
+    "A3": {
+      "title": "인천 ‘흉기난동’ 최충락, 구치소서 자해…피해자 입원병원서 치료",
+      "publisher": "동아일보",
+      "published_at": "2026-10-27 15:11:14",
+      "url": "https://n.news.naver.com/mnews/article/020/0003758002?sid=102"
+    },
+    "A4": {
+      "title": "'인천 흉기 난동' 최충락, 구치소서 자해…응급실 이송",
+      "publisher": "파이낸셜뉴스",
+      "published_at": "2026-10-27 17:12:15",
+      "url": "https://n.news.naver.com/mnews/article/014/0005595266?sid=102"
+    },
+    "A5": {
+      "title": "[단독] 자해한 최충락…피해자 입원 병원서 치료 논란",
+      "publisher": "연합뉴스TV",
+      "published_at": "2026-10-27 19:15:11",
+      "url": "https://n.news.naver.com/mnews/article/422/0000920064?sid=102"
+    }
+  },
+  "article_alignments": {
+    "A1": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "최충락은 이 과정에서 이마 부위를 다쳤으며, 병원에서 응급 처치를 받은 뒤 구치소로 복귀했다.",
+            "start": 277,
+            "end": 329
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 4,
+            "quote": "현재 최충락은 치료 이후 구치소에 수감 중인 것으로 전해졌다.",
+            "start": 253,
+            "end": 287
+          },
+          "difference_summary": "응급 치료 후 구치소로 돌아간 같은 사실을 원문은 단언('복귀했다')으로 썼지만, A1·A3·A5는 전언('것으로 전해졌다/알려졌다')으로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 3,
+                "quote": "응급 처치를 받은 뒤 구치소로 복귀했다",
+                "start": 307,
+                "end": 328
+              },
+              "related_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 4,
+                "quote": "구치소에 수감 중인 것으로 전해졌다",
+                "start": 267,
+                "end": 286
+              },
+              "note": "응급 치료 후 구치소로 돌아간 같은 사실을 원문은 단언('복귀했다')으로 썼지만, A1·A3·A5는 전언('것으로 전해졌다/알려졌다')으로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A2": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "최충락은 이 과정에서 이마 부위를 다쳤으며, 병원에서 응급 처치를 받은 뒤 구치소로 복귀했다.",
+            "start": 277,
+            "end": 329
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 2,
+            "quote": "최충락은 이마 부위를 다쳐 응급 치료를 받았으며, 생명에는 지장이 없는 것으로 알려졌다.",
+            "start": 164,
+            "end": 213
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A3": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "이 병원은 최충락의 흉기난동으로 의식을 찾지 못한 피해 여성이 입원해 있는 곳이다.",
+            "start": 155,
+            "end": 201
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "이 병원은 최충락의 흉기난동으로 의식을 찾지 못한 피해 여성이 입원해 있는 곳이다.",
+            "start": 155,
+            "end": 201
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "최충락은 이 과정에서 이마 부위를 다쳤으며, 병원에서 응급 처치를 받은 뒤 구치소로 복귀했다.",
+            "start": 277,
+            "end": 329
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "그는 자해 과정에서 이마를 다쳐 대형 병원 응급실에서 치료를 받은 것으로 알려졌다.",
+            "start": 107,
+            "end": 153
+          },
+          "difference_summary": "응급 치료 후 구치소로 돌아간 같은 사실을 원문은 단언('복귀했다')으로 썼지만, A1·A3·A5는 전언('것으로 전해졌다/알려졌다')으로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 3,
+                "quote": "응급 처치를 받은 뒤 구치소로 복귀했다",
+                "start": 307,
+                "end": 328
+              },
+              "related_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 1,
+                "quote": "치료를 받은 것으로 알려졌다",
+                "start": 137,
+                "end": 152
+              },
+              "note": "응급 치료 후 구치소로 돌아간 같은 사실을 원문은 단언('복귀했다')으로 썼지만, A1·A3·A5는 전언('것으로 전해졌다/알려졌다')으로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    },
+    "A4": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "absent",
+          "related_evidence": null,
+          "difference_summary": "",
+          "expression_differences": []
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "최충락은 이 과정에서 이마 부위를 다쳤으며, 병원에서 응급 처치를 받은 뒤 구치소로 복귀했다.",
+            "start": 277,
+            "end": 329
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 2,
+            "quote": "자해 과정에서 이마에 상처를 입은 최충락은 응급실에서 치료받았다.",
+            "start": 211,
+            "end": 247
+          },
+          "difference_summary": "",
+          "expression_differences": []
+        }
+      ],
+      "status": "gold"
+    },
+    "A5": {
+      "unit_alignments": [
+        {
+          "unit_id": "gold_1",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 3,
+            "paragraph_index": 3,
+            "quote": "피해자 입원병원에 가해자를 데리고 간 교정당국의 조치가 적절했는지 논란이 예상됩니다.",
+            "start": 107,
+            "end": 154
+          },
+          "difference_summary": "가해자가 피해자 입원 병원으로 이송된 같은 사실을 원문은 사실로만 적지만, A5는 기자 서술로 '논란이 예상됩니다'라고 쟁점화해 평가를 더했다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 1,
+                "quote": "입원한 곳이기도 하다",
+                "start": 188,
+                "end": 199
+              },
+              "related_marker": {
+                "sentence_index": 3,
+                "paragraph_index": 3,
+                "quote": "적절했는지 논란이 예상됩니다",
+                "start": 138,
+                "end": 153
+              },
+              "note": "가해자가 피해자 입원 병원으로 이송된 같은 사실을 원문은 사실로만 적지만, A5는 기자 서술로 '논란이 예상됩니다'라고 쟁점화해 평가를 더했다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_2",
+          "source_evidence": {
+            "sentence_index": 2,
+            "paragraph_index": 1,
+            "quote": "최충락이 이송된 병원은 그가 휘두른 흉기에 찔려 의식을 회복하지 못하고 있는 10대 피해 여성이 입원한 곳이기도 하다.",
+            "start": 134,
+            "end": 200
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 15,
+            "paragraph_index": 15,
+            "quote": "비슷한 거리에 또 다른 병원이 있었음에도 굳이 피해자가 입원해 있는 병원으로 이송한 것을 두고 교정당국의 대응이 적절했느냐는 지적이 나옵니다.",
+            "start": 686,
+            "end": 765
+          },
+          "difference_summary": "피해자 입원 병원으로 옮긴 같은 행위에 원문은 평가어를 붙이지 않았지만, A5는 기자 화제 표현에 '굳이'를 붙여 교정당국의 판단을 부정적으로 평가했다.",
+          "expression_differences": [
+            {
+              "code": "E",
+              "source_marker": {
+                "sentence_index": 2,
+                "paragraph_index": 1,
+                "quote": "최충락이 이송된 병원은",
+                "start": 134,
+                "end": 146
+              },
+              "related_marker": {
+                "sentence_index": 15,
+                "paragraph_index": 15,
+                "quote": "굳이 피해자가 입원해 있는 병원으로 이송한",
+                "start": 709,
+                "end": 732
+              },
+              "note": "피해자 입원 병원으로 옮긴 같은 행위에 원문은 평가어를 붙이지 않았지만, A5는 기자 화제 표현에 '굳이'를 붙여 교정당국의 판단을 부정적으로 평가했다.",
+              "strength": 2,
+              "status": "gold"
+            }
+          ]
+        },
+        {
+          "unit_id": "gold_3",
+          "source_evidence": {
+            "sentence_index": 4,
+            "paragraph_index": 3,
+            "quote": "최충락은 이 과정에서 이마 부위를 다쳤으며, 병원에서 응급 처치를 받은 뒤 구치소로 복귀했다.",
+            "start": 277,
+            "end": 329
+          },
+          "relation": "same",
+          "related_evidence": {
+            "sentence_index": 11,
+            "paragraph_index": 11,
+            "quote": "최충락은 병원에서 CT촬영 등 진료를 받은 뒤 구치소로 돌아간 것으로 전해졌습니다.",
+            "start": 458,
+            "end": 504
+          },
+          "difference_summary": "응급 치료 후 구치소로 돌아간 같은 사실을 원문은 단언('복귀했다')으로 썼지만, A1·A3·A5는 전언('것으로 전해졌다/알려졌다')으로 써서 확신 단계가 다르다.",
+          "expression_differences": [
+            {
+              "code": "G",
+              "source_marker": {
+                "sentence_index": 4,
+                "paragraph_index": 3,
+                "quote": "응급 처치를 받은 뒤 구치소로 복귀했다",
+                "start": 307,
+                "end": 328
+              },
+              "related_marker": {
+                "sentence_index": 11,
+                "paragraph_index": 11,
+                "quote": "구치소로 돌아간 것으로 전해졌습니다",
+                "start": 484,
+                "end": 503
+              },
+              "note": "응급 치료 후 구치소로 돌아간 같은 사실을 원문은 단언('복귀했다')으로 썼지만, A1·A3·A5는 전언('것으로 전해졌다/알려졌다')으로 써서 확신 단계가 다르다.",
+              "strength": 1,
+              "status": "gold"
+            }
+          ]
+        }
+      ],
+      "status": "gold"
+    }
+  },
+  "no_items_reason": "",
+  "negatives": []
+}
