@@ -65,11 +65,11 @@ human evaluation of AI comparison quality remained separate claims.
 
 ## 3. Representative Prompts, Outputs, and Human Decisions
 
-The prompt blocks below consolidate the actual development conversation into
-readable task instructions. Repeated follow-ups, shorthand, and typing errors
-are normalized, but the requirements and decisions are limited to what I
-actually provided during the work. They are not presented as verbatim one-shot
-prompts.
+The prompt blocks below consolidate the actual development conversation while
+preserving my conversational tone. Repeated follow-ups and obvious typing
+errors are normalized, but the requirements and decisions are limited to what
+I actually provided during the work. They are not presented as verbatim
+one-shot prompts.
 
 ### Example 1 — Changing the product from URL input to a news app (T1)
 
@@ -82,34 +82,36 @@ engine, but a robust way to store and display already-analyzed results.
 **Consolidated initial direction**
 
 ```text
-팀 회의 결과에 따라 FrameLESS를 URL 입력형 분석 도구에서 기사 중심
-뉴스 앱으로 전환하려고 한다. 사용자는 우리가 선정한 여러 언론사의
-기사를 일반 뉴스 앱처럼 탐색하고, 선택한 기사에 대해 미리 생성된
-분석을 추가 레이어로 확인해야 한다.
+팀 회의 결과 앱 방향이 좀 바뀌었어. 기존처럼 사용자가 URL을 직접
+넣고 분석을 기다리는 구조보다, 이제는 여러 언론사의 기사를 일반 뉴스
+앱처럼 보고 원하는 기사를 누르면 미리 분석된 결과가 같이 보이는 방식으로
+가려고 해.
 
-먼저 이 전환이 기존 Android UI, 백엔드, 분석 결과 구조에 미치는
-영향을 정리하고, 기사를 기본 탐색 단위로 두는 사용자 흐름과 데이터
-모델을 제안해줘. 자동 수집·개인화는 후속 범위로 두되, 현재 설계가
-향후 확장을 불필요하게 막지는 않아야 한다.
+일단 이 방향으로 가면 기존 Android UI, 백엔드, 분석 결과 구조에서
+뭐를 바꿔야 하는지부터 정리해봐. 기사가 기본 단위가 되는 사용자 흐름과
+데이터 구조가 어떤 모양이어야 하는지도 같이 보고 싶어. 자동 수집이나 개인화는
+나중 일이니까 지금 굳이 다 만들 필요는 없지만, 나중에 확장할 때 완전히
+다 뜯어고쳐야 하는 구조는 피하자. 이해됨?
 ```
 
 **Consolidated scope and implementation constraints**
 
 ```text
-이번 이터레이션의 우선순위는 자동 분석 엔진 고도화가 아니라,
-이미 분석된 기사와 결과를 안정적으로 저장·제공하는 제품 구조다.
+언론사 기사를 자동으로 수집하고 분석하는 엔진까지 지금 다 깎을 필요는
+없어. 이번에는 이미 분석된 기사와 결과를 제대로 저장하고, 사용자가
+뉴스 앱처럼 자연스럽게 보는 것까지가 우선이야.
 
-현재 범위와 제약은 다음과 같다.
-- 모든 사용자는 로그인한다. 개발자 계정과 일반 계정을 구분할 수 있어야 한다.
-- 우선 정치·사회 기사만 다룬다.
-- Reader는 기사 전문을 보여주고, 분석 상태와 관계없이 원문을 읽을 수 있어야 한다.
-- 분석이 있는 기사는 저장된 finding과 타 기사 근거를 표시한다.
-- 기존 URL 분석 기능은 남겨두지만 일반 사용자의 기본 탐색 UI에서는 제외한다.
-- 수집 주기, 자동 클러스터링, 개인화는 이번 범위에서 제외한다.
+범위는 이 정도로 잡자.
+- 비로그인 사용자는 없고, 개발자 계정과 일반 계정은 구분할 수 있게 하자.
+- 일단 정치·사회 기사만 다루자.
+- 기사 본문은 전부 보여주고, 분석이 없어도 기사는 읽을 수 있어야 해.
+- 분석이 있으면 해당 문장의 finding과 다른 기사 근거를 연결해 보여주자.
+- URL 분석 기능은 없애지 말고, 기본 UI에서만 빼자.
+- 수집 주기, 자동 클러스터링, 개인화는 나중에 다루자.
 
-구현 전에 필요한 핵심 엔티티, 관계, API 경계와 주요 UI 상태를 먼저 정리해줘.
-향후 확장성은 유지하되, 현재 화면·API에서 사용하지 않는 추상화나
-테이블을 미리 추가하지는 마.
+바로 코드부터 짜지 말고, 핵심 엔티티와 관계, API 경계, 주요 UI 상태를
+먼저 정리해봐. 확장성은 있어야 하지만 괜히 10년 뒤를 가정해서 지금 안 쓰는
+테이블이나 추상화를 막 만들지는 마. 적당히 robust하게 가면 돼.
 ```
 
 **AI-assisted output**
@@ -171,31 +173,39 @@ analysis to unfold only when requested.
 **Consolidated Reader interaction prompt**
 
 ```text
-현재 Android Reader의 multi-anchor bottom sheet는 중간 높이 전환에서
-흔들림이 있고, 분석 문장을 선택하자마자 큰 분석 화면이 열려
-기사 읽기를 방해한다. 기사 본문을 주된 화면으로 유지하면서 분석을
-단계적으로 확인할 수 있는 progressive-disclosure 상호작으로 재설계해줘.
+지금 Android Reader에서 하단 시트를 중간 정도까지 올릴 때는 괜찮은데,
+그 이상 드래그하면 창이 위아래로 워블하면서 불안정해. 그리고 기사를 읽다가
+문장 하나 눌렀다고 바로 큰 화면으로 가는 것도 조금 정신사나운 것 같아.
 
-필수 사용자 흐름:
-1. 본문의 분석 표현을 누르면 본문 위치를 유지한 채 compact preview를 보여준다.
-2. preview에는 표현 설명과 필요한 최소 분석 정보만 보여준다.
-3. 유효한 비교 기사가 있을 때만 사용자가 명시적인 action을 눌러 전체 비교 화면을 연다.
-4. 전체 비교 화면에서는 언론사별 근거, 원문 링크, 이동·닫기 동작을 제공한다.
-5. 불안정한 중간 sheet anchor에 의존하지 않는다.
+내 생각에는 문장을 누르면 일단 기사 위에 작은 미리보기가 뜨고, 거기서
+더 보기를 눌렀을 때만 전체 비교 화면이 열리는 2단계 방식이 좋을 것 같은데
+어때? 기사가 주인 화면인 건 유지하면서 분석만 점진적으로 펼칠 수 있게
+전반적인 흐름을 재설계해봐.
 
-preview·전체 화면·Reader 사이의 뒤로 가기, 바깥 영역 터치,
-드래그 닫기, 비교 기사가 없는 경우의 상태 전환까지 함께 정의해줘.
+일단 생각한 흐름은 이런 느낌이야.
+1. 본문의 분석 표현을 누르면 스크롤 위치를 유지한 채 작은 preview를 보여준다.
+2. preview에서는 표현 설명과 필수 정보만 빠르게 확인한다.
+3. 실제 비교 기사가 있을 때만 사용자가 명시적으로 눌러서 전체 화면을 연다.
+4. 전체 화면에서는 언론사별 근거와 원문 링크까지 제대로 본다.
+5. 지금처럼 애매한 중간 sheet anchor는 없애자.
+
+이 방식으로 할 거면 preview, 전체 화면, Reader 사이에서 뒤로 가기나 바깥 영역
+터치, 드래그 닫기가 각각 어떻게 동작할지도 말 되게 정리해줘.
 ```
 
 After trying the first revision, I narrowed the behavior again:
 
 ```text
-1차 구현을 확인한 결과, compact preview는 유지하되 전체 비교 화면은
-기존의 정보 구성을 재사용하는 편이 낫다. 다음 상태 규칙을 반영해줘.
-- 비교 기사가 없는 finding은 preview에서 설명을 완결하고 전체 화면 action을 제공하지 않는다.
-- 사용자가 전체 비교 화면을 닫으면 preview까지 해제하고 깨끗한 Reader로 복귀한다.
-- 기사 스크롤 위치와 분석 토글 상태는 유지한다.
-- 스와이프·닫기 동작이 자명하면 별도의 제스처 안내 문구는 놓지 않는다.
+직접 써보니 첫 번째로 뜨는 compact preview는 지금 방식이 괜찮아. 다만 그걸
+눌러서 뜨는 전체 비교 화면은 이전의 정보 구성을 살리는 게 낫겠어.
+
+세부 동작은 이렇게 가자.
+- 비교 기사가 없으면 preview에서 설명이 끝나야 하고, 굳이 전체 화면을 열 필요는 없어.
+- 전체 비교 화면을 닫았다는 건 이미 충분히 보았다는 뜻이니까 preview도 다시 뜨지 않게 해.
+- 기사 스크롤 위치와 분석 토글 상태는 그대로 유지해야 해.
+- 스와이프나 닫기 동작이 보면 알 수 있는 수준이면 '좌우로 넘기세요' 같은 안내 문구는 빼자.
+
+이 규칙들이 서로 충돌하지 않는지 상태 전환을 한 번 더 보고 반영해줘.
 ```
 
 **AI-assisted output**
@@ -224,16 +234,16 @@ typed. On a Korean keyboard, composing characters were submitted too early and
 appeared as separated input.
 
 ```text
-현재 Web 검색에서 한글 IME 조합 중인 문자가 검색 상태와 URL에
-즉시 반영되면서 입력이 분리되는 문제가 있다. 입력값·제출된 검색어·
-페이지 URL의 소유권을 구분하고, 다음 조건을 만족하도록 수정해줘.
-- composition 중에는 미완성 검색어를 제출하지 않는다.
-- composition이 끝난 최종 입력만 debounce 후 검색한다.
-- 검색어는 컴포넌트의 local state로 관리하고, 입력 매 타자마다 URL을 수정하지 않는다.
-- 기존 피드의 category, scope, scroll 상태는 검색 종료 후 복원되어야 한다.
+검색을 직접 해보니 한글이 조합되기도 전에 검색이 나가서 글자가 따로따로
+쳐져. 그리고 키를 하나 누를 때마다 상단 URL이 바뀌는 것도 굳이 필요한지
+모르겠어. 이게 정말 정석적인 방식인지부터 다시 보자.
 
-원인을 설명하고, 일반적인 React 검색 입력 패턴에 맞게 구현한 뒤
-한국어 composition 회귀 테스트를 추가해줘.
+내 생각에는 사용자가 입력 중인 값과 실제로 제출된 검색어, 페이지 URL 상태를
+분리해야 할 것 같아. 한국어 composition 중에는 요청을 보내지 말고, 조합이 끝난
+최종 검색어만 debounce하자. 검색어는 local state로 관리하고 URL은 그냥 유지하는
+게 더 깔끔한 것 같아.
+
+본질적인 원인을 확인한 뒤 고치고, 다시 깨지지 않게 한국어 IME 회귀 테스트도 넣어줘.
 ```
 
 Codex moved the input to local state, waited for IME composition to finish, and
@@ -277,53 +287,51 @@ then generate the implementation and tests.
 **Consolidated planning prompt**
 
 ```text
-다음 기능으로 글로벌 기사 검색을 추가하려고 한다. 아직 스펙이나 코드를
-작성하지 말고, 먼저 제품 범위와 기술 계획을 제안해줘.
+일단 다음 기능은 기사 검색으로 하자. 근데 바로 스펙이나 코드부터 쓰지 말고,
+어떻게 하는 게 맞는지 계획부터 세워보자.
 
-사용자에게 실제로 노출되는 DB의 모든 기사가 검색 대상이어야 한다. 현재
-클라이언트에 로드된 페이지만 필터링하거나, 명확한 근거 없이 최근 며칠로
-범위를 제한하면 안 된다.
+내가 궁금한 건 이거야. 우리 DB에서 실제로 사용자에게 보여주는 기사는 전부
+검색 대상이어야 할 것 같은데, 프론트가 지금 가지고 있는 몇 개만 필터링하면
+안 되는 거 맞지? 그렇다고 최근 며칠로 임의로 잘라버리는 것도 이상하고.
 
-계획에는 다음을 포함해줘.
-- 검색 수행 주체를 백엔드와 클라이언트 중 어디로 둘지
-- 검색 대상 필드와 피드 노출 조건
-- 결과 정렬, excerpt, category filter, pagination/cursor 계약
-- Android·Web의 입력, debounce, loading/empty/error 상태
-- 현재 DB 규모에서의 실용성과 기사 수가 커졌을 때의 확장 경로
-- 이번 버전에서 명시적으로 제외할 기능
+검색을 백엔드와 클라이언트 중 어디서 해야 하는지, 제목·언론사·본문 중
+어디까지 찾을지, 정렬·excerpt·category filter·pagination을 어떻게 할지,
+Android와 Web은 어떤 상태를 가져야 하는지를 정리해봐.
 
-장기적인 확장은 고려하되, semantic search나 별도 검색 인프라를 현재
-규모에 필요하다고 가정하지 마. 대안별 trade-off와 추천안을 먼저 보고해줘.
+나중에 기사가 엄청 많아졌을 때 어떻게 확장할지도 보긴 보되, 지금부터 semantic
+search나 별도 검색 서비스까지 들이밀 필요는 없어. 지금 규모에서 정석적이고
+깔끔하게 시작하면서 확장 경로는 남기는 방식으로 추천해줘.
 ```
 
 The first answer was still only a plan. I then confirmed the ownership boundary
 and asked for another review before the specification was written:
 
 ```text
-검색은 백엔드가 전체 feed-visible corpus를 대상으로 수행하고, 클라이언트는
-현재 로드된 기사 목록과 무관하게 결과를 요청하는 구조로 하자.
+오케이. 그럼 검색은 백엔드가 전체 feed-visible corpus를 대상으로 하고,
+프론트는 지금 로드한 기사와 관계없이 결과를 요청하는 구조로 가는 게 맞네.
 
-이 결정을 기준으로 최종 구현 계획을 다시 점검해줘. 특히 query 정규화,
-일치 대상·우선순위, 숨김/comparison-only 기사 제외, cursor 무결성, 클라이언트
-상태 복원과 경계값을 확인해줘.
+그 기준으로 최종 계획을 한 번 더 점검해봐. query 정규화, 제목·언론사·본문
+일치 우선순위, 숨김 기사와 comparison-only 기사 제외, cursor가 다른 검색어에
+재사용되지 않게 하는 것, 검색을 닫았을 때 기존 피드 상태가 복원되는 것까지
+빠진 게 없는지 보자.
 
-설계에 불필요한 복잡성이 없다면 다음 단계로 제품·UI·테스트 스펙을
-작성해줘. 스펙에는 precondition, postcondition, 오류·경계 케이스, non-goal,
-검증 방법을 포함하고 아직 구현은 시작하지 마.
+더 고칠 부분이 없으면 그때 product, UI, test 스펙을 작성해줘. precondition,
+postcondition, 오류·경계 케이스, 이번에 안 할 것, 각 항목을 어떻게 검증할지까지
+들어가야 해. 아직 구현은 하지 말고 스펙까지만 가자.
 ```
 
 Only after reviewing that specification did I authorize implementation:
 
 ```text
-검토한 검색 스펙을 기준으로 구현을 시작해줘. Django API, Android, Web,
-관련 테스트와 문서를 한 PR 범위에서 일관되게 반영해야 한다.
+오케이, 스펙은 이 정도면 괜찮은 것 같아. 이제 그 스펙 기준으로 구현하자.
+Django API, Android, Web, 관련 테스트와 문서까지 한 번에 일관되게 반영해줘.
 
-구현 시 지켜야 할 사항:
-- 테스트 oracle은 현재 코드가 아니라 검토된 스펙에서 가져온다.
-- success, failure, boundary, pagination/state transition을 모두 다룬다.
-- 검색이 없는 기존 피드 API의 응답 계약을 바꾸지 않는다.
-- 스펙과 충돌하는 정보가 발견되면 임의로 구현을 선택하지 말고 충돌을 먼저 보고한다.
-- 작업 후 스펙↔테스트↔구현 추적성과 실행 결과를 정리한다.
+다만 테스트를 지금 구현한 코드에 맞춰서 만들지 말고 방금 검토한 스펙을
+기준으로 해. 정상 케이스만 보지 말고 실패, 경계값, pagination과 상태 전환도
+보고, 검색을 쓰지 않는 기존 피드 계약은 깨지 않게 해.
+
+하다가 스펙과 충돌하는 게 나오면 네 편한 대로 구현하지 말고 먼저 알려줘.
+마지막에 스펙, 테스트, 구현이 서로 어떻게 연결되는지와 실행 결과도 정리해줘.
 ```
 
 **AI-assisted output**
@@ -381,25 +389,25 @@ small integration test measured the semantic accuracy of the analysis model.
 **Consolidated release and evidence prompt**
 
 ```text
-이번 릴리스 작업 범위는 다음과 같다.
-1. HE 피드백을 반영한 핵심 UI 수정 2~3개
-2. 최종 main 기준 Django·Web·Android test/lint/build·APK 검증
-3. 대표 기사 6건에 대한 production API + 설치된 Android Reader smoke test
-4. `iteration-3-demo` branch, README, 데모 녹화 절차 및 제출 산출물 준비
+자, 이번에 내가 마무리할 범위는 HE 피드백 UI 수정 2~3개, 최종 main
+test/lint/build와 APK, 대표 6기사 smoke test, iteration-3-demo branch와 README·데모
+준비야.
 
-수업 공지의 핵심은 key functionality의 success criteria를 실행 전에 명확히
-정의하고, 적절한 success rate·latency·build/test 근거를 제시하는 것이다.
+근데 그냥 '테스트 많이 했다'로 쓰면 의미가 없으니까, 수업 공지처럼 핵심
+기능별 success criteria를 실행 전에 먼저 고정하고 success rate·latency·
+build/test 근거를 남기자.
 
-다음 원칙으로 진행해줘.
-- 6개 기사와 각 케이스의 기대 구조·사용자 흐름·pass/fail 기준을 먼저 고정한다.
-- 결과를 본 후 기준을 낮추거나 통과하도록 재정의하지 않는다.
-- deterministic CI, API/Reader integration smoke, HE usability, AI semantic quality evaluation을 분리해 기록한다.
-- smoke test를 분석 정확도 근거로 해석하지 않는다.
-- 실패 시 테스트를 제거하거나 threshold를 낮추지 말고 원인을 수정한 뒤 재실행한다.
-- 각 결과에 commit, CI run, APK hash, device/environment, 미실행 항목과 limitation을 남긴다.
+6개 기사는 왜 골랐는지, 각각 어떤 데이터 구조와 사용자 흐름을 보는지,
+뭐가 통과와 실패인지를 먼저 쓰고 시작해. 결과를 본 다음에 통과하도록 기준을
+바꾸면 안 돼. 실패하면 테스트를 빼지 말고 원인을 고친 다음 다시 돌리자.
 
-데모 영상은 내가 직접 녹화할 것이므로, 핵심 기능이 가장 잘 드러나는
-촬영 플로우를 제안해줘. 영상을 테스트 oracle로 대체하지는 마.
+그리고 CI, API/Reader smoke, HE 사용성, AI 분석 품질 평가는 서로 증명하는 게
+다르니까 나눠서 쓰자. 6기사 smoke를 분석 정확도 근거로 포장하면 안 돼.
+각 결과에 정확한 commit, CI run, APK hash, 기기·환경, 안 돌린 항목과 limitation까지
+남겨줘.
+
+데모 영상은 내가 직접 찍을 테니까 핵심 기능이 잘 보이는 촬영 순서만 정리해줘.
+영상을 테스트 증거 자체로 대체하지는 말고.
 ```
 
 **AI-assisted output**
