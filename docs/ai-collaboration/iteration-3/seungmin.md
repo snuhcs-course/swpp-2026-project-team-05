@@ -232,7 +232,83 @@ button were clear enough.
   restoring the preview after closing detail, gesture-instruction clutter, and
   layout-changing count badges.
 
-### Example 3 — Freezing the release test before running it (T3, T4)
+### Example 3 — Plan first, write the specification, then implement search (T3)
+
+**Define** — As the news-app surface grew, I did not want Codex to move directly
+from a one-line feature request to code. Article search was the clearest example
+of the workflow I wanted: discuss the product and scaling choices first, review
+a concrete plan, turn the accepted decisions into a specification, and only
+then generate the implementation and tests.
+
+**Planning prompt**
+
+```text
+일단 검색부터 하자. 그런데 바로 구현하지 말고 계획부터 세워보자.
+우리 DB에 있는 보여지는 기사를 전부 검색하게 해도 효율적인 구현이
+가능한가? 아니면 최근 며칠로 제한해야 하나? 장기적으로 봤을 때까지
+고려하되, 지금 필요 이상으로 복잡하게 만들지는 마.
+```
+
+The first answer was still only a plan. I then confirmed the ownership boundary
+and asked for another review before the specification was written:
+
+```text
+그럼 검색은 백엔드에서 수행하는 거지? 프론트가 최근 기사만 가지고
+있어도 전체 보여지는 기사를 검색할 수 있게. 최종 검색 기능 스펙
+계획을 다시 정리해봐. 개선할 부분이 더 없으면 그때 스펙을 작성하자.
+```
+
+Only after reviewing that specification did I authorize implementation:
+
+```text
+그럼 이제 구현해볼까? UI 부분도 스펙에 정리해 놓은 거 맞지?
+```
+
+**AI-assisted output**
+
+During planning, Codex separated backend and client responsibilities instead of
+searching only the articles already loaded in the UI. The reviewed design made
+Django responsible for normalization, the feed-visible corpus, deterministic
+title/publisher/body ranking, grounded excerpts, filtering, and cursor binding.
+Android and Web owned local input, debounce, active-filter state, pagination,
+and restoration of the ordinary feed.
+
+The first specification was committed before implementation
+([`e8b2f90`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/e8b2f90)).
+The implementation then added the backend query and both clients with tests
+([`efa9c90`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efa9c90)).
+The repository workflow was subsequently made explicit in `AGENTS.md`, the
+testing-spec template, and the pull-request checklist
+([`481dd5b`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/481dd5b)).
+
+**Human review and decisions**
+
+I chose to search every article that the product can actually show rather than
+silently restricting results to the current client page or an arbitrary recent
+date. Hidden and comparison-only records remain outside the search corpus. The
+first version uses bounded server pagination and deterministic database queries;
+semantic search, typo correction, suggestions, and premature search-service
+infrastructure were left out. If the corpus grows enough to require a database
+full-text index later, the API contract can remain stable.
+
+This workflow did not mean the specification could never change. Direct use
+after implementation exposed the Korean IME and category-control problems in
+Example 2. Those failures were handled by changing the reviewed behavior,
+updating the specification, and adding regression tests—not by silently changing
+the code while leaving the document behind.
+
+**Why this mattered**
+
+- Planning exposed a fundamental responsibility question before code existed:
+  search belongs to the server-side visible corpus, not the client cache.
+- Reviewing the plan prevented a premature date limit or external search
+  engine from becoming an accidental product constraint.
+- Writing the specification before tests gave the generated tests an
+  independently reviewed oracle.
+- Requiring specification updates with later fixes kept the written behavior,
+  tests, and implementation aligned.
+
+### Example 4 — Freezing the release test before running it (T3, T4)
 
 **Define** — The Iteration 3 announcement asked for clear success criteria and
 experimental evidence. My assigned release work was initially summarized as
