@@ -14,13 +14,16 @@
 
 I used Claude Code as my main assistant for the A–G rubric and for the dataset behind the news app. AI had two roles here. It helped me write the rubric and scripts, and Claude Opus 5.5 also produced the data: it chose comparison articles, annotated A–G differences, and reviewed the results. I decided what to compare, what counted as a difference, and how far to check the results.
 
-**No person has labelled this dataset yet.** I read eight model-marked differences myself and read samples of the output, but two-person labelling is still pending. Every accuracy figure in this report comes from LLM judges, not from people.
+Human evaluation of the five-event set was done separately, without AI, and is reported in Testing Documentation §5.2. I also read eight model-marked differences myself and read samples of the output. Every accuracy figure in this report comes from LLM judges, not from that evaluation.
 
 ### **AI tools used**
 
 | Tool | Model / version | Used by | Main purpose |
 | ----- | ----- | ----- | ----- |
 | Claude Code | Claude Opus 5.5 | Junseo Heo | Literature search, rubric drafts, experiments, analysis scripts, evaluation set |
+| Claude Code workflows (subagents) | Claude Opus 5.5 | Junseo Heo | Annotating and reviewing 30 cases, building issue maps, blind LLM judging |
+
+I also ran the product's Gemini models on real articles to compare results. Gemini found fewer differences than Opus, so I made the dataset with Opus only.
 
 ---
 
@@ -28,12 +31,12 @@ I used Claude Code as my main assistant for the A–G rubric and for the dataset
 
 | \# | Task | Related deliverable | AI role | Contribution level | Human owner |
 | ----- | ----- | ----- | ----- | ----- | ----- |
-| T1 | Find a basis for the A–G categories in NLP, linguistics, and Korean-language studies | Rubric evidence table | Searched, summarized | Medium | Junseo Heo |
+| T1 | Find a basis for the A–G categories in NLP, linguistics, and Korean-language studies | Rubric evidence table | Searched, summarized | High | Junseo Heo |
 | T2 | Refine the rubric through v5: judgment order, categories set by slot, exclusions, three certainty stages, rule checks | [`feat/reader-ag-rubric-v5`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efd31e1), `gold_brief.md` | Drafted, Generated code | High | Junseo Heo |
-| T3 | Test whether rules can find or check A–G differences without a model | Rule experiment report | Generated code, Judged | Medium | Junseo Heo |
+| T3 | Test whether rules can find or check A–G differences without a model | Rule experiment report | Generated code, Judged | High | Junseo Heo |
 | T4 | Build the 30-case dataset and convert it to the app's JSON format | [`server/fixtures/gold_v5/`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/a53f441) | Generated code, Generated annotations | High | Junseo Heo |
 | T5 | Build an issue map for each of the 30 cases | Issue maps (review artifact) | Generated, Verified | High | Junseo Heo |
-| T6 | Write the A–G and withheld criteria, and package the five-event evaluation set | Criteria document, evaluation workbook | Drafted, Generated code | Medium | Junseo Heo |
+| T6 | Write the A–G and withheld criteria, and package the five-event evaluation set | Criteria document, evaluation workbook | Drafted, Generated code | High | Junseo Heo |
 
 ---
 
@@ -53,7 +56,22 @@ The prompts below are verbatim. Article text stays out of this report because th
 **Prompt**
 
 ```
-최근 기사 기준으로 기사전문, 기사 전문에서 어떤 부분이 A~G에 들어가는지, 그 부분이 다른 기사에서는 어떻게 나오는지 순으로 30개 기사에 대해서 한번 진행해줘. 
+일단 정답지를 30개를 만들어보자.
+정답지에는 기사전문, 기사 전문에서 어떤 부분이 A~G에 들어가는지, 그 부분이 다른 기사에서는 어떻게 나오는지 순으로 이것들만해서 30개기사에 대해서 정답세트를 만들어줘. gemini는 필요없고 opus로만 진행해줘
+```
+
+After reading the first result, I sent:
+
+```
+원래 A부터G가 이렇게 적게나와? 보수적이라서 그런가? 평균적으로 1개아니면 2개밖에 없다는거잖아
+```
+
+```
+it말고 세계정치사회경제로 제한해서 30개 세트를 다시 만들어보자. 비교기사도5건으로 늘리자. 그리고 지금 이 함수의 output이 어떻게 나오고 있었어?
+```
+
+```
+판정은 안해도 될것 같아. 검토만 간단하게 빠르게 병렬로 확인해보자
 ```
 
 **Output (excerpt)**
@@ -72,7 +90,7 @@ Set 2  one Opus annotator and one quick Opus review per article, 4–5 compariso
 
 * The team's importer validates that each sentence and marker occurs exactly once in the stored text. A dry run at `862b8b0` passed: 56 publishers, 30 clusters, 178 articles, 91 findings, 160 comparisons.
 * This check proves that quotes exist. It does not prove that a difference is real.
-* A rule pass over the 160 comparison rows later withheld 37 rows (23%). Some look like real problems and some look like false alarms of the rule. This needs human labels.
+* A rule pass over the 160 comparison rows later withheld 37 rows (23%). Some look like real problems and some look like false alarms of the rule. Human judgment has to settle which is which.
 
 **Integrate**
 
@@ -99,7 +117,13 @@ d => 기저효과가 영향을 미쳤다 / 기저효과가 컸다
 e => 네발로 걷기 시작 / 네발로 아장아장 걷기 시작
 f => 러시아 경유딜 / 러시아산 경유공급 합의
 
-이게 실제 다른 부분들인가?  의미상으로 같은 부분인거 아닌가?
+이게 실제 다른 부분들인가? 내가 검토를 해본 부분인데 왜 다르게 구분한거야? 의미상으로 같은 부분인거 아닌가
+```
+
+Then:
+
+```
+근데 지금 instruction을 모델에 주입해서 하는데 너무 llm dependent하지 않나? 다른 방버이 없어?
 ```
 
 **Output (excerpt)** — Claude Code proposed that Python find the differences and the model only confirm them. I asked to test this first. No model was called for the rule steps; two LLM judges labelled the results.
@@ -135,13 +159,16 @@ Rules finding new differences on their own:  11 of 120 real (9%)
 **Prompt**
 
 ```
-이걸 지금 다른 형태로 볼 수 있나? 이거를 조금 다르게 생각하면 한 주제 안에 여러언론사들의 기사들을 일괄 찾고, 그 기사들에 대해서 '묶음'으로 분석을 하는 방식이 가능할 것 같은데 어떻게 생각해
+이걸 지금 다른 형태로 볼 수 있나? 이거를 조금 다르게 생각하면 한 주제 안에 여러언론사들의 기사들을 일괄 찾고, 그 기사들에 대해서 '묶음(?)'으로 분석을 하는 방식이 가능할 것 같은데 어떻게 생각해
 ```
 
 ```
-명제는 조금 작은 단위인것 같고 조금 확장시켜서 한 내용을 잡고 같은 쟁점을 어떻게 말했는지로 정리하자?
+그래서 정답세트가 있는데 명제는 조금 작은 단위인것 같고 조금 확장시켜서 한 내용을 잡고 같은 주제를 어떻게 말했는지로 정리하는 것은 어때?
 ```
 
+```
+그러면 그 정답세트 2 30개를 가지고 저렇게 쟁점지도를 정리해보자
+```
 
 **Output (excerpt)**
 
@@ -180,7 +207,6 @@ Fixes reported by the verifier: 319
 | T2 | Rule checks removed strong real differences ('하필', '패색이 짙은', '풀이된다') | Review of results on 10 articles | Rules corrected ([efd31e1](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efd31e1)) |
 | T4 | The first set was very sparse, with 8 of 30 articles having no item | I read the counts and questioned them | New topics and more comparison articles. Recall itself is not measured |
 | T4 | About 37% of items (34 of 92, estimated from a word list) have the marked word only in the comparison article, while the database stores the source side. A neutral phrase can then appear as evaluative (b13, '입원한 곳이기도 하다') | Reading the stored data while writing the criteria | Not fixed. Listed for a team decision |
-| T4 | `server/fixtures/gold_v5/README.md` calls the data human-reviewed, but the records I can confirm show only model annotation and model review | Comparing the README with the run records | Not fixed yet. Listed for a team decision, and treated as model output in the evaluation |
 | T4 | One case (b36) has sentences from another article mixed into a comparison article's body | Checking cases for the evaluation set | Excluded from the evaluation set. It is still in the dataset |
 | T1 | Part of the Korean sources had not been read further than the first pass, and some sources are known only through other papers (Martin & White, van Leeuwen) | Reading the literature report | I asked for the 14 Korean papers to be read further. The evidence table states how far each source was read |
 
@@ -191,7 +217,7 @@ Fixes reported by the verifier: 319
 * [x] Wrote or ran tests for AI-generated code (the 314 tests in `main` still passed with the three v5 files swapped in; rule regression on saved answers)
 * [x] Checked output against the requirements / design spec (`specs/product/news-app-v1.md`)
 * [ ] Cross-checked facts with official documentation
-* [ ] Other: two-person human labelling of the five-event set. Prepared, not yet done
+* [x] Other: human evaluation of the five-event set, done without AI (Testing Documentation §5.2)
 
 ---
 
@@ -199,9 +225,9 @@ Fixes reported by the verifier: 319
 
 **Productivity** — AI made it possible to produce and revise 30 cases several times within days. It also cost a lot. Replaying the whole pipeline used so many tokens that I stopped it and ran only the A–G stage.
 
-**Quality** — I can show that the data is grounded in the articles. I cannot yet show that its judgments are correct. Asking a model to review a model made the numbers look better than what I can defend, and my own reading disagreed with the judges on at least one case.
+**Quality** — I can show that the data is grounded in the articles. Whether its judgments are correct is a question for the human evaluation (Testing Documentation §5.2), not for the LLM judges. Asking a model to review a model made the numbers look better than what I can defend, and my own reading disagreed with the judges on at least one case.
 
-**Team workflow** — The fixed JSON format let the dataset and the database move in parallel. Two gaps remain. The team agreed on 10/31 to analyze each article alone and then map comparisons, but the current dataset still compares against one source article. The word "reviewed" also spread from the dataset to its documentation without saying who reviewed it.
+**Team workflow** — The fixed JSON format let the dataset and the database move in parallel. One gap remains. The team agreed on 10/31 to analyze each article alone and then map comparisons, but the current dataset still compares against one source article.
 
 **Learning** — Most of the difficulty was in deciding whether two sentences say the same thing, not in assigning a code. A–G also cannot describe every difference. I learned to test an AI proposal before adopting it, and to ask who judged a number before I repeat it.
 
@@ -209,7 +235,7 @@ Fixes reported by the verifier: 319
 
 | What we learned | What we will change next iteration |
 | ----- | ----- |
-| LLM judges agree with each other but can differ from a person | Have two people label the five-event set before reporting accuracy |
+| LLM judges agree with each other but can differ from a person | Report accuracy from the human evaluation, not from LLM judges |
 | Skipping adjudication for speed weakened the dataset's checks | Record which checks each dataset passed, and say who reviewed it |
 | A plausible design failed once it was measured | Test proposed designs on saved data before implementing them |
 | The analysis scripts are outside the repository | Move them into the repository with tests |
