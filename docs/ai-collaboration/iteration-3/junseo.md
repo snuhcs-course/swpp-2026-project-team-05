@@ -146,7 +146,7 @@ Rules finding new differences on their own:  11 of 120 real (9%)
 **Integrate**
 
 * Kept: The model finds differences; rules check them and classify closed lists.
-* Modified: The rubric now excludes neutral synonyms from C and mimetic words from E, and it uses three certainty stages for G instead of five. The rules were also removing strong real differences ('하필', '패색이 짙은', '풀이된다'), which I corrected ([c33cef9](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/c33cef9)).
+* Modified: The rubric now excludes neutral synonyms from C and mimetic words from E, and it uses three certainty stages for G instead of five. The rules were also removing strong real differences ('하필', '패색이 짙은', '풀이된다'), which I corrected ([efd31e1](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efd31e1)).
 * Discarded: The architecture in which rules find differences first.
 * Result: Rubric v5 is on [`feat/reader-ag-rubric-v5`](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efd31e1). That branch is not merged, and the news app does not run it. The product uses v5 only through the dataset, because `gold_brief.md` applies the same rubric.
 
@@ -204,7 +204,7 @@ Fixes reported by the verifier: 319
 | ----- | ----- | ----- | ----- |
 | T2 | Neutral synonyms and mimetic words were marked as differences (진출/입점, 아장아장) | I read eight examples against the articles | Exclusions added to C and E |
 | T3 | The proposed design, rules first and model second, found mostly wrong differences | Rule experiment: 9% of new differences were real, by LLM judges | Design reversed |
-| T2 | Rule checks removed strong real differences ('하필', '패색이 짙은', '풀이된다') | Review of results on 10 articles | Rules corrected ([c33cef9](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/c33cef9)) |
+| T2 | Rule checks removed strong real differences ('하필', '패색이 짙은', '풀이된다') | Review of results on 10 articles | Rules corrected ([efd31e1](https://github.com/snuhcs-course/swpp-2026-project-team-05/commit/efd31e1)) |
 | T4 | The first set was very sparse, with 8 of 30 articles having no item | I read the counts and questioned them | New topics and more comparison articles. Recall itself is not measured |
 | T4 | About 37% of items (34 of 92, estimated from a word list) have the marked word only in the comparison article, while the database stores the source side. A neutral phrase can then appear as evaluative (b13, '입원한 곳이기도 하다') | Reading the stored data while writing the criteria | Not fixed. Listed for a team decision |
 | T4 | `server/fixtures/gold_v5/README.md` calls the data human-reviewed, but the records I can confirm show only model annotation and model review | Comparing the README with the run records | Not fixed yet. Listed for a team decision, and treated as model output in the evaluation |
