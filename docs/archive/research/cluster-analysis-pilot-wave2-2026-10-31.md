@@ -3,7 +3,7 @@
 Date: 2026-10-31
 
 Scope: five new politics and society clusters, reviewed against
-[`news-app-v1.md`](../specs/product/news-app-v1.md) after the Wave 1 P0 changes
+[`news-app-v1.md`](../../../specs/product/news-app-v1.md) after the Wave 1 P0 changes
 
 ## 1. Goal
 

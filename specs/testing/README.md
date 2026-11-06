@@ -43,6 +43,7 @@ not be converted into a passing claim.
 - CI logs and coverage artifacts are evidence for one revision, not permanent
   product requirements.
 
-Acceptance criteria and a frozen AI evaluation set are versioned separately from
-ordinary unit-test refactors. Once formally frozen for an iteration, cases are
-added through a dated revision and are never silently removed or edited.
+Acceptance criteria and any team-approved editorial review set are versioned
+separately from ordinary unit-test refactors. Once formally frozen for an
+iteration, cases are added through a dated revision and are never silently
+removed or edited.

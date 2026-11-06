@@ -485,11 +485,12 @@ Response:
 
 `total_count` is a search-only field: it is the exact result count for the same
 visibility, category, publisher, and scope filters before cursor application.
-Ordinary feed pages omit it. Android and Web issue parallel `POLITICS` and
-`SOCIETY` search requests so each category has an independent first page,
-count, cursor, and failure boundary. The cursor represents the last ranked
-position and is validated with Django signing. Feed payloads do not include body
-or findings.
+Ordinary feed pages omit it. Android and Web first request the uncategorized
+`All` result and request `POLITICS` or `SOCIETY` only after the user selects that
+search filter. Each loaded filter owns its first page, cursor, and failure
+boundary; the clients do not display result-count badges. The cursor represents
+the last ranked position and is validated with Django signing. Feed payloads do
+not include body or findings.
 
 ### 6.4 Article detail
 
@@ -576,6 +577,12 @@ The importer:
 - rejects conflicting content rather than invalidating offsets;
 - removes obsolete findings/propositions/comparisons from the reviewed cluster result.
 
+`--replace-news` is a controlled full replacement of Publisher, StoryCluster,
+Article, and stored analysis rows. It preserves accounts, sessions, URL-analysis
+cache, and URL-analysis history, but cascading foreign keys clear saved-article
+and followed-publisher relationships. Do not use it as an ordinary incremental
+content refresh.
+
 Commands:
 
 ```bash
@@ -654,26 +661,9 @@ The Android preview and detail flow deliberately avoids nested drag, paging, and
 article-scroll gesture owners. It still requires Compose and physical-device
 regression tests with long target articles and font scaling.
 
-## 10. Implementation order
+## 10. Required tests
 
-The news schema, migration, reviewed fixture, and importer baseline already exist. Continue in this order:
-
-1. Extend the existing account model for email registration and preserve the developer account.
-2. Implement registration, login, logout, `me`, and Android encrypted-session persistence.
-3. Implement publisher, feed, article-detail, and article-analysis read APIs.
-4. Add backend contract, permission, pagination, grouping, and query-count tests.
-5. Introduce news routes and API-to-UI mappers without coupling them to the legacy analysis state machine.
-6. Implement Android login/registration, encrypted session restoration, and feed navigation.
-7. Extract the reusable Reader text/highlight primitives, then implement the full Reader, Android analysis toggle, and Web analysis rail.
-8. Connect findings and multi-publisher preview/detail presentation to the analysis DTO.
-9. Run the required end-to-end flows against the reviewed Supabase data.
-10. Deploy compatible API code before distributing the Android build.
-
-Automatic collection and analysis are intentionally not in this order.
-
-## 11. Required tests
-
-### 11.1 Backend
+### 10.1 Backend
 
 - email/username normalization and duplicate handling;
 - Django password hashing and invalid-login behavior;
@@ -694,7 +684,7 @@ Automatic collection and analysis are intentionally not in this order.
 - importer dry-run rollback and idempotent rerun;
 - importer rejects changed body text for an existing canonical URL.
 
-### 11.2 Android
+### 10.2 Android
 
 - registration and login validation;
 - session restoration and expired-session return to login;
@@ -711,7 +701,7 @@ Automatic collection and analysis are intentionally not in this order.
 - target article content scrolls vertically;
 - long text, font scaling, and screen-reader semantics.
 
-### 11.3 End to end
+### 10.3 End to end
 
 1. Register → Latest/Following feed → open article → source-only finding.
 2. Open the 제주 finding → compare `보복살해범` with `피의자` from two publishers.
@@ -720,7 +710,7 @@ Automatic collection and analysis are intentionally not in this order.
 4. Restart the app and restore the authenticated feed and local category.
 5. Confirm an ordinary user cannot access hidden or developer-only behavior.
 
-## 12. Definition of done
+## 11. Definition of done
 
 v1 is complete when:
 
