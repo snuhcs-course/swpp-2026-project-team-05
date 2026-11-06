@@ -6,5 +6,7 @@ as negative examples, absent alignments, and equal-wording alignments.
 
 `python manage.py import_gold_dataset server/fixtures/gold_v5 --replace-news`
 hydrates the article snapshots, validates every reviewed sentence and marker,
-and atomically replaces only the news-domain rows. Accounts, sessions, cached
-URL analyses, and analysis history are not deleted.
+and atomically replaces the news-domain rows. Accounts, sessions, cached URL
+analyses, and analysis history are not deleted. Saved-article and followed-
+publisher relationships are deleted by cascade when their article and publisher
+rows are replaced.

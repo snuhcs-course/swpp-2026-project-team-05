@@ -330,7 +330,7 @@ After automated tests pass:
 - searching analysis explanations or A-G codes;
 - searching comparison-only articles;
 - query highlighting with server-provided HTML;
-- exact total-result counts;
+- user-visible total-result counts or count badges;
 - user-selectable relevance or date sorting;
 - date-range controls;
 - saving or sharing a search query.

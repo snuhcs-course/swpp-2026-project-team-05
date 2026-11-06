@@ -159,14 +159,14 @@ and cross-outlet comparison remain independent of follows.
 
 | Risk or partition | Representative cases | Oracle source |
 | --- | --- | --- |
-| Relationship set | empty / one / many / duplicate / replacement | Product spec §§11.3–11.5 |
-| Account boundary | same user / different user / sequential login | Product spec §11.6 |
-| Publisher lifecycle | selectable / inactive / no eligible article / hard-deleted | Product spec §§11.3–11.5 |
-| Feed scope | absent / ALL / FOLLOWING / invalid | Product spec §§11.2, 11.5 |
-| Cursor context | same set / changed follows / changed category / changed scope | Product spec §11.6 |
-| Analysis independence | followed source / unfollowed comparison source | Product spec §11.1 |
-| Client editor | draft / cancel / saving / success / failure | Product spec §§11.7–11.9 |
-| Navigation | Following / global search / Reader / back | Product spec §§11.7–11.8 |
+| Relationship set | empty / one / many / duplicate / replacement | Feature spec §§11.3–11.5 |
+| Account boundary | same user / different user / sequential login | Feature spec §11.6 |
+| Publisher lifecycle | selectable / inactive / no eligible article / hard-deleted | Feature spec §§11.3–11.5 |
+| Feed scope | absent / ALL / FOLLOWING / invalid | Feature spec §§11.2, 11.5 |
+| Cursor context | same set / changed follows / changed category / changed scope | Feature spec §11.6 |
+| Analysis independence | followed source / unfollowed comparison source | Feature spec §11.1 |
+| Client editor | draft / cancel / saving / success / failure | Feature spec §§11.7–11.9 |
+| Navigation | Following / global search / Reader / back | Feature spec §§11.7–11.8 |
 
 ## Human review checkpoint
 

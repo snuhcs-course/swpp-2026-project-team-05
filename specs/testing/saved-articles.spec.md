@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented |
+| Status | Implemented; formal intent review not recorded |
 | Owner | Saved articles feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§9–10 |
 | Last reviewed | 2026-11-02 |

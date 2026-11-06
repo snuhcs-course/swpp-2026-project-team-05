@@ -11,9 +11,8 @@
 
 This is a small release smoke test for the final Android APK, production API,
 and reviewed database seed. It catches broken integration, navigation, and
-Reader rendering before the demo. It does **not** measure AI accuracy and does
-not replace the 30-case AI module evaluation or the six frozen UAT stories in
-`acceptance-v1.spec.md`.
+Reader rendering before the demo. It does **not** measure editorial accuracy and
+does not replace the six frozen UAT stories in `acceptance-v1.spec.md`.
 
 ## Frozen cases
 
@@ -23,7 +22,7 @@ public API's display selection. A finding is one distinct reviewed source
 proposition. Comparison pages are deduplicated by publisher and capped at three
 publishers per finding; the raw fixture may retain additional reviewed passages.
 
-| Case | Reviewed source story | Expected findings | Expected comparison passages |
+| Case | Reviewed source story | Expected findings | Expected comparison pages |
 | --- | --- | ---: | ---: |
 | `b08` | HD Hyundai Electric quarterly revenue | 2 | 3 |
 | `b12` | Shubao's first public appearance | 1 | 3 |
