@@ -5,7 +5,7 @@
 | Status | Implemented; formal intent review not recorded |
 | Owner | Saved articles feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§9–10 |
-| Last reviewed | 2026-11-02 |
+| Last reviewed | 2026-11-14 |
 
 ## Scope
 
@@ -16,8 +16,11 @@ save state; clients own interaction and cache synchronization.
 
 ### Non-goals
 
-- Folders, tags, notes, offline storage, comparison-support saves, saved-list
-  filtering, reactions, comments, or public save counts.
+- Folders, tags, notes, general article downloads, queued offline writes,
+  comparison-support saves, saved-list filtering, reactions, comments, or
+  public save counts. The bounded Android cache for offline Saved reads is
+  specified separately in
+  [`guest-offline-reading.spec.md`](guest-offline-reading.spec.md).
 - Revalidating article or analysis editorial quality.
 
 ## Preconditions

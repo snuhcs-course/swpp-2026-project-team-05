@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented v1.7 baseline with draft v1.8 guest/offline extension |
-| Version | 1.8 draft |
+| Status | Implemented v1.8 baseline |
+| Version | 1.8 |
 | Date | 2026-11-14 |
 | Clients | Android and Web |
 | API | Django JSON API |
@@ -45,8 +45,8 @@ Internal story clusters organize related articles, but v1 does not expose a topi
 Android and Web layout, gestures, loading states, and accessibility are specified
 in [`news-app-v1-ui.md`](../ui/news-app-v1-ui.md). Search, saved articles,
 and followed-source behavior are specified in
-[`news-app-features.md`](../features/news-app-features.md). Draft guest access
-and Android offline reading behavior are specified in
+[`news-app-features.md`](../features/news-app-features.md). Guest access and
+Android offline reading behavior are specified in
 [`guest-offline-reading.md`](../features/guest-offline-reading.md).
 
 ### 1.1 Required v1 functionality

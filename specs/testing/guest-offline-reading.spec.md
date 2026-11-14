@@ -118,7 +118,8 @@ authenticated offline Saved reads.
 
 - [Unit] Saved cache queries require the active user ID, and two accounts on one
   installation never see each other's relationships. Guest receives none.\
-  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.savedSnapshotsAreIsolatedAndClearedPerUser`
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.savedSnapshotsAreIsolatedAndClearedPerUser`,
+  `com.swpp.team5.frameless.data.NewsRepositoryTest.cachedArticleRestoresTheActiveUsersSavedState`
 - [Unit] A successful Saved first-page refresh replaces that user's cached
   verified prefix atomically; loaded continuation pages append, and a failed
   refresh changes nothing.\
