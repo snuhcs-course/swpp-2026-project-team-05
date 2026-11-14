@@ -55,7 +55,11 @@ internal class NewsRepository(
         return service.article(optionalToken(), articleId).also { cache.storeArticle(it) }
     }
 
-    override suspend fun cachedArticle(articleId: String): ArticleDetail? = cache.article(articleId)
+    override suspend fun cachedArticle(articleId: String): ArticleDetail? {
+        val article = cache.article(articleId) ?: return null
+        val userId = auth.currentSession()?.user?.id ?: return article
+        return article.copy(isSaved = cache.isSaved(userId, articleId))
+    }
 
     override suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi {
         val response = service.analysis(optionalToken(), article.id)

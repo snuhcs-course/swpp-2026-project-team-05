@@ -11,6 +11,7 @@ import java.time.Instant
 
 internal interface NewsCacheDataSource {
     suspend fun article(articleId: String): ArticleDetail?
+    suspend fun isSaved(userId: String, articleId: String): Boolean = false
     suspend fun storeArticle(article: ArticleDetail)
     suspend fun analysis(article: ArticleDetail): ApiArticleAnalysis?
     suspend fun storeAnalysis(article: ArticleDetail, analysis: ApiArticleAnalysis): Boolean
@@ -31,6 +32,9 @@ internal class NewsCache(
             dao.touchDetail(articleId, System.currentTimeMillis())
         }
     }
+
+    override suspend fun isSaved(userId: String, articleId: String): Boolean =
+        withContext(Dispatchers.IO) { dao.isSaved(userId, articleId) }
 
     override suspend fun storeArticle(article: ArticleDetail) = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()

@@ -85,6 +85,26 @@ class NewsRepositoryTest {
     }
 
     @Test
+    fun cachedArticleRestoresTheActiveUsersSavedState() = runBlocking {
+        val cache = FakeNewsCache().apply {
+            cachedArticle = article.copy(isSaved = false)
+            savedArticleIds += article.id
+        }
+        val repository = NewsRepository(
+            RuntimeEnvironment.getApplication(), FakeNewsService(),
+            FakeAuthDataSource(session), cache
+        )
+
+        assertTrue(repository.cachedArticle(article.id)!!.isSaved)
+
+        val guestRepository = NewsRepository(
+            RuntimeEnvironment.getApplication(), FakeNewsService(),
+            FakeAuthDataSource(null), cache
+        )
+        assertFalse(guestRepository.cachedArticle(article.id)!!.isSaved)
+    }
+
+    @Test
     fun savePreparesOfflineCopyBeforeServerMutation() = runBlocking {
         val events = mutableListOf<String>()
         val service = FakeNewsService(events)
@@ -200,9 +220,13 @@ class NewsRepositoryTest {
         var cachedArticle: ArticleDetail? = null
         var cachedAnalysis: ApiArticleAnalysis? = null
         var acceptAnalysis = true
+        val savedArticleIds = mutableSetOf<String>()
 
         override suspend fun article(articleId: String) =
             cachedArticle?.takeIf { it.id == articleId }
+
+        override suspend fun isSaved(userId: String, articleId: String) =
+            articleId in savedArticleIds
 
         override suspend fun storeArticle(article: ArticleDetail) {
             events += "cache-detail"

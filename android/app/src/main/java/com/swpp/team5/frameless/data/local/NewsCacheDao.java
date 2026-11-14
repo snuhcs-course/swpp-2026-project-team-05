@@ -79,6 +79,10 @@ public interface NewsCacheDao {
     @Query("DELETE FROM cached_saved_article WHERE user_id = :userId AND article_id = :articleId")
     void deleteSaved(String userId, String articleId);
 
+    @Query("SELECT EXISTS(SELECT 1 FROM cached_saved_article " +
+            "WHERE user_id = :userId AND article_id = :articleId)")
+    boolean isSaved(String userId, String articleId);
+
     @Query("DELETE FROM cached_saved_article WHERE user_id = :userId AND article_id NOT IN " +
             "(SELECT article_id FROM cached_saved_article WHERE user_id = :userId " +
             "ORDER BY saved_at DESC LIMIT :keep)")

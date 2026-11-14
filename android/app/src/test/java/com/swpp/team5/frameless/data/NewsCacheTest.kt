@@ -183,8 +183,11 @@ class NewsCacheTest {
         cache.storeSavedPage("user-a", savedPage, replace = true)
         cache.storeSavedPage("user-b", savedPage, replace = true)
 
+        assertTrue(cache.isSaved("user-a", detail.id))
+        assertFalse(cache.isSaved("user-c", detail.id))
         assertTrue(cache.offlineSavedArticles("user-a")!!.items.single().isSaved)
         cache.clearSaved("user-a")
+        assertFalse(cache.isSaved("user-a", detail.id))
         assertNull(cache.offlineSavedArticles("user-a"))
         assertFalse(cache.offlineSavedArticles("user-b")!!.items.isEmpty())
     }
