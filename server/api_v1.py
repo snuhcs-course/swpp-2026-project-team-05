@@ -11,6 +11,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import RequestDataTooBig, ValidationError
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
+from django.utils.cache import patch_vary_headers
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
@@ -97,6 +98,22 @@ def _auth(request) -> tuple[UserAccount | None, JsonResponse | None]:
     return user, None
 
 
+def _optional_auth(request) -> tuple[UserAccount | None, JsonResponse | None]:
+    """Authenticate a supplied bearer token while allowing a missing header."""
+    header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not header:
+        return None, None
+    session = session_from_request(request)
+    if session is None:
+        return None, _error("AUTH_REQUIRED", "로그인이 만료됐어요. 다시 로그인해 주세요.", 401)
+    return session.user, None
+
+
+def _credential_varying(response: JsonResponse) -> JsonResponse:
+    patch_vary_headers(response, ("Authorization",))
+    return response
+
+
 @csrf_exempt
 @require_POST
 def register(request):
@@ -180,13 +197,13 @@ def me(request):
 
 @require_GET
 def publishers(request):
-    user, error = _auth(request)
+    user, error = _optional_auth(request)
     if error:
         return error
-    return JsonResponse(
+    return _credential_varying(JsonResponse(
         {"items": list_publishers(user=user)},
         json_dumps_params={"ensure_ascii": False},
-    )
+    ))
 
 
 @csrf_exempt
@@ -223,7 +240,7 @@ def followed_publishers(request):
 
 @require_GET
 def articles(request):
-    user, error = _auth(request)
+    user, error = _optional_auth(request)
     if error:
         return error
     category = request.GET.get("category") or None
@@ -238,6 +255,8 @@ def articles(request):
             400,
             fields={"scope": "ALL 또는 FOLLOWING을 선택해 주세요."},
         )
+    if scope == "FOLLOWING" and user is None:
+        return _error("AUTH_REQUIRED", "팔로잉 기사는 로그인 후 볼 수 있어요.", 401)
     publisher_codes = list(dict.fromkeys(request.GET.getlist("publisher")))
     if publisher_codes:
         known = set(Publisher.objects.filter(code__in=publisher_codes, is_active=True)
@@ -270,29 +289,35 @@ def articles(request):
         )
     except InvalidCursor:
         return _error("INVALID_CURSOR", "기사 목록을 처음부터 다시 불러와 주세요.", 400)
-    return JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    return _credential_varying(JsonResponse(
+        payload, json_dumps_params={"ensure_ascii": False},
+    ))
 
 
 @require_GET
 def article_detail(request, article_id):
-    user, error = _auth(request)
+    user, error = _optional_auth(request)
     if error:
         return error
     article = get_article(article_id, user=user)
     if article is None:
         return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
-    return JsonResponse(article_detail_payload(article), json_dumps_params={"ensure_ascii": False})
+    return _credential_varying(JsonResponse(
+        article_detail_payload(article), json_dumps_params={"ensure_ascii": False},
+    ))
 
 
 @require_GET
 def article_analysis(request, article_id):
-    _, error = _auth(request)
+    _, error = _optional_auth(request)
     if error:
         return error
     article = get_article(article_id)
     if article is None:
         return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
-    return JsonResponse(article_analysis_payload(article), json_dumps_params={"ensure_ascii": False})
+    return _credential_varying(JsonResponse(
+        article_analysis_payload(article), json_dumps_params={"ensure_ascii": False},
+    ))
 
 
 @require_GET

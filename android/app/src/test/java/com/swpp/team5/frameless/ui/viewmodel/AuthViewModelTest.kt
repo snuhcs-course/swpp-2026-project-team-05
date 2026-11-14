@@ -23,8 +23,17 @@ class AuthViewModelTest {
     private val mainLooper get() = shadowOf(Looper.getMainLooper())
     private val session = AppSession(
         NewsUser("user-1", "reader@example.com", "reader", false),
-        "token", "2026-11-30T00:00:00+09:00"
+        "token", "2099-11-30T00:00:00+09:00"
     )
+
+    @Test
+    fun cleanInstallStartsAsGuestWithoutOpeningLogin() {
+        val viewModel = AuthViewModel(FakeAuthDataSource())
+
+        assertNull(viewModel.session)
+        assertFalse(viewModel.isRestoring)
+        assertFalse(viewModel.showLogin)
+    }
 
     @Test
     fun blankLoginIsRejectedAndSuccessfulLoginClearsPassword() {
@@ -91,6 +100,20 @@ class AuthViewModelTest {
         mainLooper.idle()
         assertNull(expired.session)
         assertTrue(expired.error.orEmpty().contains("만료"))
+    }
+
+    @Test
+    fun temporaryRestoreFailureKeepsTheUnexpiredLocalSession() {
+        val repository = FakeAuthDataSource().apply {
+            current = session
+            restoreFailure = NewsApiException("NETWORK_ERROR", "offline")
+        }
+
+        val viewModel = AuthViewModel(repository)
+        mainLooper.idle()
+
+        assertEquals(session, viewModel.session)
+        assertFalse(viewModel.isRestoring)
     }
 
     @Test

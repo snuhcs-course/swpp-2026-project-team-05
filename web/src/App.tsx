@@ -19,8 +19,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<Protected><FeedPage /></Protected>} />
-      <Route path="/articles/:id" element={<Protected><ArticlePage /></Protected>} />
+      <Route path="/" element={<FeedPage />} />
+      <Route path="/articles/:id" element={<ArticlePage />} />
       <Route path="/saved" element={<Protected><SavedArticlesPage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

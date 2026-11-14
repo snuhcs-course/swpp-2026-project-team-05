@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import UUID
 
 from django.core import signing
-from django.db.models import Exists, OuterRef, Prefetch, Q
+from django.db.models import BooleanField, Exists, OuterRef, Prefetch, Q, Value
 from django.utils.dateparse import parse_datetime
 
 from .article_search import apply_article_search, search_excerpt
@@ -123,15 +123,18 @@ def decode_cursor(value: str, *, context: str, search_active: bool) -> tuple[int
         raise InvalidCursor from exc
 
 
-def list_publishers(*, user: UserAccount) -> list[dict]:
-    followed = UserPublisherFollow.objects.filter(user=user, publisher_id=OuterRef("pk"))
+def list_publishers(*, user: UserAccount | None) -> list[dict]:
+    followed = (
+        Exists(UserPublisherFollow.objects.filter(user=user, publisher_id=OuterRef("pk")))
+        if user is not None else Value(False, output_field=BooleanField())
+    )
     rows = (Publisher.objects
             .filter(
                 is_active=True,
                 articles__visibility=ArticleVisibility.VISIBLE,
                 articles__is_feed_visible=True,
             )
-            .annotate(is_followed=Exists(followed))
+            .annotate(is_followed=followed)
             .distinct()
             .order_by("display_order", "name_ko", "code"))
     payloads = []
@@ -142,10 +145,13 @@ def list_publishers(*, user: UserAccount) -> list[dict]:
     return payloads
 
 
-def list_articles(*, user: UserAccount, category: str | None,
+def list_articles(*, user: UserAccount | None, category: str | None,
                   publisher_codes: list[str], query: str | None,
                   cursor: str | None, limit: int, scope: str = "ALL") -> dict:
-    saved_by_user = SavedArticle.objects.filter(user=user, article_id=OuterRef("pk"))
+    is_saved = (
+        Exists(SavedArticle.objects.filter(user=user, article_id=OuterRef("pk")))
+        if user is not None else Value(False, output_field=BooleanField())
+    )
     followed_publisher_codes = (
         list(UserPublisherFollow.objects
              .filter(user=user, publisher__is_active=True)
@@ -159,7 +165,7 @@ def list_articles(*, user: UserAccount, category: str | None,
                     is_feed_visible=True,
                     publisher__is_active=True,
                 )
-                .annotate(is_saved=Exists(saved_by_user))
+                .annotate(is_saved=is_saved)
                 .select_related("publisher", "story_cluster"))
     if category:
         queryset = queryset.filter(category=category)
@@ -238,6 +244,7 @@ def article_detail_payload(article: Article) -> dict:
     payload.update({
         "body": article.body_text,
         "original_url": article.canonical_url,
+        "content_hash": article.content_hash,
     })
     return payload
 
@@ -321,7 +328,12 @@ def _comparison_pages(finding: ExpressionFinding, source_article: Article) -> li
 def article_analysis_payload(article: Article) -> dict:
     cluster = article.story_cluster
     if cluster is None:
-        return {"state": AnalysisStatus.NOT_STARTED, "version": "", "findings": []}
+        return {
+            "state": AnalysisStatus.NOT_STARTED,
+            "version": "",
+            "source_content_hash": article.content_hash,
+            "findings": [],
+        }
 
     comparison_queryset = (FindingComparison.objects
                            .filter(target_article__visibility=ArticleVisibility.VISIBLE,
@@ -364,5 +376,6 @@ def article_analysis_payload(article: Article) -> dict:
     return {
         "state": cluster.analysis_status,
         "version": cluster.analysis_version,
+        "source_content_hash": article.content_hash,
         "findings": findings,
     }

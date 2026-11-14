@@ -62,7 +62,7 @@ save state; clients own interaction and cache synchronization.
 
 - [Integration] Missing or expired authentication is rejected on every saved
   endpoint.\
-  Tested by: `tests.test_news_api.NewsApiTests.test_news_endpoints_require_authentication`
+  Tested by: `tests.test_news_api.NewsApiTests.test_personalized_news_operations_still_require_authentication`
 - [Integration] A hidden, comparison-only, inactive-publisher, or unknown
   article cannot be newly saved and receives the same not-found response.\
   Tested by: `tests.test_news_api.NewsApiTests.test_save_eligibility_and_soft_hidden_lifecycle`

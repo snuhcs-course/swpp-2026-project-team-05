@@ -15,7 +15,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class AuthRepositoryTest {
     private val session = AppSession(
-        NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry"
+        NewsUser("u1", "reader@example.com", "reader", false),
+        "token",
+        "2099-11-30T00:00:00+09:00"
     )
 
     private fun repository(service: FakeNewsService): AuthRepository {
@@ -52,6 +54,17 @@ class AuthRepositoryTest {
     }
 
     @Test
+    fun locallyExpiredSessionIsClearedBeforeAnyNetworkRequest() = runBlocking {
+        val expired = session.copy(expiresAt = "2020-01-01T00:00:00Z")
+        val service = FakeNewsService(expired)
+        val repository = repository(service)
+
+        repository.login("reader", "password")
+
+        assertNull(repository.currentSession())
+    }
+
+    @Test
     fun logoutClearsLocalSessionEvenWhenRemoteLogoutFails() = runBlocking {
         val service = FakeNewsService(session)
         val repository = repository(service)
@@ -75,14 +88,14 @@ class AuthRepositoryTest {
         override suspend fun logout(token: String) {
             logoutFailure?.let { throw it }
         }
-        override suspend fun publishers(token: String) = error("unused")
+        override suspend fun publishers(token: String?) = error("unused")
         override suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>) =
             error("unused")
-        override suspend fun articles(token: String, category: NewsCategory?,
+        override suspend fun articles(token: String?, category: NewsCategory?,
                                       scope: FeedScope, cursor: String?, limit: Int,
                                       query: String?) = error("unused")
-        override suspend fun article(token: String, articleId: String) = error("unused")
-        override suspend fun analysis(token: String, articleId: String) = error("unused")
+        override suspend fun article(token: String?, articleId: String) = error("unused")
+        override suspend fun analysis(token: String?, articleId: String) = error("unused")
         override suspend fun savedArticles(token: String, cursor: String?, limit: Int) = error("unused")
         override suspend fun saveArticle(token: String, articleId: String) = Unit
         override suspend fun removeSavedArticle(token: String, articleId: String) = Unit

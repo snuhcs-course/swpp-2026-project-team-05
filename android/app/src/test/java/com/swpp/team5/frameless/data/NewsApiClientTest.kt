@@ -133,7 +133,9 @@ class NewsApiClientTest {
         assertEquals(NewsCategory.POLITICS, conservative.items.single().category)
         assertEquals(StoredAnalysisState.NOT_STARTED, conservative.items.single().analysisState)
 
-        responses += Response(200, """{"state":"READY","version":"v1"}""")
+        responses += Response(200, """{
+          "state":"READY","version":"v1","source_content_hash":"article-hash"
+        }""")
         assertTrue(client.analysis("token", "a3").findings.isEmpty())
 
         responses += Response(200, """{"items":[{
@@ -204,10 +206,10 @@ class NewsApiClientTest {
       "id":"a1","publisher":{"code":"yna","name":"연합뉴스","logo_url":null},
       "title":"정책 추진","body":"정책 본문","category":"POLITICS",
       "published_at":"2026-10-31T12:00:00+09:00","original_url":"https://example.com/a1",
-      "analysis_state":"READY","is_saved":true}"""
+      "analysis_state":"READY","is_saved":true,"content_hash":"article-hash"}"""
 
     private fun analysisJson() = """{
-      "state":"READY","version":"reviewed-v1","findings":[{
+      "state":"READY","version":"reviewed-v1","source_content_hash":"article-hash","findings":[{
         "id":"f1","categories":["C","D"],"explanation":"속도를 강조한다.",
         "source":{"scope":"BODY","sentence":{"start":0,"end":16,"text":"정책을 전격 추진한다고 밝혔다."},
           "marker":{"start_in_sentence":4,"end_in_sentence":6,"text":"전격"}},

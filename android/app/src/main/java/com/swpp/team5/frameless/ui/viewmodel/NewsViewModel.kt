@@ -66,6 +66,7 @@ internal data class NewsFeedState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
+    val isOffline: Boolean = false,
     val error: String? = null,
     val nextPageError: String? = null
 )
@@ -91,6 +92,7 @@ internal data class ArticleReaderState(
     val analysisEnabled: Boolean = true,
     val isArticleLoading: Boolean = false,
     val isAnalysisLoading: Boolean = false,
+    val isOffline: Boolean = false,
     val articleError: String? = null,
     val analysisError: String? = null
 )
@@ -101,6 +103,7 @@ internal data class SavedArticlesState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
+    val isOffline: Boolean = false,
     val error: String? = null,
     val nextPageError: String? = null
 )
@@ -141,10 +144,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             try {
                 val publishers = repository.publishers()
                 feed = feed.copy(publishers = publishers)
-                loadFirstPage()
             } catch (failure: Exception) {
-                handleFeedFailure(failure)
+                if (isAuthFailure(failure)) authExpired = true
             }
+            loadFirstPage()
         }
     }
 
@@ -165,6 +168,28 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         saveError = null
         readerOrigin = NewsRoute.FEED
         authExpired = false
+    }
+
+    fun onViewerChanged() {
+        val currentRoute = route
+        val currentArticleId = reader.articleId
+        feed = feed.copy(
+            publishers = feed.publishers.map { it.copy(isFollowed = false) },
+            items = feed.items.map { it.copy(isSaved = false) },
+            searchSections = feed.searchSections.mapValues { (_, section) ->
+                section.copy(items = section.items.map { it.copy(isSaved = false) })
+            }
+        )
+        reader = reader.copy(article = reader.article?.copy(isSaved = false))
+        saved = SavedArticlesState()
+        authExpired = false
+        initialized = false
+        initialize()
+        when {
+            currentRoute == NewsRoute.READER && currentArticleId.isNotBlank() ->
+                openArticle(currentArticleId)
+            currentRoute == NewsRoute.SAVED -> route = NewsRoute.FEED
+        }
     }
 
     fun retryFeed() {
@@ -397,13 +422,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 nextCursor = page.nextCursor,
                 isLoading = false,
                 isRefreshing = false,
+                isOffline = false,
                 error = null,
                 nextPageError = null
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            handleFeedFailure(failure)
+            handleFeedFailure(failure, category, scope)
         }
     }
 
@@ -472,6 +498,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                     nextCursor = page.nextCursor,
                     isLoadingMore = false
                 )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
                 feed = feed.copy(
@@ -519,12 +547,34 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         }
     }
 
-    private fun handleFeedFailure(failure: Exception) {
+    private suspend fun handleFeedFailure(
+        failure: Exception,
+        category: NewsCategory,
+        scope: FeedScope
+    ) {
         if (isAuthFailure(failure)) authExpired = true
+        if (category != feed.category || scope != feed.scope ||
+            feed.activeSearchQuery.isNotBlank()) return
+        val isNetworkFailure = failure is NewsApiException && failure.code == "NETWORK_ERROR"
+        val offlineItems = if (isNetworkFailure) {
+            try {
+                repository.offlineSavedArticles(category)?.items.orEmpty()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
         feed = feed.copy(
+            items = if (isNetworkFailure) offlineItems else feed.items,
+            nextCursor = if (isNetworkFailure) null else feed.nextCursor,
             isLoading = false,
             isRefreshing = false,
-            error = failure.message ?: "기사 목록을 불러오지 못했어요."
+            isLoadingMore = false,
+            isOffline = isNetworkFailure,
+            error = if (isNetworkFailure) null else failure.message ?: "기사 목록을 불러오지 못했어요."
         )
     }
 
@@ -556,6 +606,25 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     private suspend fun loadSavedFirstPage() {
+        val offlineItems = try {
+            repository.offlineSavedArticles()?.items.orEmpty()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyList()
+        }
+        if (offlineItems.isNotEmpty()) {
+            if (route == NewsRoute.SAVED) {
+                saved = saved.copy(
+                    items = offlineItems,
+                    nextCursor = null,
+                    isLoading = false,
+                    isRefreshing = true,
+                    isOffline = false,
+                    error = null
+                )
+            }
+        }
         try {
             val page = repository.savedArticles()
             if (route != NewsRoute.SAVED) return
@@ -564,6 +633,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 nextCursor = page.nextCursor,
                 isLoading = false,
                 isRefreshing = false,
+                isOffline = false,
                 error = null,
                 nextPageError = null
             )
@@ -571,10 +641,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             throw cancelled
         } catch (failure: Exception) {
             if (isAuthFailure(failure)) authExpired = true
+            val isNetworkFailure = failure is NewsApiException && failure.code == "NETWORK_ERROR"
             saved = saved.copy(
+                items = if (isNetworkFailure) offlineItems else saved.items,
+                nextCursor = if (isNetworkFailure) null else saved.nextCursor,
                 isLoading = false,
                 isRefreshing = false,
-                error = failure.message ?: "저장한 기사를 불러오지 못했어요."
+                isOffline = isNetworkFailure,
+                error = if (isNetworkFailure) null else failure.message ?: "저장한 기사를 불러오지 못했어요."
             )
         }
     }
@@ -592,6 +666,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                     nextCursor = page.nextCursor,
                     isLoadingMore = false
                 )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
                 saved = saved.copy(
@@ -605,36 +681,32 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     fun toggleSaved(articleId: String, currentlySaved: Boolean) {
         if (savedMutationArticleId != null) return
         val target = !currentlySaved
-        val previousFeed = feed
-        val previousReader = reader
-        val previousSaved = saved
         savedMutationArticleId = articleId
         saveError = null
-        feed = feed.copy(items = feed.items.map { article ->
-            if (article.id == articleId) article.copy(isSaved = target) else article
-        }, searchSections = feed.searchSections.mapValues { (_, section) ->
-            section.copy(items = section.items.map { article ->
-                if (article.id == articleId) article.copy(isSaved = target) else article
-            })
-        })
-        reader = reader.copy(article = reader.article?.let { article ->
-            if (article.id == articleId) article.copy(isSaved = target) else article
-        })
-        saved = saved.copy(items = if (target) {
-            saved.items.map { article ->
-                if (article.id == articleId) article.copy(isSaved = true) else article
-            }
-        } else {
-            saved.items.filterNot { it.id == articleId }
-        })
         viewModelScope.launch {
             try {
                 repository.setArticleSaved(articleId, target)
+                feed = feed.copy(items = feed.items.map { article ->
+                    if (article.id == articleId) article.copy(isSaved = target) else article
+                }, searchSections = feed.searchSections.mapValues { (_, section) ->
+                    section.copy(items = section.items.map { article ->
+                        if (article.id == articleId) article.copy(isSaved = target) else article
+                    })
+                })
+                reader = reader.copy(article = reader.article?.let { article ->
+                    if (article.id == articleId) article.copy(isSaved = target) else article
+                })
+                saved = saved.copy(items = if (target) {
+                    saved.items.map { article ->
+                        if (article.id == articleId) article.copy(isSaved = true) else article
+                    }
+                } else {
+                    saved.items.filterNot { it.id == articleId }
+                })
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
-                feed = previousFeed
-                reader = previousReader
-                saved = previousSaved
                 saveError = failure.message ?: "저장 상태를 바꾸지 못했어요."
             } finally {
                 savedMutationArticleId = null
@@ -652,12 +724,40 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             isArticleLoading = true
         )
         readerJob = viewModelScope.launch {
+            val cachedArticle = repository.cachedArticle(articleId)
+            if (cachedArticle != null && route == NewsRoute.READER &&
+                reader.articleId == articleId) {
+                val cachedAnalysis = repository.cachedAnalysis(cachedArticle)
+                if (route != NewsRoute.READER || reader.articleId != articleId) return@launch
+                reader = reader.copy(
+                    article = cachedArticle,
+                    analysis = cachedAnalysis,
+                    isArticleLoading = false,
+                    isAnalysisLoading = false,
+                    isOffline = true
+                )
+            }
             try {
                 val article = repository.article(articleId)
-                reader = reader.copy(article = article, isArticleLoading = false, isAnalysisLoading = true)
+                if (route != NewsRoute.READER || reader.articleId != articleId) return@launch
+                reader = reader.copy(
+                    article = article,
+                    isArticleLoading = false,
+                    isAnalysisLoading = true,
+                    isOffline = false,
+                    articleError = null
+                )
                 try {
                     val analysis = repository.analysis(article)
-                    reader = reader.copy(analysis = analysis, isAnalysisLoading = false)
+                    if (route != NewsRoute.READER || reader.articleId != articleId) return@launch
+                    reader = reader.copy(
+                        analysis = analysis,
+                        isAnalysisLoading = false,
+                        isOffline = false,
+                        analysisError = null
+                    )
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (failure: Exception) {
                     if (isAuthFailure(failure)) authExpired = true
                     reader = reader.copy(
@@ -665,12 +765,33 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                         analysisError = failure.message ?: "분석 표시를 불러오지 못했어요."
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
-                reader = reader.copy(
-                    isArticleLoading = false,
-                    articleError = failure.message ?: "기사를 불러오지 못했어요."
-                )
+                val retainCache = failure is NewsApiException && failure.code == "NETWORK_ERROR" &&
+                    reader.article != null
+                reader = if (retainCache) {
+                    reader.copy(
+                        isArticleLoading = false,
+                        isAnalysisLoading = false,
+                        isOffline = true,
+                        articleError = null,
+                        analysisError = if (reader.analysis == null) {
+                            "오프라인에서는 저장된 분석만 볼 수 있어요."
+                        } else null
+                    )
+                } else {
+                    reader.copy(
+                        isArticleLoading = false,
+                        articleError = if (
+                            readerOrigin == NewsRoute.SAVED && failure is NewsApiException &&
+                            failure.code == "NETWORK_ERROR"
+                        ) {
+                            "오프라인에서 읽으려면 온라인 상태에서 기사를 한 번 열어 주세요."
+                        } else failure.message ?: "기사를 불러오지 못했어요."
+                    )
+                }
             }
         }
     }
@@ -689,6 +810,17 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     fun consumeAuthExpired() {
         authExpired = false
+    }
+
+    fun logout(userId: String, onReady: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.clearSavedCache(userId)
+            } finally {
+                reset()
+                onReady()
+            }
+        }
     }
 
     private fun isAuthFailure(failure: Exception): Boolean =

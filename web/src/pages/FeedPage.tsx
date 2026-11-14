@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LoaderCircle, Search, Settings2, X } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
@@ -18,13 +18,15 @@ type SearchFilter = 'ALL' | NewsCategory
 
 export function FeedPage() {
   const { session } = useAuth()
-  const token = session!.token
-  const userId = session!.user.id
+  const token = session?.token
+  const viewerId = session?.user.id ?? 'guest'
   const queryClient = useQueryClient()
   const location = useLocation()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const category = (params.get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS') as NewsCategory
-  const scope = (params.get('scope') === 'following' ? 'FOLLOWING' : 'ALL') as FeedScope
+  const requestedScope = (params.get('scope') === 'following' ? 'FOLLOWING' : 'ALL') as FeedScope
+  const scope: FeedScope = session ? requestedScope : 'ALL'
   const [queryInput, setQueryInput] = useState('')
   const [isComposing, setIsComposing] = useState(false)
   const normalizedInput = queryInput.trim().replace(/\s+/g, ' ')
@@ -51,12 +53,12 @@ export function FeedPage() {
   }, [activeQuery, isComposing, normalizedInput])
 
   const publisherQuery = useQuery({
-    queryKey: ['publishers', userId],
+    queryKey: ['publishers', viewerId],
     queryFn: () => api.publishers(token),
   })
 
   const articlesQuery = useInfiniteQuery({
-    queryKey: ['articles', userId, category, scope],
+    queryKey: ['articles', viewerId, category, scope],
     queryFn: ({ pageParam }) => api.articles(token, {
       category,
       scope,
@@ -68,7 +70,7 @@ export function FeedPage() {
   })
 
   const searchQuery = useInfiniteQuery({
-    queryKey: ['article-search', userId, searchFilter, activeQuery],
+    queryKey: ['article-search', viewerId, searchFilter, activeQuery],
     queryFn: ({ pageParam }) => api.articles(token, {
       category: searchFilter === 'ALL' ? undefined : searchFilter,
       scope: 'ALL',
@@ -81,17 +83,21 @@ export function FeedPage() {
   })
 
   const followMutation = useMutation({
-    mutationFn: (codes: string[]) => api.replaceFollowedPublishers(token, codes),
+    mutationFn: (codes: string[]) => {
+      if (!token) throw new Error('Sign in to manage sources.')
+      return api.replaceFollowedPublishers(token, codes)
+    },
     onSuccess: async (codes) => {
+      if (!session) return
       const followed = new Set(codes)
       queryClient.setQueryData<Publisher[]>(
-        ['publishers', userId],
+        ['publishers', viewerId],
         (current = []) => current.map((publisher) => ({
           ...publisher,
           is_followed: followed.has(publisher.code),
         })),
       )
-      await queryClient.invalidateQueries({ queryKey: ['articles', userId] })
+      await queryClient.invalidateQueries({ queryKey: ['articles', viewerId] })
       setSourcesOpen(false)
     },
   })
@@ -111,6 +117,10 @@ export function FeedPage() {
   const followedCount = publisherQuery.data?.filter((publisher) => publisher.is_followed).length ?? 0
 
   function chooseScope(next: FeedScope) {
+    if (next === 'FOLLOWING' && !session) {
+      navigate('/login', { state: { from: `${location.pathname}${location.search}` } })
+      return
+    }
     const updated = new URLSearchParams(params)
     if (next === 'FOLLOWING') updated.set('scope', 'following')
     else updated.delete('scope')
@@ -196,6 +206,10 @@ export function FeedPage() {
             </button>
           </div>
           <button type="button" className="flex items-center gap-2 text-sm font-bold underline decoration-zinc-400 underline-offset-4 hover:decoration-black" onClick={() => {
+            if (!session) {
+              navigate('/login', { state: { from: `${location.pathname}${location.search}` } })
+              return
+            }
             followMutation.reset()
             setSourcesOpen(true)
           }}>

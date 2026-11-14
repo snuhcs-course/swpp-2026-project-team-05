@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.time.OffsetDateTime
 
 internal interface AuthDataSource {
     fun currentSession(): AppSession?
@@ -39,11 +40,19 @@ internal class AuthRepository(
         val token = preferences.getString("token", null)
         val expiresAt = preferences.getString("expires_at", null)
         if (id.isNullOrBlank() || username.isNullOrBlank() || token.isNullOrBlank() || expiresAt.isNullOrBlank()) return null
-        return AppSession(
+        val session = AppSession(
             NewsUser(id, email, username, preferences.getBoolean("is_developer", false)),
             token,
             expiresAt
         )
+        val isValid = runCatching {
+            OffsetDateTime.parse(session.expiresAt).toInstant().isAfter(java.time.Instant.now())
+        }.getOrDefault(false)
+        if (!isValid) {
+            clear()
+            return null
+        }
+        return session
     }
 
     override suspend fun login(identifier: String, password: String): AppSession =
