@@ -98,6 +98,8 @@ Functional requirements:
 - Password IME action submits login.
 - Validation appears beside the relevant field.
 - Server errors do not clear entered values.
+- Guest entry keeps an explicit `로그인 없이 둘러보기`/`Continue without
+  signing in` action in addition to platform Back navigation.
 - Successful login returns to the public route that requested authentication,
   or to the all-publisher feed when Login was opened directly.
 

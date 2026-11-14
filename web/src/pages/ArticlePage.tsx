@@ -120,9 +120,9 @@ export function ArticlePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { session } = useAuth()
-  const token = session!.token
-  const userId = session!.user.id
-  const articleQuery = useQuery({ queryKey: ['article', userId, id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
+  const token = session?.token
+  const viewerId = session?.user.id ?? 'guest'
+  const articleQuery = useQuery({ queryKey: ['article', viewerId, id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
   const analysisQuery = useQuery({ queryKey: ['analysis', id], queryFn: () => api.analysis(token, id), enabled: Boolean(id) })
   const findings = analysisQuery.data?.findings ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)

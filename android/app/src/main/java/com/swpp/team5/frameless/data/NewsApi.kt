@@ -16,13 +16,13 @@ internal interface NewsService {
     suspend fun login(identifier: String, password: String): AppSession
     suspend fun me(token: String): NewsUser
     suspend fun logout(token: String)
-    suspend fun publishers(token: String): List<PublisherItem>
+    suspend fun publishers(token: String?): List<PublisherItem>
     suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>): Set<String>
-    suspend fun articles(token: String, category: NewsCategory?, scope: FeedScope,
+    suspend fun articles(token: String?, category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, limit: Int = 20,
                          query: String? = null): ArticlePage
-    suspend fun article(token: String, articleId: String): ArticleDetail
-    suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis
+    suspend fun article(token: String?, articleId: String): ArticleDetail
+    suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis
     suspend fun savedArticles(token: String, cursor: String? = null,
                               limit: Int = 20): ArticlePage
     suspend fun saveArticle(token: String, articleId: String)
@@ -39,16 +39,16 @@ internal object NewsApi : NewsService {
         client.login(identifier, password)
     override suspend fun me(token: String): NewsUser = client.me(token)
     override suspend fun logout(token: String) = client.logout(token)
-    override suspend fun publishers(token: String): List<PublisherItem> = client.publishers(token)
+    override suspend fun publishers(token: String?): List<PublisherItem> = client.publishers(token)
     override suspend fun replaceFollowedPublishers(token: String, publisherCodes: Set<String>) =
         client.replaceFollowedPublishers(token, publisherCodes)
-    override suspend fun articles(token: String, category: NewsCategory?,
+    override suspend fun articles(token: String?, category: NewsCategory?,
                                   scope: FeedScope, cursor: String?, limit: Int,
                                   query: String?): ArticlePage =
         client.articles(token, category, scope, cursor, limit, query)
-    override suspend fun article(token: String, articleId: String): ArticleDetail =
+    override suspend fun article(token: String?, articleId: String): ArticleDetail =
         client.article(token, articleId)
-    override suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis =
+    override suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis =
         client.analysis(token, articleId)
     override suspend fun savedArticles(token: String, cursor: String?, limit: Int): ArticlePage =
         client.savedArticles(token, cursor, limit)
@@ -85,7 +85,7 @@ internal class NewsApiClient(baseUrl: String) {
         request("POST", "/api/v1/auth/logout", token = token, allowEmpty = true)
     }
 
-    suspend fun publishers(token: String): List<PublisherItem> =
+    suspend fun publishers(token: String?): List<PublisherItem> =
         request("GET", "/api/v1/publishers", token = token)
             .optJSONArray("items").orEmptyObjects().map(::publisher)
 
@@ -100,7 +100,7 @@ internal class NewsApiClient(baseUrl: String) {
         return root.optJSONArray("publisher_codes").orEmptyStrings().toSet()
     }
 
-    suspend fun articles(token: String, category: NewsCategory?,
+    suspend fun articles(token: String?, category: NewsCategory?,
                          scope: FeedScope = FeedScope.ALL, cursor: String? = null,
                          limit: Int = 20, query: String? = null): ArticlePage {
         val queryString = buildList {
@@ -118,10 +118,10 @@ internal class NewsApiClient(baseUrl: String) {
         )
     }
 
-    suspend fun article(token: String, articleId: String): ArticleDetail =
+    suspend fun article(token: String?, articleId: String): ArticleDetail =
         request("GET", "/api/v1/articles/${encode(articleId)}", token = token).let(::articleDetail)
 
-    suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis =
+    suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis =
         request("GET", "/api/v1/articles/${encode(articleId)}/analysis", token = token)
             .let(::articleAnalysis)
 
@@ -242,47 +242,11 @@ internal class NewsApiClient(baseUrl: String) {
         publishedAt = root.requireString("published_at"),
         originalUrl = root.requireString("original_url"),
         analysisState = StoredAnalysisState.fromWire(root.requireString("analysis_state")),
-        isSaved = root.optBoolean("is_saved", false)
+        isSaved = root.optBoolean("is_saved", false),
+        contentHash = root.requireString("content_hash")
     )
 
-    private fun articleAnalysis(root: JSONObject) = ApiArticleAnalysis(
-        state = StoredAnalysisState.fromWire(root.requireString("state")),
-        version = root.optString("version"),
-        findings = root.optJSONArray("findings").orEmptyObjects().map { finding ->
-            val source = finding.requireObject("source")
-            ApiFinding(
-                id = finding.requireString("id"),
-                categories = finding.optJSONArray("categories").orEmptyStrings(),
-                scope = source.requireString("scope"),
-                sentence = sentence(source.requireObject("sentence")),
-                marker = marker(source.requireObject("marker")),
-                explanation = finding.requireString("explanation"),
-                comparisonOverview = finding.optString("comparison_overview"),
-                comparisons = finding.optJSONArray("comparison_articles").orEmptyObjects().map { target ->
-                    ApiComparisonArticle(
-                        articleId = target.requireString("article_id"),
-                        publisher = publisher(target.requireObject("publisher")),
-                        title = target.requireString("title"),
-                        publishedAt = target.requireString("published_at"),
-                        originalUrl = target.requireString("original_url"),
-                        body = target.requireString("body"),
-                        evidence = target.optJSONArray("evidence").orEmptyObjects().map { evidence ->
-                            ApiEvidence(
-                                scope = evidence.requireString("scope"),
-                                sentence = sentence(evidence.requireObject("sentence")),
-                                marker = marker(evidence.requireObject("marker")),
-                                targetOwner = evidence.requireString("target_owner"),
-                                targetSpeakerLabel = evidence.optString("target_speaker_label").takeIf {
-                                    evidence.has("target_speaker_label") && !evidence.isNull("target_speaker_label") && it.isNotBlank()
-                                },
-                                comparisonSummary = evidence.optString("comparison_summary")
-                            )
-                        }
-                    )
-                }
-            )
-        }
-    )
+    private fun articleAnalysis(root: JSONObject) = decodeArticleAnalysis(root)
 
     private fun sentence(root: JSONObject) = ApiSentence(
         start = root.requireInt("start"), end = root.requireInt("end"), text = root.requireString("text")
@@ -295,6 +259,70 @@ internal class NewsApiClient(baseUrl: String) {
 
     private fun encode(value: String) = URLEncoder.encode(value, Charsets.UTF_8.name())
 }
+
+internal fun decodeArticleAnalysis(rawJson: String): ApiArticleAnalysis =
+    decodeArticleAnalysis(JSONObject(rawJson))
+
+private fun decodeArticleAnalysis(root: JSONObject) = ApiArticleAnalysis(
+    state = StoredAnalysisState.fromWire(root.requireString("state")),
+    version = root.optString("version"),
+    findings = root.optJSONArray("findings").orEmptyObjects().map { finding ->
+        val source = finding.requireObject("source")
+        ApiFinding(
+            id = finding.requireString("id"),
+            categories = finding.optJSONArray("categories").orEmptyStrings(),
+            scope = source.requireString("scope"),
+            sentence = parseSentence(source.requireObject("sentence")),
+            marker = parseMarker(source.requireObject("marker")),
+            explanation = finding.requireString("explanation"),
+            comparisonOverview = finding.optString("comparison_overview"),
+            comparisons = finding.optJSONArray("comparison_articles").orEmptyObjects().map { target ->
+                ApiComparisonArticle(
+                    articleId = target.requireString("article_id"),
+                    publisher = parsePublisher(target.requireObject("publisher")),
+                    title = target.requireString("title"),
+                    publishedAt = target.requireString("published_at"),
+                    originalUrl = target.requireString("original_url"),
+                    body = target.requireString("body"),
+                    evidence = target.optJSONArray("evidence").orEmptyObjects().map { evidence ->
+                        ApiEvidence(
+                            scope = evidence.requireString("scope"),
+                            sentence = parseSentence(evidence.requireObject("sentence")),
+                            marker = parseMarker(evidence.requireObject("marker")),
+                            targetOwner = evidence.requireString("target_owner"),
+                            targetSpeakerLabel = evidence.optString("target_speaker_label").takeIf {
+                                evidence.has("target_speaker_label") &&
+                                    !evidence.isNull("target_speaker_label") && it.isNotBlank()
+                            },
+                            comparisonSummary = evidence.optString("comparison_summary")
+                        )
+                    }
+                )
+            }
+        )
+    },
+    sourceContentHash = root.requireString("source_content_hash"),
+    rawJson = root.toString()
+)
+
+private fun parsePublisher(root: JSONObject) = PublisherItem(
+    code = root.requireString("code"),
+    name = root.requireString("name"),
+    logoUrl = root.optString("logo_url").takeIf {
+        root.has("logo_url") && !root.isNull("logo_url") && it.isNotBlank()
+    },
+    isFollowed = root.optBoolean("is_followed", false)
+)
+
+private fun parseSentence(root: JSONObject) = ApiSentence(
+    start = root.requireInt("start"), end = root.requireInt("end"), text = root.requireString("text")
+)
+
+private fun parseMarker(root: JSONObject) = ApiMarker(
+    startInSentence = root.requireInt("start_in_sentence"),
+    endInSentence = root.requireInt("end_in_sentence"),
+    text = root.requireString("text")
+)
 
 private fun JSONObject.requireObject(key: String): JSONObject = optJSONObject(key)
     ?: throw NewsApiException("INVALID_RESPONSE", "서버 응답에 $key 정보가 없어요.")

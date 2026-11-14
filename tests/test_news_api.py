@@ -34,7 +34,7 @@ class NewsApiTests(TestCase):
             username="reader",
             password_hash=make_password("safe-password-123"),
         )
-        self.token, _ = create_session(self.user)
+        self.token, self.session = create_session(self.user)
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {self.token}"}
         self.yna = Publisher.objects.create(
             code="yna", name_ko="연합뉴스", domain="yna.co.kr", display_order=1,
@@ -122,10 +122,32 @@ class NewsApiTests(TestCase):
             display_rank=rank,
         )
 
-    def test_news_endpoints_require_authentication(self):
-        for path in ("/api/v1/publishers", "/api/v1/articles", "/api/v1/saved-articles",
-                     f"/api/v1/articles/{self.source.id}",
-                     f"/api/v1/articles/{self.source.id}/analysis"):
+    def test_public_news_reads_allow_guests_and_disable_personalization(self):
+        for path in (
+            "/api/v1/publishers",
+            "/api/v1/articles",
+            f"/api/v1/articles/{self.source.id}",
+            f"/api/v1/articles/{self.source.id}/analysis",
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("Authorization", response.headers["Vary"])
+
+        self.assertFalse(self.client.get("/api/v1/publishers").json()["items"][0]["is_followed"])
+        self.assertTrue(all(
+            not item["is_saved"]
+            for item in self.client.get("/api/v1/articles").json()["items"]
+        ))
+        authenticated = self.client.get("/api/v1/articles", **self.auth)
+        self.assertEqual(authenticated.status_code, 200)
+        self.assertIn("Authorization", authenticated.headers["Vary"])
+
+    def test_personalized_news_operations_still_require_authentication(self):
+        for path in (
+            "/api/v1/saved-articles",
+            "/api/v1/articles?scope=FOLLOWING",
+        ):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 401)
@@ -141,6 +163,26 @@ class NewsApiTests(TestCase):
         self.assertEqual(follow.status_code, 401)
         remove = self.client.delete(f"/api/v1/saved-articles/{self.source.id}")
         self.assertEqual(remove.status_code, 401)
+
+    def test_invalid_supplied_token_is_not_downgraded_to_guest(self):
+        for authorization in ("Bearer invalid-token", "Basic malformed"):
+            headers = {"HTTP_AUTHORIZATION": authorization}
+            for path in (
+                "/api/v1/publishers",
+                "/api/v1/articles",
+                f"/api/v1/articles/{self.source.id}",
+                f"/api/v1/articles/{self.source.id}/analysis",
+            ):
+                with self.subTest(path=path, authorization=authorization):
+                    response = self.client.get(path, **headers)
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json()["error"]["code"], "AUTH_REQUIRED")
+
+        self.session.expires_at = timezone.now() - timedelta(seconds=1)
+        self.session.save(update_fields=["expires_at"])
+        expired = self.client.get("/api/v1/articles", **self.auth)
+        self.assertEqual(expired.status_code, 401)
+        self.assertEqual(expired.json()["error"]["code"], "AUTH_REQUIRED")
 
     def test_register_normalizes_fields_and_returns_session(self):
         response = self.client.post(
@@ -797,6 +839,7 @@ class NewsApiTests(TestCase):
         response = self.client.get(f"/api/v1/articles/{self.source.id}", **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["body"], self.source.body_text)
+        self.assertEqual(response.json()["content_hash"], self.source.content_hash)
         hidden = self._article(
             publisher=self.yna,
             title="숨긴 기사",
@@ -815,6 +858,7 @@ class NewsApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["state"], "READY")
+        self.assertEqual(payload["source_content_hash"], self.source.content_hash)
         self.assertEqual(len(payload["findings"]), 1)
         result = payload["findings"][0]
         self.assertEqual(result["source"]["marker"]["start_in_sentence"],
@@ -901,5 +945,8 @@ class NewsApiTests(TestCase):
         response = self.client.get(f"/api/v1/articles/{self.target.id}/analysis", **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
-            "state": "READY", "version": "reviewed-v1", "findings": [],
+            "state": "READY",
+            "version": "reviewed-v1",
+            "source_content_hash": self.target.content_hash,
+            "findings": [],
         })

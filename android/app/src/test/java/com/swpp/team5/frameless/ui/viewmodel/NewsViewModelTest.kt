@@ -178,6 +178,22 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun cachedLatestRemainsVisibleWhenRefreshIsOffline() {
+        val repository = FakeNewsDataSource().apply {
+            cachedPage = ArticlePage(listOf(summary("cached")), null)
+            pageFailure = NewsApiException("NETWORK_ERROR", "연결할 수 없어요.")
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.initialize()
+        mainLooper.idle()
+
+        assertEquals(listOf("cached"), viewModel.feed.items.map { it.id })
+        assertTrue(viewModel.feed.isOffline)
+        assertEquals(null, viewModel.feed.error)
+    }
+
+    @Test
     fun searchDebouncesServerQueryAndClosingRestoresFeed() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("ordinary")), null)
@@ -304,6 +320,44 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline() {
+        val repository = FakeNewsDataSource().apply {
+            cachedArticleValue = detail("cached-reader")
+            cachedAnalysisValue = ArticleAnalysisUi(
+                StoredAnalysisState.READY, "cached-v1", emptyList()
+            )
+            articleFailure = NewsApiException("NETWORK_ERROR", "연결할 수 없어요.")
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openArticle("cached-reader")
+        mainLooper.idle()
+
+        assertEquals("cached-reader", viewModel.reader.article?.id)
+        assertEquals("cached-v1", viewModel.reader.analysis?.version)
+        assertTrue(viewModel.reader.isOffline)
+        assertEquals(null, viewModel.reader.articleError)
+    }
+
+    @Test
+    fun viewerChangeRefreshesPersonalizationWithoutLeavingReader() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("feed")), null)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.openArticle("reader")
+        mainLooper.idle()
+
+        viewModel.onViewerChanged()
+        mainLooper.idle()
+
+        assertEquals(NewsRoute.READER, viewModel.route)
+        assertEquals("reader", viewModel.reader.article?.id)
+        assertEquals(2, repository.articleCalls)
+        assertEquals(1, repository.articlePageCalls)
+    }
+
+    @Test
     fun readerSeparatesArticleAndAnalysisFailuresAndResetRestoresDefaults() {
         val repository = FakeNewsDataSource().apply {
             articleFailure = IllegalStateException("기사 실패")
@@ -355,6 +409,24 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun cachedSavedSnapshotRemainsAccountReadableWhenRefreshIsOffline() {
+        val repository = FakeNewsDataSource().apply {
+            cachedSavedPage = ArticlePage(
+                listOf(summary("saved-offline").copy(isSaved = true)), null
+            )
+            savedFailure = NewsApiException("NETWORK_ERROR", "연결할 수 없어요.")
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openSaved()
+        mainLooper.idle()
+
+        assertEquals(listOf("saved-offline"), viewModel.saved.items.map { it.id })
+        assertTrue(viewModel.saved.isOffline)
+        assertEquals(null, viewModel.saved.error)
+    }
+
+    @Test
     fun saveMutationUpdatesAllStateAndRollsBackAfterFailure() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("a")), null)
@@ -376,6 +448,22 @@ class NewsViewModelTest {
         assertEquals("저장 실패", viewModel.saveError)
     }
 
+    @Test
+    fun logoutClearsOnlyTheActiveSavedSnapshotAndAlwaysFinishes() {
+        val repository = FakeNewsDataSource().apply {
+            clearSavedFailure = IllegalStateException("cache failure")
+        }
+        val viewModel = NewsViewModel(repository)
+        var finished = false
+
+        viewModel.logout("user-a") { finished = true }
+        mainLooper.idle()
+
+        assertEquals(listOf("user-a"), repository.clearedSavedUsers)
+        assertTrue(finished)
+        assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
     private inner class FakeNewsDataSource : NewsDataSource {
         val pages = ArrayDeque<ArticlePage>()
         val searchPages = (listOf<NewsCategory?>(null) + NewsCategory.entries)
@@ -385,16 +473,24 @@ class NewsViewModelTest {
         val categoryFailures = mutableMapOf<NewsCategory?, Exception>()
         var articleFailure: Exception? = null
         var analysisFailure: Exception? = null
+        var savedFailure: Exception? = null
         var savedMutationFailure: Exception? = null
+        var clearSavedFailure: Exception? = null
+        var cachedPage: ArticlePage? = null
+        var cachedArticleValue: ArticleDetail? = null
+        var cachedAnalysisValue: ArticleAnalysisUi? = null
+        var cachedSavedPage: ArticlePage? = null
         var savedCategoryValue = NewsCategory.POLITICS
         var savedAnalysisEnabledValue = true
         var followedCodes = emptySet<String>()
         var articlePageCalls = 0
+        var articleCalls = 0
         val queries = mutableListOf<String?>()
         val scopes = mutableListOf<FeedScope>()
         val categories = mutableListOf<NewsCategory?>()
         val savedCategories = mutableListOf<NewsCategory>()
         val savedMutations = mutableListOf<Pair<String, Boolean>>()
+        val clearedSavedUsers = mutableListOf<String>()
 
         override suspend fun publishers() = listOf(yna, mbc)
         override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> {
@@ -413,17 +509,29 @@ class NewsViewModelTest {
             else searchPages.getValue(category).removeFirst()
         }
         override suspend fun article(articleId: String): ArticleDetail {
+            articleCalls += 1
             articleFailure?.let { throw it }
             return detail(articleId)
         }
+        override suspend fun cachedArticles(category: NewsCategory) = cachedPage
+        override suspend fun cachedArticle(articleId: String) = cachedArticleValue
         override suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi {
             analysisFailure?.let { throw it }
             return ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", emptyList())
         }
-        override suspend fun savedArticles(cursor: String?): ArticlePage = savedPages.removeFirst()
+        override suspend fun cachedAnalysis(article: ArticleDetail) = cachedAnalysisValue
+        override suspend fun savedArticles(cursor: String?): ArticlePage {
+            savedFailure?.let { throw it }
+            return savedPages.removeFirst()
+        }
+        override suspend fun cachedSavedArticles() = cachedSavedPage
         override suspend fun setArticleSaved(articleId: String, saved: Boolean) {
             savedMutationFailure?.let { throw it }
             savedMutations += articleId to saved
+        }
+        override suspend fun clearSavedCache(userId: String) {
+            clearedSavedUsers += userId
+            clearSavedFailure?.let { throw it }
         }
         override fun savedCategory() = savedCategoryValue
         override fun savedAnalysisEnabled() = savedAnalysisEnabledValue

@@ -80,7 +80,7 @@ import java.time.OffsetDateTime
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun NewsFeedScreen(
     state: NewsFeedState,
-    session: AppSession,
+    session: AppSession?,
     listState: LazyListState,
     onCategory: (NewsCategory) -> Unit,
     onSearchFilter: (SearchFilter) -> Unit,
@@ -97,6 +97,7 @@ internal fun NewsFeedScreen(
     onSearchClose: () -> Unit,
     onSavedOpen: () -> Unit,
     onArticle: (String) -> Unit,
+    onLogin: () -> Unit,
     onLogout: () -> Unit
 ) {
     var showFeedScope by remember { mutableStateOf(false) }
@@ -175,7 +176,7 @@ internal fun NewsFeedScreen(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(session.user.username.take(1).uppercase(), color = Fl.Accent,
+                        Text(session?.user?.username?.take(1)?.uppercase() ?: "↗", color = Fl.Accent,
                             fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -279,7 +280,8 @@ internal fun NewsFeedScreen(
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (state.isRefreshing) "새 기사를 확인하는 중…"
+                            if (state.isOffline) "저장된 기사 · 연결되면 최신 내용으로 갱신해요"
+                            else if (state.isRefreshing) "새 기사를 확인하는 중…"
                             else if (state.activeSearchQuery.isNotBlank())
                                 "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
                             else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
@@ -321,7 +323,10 @@ internal fun NewsFeedScreen(
             followedCount = state.publishers.count { it.isFollowed },
             onDismiss = { showFeedScope = false },
             onScope = { onScope(it); showFeedScope = false },
-            onManage = { showFeedScope = false; showSources = true }
+            onManage = {
+                showFeedScope = false
+                if (session == null) onLogin() else showSources = true
+            }
         )
     }
     if (showSources) {
@@ -337,13 +342,26 @@ internal fun NewsFeedScreen(
         ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = Fl.Card) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("계정", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                Text(session.user.username, fontSize = 15.sp, color = Fl.Ink)
-                session.user.email?.let { Caption(it) }
-                HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
-                Text("로그아웃", color = Fl.Danger, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.fillMaxWidth().clickable { showAccount = false; onLogout() }
-                        .padding(vertical = 14.dp))
+                Text(if (session == null) "게스트로 읽는 중" else "계정",
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                if (session == null) {
+                    Caption("저장과 팔로잉은 로그인 후 사용할 수 있어요.")
+                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
+                    Text("로그인", color = Fl.Accent, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            showAccount = false
+                            onLogin()
+                        }.padding(vertical = 14.dp))
+                } else {
+                    Text(session.user.username, fontSize = 15.sp, color = Fl.Ink)
+                    session.user.email?.let { Caption(it) }
+                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
+                    Text("로그아웃", color = Fl.Danger, fontWeight = FontWeight.Medium,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            showAccount = false
+                            onLogout()
+                        }.padding(vertical = 14.dp))
+                }
                 Spacer(Modifier.height(12.dp))
             }
         }

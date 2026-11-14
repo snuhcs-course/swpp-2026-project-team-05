@@ -4,7 +4,6 @@ import android.content.Context
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -15,7 +14,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class NewsRepositoryTest {
     private val publisher = PublisherItem("yna", "연합뉴스", null)
-    private val session = AppSession(NewsUser("u1", null, "reader", false), "token", "expiry")
+    private val session = AppSession(
+        NewsUser("u1", null, "reader", false), "token", "2099-11-30T00:00:00+09:00"
+    )
     private val article = ArticleDetail(
         "a1", publisher, "정책 추진", "정책을 전격 추진한다.", NewsCategory.POLITICS,
         "2026-10-31T12:00:00+09:00", "https://example.com/a1", StoredAnalysisState.READY
@@ -60,7 +61,7 @@ class NewsRepositoryTest {
     }
 
     @Test
-    fun analysisMapsVerifiedOffsetsAndMissingSessionFailsBeforeNetwork() = runBlocking {
+    fun analysisMapsVerifiedOffsetsAndGuestUsesPublicReads() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val service = FakeNewsService()
         val repository = NewsRepository(context, service, FakeAuthDataSource(session))
@@ -68,10 +69,9 @@ class NewsRepositoryTest {
         assertEquals("전격", mapped.findings.single().markerText)
 
         val loggedOut = NewsRepository(context, service, FakeAuthDataSource(null))
-        val failure = assertThrows(NewsApiException::class.java) {
-            runBlocking { loggedOut.publishers() }
-        }
-        assertEquals("AUTH_REQUIRED", failure.code)
+        assertEquals(listOf(publisher), loggedOut.publishers())
+        assertEquals(null, service.lastToken)
+        assertEquals(article, loggedOut.article("a1"))
     }
 
     private class FakeAuthDataSource(private val session: AppSession?) : AuthDataSource {
@@ -96,7 +96,7 @@ class NewsRepositoryTest {
         override suspend fun login(identifier: String, password: String) = error("unused")
         override suspend fun me(token: String) = error("unused")
         override suspend fun logout(token: String) = Unit
-        override suspend fun publishers(token: String): List<PublisherItem> {
+        override suspend fun publishers(token: String?): List<PublisherItem> {
             lastToken = token
             return listOf(publisher)
         }
@@ -107,7 +107,7 @@ class NewsRepositoryTest {
             followReplacementCalls += 1
             return publisherCodes
         }
-        override suspend fun articles(token: String, category: NewsCategory?,
+        override suspend fun articles(token: String?, category: NewsCategory?,
                                       scope: FeedScope, cursor: String?, limit: Int,
                                       query: String?): ArticlePage {
             lastToken = token
@@ -115,12 +115,12 @@ class NewsRepositoryTest {
             lastScope = scope
             return ArticlePage(emptyList(), "next")
         }
-        override suspend fun article(token: String, articleId: String): ArticleDetail {
+        override suspend fun article(token: String?, articleId: String): ArticleDetail {
             lastToken = token
             lastArticleId = articleId
             return article
         }
-        override suspend fun analysis(token: String, articleId: String): ApiArticleAnalysis {
+        override suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis {
             lastToken = token
             return ApiArticleAnalysis(
                 StoredAnalysisState.READY, "v1", listOf(ApiFinding(

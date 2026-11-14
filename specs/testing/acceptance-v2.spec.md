@@ -8,9 +8,11 @@
 | Last reviewed | 2026-11-14 |
 
 This plan extends the product after the frozen Iteration 3 plan in
-[`acceptance-v1.spec.md`](acceptance-v1.spec.md). It does not rewrite the v1
-results or claim that the new behavior is implemented. Once reviewed and
-frozen, failures are fixed in the product rather than by weakening a criterion.
+[`acceptance-v1.spec.md`](acceptance-v1.spec.md). The implementation is
+available for review, but these acceptance cases are not considered frozen or
+passed until the team runs them. It does not rewrite the v1 results. Once
+reviewed and frozen, failures are fixed in the product rather than by weakening
+a criterion.
 
 ## UAT-07 — Read FrameLESS without an account
 

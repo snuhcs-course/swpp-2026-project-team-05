@@ -118,7 +118,7 @@ internal fun NewsReaderScreen(
             ReaderError(state.articleError ?: "기사를 불러오지 못했어요.", onBack, onRetry)
         }
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
-            state.isAnalysisLoading, state.analysisError, onBack, onAnalysisEnabled,
+            state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError)
     }
 }
@@ -130,6 +130,7 @@ private fun NewsReaderContent(
     analysisEnabled: Boolean,
     analysisLoading: Boolean,
     analysisError: String?,
+    isOffline: Boolean,
     onBack: () -> Unit,
     onAnalysisEnabled: (Boolean) -> Unit,
     onToggleSaved: (String, Boolean) -> Unit,
@@ -218,6 +219,15 @@ private fun NewsReaderContent(
                 )
             }
             HorizontalDivider(color = Fl.Line)
+            if (isOffline) {
+                Text(
+                    "저장된 사본을 보고 있어요.",
+                    color = Fl.Muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth().background(Fl.Inset)
+                        .padding(horizontal = 18.dp, vertical = 9.dp)
+                )
+            }
             if (saveError != null) {
                 Text(saveError, color = Fl.Danger, fontSize = 12.sp,
                     modifier = Modifier.fillMaxWidth().background(Fl.Inset)

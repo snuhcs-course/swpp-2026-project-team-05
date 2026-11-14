@@ -37,6 +37,7 @@ export interface ArticleSummary {
 export interface ArticleDetail extends ArticleSummary {
   body: string
   original_url: string
+  content_hash: string
 }
 
 export interface TextRange {
@@ -86,6 +87,7 @@ export interface Finding {
 export interface Analysis {
   state: AnalysisState
   version: string
+  source_content_hash: string
   findings: Finding[]
 }
 

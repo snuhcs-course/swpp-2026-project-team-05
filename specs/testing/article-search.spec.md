@@ -9,10 +9,10 @@
 
 ## Scope
 
-Signed-in users search the complete feed-visible article corpus from Web and
-Android. Django owns normalization, filtering, deterministic ranking, excerpts,
-and cursor integrity. Clients own query state, debounce, and restoration of the
-ordinary feed.
+Guests and signed-in users search the complete feed-visible article corpus from
+Web and Android. Django owns normalization, filtering, deterministic ranking,
+excerpts, and cursor integrity. Clients own query state, debounce, and
+restoration of the ordinary feed.
 
 ### Non-goals
 
@@ -22,7 +22,7 @@ ordinary feed.
 
 ## Preconditions
 
-- The request has a valid session.
+- The request has no credentials or a valid session.
 - Searchable rows have `visibility=VISIBLE` and `is_feed_visible=true`.
 - `q`, when present, normalizes to 2–100 characters.
 - Category, publisher, limit, and cursor use the existing article-feed contract.
@@ -57,8 +57,10 @@ ordinary feed.
   Tested by: `tests.test_news_api.NewsApiTests.test_search_cursor_is_bound_to_query_and_paginates_ranked_results`
 - [Integration] A missing query preserves the ordinary feed response shape.\
   Tested by: `tests.test_news_api.NewsApiTests.test_search_validates_query_length_and_feed_shape_is_unchanged`
-- [Integration] All article endpoints, including search, require authentication.\
-  Tested by: `tests.test_news_api.NewsApiTests.test_news_endpoints_require_authentication`
+- [Integration] `scope=ALL` search is public and returns non-personalized flags
+  to a guest; `scope=FOLLOWING` remains authentication-required.\
+  Tested by: `tests.test_news_api.NewsApiTests.test_public_news_reads_allow_guests_and_disable_personalization`,
+  `tests.test_news_api.NewsApiTests.test_personalized_news_operations_still_require_authentication`
 
 ### Backend errors and boundaries
 

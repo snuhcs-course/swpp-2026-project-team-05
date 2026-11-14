@@ -22,7 +22,7 @@ comparison sheet.
 
 ## Preconditions
 
-- The signed-in user opens an article with stored, displayable findings.
+- A guest or signed-in user opens an article with stored, displayable findings.
 - At least one fixture contains multiple findings and multiple comparison
   publishers.
 

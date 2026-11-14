@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Implemented with documented coverage gaps |
 | Owner | Guest/offline feature owner |
 | Source requirements | [`../features/guest-offline-reading.md`](../features/guest-offline-reading.md) |
 | Last reviewed | 2026-11-14 |
@@ -38,41 +38,48 @@ analysis, and authenticated Saved-list reads.
   search `scope=ALL` articles, read article detail, and read stored analysis. It
   receives stable response shapes with `is_saved=false` and
   `is_followed=false`.\
-  Tip: add Django API tests covering all five public-read endpoints.
+  Tested by: `tests.test_news_api.NewsApiTests.test_public_news_reads_allow_guests_and_disable_personalization`
 - [Integration] `scope=FOLLOWING`, followed-source replacement, Saved list, and
   Saved mutations return `401 AUTH_REQUIRED` without a valid session.\
-  Tip: extend the news API authentication matrix with every protected route.
+  Tested by: `tests.test_news_api.NewsApiTests.test_personalized_news_operations_still_require_authentication`
 - [Security] A malformed or expired bearer token on a public endpoint returns
   `401` instead of silently becoming a guest request.\
-  Tip: add missing-header, valid-header, malformed-header, unknown-token, and
-  expired-token partitions.
+  Tested by: `tests.test_news_api.NewsApiTests.test_invalid_supplied_token_is_not_downgraded_to_guest`
 - [Integration] Valid authenticated public reads retain correct `is_saved` and
   `is_followed` personalization without changing feed, article, or analysis
   content.\
   Tip: compare guest and two-user projections of the same records.
 - [Security] Credential-varying responses carry safe cache headers including
   `Vary: Authorization`.\
-  Tip: assert response headers for guest and authenticated reads.
+  Tested by: `tests.test_news_api.NewsApiTests.test_public_news_reads_allow_guests_and_disable_personalization`
 - [Contract] Article detail and analysis return matching content hashes from the
   stored Article row.\
-  Tip: assert exact hashes and a mismatched-fixture rejection path.
+  Tested by: `tests.test_news_api.NewsApiTests.test_article_detail_is_exact_and_hidden_articles_are_not_found`,
+  `tests.test_news_api.NewsApiTests.test_article_analysis_projects_findings_and_comparisons`
 
 ### Android authentication transitions
 
 - [Unit] A clean install without a session resolves to Guest and initializes
   the public Latest feed rather than Login.\
-  Tip: add AuthViewModel and FrameLESSApp state tests.
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.cleanInstallStartsAsGuestWithoutOpeningLogin`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.initializeLoadsPublishersAndTheCompleteLatestFeed`
 - [Unit] A temporary network failure during session restoration retains an
   unexpired stored session; locally expired or server-rejected sessions become
   Guest.\
-  Tip: add network, local-expiry, and confirmed-401 restore cases.
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.temporaryRestoreFailureKeepsTheUnexpiredLocalSession`,
+  `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.savedSessionRestoresAndExpiredRestoreReturnsToLogin`,
+  `com.swpp.team5.frameless.data.AuthRepositoryTest.locallyExpiredSessionIsClearedBeforeAnyNetworkRequest`
 - [Unit] A public GET that receives `401` clears the session and retries exactly
   once without a token, while a protected operation is not retried.\
   Tip: test repository request counts and final viewer state.
+- [State transition] Signing in from a protected Reader action refreshes
+  personalization without leaving the article or replaying the mutation.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.viewerChangeRefreshesPersonalizationWithoutLeavingReader`
 - [State transition] Explicit logout clears personalized ViewModel state and
   the active user's cached Saved relationships, falls Following back to Latest,
   and keeps public cache rows.\
-  Tip: add a two-account logout regression test.
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.logoutClearsOnlyTheActiveSavedSnapshotAndAlwaysFinishes`,
+  `com.swpp.team5.frameless.data.NewsCacheTest.savedSnapshotsAreIsolatedAndClearedPerUser`
 
 ### Android Room and repository
 
@@ -82,28 +89,36 @@ analysis, and authenticated Saved-list reads.
   Tip: add an instrumented Room schema and DAO test.
 - [Unit] Feed summary upsert does not erase previously cached detail, and detail
   upsert does not persist personalized save/follow flags.\
-  Tip: test both write orders against an in-memory database.
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.summaryRefreshPreservesPreviouslyCachedDetail`
 - [Unit] A validated analysis is reused only when its source hash matches the
   cached article hash. Malformed or mismatched analysis leaves a prior valid row
   untouched.\
-  Tip: add exact-match, mismatch, invalid-offset, and invalid-quote cases.
-- [Unit] Cached Latest rows are emitted before a remote refresh; remote success
-  replaces visible rows and updates Room, while remote failure retains the cache
-  and reports offline provenance.\
-  Tip: test cache-empty/cache-present against network success and failure.
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.analysisIsReusedOnlyForTheMatchingArticleHash`,
+  `com.swpp.team5.frameless.data.NewsCacheTest.invalidAnalysisDoesNotOverwriteTheLastGroundedCopy`
+- [Unit] A remote failure retains cached Latest rows and reports offline
+  provenance without replacing content with a full-screen error.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedLatestRemainsVisibleWhenRefreshIsOffline`
+- [Unit] Cached Latest rows are emitted before a remote refresh, and remote
+  success replaces visible rows and updates Room.\
+  Tip: add a controllable delayed remote response around the cache-first state.
 - [Unit] Cached Reader detail and matching analysis remain readable after a
-  network failure. Detail-only cache shows the article without inventing an
-  analysis result.\
-  Tip: add full-cache, detail-only, and no-cache Reader cases.
+  network failure.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
+- [Unit] Detail-only cache shows the article without inventing an analysis
+  result, while a cache miss uses the retryable connection state.\
+  Tip: add detail-only and no-cache Reader cases.
 - [Unit] Retention preserves the latest configured summaries, the 20 most recent
-  details/analyses, and summaries referenced by retained Saved relationships.\
-  Tip: seed values just below, at, and above each limit.
+  summaries referenced by retained Saved relationships.\
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.retentionKeepsSavedSummariesInAdditionToThePublicSummaryBudget`
+- [Unit] Retention keeps the 20 most recently opened details and their matching
+  analyses.\
+  Tip: add explicit detail/analysis boundary cases at 19, 20, and 21 rows.
 
 ### Android Saved snapshot
 
 - [Unit] Saved cache queries require the active user ID, and two accounts on one
   installation never see each other's relationships. Guest receives none.\
-  Tip: seed opposing two-user rows and query each viewer state.
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.savedSnapshotsAreIsolatedAndClearedPerUser`
 - [Unit] A successful Saved first-page refresh replaces that user's cached
   verified prefix atomically; loaded continuation pages append, and a failed
   refresh changes nothing.\
@@ -112,19 +127,26 @@ analysis, and authenticated Saved-list reads.
   the server succeeds. Offline or failed writes do not change UI or Room and are
   never queued.\
   Tip: assert call order and database state for success and failure.
-- [Component] An offline Saved row with local detail opens Reader; summary-only
-  rows remain visible and show the connect-once explanation.\
-  Tip: add Compose semantics tests for both availability states.
+- [Unit] An offline Saved snapshot remains visible and a row with cached detail
+  can open Reader.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedSavedSnapshotRemainsAccountReadableWhenRefreshIsOffline`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
+- [Component] A summary-only Saved row shows the connect-once explanation.\
+  Tip: add a Compose semantics assertion for the summary-only explanation.
 
 ### Web guest boundary
 
 - [Component] Guest users can render the feed and article route, including
   analysis, without redirecting to Login.\
-  Tip: add guest FeedPage, ArticlePage, and routing tests.
-- [Component] Saved, Following, source management, and save controls open the
-  shared sign-in path, then return to the prior public route after successful
-  login without replaying the mutation.\
-  Tip: test route state and mutation call counts.
+  Tested by: `web/src/pages/GuestFlow.test.tsx > guest news flow > loads Latest without a token and sends Following to contextual sign-in`,
+  `web/src/pages/GuestFlow.test.tsx > guest news flow > reads an article and analysis as guest, then protects the save action`
+- [Component] Following and save controls open contextual sign-in without
+  issuing the protected request.\
+  Tested by: `web/src/pages/GuestFlow.test.tsx > guest news flow > loads Latest without a token and sends Following to contextual sign-in`,
+  `web/src/pages/GuestFlow.test.tsx > guest news flow > reads an article and analysis as guest, then protects the save action`
+- [Component] Saved and source management use the same sign-in path, and a
+  successful login returns to the prior route without replaying a mutation.\
+  Tip: add the successful-login return assertion for each protected entry point.
 - [Security regression] React Query keys distinguish guest and user identities,
   and account changes cannot display stale saved/followed flags.\
   Tip: render guest, user A, guest, and user B against one QueryClient.

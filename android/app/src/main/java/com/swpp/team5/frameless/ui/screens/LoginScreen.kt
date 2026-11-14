@@ -43,7 +43,8 @@ internal fun LoginScreen(
     onIdentifier: (String) -> Unit,
     onPassword: (String) -> Unit,
     onLogin: () -> Unit,
-    onRegister: () -> Unit
+    onRegister: () -> Unit,
+    onDismiss: () -> Unit = {}
 ) {
     AuthFrame {
         BrandRow()
@@ -73,6 +74,16 @@ internal fun LoginScreen(
             Text("계정이 없나요? ", fontSize = 13.sp, color = Fl.Muted)
             Text("회원가입", fontSize = 13.sp, color = Fl.Accent, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clickable(onClick = onRegister))
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            Text(
+                "로그인 없이 둘러보기",
+                fontSize = 13.sp,
+                color = Fl.Muted,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.clickable(onClick = onDismiss).padding(8.dp)
+            )
         }
     }
 }

@@ -72,7 +72,8 @@ internal data class ArticleDetail(
     val publishedAt: String,
     val originalUrl: String,
     val analysisState: StoredAnalysisState,
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    val contentHash: String = ""
 )
 
 /** API offsets are Unicode code points. They are converted before reaching Compose. */
@@ -108,7 +109,9 @@ internal data class ApiFinding(
 internal data class ApiArticleAnalysis(
     val state: StoredAnalysisState,
     val version: String,
-    val findings: List<ApiFinding>
+    val findings: List<ApiFinding>,
+    val sourceContentHash: String = "",
+    val rawJson: String = ""
 )
 
 internal data class TextRange(val start: Int, val end: Int) {

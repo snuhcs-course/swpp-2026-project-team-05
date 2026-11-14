@@ -32,6 +32,7 @@ const article: ArticleDetail = {
   title: 'A reviewed headline',
   body: 'Evaluative wording appears here. Another framing appears here.',
   original_url: 'https://example.com/source',
+  content_hash: 'source-hash',
   category: 'POLITICS',
   published_at: '2026-11-02T10:00:00+09:00',
   analysis_state: 'READY',
@@ -104,7 +105,12 @@ describe('ArticlePage analysis rail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.article).mockResolvedValue(article)
-    vi.mocked(api.analysis).mockResolvedValue({ state: 'READY', version: 'test', findings } satisfies Analysis)
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY',
+      version: 'test',
+      source_content_hash: 'source-hash',
+      findings,
+    } satisfies Analysis)
   })
 
   it('separates finding navigation from named comparison sources', async () => {

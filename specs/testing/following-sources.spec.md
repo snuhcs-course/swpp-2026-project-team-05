@@ -72,7 +72,7 @@ and cross-outlet comparison remain independent of follows.
 
 - [Integration] Missing or expired authentication is rejected by publisher
   follow mutation and personalized Following reads.\
-  Tested by: `tests.test_news_api.NewsApiTests.test_news_endpoints_require_authentication`,
+  Tested by: `tests.test_news_api.NewsApiTests.test_personalized_news_operations_still_require_authentication`,
   `tests.test_news_api.NewsApiTests.test_following_scope_is_user_specific_and_latest_stays_complete`
 - [Integration] Missing `publisher_codes`, a non-array value, an unknown code,
   or a currently unselectable publisher returns a field-specific

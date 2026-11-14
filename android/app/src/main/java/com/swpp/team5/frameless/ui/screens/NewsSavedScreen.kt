@@ -93,7 +93,9 @@ internal fun NewsSavedScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            if (state.isRefreshing) "저장 목록을 갱신하는 중…" else "최근 저장순",
+                            if (state.isOffline) "저장된 목록 · 오프라인"
+                            else if (state.isRefreshing) "저장 목록을 갱신하는 중…"
+                            else "최근 저장순",
                             color = Fl.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium
                         )
                     }

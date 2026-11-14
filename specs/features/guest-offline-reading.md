@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for team review |
-| Version | 0.1 |
+| Status | Implemented; pending team intent review |
+| Version | 1.0 |
 | Date | 2026-11-14 |
 | Clients | Android and Web guest access; Android offline cache |
 | API | Existing Django JSON API with optional authentication on public reads |
