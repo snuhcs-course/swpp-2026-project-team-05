@@ -47,3 +47,7 @@ Acceptance criteria and any team-approved editorial review set are versioned
 separately from ordinary unit-test refactors. Once formally frozen for an
 iteration, cases are added through a dated revision and are never silently
 removed or edited.
+
+`acceptance-v1.spec.md` remains the frozen Iteration 3 plan. Product changes
+that intentionally replace one of its assumptions belong in a new version such
+as `acceptance-v2.spec.md`, preserving the old plan as historical evidence.

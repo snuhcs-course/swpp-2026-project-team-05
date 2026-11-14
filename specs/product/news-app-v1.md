@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation baseline |
-| Version | 1.7 (implemented news-product baseline) |
-| Date | 2026-11-05 |
+| Status | Implemented v1.7 baseline with draft v1.8 guest/offline extension |
+| Version | 1.8 draft |
+| Date | 2026-11-14 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -12,8 +12,8 @@
 
 ## 1. Product contract
 
-FrameLESS v1 is an article-first news application. A signed-in user browses
-articles from supported publishers, reads one article in full, and inspects
+FrameLESS v1 is an article-first news application. A user browses articles from
+supported publishers, reads one article in full, and inspects
 stored FrameLESS annotations. Android lets the user turn article markers on or
 off; Web keeps the reviewed markers and analysis rail visible beside the
 article. The annotations are prepared before the read request and stored in
@@ -23,7 +23,7 @@ the selected expression.
 The ordinary user does not submit a URL and never waits for an LLM call. The main flow is:
 
 ```text
-Register or log in
+Open as a guest, or restore an existing session
         ↓
 Browse politics or society articles
         ↓
@@ -45,12 +45,14 @@ Internal story clusters organize related articles, but v1 does not expose a topi
 Android and Web layout, gestures, loading states, and accessibility are specified
 in [`news-app-v1-ui.md`](../ui/news-app-v1-ui.md). Search, saved articles,
 and followed-source behavior are specified in
-[`news-app-features.md`](../features/news-app-features.md).
+[`news-app-features.md`](../features/news-app-features.md). Draft guest access
+and Android offline reading behavior are specified in
+[`guest-offline-reading.md`](../features/guest-offline-reading.md).
 
 ### 1.1 Required v1 functionality
 
-- Registration, login, persistent session, and logout
-- No anonymous mode
+- Guest access to feed, search, article detail, and stored analysis
+- Registration, login, persistent session, and logout for personalized features
 - Ordinary user and developer-account distinction
 - Politics and society feed
 - Latest and Following scopes with account-synchronized followed sources
@@ -84,7 +86,7 @@ The following designs remain valid future work, but they are not required to shi
 - I-series analysis, including I1
 - Personalized ranking, recommendations, and notifications
 - Email verification, password reset, account deletion, and session management UI
-- Offline article storage
+- Offline search, offline Following, offline Saved writes, and Web offline storage
 - iOS client
 
 The existing legacy URL-analysis endpoint may remain for compatibility, but it is not linked from the v1 ordinary-user UI and is not part of the new read-path implementation.
@@ -174,7 +176,11 @@ Authenticated requests use:
 Authorization: Bearer <session-token>
 ```
 
-All feed, article, and analysis endpoints require a valid session. Only registration and login are public.
+Latest feed, search, article detail, and stored analysis accept a missing bearer
+session as a guest read. A valid session adds account-specific save and follow
+state. Following, followed-source mutation, Saved list, Saved mutation, and
+`auth/me` require a valid session. A supplied invalid token returns
+`AUTH_REQUIRED` rather than silently becoming a guest request.
 
 Password change, reset, account deletion, and session listing remain outside this vertical slice. They must be added before an external public release.
 
@@ -449,6 +455,9 @@ Return active publishers in `display_order`, then name order:
 {"items": [{"code": "yna", "name": "연합뉴스", "logo_url": null, "is_followed": true}]}
 ```
 
+This endpoint is a public read. `is_followed` is false for a guest and reflects
+the account only when a valid bearer session is present.
+
 ### 6.3 Feed
 
 - `GET /api/v1/articles`
@@ -492,12 +501,17 @@ boundary; the clients do not display result-count badges. The cursor represents
 the last ranked position and is validated with Django signing. Feed payloads do
 not include body or findings.
 
+`scope=ALL`, including global search, is a public read. `scope=FOLLOWING`
+requires authentication. Guest summaries use `is_saved=false`; a valid bearer
+session receives the current account's value.
+
 ### 6.4 Article detail
 
 - `GET /api/v1/articles/{article_id}`
 
 Return publisher, title, exact body, category, publication time, original URL,
-analysis state, and the authenticated user's save state. Hidden articles return
+analysis state, immutable `content_hash`, and save state. The save state is false
+for a guest and account-specific for a valid session. Hidden articles return
 `NOT_FOUND` to ordinary users.
 
 ### 6.5 Article analysis
@@ -510,6 +524,7 @@ The response is projected onto the selected article. It never triggers collectio
 {
   "state": "READY",
   "version": "cluster-pilot-reviewed-v1",
+  "source_content_hash": "sha256-hex",
   "findings": [
     {
       "id": "uuid",
@@ -603,7 +618,10 @@ and completed analyses with no forced comparisons.
 
 - Never store or log raw passwords or session tokens.
 - Never log database URLs, API keys, full article bodies, or raw model output.
-- Enforce authentication on the server, not only in client navigation.
+- Enforce every personalized boundary on the server, not only in client
+  navigation; public reads follow the explicit guest contract.
+- Vary credential-dependent public-read responses by `Authorization` so a
+  shared cache cannot leak personalized flags.
 - Preserve SSRF protection when the management command fetches URLs.
 - Limit request bodies and validate all enum, UUID, cursor, and filter inputs.
 - Use constant-time password checks through Django hashers.
@@ -646,7 +664,9 @@ Reuse is component-level, not contract-level. The legacy `AnalysisResult`/`Reade
 
 Keep these flows separate:
 
-- the normal product route is authentication → feed → Reader → finding preview → optional detail;
+- the normal product route is guest or restored session → feed → Reader →
+  finding preview → optional detail; sign-in is requested only for personalized
+  features;
 - the URL import, live-analysis loading, legacy history, and legacy comparison state machine are not reachable by ordinary users;
 - legacy URL analysis may remain as an isolated developer-only capability, but it must not shape feed navigation or Reader state.
 
@@ -667,8 +687,11 @@ regression tests with long target articles and font scaling.
 
 - email/username normalization and duplicate handling;
 - Django password hashing and invalid-login behavior;
-- session creation, expiry, authenticated read, and idempotent logout;
-- authentication required for every read endpoint;
+- session creation, expiry, authenticated personalization, and idempotent logout;
+- guest access for the explicit public-read endpoints and authentication for
+  every personalized endpoint;
+- invalid supplied credentials return `AUTH_REQUIRED` rather than guest data;
+- article and analysis responses carry matching content hashes;
 - feed category/publisher filters and stable cursor pagination;
 - hidden article behavior;
 - article detail returns exact stored body;
@@ -687,7 +710,9 @@ regression tests with long target articles and font scaling.
 ### 10.2 Android
 
 - registration and login validation;
-- session restoration and expired-session return to login;
+- session restoration, offline retention of an unexpired stored session, and
+  confirmed expiry transition to guest;
+- Room cache fallback, account-isolated Saved snapshots, and hash-safe analysis reuse;
 - category and feed-scope navigation;
 - initial, refresh, empty, pagination, and retry feed states;
 - Reader works independently of analysis;
@@ -703,21 +728,26 @@ regression tests with long target articles and font scaling.
 
 ### 10.3 End to end
 
-1. Register → Latest/Following feed → open article → source-only finding.
+1. Guest launch → Latest feed → search → open article → source-only finding.
 2. Open the 제주 finding → compare `보복살해범` with `피의자` from two publishers.
 3. Turn analysis off/on on Android without moving the Reader position; on Web,
    verify that the persistent analysis rail selects the same stored finding.
-4. Restart the app and restore the authenticated feed and local category.
-5. Confirm an ordinary user cannot access hidden or developer-only behavior.
+4. Sign in for Saved/Following, restart the app, and restore the authenticated
+   feed and local category.
+5. Reopen a cached article and locally verified Saved snapshot offline on Android.
+6. Confirm a guest or ordinary user cannot access hidden or developer-only behavior.
 
 ## 11. Definition of done
 
 v1 is complete when:
 
-- a new user can register, log in, remain signed in, and log out;
+- a guest can read public news and analysis, while a new user can register, log
+  in for personalized features, remain signed in, and log out;
 - configured politics and society articles appear in a chronological feed;
 - category, Latest/Following scope, and pagination are stable;
 - search, saved articles, and followed sources behave consistently on Android and Web;
+- Android can reopen bounded cached Latest, article, analysis, and Saved data
+  without adding an offline write queue;
 - every visible article is readable regardless of analysis state;
 - exact title/body findings render on the correct characters;
 - source-only findings end without a comparison carousel;
