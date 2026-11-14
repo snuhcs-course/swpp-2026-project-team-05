@@ -7,13 +7,12 @@ internal interface NewsDataSource {
     suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String>
     suspend fun articles(category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, query: String? = null): ArticlePage
-    suspend fun cachedArticles(category: NewsCategory): ArticlePage? = null
+    suspend fun offlineSavedArticles(category: NewsCategory? = null): ArticlePage? = null
     suspend fun article(articleId: String): ArticleDetail
     suspend fun cachedArticle(articleId: String): ArticleDetail? = null
     suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi
     suspend fun cachedAnalysis(article: ArticleDetail): ArticleAnalysisUi? = null
     suspend fun savedArticles(cursor: String? = null): ArticlePage
-    suspend fun cachedSavedArticles(): ArticlePage? = null
     suspend fun setArticleSaved(articleId: String, saved: Boolean)
     suspend fun clearSavedCache(userId: String) = Unit
     fun savedCategory(): NewsCategory
@@ -46,15 +45,11 @@ internal class NewsRepository(
         return service.articles(
             if (scope == FeedScope.FOLLOWING) token() else optionalToken(),
             category, scope, cursor, query = query
-        ).also { page ->
-            if (scope == FeedScope.ALL && query.isNullOrBlank()) {
-                cache.storeSummaries(page.items)
-            }
-        }
+        )
     }
 
-    override suspend fun cachedArticles(category: NewsCategory): ArticlePage? =
-        cache.articles(category)
+    override suspend fun offlineSavedArticles(category: NewsCategory?): ArticlePage? =
+        auth.currentSession()?.user?.id?.let { cache.offlineSavedArticles(it, category) }
 
     override suspend fun article(articleId: String): ArticleDetail {
         return service.article(optionalToken(), articleId).also { cache.storeArticle(it) }
@@ -78,16 +73,37 @@ internal class NewsRepository(
         }
     }
 
-    override suspend fun cachedSavedArticles(): ArticlePage? =
-        auth.currentSession()?.user?.id?.let { cache.savedArticles(it) }
-
     override suspend fun setArticleSaved(articleId: String, saved: Boolean) {
         val session = auth.currentSession()
             ?: throw NewsApiException("AUTH_REQUIRED", "로그인이 필요합니다.")
-        if (saved) service.saveArticle(session.token, articleId)
-        else service.removeSavedArticle(session.token, articleId)
+        if (saved) {
+            val article = cache.article(articleId)
+                ?: service.article(session.token, articleId).also { cache.storeArticle(it) }
+            val cachedAnalysis = cache.analysis(article)
+            var prepared = cachedAnalysis?.let { analysis ->
+                analysis.state in OFFLINE_ANALYSIS_STATES &&
+                    cache.storeAnalysis(article, analysis)
+            } == true
+            if (!prepared) {
+                val response = service.analysis(session.token, articleId)
+                prepared = response.state in OFFLINE_ANALYSIS_STATES &&
+                    cache.storeAnalysis(article, response)
+            }
+            if (!prepared || cache.analysis(article)?.state !in OFFLINE_ANALYSIS_STATES) {
+                // The final read also verifies the stored payload against the article hash.
+                throw offlineCopyUnavailable()
+            }
+            service.saveArticle(session.token, articleId)
+        } else {
+            service.removeSavedArticle(session.token, articleId)
+        }
         cache.setSaved(session.user.id, articleId, saved)
     }
+
+    private fun offlineCopyUnavailable() = NewsApiException(
+        "OFFLINE_COPY_UNAVAILABLE",
+        "오프라인 사본을 준비하지 못했어요. 잠시 후 다시 시도해 주세요."
+    )
 
     override suspend fun clearSavedCache(userId: String) = cache.clearSaved(userId)
 
@@ -103,5 +119,12 @@ internal class NewsRepository(
 
     override fun saveAnalysisEnabled(enabled: Boolean) {
         preferences.edit().putBoolean("analysis_enabled", enabled).apply()
+    }
+
+    private companion object {
+        val OFFLINE_ANALYSIS_STATES = setOf(
+            StoredAnalysisState.READY,
+            StoredAnalysisState.PARTIAL
+        )
     }
 }

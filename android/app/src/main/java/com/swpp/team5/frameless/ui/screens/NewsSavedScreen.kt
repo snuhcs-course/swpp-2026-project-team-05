@@ -80,10 +80,12 @@ internal fun NewsSavedScreen(
                 "저장한 기사를 불러오지 못했어요", state.error, "다시 시도", onRetry
             )
             state.items.isEmpty() -> FeedMessage(
-                "아직 저장한 기사가 없어요",
-                "기사의 북마크 버튼을 누르면 이곳에서 다시 읽을 수 있어요.",
-                "기사 둘러보기",
-                onBack
+                if (state.isOffline) "오프라인에서 읽을 저장 기사가 없어요"
+                else "아직 저장한 기사가 없어요",
+                if (state.isOffline) "온라인에서 기사를 저장하면 본문과 분석을 이 기기에서 다시 볼 수 있어요."
+                else "기사의 북마크 버튼을 누르면 이곳에서 다시 읽을 수 있어요.",
+                if (state.isOffline) "다시 연결" else "기사 둘러보기",
+                if (state.isOffline) onRefresh else onBack
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 item {

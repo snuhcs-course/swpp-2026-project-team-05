@@ -10,13 +10,11 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 
 internal interface NewsCacheDataSource {
-    suspend fun articles(category: NewsCategory): ArticlePage?
-    suspend fun storeSummaries(items: List<ArticleSummary>)
     suspend fun article(articleId: String): ArticleDetail?
     suspend fun storeArticle(article: ArticleDetail)
     suspend fun analysis(article: ArticleDetail): ApiArticleAnalysis?
-    suspend fun storeAnalysis(article: ArticleDetail, analysis: ApiArticleAnalysis)
-    suspend fun savedArticles(userId: String): ArticlePage?
+    suspend fun storeAnalysis(article: ArticleDetail, analysis: ApiArticleAnalysis): Boolean
+    suspend fun offlineSavedArticles(userId: String, category: NewsCategory? = null): ArticlePage?
     suspend fun storeSavedPage(userId: String, page: ArticlePage, replace: Boolean)
     suspend fun setSaved(userId: String, articleId: String, saved: Boolean)
     suspend fun clearSaved(userId: String)
@@ -27,21 +25,6 @@ internal class NewsCache(
     private val database: FrameLESSDatabase = FrameLESSDatabase.get(context)
 ) : NewsCacheDataSource {
     private val dao = database.newsCacheDao()
-
-    override suspend fun articles(category: NewsCategory): ArticlePage? = withContext(Dispatchers.IO) {
-        dao.articles(category.wire, SUMMARY_LIMIT)
-            .map { it.toSummary() }
-            .takeIf { it.isNotEmpty() }
-            ?.let { ArticlePage(it, nextCursor = null) }
-    }
-
-    override suspend fun storeSummaries(items: List<ArticleSummary>) = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        database.runInTransaction {
-            items.forEach { storeSummary(it, now) }
-            trim()
-        }
-    }
 
     override suspend fun article(articleId: String): ArticleDetail? = withContext(Dispatchers.IO) {
         dao.article(articleId)?.toDetail()?.also {
@@ -84,26 +67,31 @@ internal class NewsCache(
     override suspend fun storeAnalysis(article: ArticleDetail, analysis: ApiArticleAnalysis) =
         withContext(Dispatchers.IO) {
             if (analysis.rawJson.isBlank() || article.contentHash.isBlank() ||
-                analysis.sourceContentHash != article.contentHash) return@withContext
-            val isFullyGrounded = runCatching {
-                val decoded = decodeArticleAnalysis(analysis.rawJson)
-                decoded.sourceContentHash == article.contentHash &&
-                    decoded.toUi(article).discardedMarkerCount == 0
-            }.getOrDefault(false)
-            if (!isFullyGrounded) return@withContext
-            dao.upsertAnalysis(
-                CachedAnalysisEntity(
-                    article.id,
-                    analysis.rawJson,
-                    analysis.version,
-                    analysis.sourceContentHash,
-                    System.currentTimeMillis()
+                analysis.sourceContentHash != article.contentHash) return@withContext false
+            val decoded = runCatching { decodeArticleAnalysis(analysis.rawJson) }.getOrNull()
+                ?: return@withContext false
+            if (decoded.sourceContentHash != article.contentHash ||
+                decoded.toUi(article).discardedMarkerCount != 0) return@withContext false
+            database.runInTransaction {
+                dao.upsertAnalysis(
+                    CachedAnalysisEntity(
+                        article.id,
+                        analysis.rawJson,
+                        decoded.version,
+                        decoded.sourceContentHash,
+                        System.currentTimeMillis()
+                    )
                 )
-            )
+                dao.updateAnalysisState(article.id, decoded.state.name)
+            }
+            true
         }
 
-    override suspend fun savedArticles(userId: String): ArticlePage? = withContext(Dispatchers.IO) {
-        dao.savedArticles(userId, SAVED_LIMIT)
+    override suspend fun offlineSavedArticles(
+        userId: String,
+        category: NewsCategory?
+    ): ArticlePage? = withContext(Dispatchers.IO) {
+        dao.offlineSavedArticles(userId, category?.wire, SAVED_LIMIT)
             .map { it.article.toSummary(isSaved = true, savedAt = it.savedAt) }
             .takeIf { it.isNotEmpty() }
             ?.let { ArticlePage(it, nextCursor = null) }
@@ -139,12 +127,18 @@ internal class NewsCache(
                 )
                 dao.trimSaved(userId, SAVED_LIMIT)
             } else {
-                dao.deleteSaved(userId, articleId)
+                database.runInTransaction {
+                    dao.deleteSaved(userId, articleId)
+                    dao.removeUnusedSummaries()
+                }
             }
         }
 
     override suspend fun clearSaved(userId: String) = withContext(Dispatchers.IO) {
-        dao.deleteSavedForUser(userId)
+        database.runInTransaction {
+            dao.deleteSavedForUser(userId)
+            dao.removeUnusedSummaries()
+        }
     }
 
     private fun storeSummary(item: ArticleSummary, now: Long) {
@@ -163,9 +157,9 @@ internal class NewsCache(
     }
 
     private fun trim() {
-        dao.trimSummaries(SUMMARY_LIMIT)
         dao.trimDetails(DETAIL_LIMIT)
         dao.removeAnalysisWithoutDetail()
+        dao.removeUnusedSummaries()
     }
 
     private fun ArticleSummary.toEntity(now: Long) = CachedArticleEntity(
@@ -234,7 +228,6 @@ internal class NewsCache(
     }
 
     private companion object {
-        const val SUMMARY_LIMIT = 100
         const val DETAIL_LIMIT = 20
         const val SAVED_LIMIT = 200
     }

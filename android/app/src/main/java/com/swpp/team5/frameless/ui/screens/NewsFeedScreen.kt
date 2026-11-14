@@ -254,21 +254,25 @@ internal fun NewsFeedScreen(
                 onClearSearch = { onSearchInput("") }
             )
             state.items.isEmpty() -> FeedMessage(
-                title = if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                title = if (state.isOffline) "오프라인에서 읽을 저장 기사가 없어요"
+                else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
                     "팔로우한 언론사가 없어요" else "새 기사가 없어요",
                 detail = when {
+                    state.isOffline -> "온라인에서 기사를 저장하면 본문과 분석을 이 기기에서 다시 볼 수 있어요."
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
                         "자주 읽는 언론사를 선택해 팔로잉 피드를 만들어 보세요."
                     state.scope == FeedScope.FOLLOWING -> "이 분야에는 팔로우한 언론사의 새 기사가 없어요."
                     else -> "잠시 후 새로고침해 주세요."
                 },
                 action = when {
+                    state.isOffline -> "다시 연결"
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } -> "언론사 관리"
                     state.scope == FeedScope.FOLLOWING -> "최신 기사 보기"
                     else -> "새로고침"
                 },
                 onAction = {
-                    if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                    if (state.isOffline) onRefresh()
+                    else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
                         showSources = true
                     else if (state.scope == FeedScope.FOLLOWING) onScope(FeedScope.ALL)
                     else onRefresh()
@@ -280,7 +284,7 @@ internal fun NewsFeedScreen(
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (state.isOffline) "저장된 기사 · 연결되면 최신 내용으로 갱신해요"
+                            if (state.isOffline) "이 기기에 저장한 기사 · 오프라인"
                             else if (state.isRefreshing) "새 기사를 확인하는 중…"
                             else if (state.activeSearchQuery.isNotBlank())
                                 "‘${state.activeSearchQuery}’ · 전체 언론사 검색"

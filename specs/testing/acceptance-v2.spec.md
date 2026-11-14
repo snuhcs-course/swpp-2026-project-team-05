@@ -41,23 +41,23 @@ and Following state disappear.
 
 ## UAT-09 — Reopen cached reading content offline on Android
 
-**Given** an online Android session that has loaded both categories and opened
-one article with comparison-backed analysis, **when** the tester enables airplane
-mode and restarts the app, **then** locally known Latest rows appear and the
-opened article and matching analysis remain readable with a clear offline
-notice.
+**Given** an authenticated Android session that has Saved an article with
+comparison-backed analysis, **when** the tester enables airplane mode and
+restarts the app, **then** only locally complete Saved rows appear and the Saved
+article and matching analysis remain readable with a clear offline notice.
 
 Procedure: record the article ID and marker; enable airplane mode; restart;
-open the cached article and the same marker; verify the exact cached comparison;
-attempt a non-cached article or fresh search and verify a connection-specific
-retry state rather than false empty results or infinite loading.
+open the Saved article and the same marker; verify the exact cached comparison;
+verify a merely viewed but unsaved article is absent; attempt a fresh search and
+verify a connection-specific retry state rather than false results or infinite
+loading.
 
 ## UAT-10 — Read the locally verified Saved snapshot offline
 
-**Given** an authenticated Android user with at least two server Saved articles,
-one opened locally and one known only by its Saved summary, **when** the tester
-goes offline and opens Saved, **then** both cached rows remain visible, the first
-article opens, and the second explains that it must be opened online once.
+**Given** an authenticated Android user with one locally complete Saved article
+and one bookmark known only from another device's Saved summary, **when** the
+tester goes offline and opens Saved, **then** only the locally complete row is
+visible and it opens with its validated analysis.
 
 Procedure: while still offline, attempt save and remove and verify neither the
 visible state nor Room relationship changes; reconnect, refresh Saved, complete

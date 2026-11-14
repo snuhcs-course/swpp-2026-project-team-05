@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented; pending team intent review |
-| Version | 1.0 |
+| Status | Implemented |
+| Version | 1.1 |
 | Date | 2026-11-14 |
 | Clients | Android and Web guest access; Android offline cache |
 | API | Existing Django JSON API with optional authentication on public reads |
@@ -16,7 +16,7 @@ This specification extends the implemented news-app baseline in
 Saved and Following features in
 [`news-app-features.md`](news-app-features.md). It deliberately keeps the
 extension small: public reading no longer requires an account, and Android
-retains a bounded read cache for previously fetched content.
+retains a bounded read cache for explicitly Saved content.
 
 The server remains the source of truth. Room is a client read cache, not a
 second news database or a general synchronization engine.
@@ -29,10 +29,10 @@ second news database or a general synchronization engine.
   Web without first registering or signing in.
 - Keep Following, source management, Saved mutations, and the Saved route
   account-specific.
-- Let Android immediately show previously fetched Latest rows and reopen
-  locally available articles and analysis during a network failure.
-- Let an authenticated Android user inspect the last locally verified Saved
-  list while offline.
+- Let an authenticated Android user reopen Saved articles whose body and
+  verified analysis are complete on that installation during a network failure.
+- Keep the offline surface honest: never show a headline that cannot open into
+  the same Reader experience.
 - Preserve strict account isolation and the existing server-owned Saved and
   Following contracts.
 
@@ -184,9 +184,10 @@ storage models and do not leak into API DTOs or Compose UI models.
 | `body_text`, `original_url`, `content_hash` | Nullable until detail is fetched |
 | `summary_cached_at`, `detail_cached_at`, `last_opened_at` | Cache provenance and retention |
 
-Feed responses upsert summary columns. Detail responses update the same row
-without creating a duplicate article. Personalized fields such as `is_saved`
-and `is_followed` are not stored in this table.
+Saved-list responses upsert summary columns. Detail responses update the same
+row without creating a duplicate article. Ordinary feed pages are not copied
+into Room because summary-only rows have no useful offline interaction.
+Personalized fields such as `is_saved` and `is_followed` are not stored here.
 
 ### 5.2 `cached_analysis`
 
@@ -240,15 +241,15 @@ ViewModels do not call a DAO or `NewsService` directly.
 
 ### 6.1 Latest feed
 
-1. Read cached summaries for the selected category and show them immediately
-   when available.
-2. Request the server first page.
-3. On success, replace the visible in-memory page and upsert its summaries.
-4. On failure, keep cached rows and expose a non-blocking offline state.
-5. When neither source has rows, expose the ordinary retryable error state.
-
-Loaded online continuation pages are also upserted. Offline mode does not
-simulate server cursor pagination; it shows the bounded locally known set.
+1. Request the selected server feed normally; online behavior is unchanged.
+2. On success, display the server page without persisting ordinary feed
+   summaries in Room.
+3. On a network failure, query only the active user's Saved relationships whose
+   article detail and matching validated analysis are both cached.
+4. Apply the selected category to that offline query and disable cursor
+   pagination.
+5. If no such rows exist, show the explicit empty offline state rather than
+   stale headlines or a false server-empty state. A guest has no offline rows.
 
 ### 6.2 Search and Following
 
@@ -274,32 +275,35 @@ FrameLESS does not mirror publisher sites.
 ### 6.4 Saved list and mutations
 
 For an authenticated user, the Saved route first reads that user's locally
-verified relationships joined with cached article summaries, then refreshes the
-server list.
+complete Saved rows, then refreshes the server list.
 
 - A successful first-page refresh transaction replaces that user's cached
   Saved relationships with the returned first page. Successfully loaded later
   pages append to this verified prefix.
 - A failed refresh preserves the previous local snapshot.
-- A successful save inserts or updates the local relationship.
+- Before a save request, Android ensures that article detail and a hash-matched,
+  validated analysis are present in Room. If this preparation fails, the
+  server mutation is not sent and Saved state does not change.
+- A successful save inserts or updates the local relationship only after the
+  server confirms the mutation.
 - A successful removal deletes the local relationship.
 - An offline or failed save/remove leaves both UI and Room unchanged and shows
   a connection error. The operation is not queued.
-- A Saved row with cached detail opens offline. A row with summary only remains
-  visible but explains that it must be opened once online before offline use.
+- Online Saved may include a server bookmark created on another device whose
+  body is not local yet. Such a row is omitted from offline lists until it is
+  opened or saved successfully on this installation.
 
 The cached list is the locally verified prefix, not a claim that every server
-bookmark has been downloaded. Saving from the current Reader normally leaves
-that article available because its detail and analysis have already been
-fetched.
+bookmark has been downloaded. A successful Android save leaves that article
+offline-readable because detail and validated analysis preparation is part of
+the mutation contract.
 
 ## 7. Retention and deletion
 
-- Keep up to 100 non-Saved article summaries ordered by recent cache use.
 - Keep full detail and analysis for the 20 most recently opened articles.
 - Keep up to 200 locally verified Saved relationships per user.
-- Do not delete an article summary while a retained Saved relationship refers
-  to it.
+- Keep a summary while a retained Saved relationship refers to it; remove
+  unused summary-only rows.
 - Saved status does not exempt large body and analysis payloads from the
   20-article detail limit.
 - Run bounded cleanup after successful cache writes; do not schedule periodic
@@ -321,12 +325,11 @@ fetched.
 
 ### 8.2 Offline Android
 
-- Cached content remains primary; a small notice states that a saved copy is
-  being shown.
+- Feed and Saved show only locally complete Saved articles for the active user;
+  a small notice identifies the offline Saved view.
 - Do not replace readable cached content with a full-screen network error.
 - Distinguish `no local copy` from `server returned no results`.
-- A Saved summary without local detail explains that the article must be opened
-  online once; it does not disappear from the list.
+- Never show a summary-only row that cannot be opened offline.
 - Disabled online-only mutations explain why they cannot complete.
 
 Web has the same guest and protected-action behavior but no persistent offline
@@ -354,8 +357,8 @@ This slice is complete when:
 - protected controls consistently request sign-in and return to the same public
   route;
 - authenticated Saved and Following behavior remains account-isolated;
-- Android opens cached Latest, Reader, analysis, and a locally verified Saved
-  snapshot during a network failure;
+- Android opens locally complete Saved articles and their verified Reader
+  analysis during a network failure without showing non-openable feed rows;
 - offline Saved writes are rejected without optimistic or queued state;
 - content-hash mismatch and malformed analysis never produce a wrong highlight;
 - Room schema export, retention, logout, and account-switch behavior are tested;

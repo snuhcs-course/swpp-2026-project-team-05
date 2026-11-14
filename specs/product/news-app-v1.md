@@ -712,7 +712,7 @@ regression tests with long target articles and font scaling.
 - registration and login validation;
 - session restoration, offline retention of an unexpired stored session, and
   confirmed expiry transition to guest;
-- Room cache fallback, account-isolated Saved snapshots, and hash-safe analysis reuse;
+- Saved-only Room fallback, account-isolated relationships, and hash-safe analysis reuse;
 - category and feed-scope navigation;
 - initial, refresh, empty, pagination, and retry feed states;
 - Reader works independently of analysis;
@@ -734,7 +734,7 @@ regression tests with long target articles and font scaling.
    verify that the persistent analysis rail selects the same stored finding.
 4. Sign in for Saved/Following, restart the app, and restore the authenticated
    feed and local category.
-5. Reopen a cached article and locally verified Saved snapshot offline on Android.
+5. Reopen locally complete Saved articles and verified analysis offline on Android.
 6. Confirm a guest or ordinary user cannot access hidden or developer-only behavior.
 
 ## 11. Definition of done
@@ -746,8 +746,8 @@ v1 is complete when:
 - configured politics and society articles appear in a chronological feed;
 - category, Latest/Following scope, and pagination are stable;
 - search, saved articles, and followed sources behave consistently on Android and Web;
-- Android can reopen bounded cached Latest, article, analysis, and Saved data
-  without adding an offline write queue;
+- Android can reopen bounded, locally complete Saved article and analysis data
+  without showing non-openable rows or adding an offline write queue;
 - every visible article is readable regardless of analysis state;
 - exact title/body findings render on the correct characters;
 - source-only findings end without a comparison carousel;

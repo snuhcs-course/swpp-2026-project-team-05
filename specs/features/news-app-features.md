@@ -485,8 +485,8 @@ internal stack trace.
   to that saved list instead of redirecting to the category feed.
 - Keep feed, Reader, and saved-list state consistent through one shared mutation
   boundary rather than separate request logic in each component.
-- Apply the intended state immediately; disable duplicate input while the
-  request is pending and roll back with an inline error if it fails.
+- Disable duplicate input while the request is pending and apply the intended
+  state after server confirmation; a failure leaves the visible state unchanged.
 - Removing an article in the Reader updates the saved page without resetting
   its remaining scroll and pagination context.
 
@@ -499,10 +499,10 @@ internal stack trace.
 - Reader back returns to its recorded origin from loaded, loading, and error
   states; it must not fall through to Android's app-exit behavior.
 - Reuse the compact feed row and current Reader navigation.
-- Apply and roll back save state consistently across feed, Reader, and saved
-  list. Failed requests are not queued for later offline synchronization.
-- When offline, show the locally verified Saved snapshot. Summary-only rows
-  explain that the article must be opened online once; save/remove stays online-only.
+- Apply confirmed save state consistently across feed, Reader, and Saved. Failed
+  requests are not shown optimistically or queued for later synchronization.
+- When offline, show only locally complete Saved rows whose body and validated
+  analysis are available; save/remove stays online-only.
 
 ### 9.8 User-visible states
 

@@ -10,8 +10,8 @@
 ## Scope
 
 This specification defines the observable contract for public news reads on
-Android and Web and the bounded Android Room cache for Latest, Reader,
-analysis, and authenticated Saved-list reads.
+Android and Web and the bounded Android Room cache for Reader, analysis, and
+authenticated offline Saved reads.
 
 ### Non-goals
 
@@ -87,29 +87,27 @@ analysis, and authenticated Saved-list reads.
   `cached_analysis`, and `cached_saved_article`, exports its schema, and enforces
   the documented keys and references.\
   Tip: add an instrumented Room schema and DAO test.
-- [Unit] Feed summary upsert does not erase previously cached detail, and detail
-  upsert does not persist personalized save/follow flags.\
-  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.summaryRefreshPreservesPreviouslyCachedDetail`
+- [Unit] A Saved-page summary refresh does not erase previously cached detail,
+  and detail storage does not persist personalized save/follow flags.\
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.savedSummaryRefreshPreservesPreviouslyCachedDetail`
 - [Unit] A validated analysis is reused only when its source hash matches the
   cached article hash. Malformed or mismatched analysis leaves a prior valid row
   untouched.\
   Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.analysisIsReusedOnlyForTheMatchingArticleHash`,
   `com.swpp.team5.frameless.data.NewsCacheTest.invalidAnalysisDoesNotOverwriteTheLastGroundedCopy`
-- [Unit] A remote failure retains cached Latest rows and reports offline
-  provenance without replacing content with a full-screen error.\
-  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedLatestRemainsVisibleWhenRefreshIsOffline`
-- [Unit] Cached Latest rows are emitted before a remote refresh, and remote
-  success replaces visible rows and updates Room.\
-  Tip: add a controllable delayed remote response around the cache-first state.
+- [Unit] A feed network failure replaces ordinary rows with only locally
+  complete Saved rows from the selected category and reports offline
+  provenance. Summary-only, detail-only, unsaved, and other-category rows are
+  excluded.\
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.offlineSavedQueryRequiresRelationshipDetailAndMatchingAnalysis`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.networkFailureShowsOnlyOfflineSavedArticles`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.guestNetworkFailureShowsHonestOfflineEmptyState`
 - [Unit] Cached Reader detail and matching analysis remain readable after a
   network failure.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
 - [Unit] Detail-only cache shows the article without inventing an analysis
   result, while a cache miss uses the retryable connection state.\
   Tip: add detail-only and no-cache Reader cases.
-- [Unit] Retention preserves the latest configured summaries, the 20 most recent
-  summaries referenced by retained Saved relationships.\
-  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.retentionKeepsSavedSummariesInAdditionToThePublicSummaryBudget`
 - [Unit] Retention keeps the 20 most recently opened details and their matching
   analyses.\
   Tip: add explicit detail/analysis boundary cases at 19, 20, and 21 rows.
@@ -123,16 +121,19 @@ analysis, and authenticated Saved-list reads.
   verified prefix atomically; loaded continuation pages append, and a failed
   refresh changes nothing.\
   Tip: cover replacement, append, and rollback behavior.
-- [Unit] Successful online save/remove updates the local relationship only after
-  the server succeeds. Offline or failed writes do not change UI or Room and are
-  never queued.\
-  Tip: assert call order and database state for success and failure.
-- [Unit] An offline Saved snapshot remains visible and a row with cached detail
-  can open Reader.\
-  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedSavedSnapshotRemainsAccountReadableWhenRefreshIsOffline`,
+- [Unit] Before an online save, Android prepares article detail and matching
+  validated analysis. It sends the server mutation and writes the local
+  relationship only after preparation succeeds.\
+  Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.savePreparesOfflineCopyBeforeServerMutation`,
+  `com.swpp.team5.frameless.data.NewsRepositoryTest.failedOfflineCopyPreparationDoesNotSave`
+- [Unit] Successful online save/remove updates visible and local state only
+  after the server succeeds. Offline or failed writes leave state unchanged and
+  are never queued.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.saveMutationChangesStateOnlyAfterSuccess`
+- [Unit] An offline Saved snapshot contains only locally complete rows and can
+  open Reader.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.offlineSavedRouteShowsOnlyCompleteLocalCopies`,
   `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
-- [Component] A summary-only Saved row shows the connect-once explanation.\
-  Tip: add a Compose semantics assertion for the summary-only explanation.
 
 ### Web guest boundary
 
@@ -167,8 +168,8 @@ analysis, and authenticated Saved-list reads.
 - Offline content may be stale until the next successful navigation-triggered
   refresh.
 - Publisher original links remain external and may not open offline.
-- The product does not guarantee offline availability for an article that has
-  never been opened on that Android installation.
+- A server bookmark created on another device is omitted offline until this
+  installation has cached its validated body and analysis.
 
 ## Test design
 
@@ -177,7 +178,7 @@ analysis, and authenticated Saved-list reads.
 | Viewer identity | guest / valid user / invalid token / expired token | Feature §§2–4 |
 | Public API | publisher / feed / search / detail / analysis | Feature §4.1 |
 | Protected API | Following / follow mutation / Saved read / Saved mutation | Feature §4.2 |
-| Cache availability | none / summary / detail / detail+analysis | Feature §6 |
+| Cache availability | none / summary / detail / detail+matching analysis | Feature §6 |
 | Analysis validity | matching hash / mismatched hash / malformed offsets | Feature §§4.4, 5.2 |
 | Saved snapshot | guest / user A / user B / first page / continuation | Feature §§5.3, 6.4 |
 | Network outcome | success / timeout / 401 / 404 / malformed response | Feature §§3, 4, 6 |

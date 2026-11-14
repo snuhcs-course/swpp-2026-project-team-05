@@ -490,12 +490,12 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 
 ### 8.1 Android offline restoration
 
-- Cached Latest rows may appear before the network refresh completes.
+- Online feeds remain server-backed. After a network failure, the feed switches
+  to the active user's locally complete Saved articles for that category.
 - Cached Reader content remains readable with a restrained offline notice.
 - A locally verified Saved snapshot is visible only for the active unexpired
   account session; guest and other-account states cannot read it.
-- Saved rows with summary only remain visible but explain that the article must
-  be opened online once before offline reading.
+- Summary-only Saved rows are omitted offline so every visible row opens.
 - Offline search, Following, follow changes, and save/remove mutations require a
   connection and never create optimistic queued state.
 
@@ -627,8 +627,8 @@ The UI is complete when:
   results with category filters, paginate the active result set, and return to
   the prior feed;
 - users can save an article and return from its Reader to the saved list;
-- authenticated Android users can inspect a locally verified Saved snapshot and
-  reopen locally available articles offline without queuing writes;
+- authenticated Android users can inspect locally complete Saved articles and
+  reopen their verified analyses offline without queuing writes;
 - every visible article is readable regardless of analysis status;
 - Android analysis can be toggled without changing article content or position;
 - Web analysis remains visible in its rail without changing article content or position;

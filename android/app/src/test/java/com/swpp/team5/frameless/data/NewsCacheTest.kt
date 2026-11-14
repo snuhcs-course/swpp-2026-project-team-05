@@ -2,6 +2,7 @@ package com.swpp.team5.frameless.data
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.swpp.team5.frameless.data.local.CachedAnalysisEntity
 import com.swpp.team5.frameless.data.local.FrameLESSDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -14,7 +15,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -55,9 +55,13 @@ class NewsCacheTest {
     fun tearDown() = database.close()
 
     @Test
-    fun summaryRefreshPreservesPreviouslyCachedDetail() = runBlocking {
+    fun savedSummaryRefreshPreservesPreviouslyCachedDetail() = runBlocking {
         cache.storeArticle(detail)
-        cache.storeSummaries(listOf(summary.copy(title = "수정된 제목")))
+        cache.storeSavedPage(
+            "user-a",
+            ArticlePage(listOf(summary.copy(title = "수정된 제목", isSaved = true)), null),
+            replace = true
+        )
 
         val restored = cache.article(summary.id)
         assertEquals("수정된 제목", restored?.title)
@@ -122,6 +126,8 @@ class NewsCacheTest {
 
     @Test
     fun savedSnapshotsAreIsolatedAndClearedPerUser() = runBlocking {
+        cache.storeArticle(detail)
+        cache.storeAnalysis(detail, validAnalysis(detail))
         val savedPage = ArticlePage(
             listOf(summary.copy(isSaved = true, savedAt = "2026-11-14T03:00:00Z")),
             null
@@ -129,30 +135,73 @@ class NewsCacheTest {
         cache.storeSavedPage("user-a", savedPage, replace = true)
         cache.storeSavedPage("user-b", savedPage, replace = true)
 
-        assertTrue(cache.savedArticles("user-a")!!.items.single().isSaved)
+        assertTrue(cache.offlineSavedArticles("user-a")!!.items.single().isSaved)
         cache.clearSaved("user-a")
-        assertNull(cache.savedArticles("user-a"))
-        assertFalse(cache.savedArticles("user-b")!!.items.isEmpty())
+        assertNull(cache.offlineSavedArticles("user-a"))
+        assertFalse(cache.offlineSavedArticles("user-b")!!.items.isEmpty())
     }
 
     @Test
-    fun retentionKeepsSavedSummariesInAdditionToThePublicSummaryBudget() = runBlocking {
-        val savedItems = (1..100).map { index ->
-            summary.copy(
-                id = "saved-$index",
-                title = "저장 기사 $index",
-                isSaved = true,
-                savedAt = Instant.ofEpochSecond(index.toLong()).toString()
-            )
+    fun offlineSavedQueryRequiresRelationshipDetailAndMatchingAnalysis() = runBlocking {
+        val complete = detail.copy(
+            id = "complete",
+            analysisState = StoredAnalysisState.NOT_STARTED,
+            contentHash = "hash-complete"
+        )
+        val detailOnly = detail.copy(id = "detail-only", contentHash = "hash-detail")
+        val mismatched = detail.copy(id = "mismatched", contentHash = "hash-current")
+        val society = detail.copy(
+            id = "society",
+            category = NewsCategory.SOCIETY,
+            contentHash = "hash-society"
+        )
+        cache.storeSavedPage(
+            "user-a",
+            ArticlePage(
+                listOf(complete, detailOnly, mismatched, society).map { article ->
+                    summary.copy(
+                        id = article.id,
+                        category = article.category,
+                        analysisState = article.analysisState,
+                        isSaved = true,
+                        savedAt = "2026-11-14T03:00:00Z"
+                    )
+                } + summary.copy(id = "summary-only", isSaved = true),
+                null
+            ),
+            replace = true
+        )
+        for (article in listOf(complete, detailOnly, mismatched, society)) {
+            cache.storeArticle(article)
         }
-        cache.storeSavedPage("user-a", ArticlePage(savedItems, null), replace = true)
-        cache.storeSummaries((1..101).map { index ->
-            summary.copy(id = "public-$index", title = "일반 기사 $index")
-        })
+        cache.storeAnalysis(complete, validAnalysis(complete))
+        cache.storeAnalysis(society, validAnalysis(society))
+        database.newsCacheDao().upsertAnalysis(
+            CachedAnalysisEntity("mismatched", "{}", "old", "old-hash", 1L)
+        )
 
         assertEquals(
-            200,
-            database.newsCacheDao().articles(NewsCategory.POLITICS.wire, 500).size
+            listOf("complete"),
+            cache.offlineSavedArticles("user-a", NewsCategory.POLITICS)!!.items.map { it.id }
+        )
+        assertEquals(
+            setOf("complete", "society"),
+            cache.offlineSavedArticles("user-a")!!.items.map { it.id }.toSet()
+        )
+        assertNull(cache.offlineSavedArticles("user-b"))
+    }
+
+    private fun validAnalysis(article: ArticleDetail): ApiArticleAnalysis {
+        val raw = """{
+          "state":"READY","version":"reviewed-v1",
+          "source_content_hash":"${article.contentHash}","findings":[]
+        }"""
+        return ApiArticleAnalysis(
+            StoredAnalysisState.READY,
+            "reviewed-v1",
+            emptyList(),
+            sourceContentHash = article.contentHash,
+            rawJson = raw
         )
     }
 }

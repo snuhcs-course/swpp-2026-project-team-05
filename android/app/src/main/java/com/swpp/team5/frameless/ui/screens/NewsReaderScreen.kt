@@ -182,7 +182,7 @@ private fun NewsReaderContent(
                     modifier = Modifier.weight(1f))
                 IconButton(
                     onClick = { onToggleSaved(article.id, article.isSaved) },
-                    enabled = !savedPending,
+                    enabled = !savedPending && (article.isSaved || !analysisLoading),
                     modifier = Modifier.semantics {
                         contentDescription = if (article.isSaved) "저장 취소" else "기사 저장"
                     }
