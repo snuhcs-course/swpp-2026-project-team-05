@@ -205,9 +205,10 @@ analysis schema in Room would add complexity without product value.
 
 Before writing, Android parses the response and applies the existing exact-text
 and offset validation. A malformed response does not overwrite a previously
-valid cache row. Before reading, `source_content_hash` must equal the associated
-article's `content_hash`; otherwise the article remains readable but the cached
-analysis is ignored.
+valid cache row. Only `READY` or `PARTIAL` analysis is retained as an offline
+copy. Before reading, `source_content_hash` must equal the associated article's
+`content_hash`; otherwise the article remains readable but the cached analysis
+is ignored.
 
 ### 5.3 `cached_saved_article`
 
@@ -276,6 +277,9 @@ FrameLESS does not mirror publisher sites.
 
 For an authenticated user, the Saved route first reads that user's locally
 complete Saved rows, then refreshes the server list.
+
+Showing this local snapshot while the network refresh is pending does not mark
+the UI offline. The offline notice appears only after an actual network failure.
 
 - A successful first-page refresh transaction replaces that user's cached
   Saved relationships with the returned first page. Successfully loaded later

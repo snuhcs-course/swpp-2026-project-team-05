@@ -620,7 +620,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                     nextCursor = null,
                     isLoading = false,
                     isRefreshing = true,
-                    isOffline = true,
+                    isOffline = false,
                     error = null
                 )
             }

@@ -1,10 +1,10 @@
 package com.swpp.team5.frameless.data.local;
 
+import androidx.annotation.Nullable;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
-import androidx.annotation.Nullable;
 
 import java.util.List;
 
@@ -15,7 +15,8 @@ public interface NewsCacheDao {
 
     @Query("UPDATE cached_article SET publisher_code = :publisherCode, publisher_name = :publisherName, " +
             "publisher_logo_url = :logoUrl, category = :category, title = :title, " +
-            "published_at = :publishedAt, analysis_state = :analysisState, " +
+            "published_at = :publishedAt, analysis_state = CASE WHEN article_id IN " +
+            "(SELECT article_id FROM cached_analysis) THEN analysis_state ELSE :analysisState END, " +
             "summary_cached_at = :cachedAt WHERE article_id = :articleId")
     void updateSummary(
             String articleId,

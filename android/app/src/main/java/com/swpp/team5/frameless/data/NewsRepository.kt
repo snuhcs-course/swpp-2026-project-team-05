@@ -80,19 +80,13 @@ internal class NewsRepository(
             val article = cache.article(articleId)
                 ?: service.article(session.token, articleId).also { cache.storeArticle(it) }
             val cachedAnalysis = cache.analysis(article)
-            var prepared = cachedAnalysis?.let { analysis ->
-                analysis.state in OFFLINE_ANALYSIS_STATES &&
-                    cache.storeAnalysis(article, analysis)
-            } == true
+            var prepared = cachedAnalysis?.state in OFFLINE_ANALYSIS_STATES
             if (!prepared) {
                 val response = service.analysis(session.token, articleId)
                 prepared = response.state in OFFLINE_ANALYSIS_STATES &&
                     cache.storeAnalysis(article, response)
             }
-            if (!prepared || cache.analysis(article)?.state !in OFFLINE_ANALYSIS_STATES) {
-                // The final read also verifies the stored payload against the article hash.
-                throw offlineCopyUnavailable()
-            }
+            if (!prepared) throw offlineCopyUnavailable()
             service.saveArticle(session.token, articleId)
         } else {
             service.removeSavedArticle(session.token, articleId)

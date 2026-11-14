@@ -89,12 +89,14 @@ authenticated offline Saved reads.
   Tip: add an instrumented Room schema and DAO test.
 - [Unit] A Saved-page summary refresh does not erase previously cached detail,
   and detail storage does not persist personalized save/follow flags.\
-  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.savedSummaryRefreshPreservesPreviouslyCachedDetail`
+  Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.savedSummaryRefreshPreservesPreviouslyCachedDetail`,
+  `com.swpp.team5.frameless.data.NewsCacheTest.savedSummaryRefreshPreservesVerifiedAnalysisState`
 - [Unit] A validated analysis is reused only when its source hash matches the
-  cached article hash. Malformed or mismatched analysis leaves a prior valid row
-  untouched.\
+  cached article hash. Non-ready, malformed, or mismatched analysis cannot form
+  an offline copy and leaves a prior valid row untouched.\
   Tested by: `com.swpp.team5.frameless.data.NewsCacheTest.analysisIsReusedOnlyForTheMatchingArticleHash`,
-  `com.swpp.team5.frameless.data.NewsCacheTest.invalidAnalysisDoesNotOverwriteTheLastGroundedCopy`
+  `com.swpp.team5.frameless.data.NewsCacheTest.invalidAnalysisDoesNotOverwriteTheLastGroundedCopy`,
+  `com.swpp.team5.frameless.data.NewsCacheTest.nonReadyAnalysisDoesNotBecomeAnOfflineCopy`
 - [Unit] A feed network failure replaces ordinary rows with only locally
   complete Saved rows from the selected category and reports offline
   provenance. Summary-only, detail-only, unsaved, and other-category rows are
@@ -134,6 +136,10 @@ authenticated offline Saved reads.
   open Reader.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.offlineSavedRouteShowsOnlyCompleteLocalCopies`,
   `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
+- [State transition] Showing a local Saved snapshot during an online refresh
+  does not claim the device is offline; the offline state begins only after a
+  network failure.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.localSavedSnapshotDoesNotClaimOfflineWhileRefreshIsPending`
 
 ### Web guest boundary
 

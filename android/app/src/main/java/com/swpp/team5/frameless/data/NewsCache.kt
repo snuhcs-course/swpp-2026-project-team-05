@@ -66,7 +66,8 @@ internal class NewsCache(
 
     override suspend fun storeAnalysis(article: ArticleDetail, analysis: ApiArticleAnalysis) =
         withContext(Dispatchers.IO) {
-            if (analysis.rawJson.isBlank() || article.contentHash.isBlank() ||
+            if (analysis.state !in OFFLINE_ANALYSIS_STATES ||
+                analysis.rawJson.isBlank() || article.contentHash.isBlank() ||
                 analysis.sourceContentHash != article.contentHash) return@withContext false
             val decoded = runCatching { decodeArticleAnalysis(analysis.rawJson) }.getOrNull()
                 ?: return@withContext false
@@ -228,6 +229,10 @@ internal class NewsCache(
     }
 
     private companion object {
+        val OFFLINE_ANALYSIS_STATES = setOf(
+            StoredAnalysisState.READY,
+            StoredAnalysisState.PARTIAL
+        )
         const val DETAIL_LIMIT = 20
         const val SAVED_LIMIT = 200
     }

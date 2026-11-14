@@ -92,6 +92,31 @@ class NewsCacheTest {
     }
 
     @Test
+    fun savedSummaryRefreshPreservesVerifiedAnalysisState() = runBlocking {
+        cache.storeArticle(detail)
+        cache.storeAnalysis(detail, validAnalysis(detail))
+        cache.storeSavedPage(
+            "user-a",
+            ArticlePage(
+                listOf(
+                    summary.copy(
+                        analysisState = StoredAnalysisState.NOT_STARTED,
+                        isSaved = true
+                    )
+                ),
+                null
+            ),
+            replace = true
+        )
+
+        assertEquals(
+            StoredAnalysisState.READY.name,
+            database.newsCacheDao().article(detail.id).analysisState
+        )
+        assertEquals(detail.id, cache.offlineSavedArticles("user-a")!!.items.single().id)
+    }
+
+    @Test
     fun invalidAnalysisDoesNotOverwriteTheLastGroundedCopy() = runBlocking {
         cache.storeArticle(detail)
         val validRaw = """{
@@ -122,6 +147,29 @@ class NewsCacheTest {
         )
 
         assertEquals("valid", cache.analysis(detail)?.version)
+    }
+
+    @Test
+    fun nonReadyAnalysisDoesNotBecomeAnOfflineCopy() = runBlocking {
+        cache.storeArticle(detail)
+        val raw = """{
+          "state":"FAILED","version":"failed-v1",
+          "source_content_hash":"hash-a1","findings":[]
+        }"""
+
+        val stored = cache.storeAnalysis(
+            detail,
+            ApiArticleAnalysis(
+                StoredAnalysisState.FAILED,
+                "failed-v1",
+                emptyList(),
+                sourceContentHash = "hash-a1",
+                rawJson = raw
+            )
+        )
+
+        assertFalse(stored)
+        assertNull(cache.analysis(detail))
     }
 
     @Test

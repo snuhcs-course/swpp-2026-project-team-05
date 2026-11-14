@@ -11,6 +11,7 @@ import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -452,6 +453,32 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun localSavedSnapshotDoesNotClaimOfflineWhileRefreshIsPending() {
+        val pendingPage = CompletableDeferred<ArticlePage>()
+        val repository = FakeNewsDataSource().apply {
+            offlineSavedPage = ArticlePage(
+                listOf(summary("saved-local").copy(isSaved = true)), null
+            )
+            savedPageGate = pendingPage
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openSaved()
+        mainLooper.idle()
+
+        assertEquals(listOf("saved-local"), viewModel.saved.items.map { it.id })
+        assertTrue(viewModel.saved.isRefreshing)
+        assertFalse(viewModel.saved.isOffline)
+
+        pendingPage.complete(
+            ArticlePage(listOf(summary("saved-online").copy(isSaved = true)), null)
+        )
+        mainLooper.idle()
+        assertEquals(listOf("saved-online"), viewModel.saved.items.map { it.id })
+        assertFalse(viewModel.saved.isOffline)
+    }
+
+    @Test
     fun saveMutationChangesStateOnlyAfterSuccess() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("a")), null)
@@ -500,6 +527,7 @@ class NewsViewModelTest {
         var articleFailure: Exception? = null
         var analysisFailure: Exception? = null
         var savedFailure: Exception? = null
+        var savedPageGate: CompletableDeferred<ArticlePage>? = null
         var savedMutationFailure: Exception? = null
         var clearSavedFailure: Exception? = null
         var cachedArticleValue: ArticleDetail? = null
@@ -551,6 +579,7 @@ class NewsViewModelTest {
         override suspend fun cachedAnalysis(article: ArticleDetail) = cachedAnalysisValue
         override suspend fun savedArticles(cursor: String?): ArticlePage {
             savedFailure?.let { throw it }
+            savedPageGate?.let { return it.await() }
             return savedPages.removeFirst()
         }
         override suspend fun setArticleSaved(articleId: String, saved: Boolean) {
