@@ -1,6 +1,6 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: v1.9 implemented baseline with draft guest/offline extension
+Status: Implemented baseline including guest and offline reading
 
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
