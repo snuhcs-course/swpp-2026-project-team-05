@@ -88,6 +88,7 @@ import com.swpp.team5.frameless.data.FindingUi
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
+import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.SourceLink
@@ -171,7 +172,8 @@ private fun NewsReaderContent(
 
     LaunchedEffect(bodyFocus, bodyLayout, bodyTopPx, scroll.maxValue) {
         if (comparisonFocusApplied || bodyFocus == null ||
-            !bodyFocus.markerRange.isWithin(article.body)) return@LaunchedEffect
+            !bodyFocus.markerRange.isWithin(article.body) ||
+            scroll.maxValue == Int.MAX_VALUE) return@LaunchedEffect
         val layout = bodyLayout ?: return@LaunchedEffect
         awaitFrame()
         val markerTop = layout.getBoundingBox(bodyFocus.markerRange.start).top
@@ -265,19 +267,31 @@ private fun NewsReaderContent(
                     modifier = Modifier.fillMaxWidth().background(Fl.Inset)
                         .padding(horizontal = 18.dp, vertical = 9.dp))
             }
-            if (comparisonFocus != null) {
-                Text(
-                    "비교 기사에서 확인한 표현을 표시했어요.",
-                    color = Fl.Ink2,
-                    fontSize = 12.sp,
-                    modifier = Modifier.fillMaxWidth().background(Fl.Inset)
-                        .padding(horizontal = 18.dp, vertical = 9.dp)
-                )
-            }
             Column(
                 Modifier.fillMaxSize().verticalScroll(scroll)
                     .padding(horizontal = 22.dp, vertical = 22.dp)
             ) {
+                if (comparisonFocus != null) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(Fl.Inset, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            Modifier.size(width = 3.dp, height = 30.dp)
+                                .background(Fl.InkDiff, RoundedCornerShape(50))
+                        )
+                        Column {
+                            Text("비교 기사에서 이어 읽는 중", fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold, color = Fl.Ink)
+                            Text("확인한 표현을 본문에 표시했어요.", fontSize = 11.sp,
+                                lineHeight = 16.sp, color = Fl.Muted)
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
                 Caption("${article.publisher.name} · ${formatNewsTimestamp(article.publishedAt)} · ${article.category.label}")
                 Spacer(Modifier.height(10.dp))
                 FindingText(
@@ -290,7 +304,12 @@ private fun NewsReaderContent(
                     onPlainTextTap = { selected = null }
                 )
                 SourceLink(onClick = { uriHandler.openUri(article.originalUrl) })
-                AnalysisNotice(analysis, analysisLoading, analysisError)
+                AnalysisNotice(
+                    analysis,
+                    analysisLoading,
+                    analysisError,
+                    fromComparison = comparisonFocus != null
+                )
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = Fl.Line)
                 Spacer(Modifier.height(20.dp))
@@ -342,7 +361,12 @@ private fun NewsReaderContent(
 }
 
 @Composable
-private fun AnalysisNotice(analysis: ArticleAnalysisUi?, loading: Boolean, error: String?) {
+private fun AnalysisNotice(
+    analysis: ArticleAnalysisUi?,
+    loading: Boolean,
+    error: String?,
+    fromComparison: Boolean
+) {
     val message = when {
         loading -> "저장된 표현 분석을 불러오는 중이에요. 기사는 그대로 읽을 수 있어요."
         error != null -> "표현 분석을 불러오지 못했어요. 기사는 그대로 읽을 수 있어요."
@@ -350,6 +374,8 @@ private fun AnalysisNotice(analysis: ArticleAnalysisUi?, loading: Boolean, error
         analysis?.state == StoredAnalysisState.FAILED || analysis?.state == StoredAnalysisState.NOT_STARTED ->
             "아직 표시할 표현 분석이 없어요."
         analysis?.state == StoredAnalysisState.PARTIAL -> "검토가 끝난 표현만 표시하고 있어요."
+        analysis?.state == StoredAnalysisState.READY && analysis.findings.isEmpty() && fromComparison ->
+            "이 기사의 별도 표현 분석은 없어요."
         analysis?.state == StoredAnalysisState.READY && analysis.findings.isEmpty() ->
             "분석은 완료되었지만 현재 표시할 표현 특징을 확인하지 못했어요."
         else -> null
@@ -759,7 +785,7 @@ private fun NewsComparisonPage(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedPill(text = "기사 읽기", onClick = { onOpenArticle(page) })
+                FilledPill(text = "이 기사 읽기", onClick = { onOpenArticle(page) })
                 SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
             }
             HorizontalDivider(color = Fl.Line)

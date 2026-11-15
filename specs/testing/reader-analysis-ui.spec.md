@@ -5,7 +5,7 @@
 | Status | Implemented; intent reviewed from HE feedback |
 | Owner | Reader feature owner |
 | Source requirements | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §§6.1–6.5 |
-| Last reviewed | 2026-11-03 |
+| Last reviewed | 2026-11-16 |
 
 ## Scope
 
@@ -39,6 +39,15 @@ comparison sheet.
   original external link remains available.\
   Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage comparison navigation > opens a comparison target in Reader context and returns to its source`,
   `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.comparisonReaderNavigationPreservesSourceBackStackAndFocus`
+- [Component] The internal full-article action is visually primary and named as
+  a Reader destination, while the publisher original remains secondary. The
+  target Reader keeps one transient context notice inside article scrolling;
+  an article with no standalone findings describes that state without treating
+  the comparison marker as a finding or an error.\
+  Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage comparison navigation > opens a comparison target in Reader context and returns to its source`,
+  `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonTargetExplainsTransientContextWithoutClaimingAStandaloneFinding`,
+  `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonTargetWaitsForLayoutBeforeScrollingToFocusedPassage`,
+  `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
 
 ### Stored analysis contract
 

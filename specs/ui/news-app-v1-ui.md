@@ -381,7 +381,8 @@ sheet would add navigation without adding information.
 │  └────────────────────────────────┘  │
 │──────────────────────────────────────│
 │  연합뉴스 · 발행 시각                 │
-│  비교 기사 제목                 원문 보기 │
+│  비교 기사 제목                       │
+│  [이 기사 읽기]             원문 보기 │
 │  “피의자”가 들어간 대응 문장           │
 │                                      │
 │  비교 기사 전문...                    │
@@ -406,8 +407,10 @@ Comparison behavior:
 - Return at most three publisher-diverse pages.
 - One publisher occupies one horizontal page.
 - Multiple supporting sentences from one publisher remain in that page.
-- Show publisher, publication time, exact target marker, a primary
-  `기사 읽기`/`Read article` action, and a secondary original link.
+- Show publisher, publication time, exact target marker, a filled primary
+  `이 기사 읽기`/`Read full article` action, and a visually quieter original
+  link. The article title comes before these actions so the destination is
+  clear before navigation.
 - The primary action opens the existing article Reader for that comparison
   target. It does not create a second comparison-only article view.
 - Show a speaker label such as `교육부 표현` only when a specific attributed
@@ -430,6 +433,11 @@ Comparison behavior:
 - The stored target marker is shown with a restrained comparison-context style
   and scrolled into view. It is not presented as an A–G finding and does not
   alter the article string.
+- The target Reader shows one compact comparison-context notice inside the
+  article scroll area, so it leaves the screen naturally while reading. It
+  must not occupy persistent top chrome. When that target has no standalone
+  findings, say so explicitly without implying that the comparison marker is
+  missing or invalid.
 - Saving from the target Reader uses the ordinary saved-article control. A
   comparison-support article stays absent from feed and search unless
   `is_feed_visible` is separately enabled.
@@ -461,10 +469,11 @@ right rail. Its two navigation levels must use different controls:
 - Product copy shows natural-language finding labels and publisher names. Raw
   A–G codes and evaluation-only article IDs such as `S`, `A1`, or `A2` never
   appear in the Reader.
-- Each active publisher page exposes `Read article` as its primary destination
-  and `Original` as an external secondary destination. Browser back returns to
-  the source Reader. Refreshing the target URL keeps the article available but
-  may clear the transient comparison marker.
+- Each active publisher page presents the destination title before its actions,
+  exposes `Read full article` as a comfortably sized primary destination, and
+  keeps `Original` as an external secondary destination. Browser back returns
+  to the source Reader. Refreshing the target URL keeps the article available
+  but may clear the transient comparison marker.
 
 ## 7. Account menu
 

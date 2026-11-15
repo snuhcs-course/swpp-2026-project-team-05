@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -33,6 +34,7 @@ import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.data.TextRange
 import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
+import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
 import org.junit.Assert.assertEquals
@@ -259,6 +261,74 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
+    fun comparisonTargetExplainsTransientContextWithoutClaimingAStandaloneFinding() {
+        val body = "조선비즈는 통상 약 12시간 머물렀다고 전했다."
+        val marker = "통상 약 12시간"
+        val markerStart = body.indexOf(marker)
+        val article = ArticleDetail(
+            "comparison-article", publisher, "비교 기사", body,
+            NewsCategory.SOCIETY, "2026-11-15T09:00:00+09:00",
+            "https://example.com/comparison-article", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", emptyList()
+                    ),
+                    analysisEnabled = true,
+                    comparisonFocus = ReaderFocus(
+                        "BODY", TextRange(markerStart, markerStart + marker.length)
+                    )
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.onNodeWithText("비교 기사에서 이어 읽는 중").assertIsDisplayed()
+        compose.onNodeWithText("확인한 표현을 본문에 표시했어요.").assertIsDisplayed()
+        compose.onNodeWithText("이 기사의 별도 표현 분석은 없어요.").assertIsDisplayed()
+        compose.onAllNodesWithText("분석은 완료되었지만", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun comparisonTargetWaitsForLayoutBeforeScrollingToFocusedPassage() {
+        val prefix = List(60) { "앞부분 기사 문장입니다." }.joinToString("\n\n")
+        val marker = "비교에서 확인한 표현"
+        val body = "$prefix\n\n마지막에 $marker 이 있습니다."
+        val markerStart = body.indexOf(marker)
+        val article = ArticleDetail(
+            "long-comparison-article", publisher, "긴 비교 기사", body,
+            NewsCategory.SOCIETY, "2026-11-15T09:00:00+09:00",
+            "https://example.com/long-comparison-article", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", emptyList()
+                    ),
+                    analysisEnabled = true,
+                    comparisonFocus = ReaderFocus(
+                        "BODY", TextRange(markerStart, markerStart + marker.length)
+                    )
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("비교 기사에서 이어 읽는 중").assertIsNotDisplayed()
+        compose.onNodeWithText(body).assertIsDisplayed()
+    }
+
+    @Test
     fun analysisToggleAddsMarkersWithoutMovingArticleContent() {
         val body = "빠르게 확장했다."
         val marker = "빠르게"
@@ -409,7 +479,7 @@ class NewsScreensInstrumentedTest {
 
         compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
         compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
-        compose.onNodeWithText("기사 읽기").performClick()
+        compose.onNodeWithText("이 기사 읽기").performClick()
         compose.waitUntil { openedComparison != null }
         assertEquals("comparison-1", openedComparison?.articleId)
         assertEquals(targetMarker, openedComparison?.evidence?.single()?.markerText)
