@@ -8,11 +8,13 @@ import androidx.lifecycle.viewModelScope
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ArticleSummary
+import com.swpp.team5.frameless.data.ComparisonArticleUi
 import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsApiException
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
+import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -94,7 +96,20 @@ internal data class ArticleReaderState(
     val isAnalysisLoading: Boolean = false,
     val isOffline: Boolean = false,
     val articleError: String? = null,
-    val analysisError: String? = null
+    val analysisError: String? = null,
+    val comparisonFocus: ReaderFocus? = null,
+    val initialScrollOffset: Int = 0
+)
+
+internal data class ReaderFocus(
+    val scope: String,
+    val markerRange: TextRange
+)
+
+private data class ReaderDestination(
+    val articleId: String,
+    val comparisonFocus: ReaderFocus?,
+    val scrollOffset: Int
 )
 
 internal data class SavedArticlesState(
@@ -135,6 +150,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private var readerJob: Job? = null
     private var savedJob: Job? = null
     private var readerOrigin = NewsRoute.FEED
+    private val readerHistory = ArrayDeque<ReaderDestination>()
 
     fun initialize() {
         if (initialized) return
@@ -167,12 +183,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         savedMutationArticleId = null
         saveError = null
         readerOrigin = NewsRoute.FEED
+        readerHistory.clear()
         authExpired = false
     }
 
     fun onViewerChanged() {
         val currentRoute = route
         val currentArticleId = reader.articleId
+        val currentFocus = reader.comparisonFocus
         feed = feed.copy(
             publishers = feed.publishers.map { it.copy(isFollowed = false) },
             items = feed.items.map { it.copy(isSaved = false) },
@@ -187,7 +205,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         initialize()
         when {
             currentRoute == NewsRoute.READER && currentArticleId.isNotBlank() ->
-                openArticle(currentArticleId)
+                loadReader(currentArticleId, currentFocus)
             currentRoute == NewsRoute.SAVED -> route = NewsRoute.FEED
         }
     }
@@ -715,13 +733,41 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun openArticle(articleId: String) {
-        if (route != NewsRoute.READER) readerOrigin = route
+        if (route != NewsRoute.READER) {
+            readerOrigin = route
+            readerHistory.clear()
+        }
         route = NewsRoute.READER
+        loadReader(articleId, null)
+    }
+
+    fun openComparisonArticle(article: ComparisonArticleUi, sourceScrollOffset: Int) {
+        if (route != NewsRoute.READER || reader.articleId.isBlank()) {
+            openArticle(article.articleId)
+            return
+        }
+        readerHistory.addLast(
+            ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset)
+        )
+        val evidence = article.evidence.firstOrNull()
+        loadReader(
+            article.articleId,
+            evidence?.let { ReaderFocus(it.scope, it.markerRange) }
+        )
+    }
+
+    private fun loadReader(
+        articleId: String,
+        comparisonFocus: ReaderFocus?,
+        initialScrollOffset: Int = 0
+    ) {
         readerJob?.cancel()
         reader = ArticleReaderState(
             articleId = articleId,
             analysisEnabled = reader.analysisEnabled,
-            isArticleLoading = true
+            isArticleLoading = true,
+            comparisonFocus = comparisonFocus,
+            initialScrollOffset = initialScrollOffset
         )
         readerJob = viewModelScope.launch {
             val cachedArticle = repository.cachedArticle(articleId)
@@ -796,11 +842,16 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         }
     }
 
-    fun retryReader() = openArticle(reader.articleId)
+    fun retryReader() = loadReader(reader.articleId, reader.comparisonFocus)
 
     fun closeReader() {
         readerJob?.cancel()
-        route = readerOrigin
+        if (readerHistory.isNotEmpty()) {
+            val previous = readerHistory.removeLast()
+            loadReader(previous.articleId, previous.comparisonFocus, previous.scrollOffset)
+        } else {
+            route = readerOrigin
+        }
     }
 
     fun setAnalysisEnabled(enabled: Boolean) {

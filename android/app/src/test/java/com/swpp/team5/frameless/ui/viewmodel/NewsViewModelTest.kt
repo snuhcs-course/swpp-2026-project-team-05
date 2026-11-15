@@ -5,12 +5,15 @@ import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ArticlePage
 import com.swpp.team5.frameless.data.ArticleSummary
+import com.swpp.team5.frameless.data.ComparisonArticleUi
+import com.swpp.team5.frameless.data.ComparisonEvidenceUi
 import com.swpp.team5.frameless.data.FeedScope
 import com.swpp.team5.frameless.data.NewsApiException
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
+import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -334,6 +337,53 @@ class NewsViewModelTest {
         viewModel.setAnalysisEnabled(false)
         assertFalse(viewModel.reader.analysisEnabled)
         assertEquals(false, repository.savedAnalysisEnabledValue)
+        viewModel.closeReader()
+        assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
+    @Test
+    fun comparisonReaderNavigationPreservesSourceBackStackAndFocus() {
+        val repository = FakeNewsDataSource()
+        val viewModel = NewsViewModel(repository)
+        val targetBody = "회사는 사업 영역을 넓히고 있다."
+        val markerStart = targetBody.indexOf("넓히고 있다")
+        val target = ComparisonArticleUi(
+            articleId = "comparison",
+            publisher = mbc,
+            title = "비교 기사",
+            publishedAt = "2026-10-31T13:00:00+09:00",
+            originalUrl = "https://example.com/comparison",
+            body = targetBody,
+            evidence = listOf(
+                ComparisonEvidenceUi(
+                    scope = "BODY",
+                    sentenceRange = TextRange(0, targetBody.length),
+                    sentenceText = targetBody,
+                    markerRange = TextRange(markerStart, markerStart + "넓히고 있다".length),
+                    markerText = "넓히고 있다",
+                    owner = "REPORTER",
+                    speakerLabel = null,
+                    summary = "속도 평가 없이 확장 상태를 전한다."
+                )
+            )
+        )
+
+        viewModel.openArticle("source")
+        mainLooper.idle()
+        viewModel.openComparisonArticle(target, sourceScrollOffset = 420)
+        mainLooper.idle()
+
+        assertEquals(NewsRoute.READER, viewModel.route)
+        assertEquals("comparison", viewModel.reader.article?.id)
+        assertEquals(target.evidence.single().markerRange, viewModel.reader.comparisonFocus?.markerRange)
+
+        viewModel.closeReader()
+        mainLooper.idle()
+        assertEquals(NewsRoute.READER, viewModel.route)
+        assertEquals("source", viewModel.reader.article?.id)
+        assertEquals(null, viewModel.reader.comparisonFocus)
+        assertEquals(420, viewModel.reader.initialScrollOffset)
+
         viewModel.closeReader()
         assertEquals(NewsRoute.FEED, viewModel.route)
     }

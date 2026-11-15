@@ -9,7 +9,7 @@
 
 ## Scope
 
-Signed-in users save and remove feed-visible articles and browse one personal,
+Signed-in users save and remove visible articles opened in the Reader and browse one personal,
 recently-saved list from Web and Android. PostgreSQL owns uniqueness and cascade
 integrity; Django owns authorization, eligibility, pagination, and user-specific
 save state; clients own interaction and cache synchronization.
@@ -17,7 +17,7 @@ save state; clients own interaction and cache synchronization.
 ### Non-goals
 
 - Folders, tags, notes, general article downloads, queued offline writes,
-  comparison-support saves, saved-list filtering, reactions, comments, or
+  saved-list filtering, reactions, comments, or
   public save counts. The bounded Android cache for offline Saved reads is
   specified separately in
   [`guest-offline-reading.spec.md`](guest-offline-reading.spec.md).
@@ -26,7 +26,7 @@ save state; clients own interaction and cache synchronization.
 ## Preconditions
 
 - A valid session identifies exactly one `UserAccount`.
-- A newly saveable article is visible, feed-visible, and belongs to an active
+- A newly saveable article is visible and belongs to an active
   publisher.
 - Saved-list pagination uses the endpoint's own signed cursor and a limit from 1
   to 50.
@@ -66,8 +66,9 @@ save state; clients own interaction and cache synchronization.
 - [Integration] Missing or expired authentication is rejected on every saved
   endpoint.\
   Tested by: `tests.test_news_api.NewsApiTests.test_personalized_news_operations_still_require_authentication`
-- [Integration] A hidden, comparison-only, inactive-publisher, or unknown
-  article cannot be newly saved and receives the same not-found response.\
+- [Integration] A comparison-support article can be saved without becoming a
+  feed/search result; a hidden, inactive-publisher, or unknown article cannot be
+  newly saved and receives the same not-found response.\
   Tested by: `tests.test_news_api.NewsApiTests.test_save_eligibility_and_soft_hidden_lifecycle`
 - [Integration] A soft-hidden saved article is omitted without deleting its
   relationship and reappears after restoration.\
@@ -152,7 +153,7 @@ save state; clients own interaction and cache synchronization.
 | --- | --- | --- |
 | Relationship state | absent / saved / repeated save / repeated remove | Product spec §§9.3–9.4 |
 | Account boundary | same user / different user / sequential login | Product spec §9.5 |
-| Article lifecycle | eligible / soft-hidden / restored / hard-deleted | Product spec §§9.2, 9.5 |
+| Article lifecycle | feed / comparison-support / soft-hidden / restored / hard-deleted | Product spec §§9.2, 9.5 |
 | Ordering | distinct timestamps / equal timestamps / next page | Product spec §§9.3–9.4 |
 | Client mutation | pending / success / failure rollback | Product spec §§9.6–9.8 |
 | Screen state | loading / rows / empty / initial error / next-page error | Product spec §9.8 |
