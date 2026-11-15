@@ -177,12 +177,13 @@ describe('ArticlePage comparison navigation', () => {
 
     await screen.findByText('Finding 1 of 2')
     await user.click(screen.getByRole('tab', { name: 'MBC' }))
-    await user.click(screen.getByRole('link', { name: 'Read article' }))
+    await user.click(screen.getByRole('link', { name: 'Read full article' }))
 
-    expect(await screen.findByText('Compared coverage')).toBeInTheDocument()
+    expect(await screen.findByText('Opened from comparison')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Back to source article' })).toBeInTheDocument()
     expect(screen.getByText('measured wording')).toHaveClass('bg-violet-100')
     expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument()
+    expect(screen.getByText('No standalone findings for this article.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Back to source article' }))
     expect(await screen.findByText('A reviewed headline')).toBeInTheDocument()

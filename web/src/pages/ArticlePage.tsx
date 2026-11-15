@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
@@ -74,9 +74,10 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-300 pb-3">
+      <div className="mb-4 border-b border-zinc-300 pb-4">
         <p className="text-xs text-zinc-500">{formatDate(article.published_at)}</p>
-        <div className="flex items-center gap-3">
+        <h4 className="mt-2 font-serif text-lg font-bold leading-6">{article.title}</h4>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link
             to={`/articles/${article.article_id}`}
             state={comparisonArticleRouteState(
@@ -85,13 +86,17 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
               article.article_id,
               evidence,
             )}
-            className="border border-black bg-black px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white hover:text-black"
-          >Read article</Link>
-          <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">Original <ArrowUpRight size={13} /></a>
+            className="inline-flex min-h-10 items-center gap-2 border border-black bg-black px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white hover:text-black focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+          >Read full article <ArrowRight size={14} /></Link>
+          <a
+            href={article.original_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-10 items-center gap-1 px-2 text-xs font-bold text-zinc-600 underline-offset-4 hover:text-black hover:underline focus:outline-none focus:ring-2 focus:ring-black"
+          >Original <ArrowUpRight size={13} /></a>
         </div>
       </div>
-      <h4 className="font-serif text-lg font-bold leading-6">{article.title}</h4>
-      <blockquote className="mt-4 border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
+      <blockquote className="border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
         {before}<mark className="bg-zinc-200 px-0.5 font-semibold text-black">{marker}</mark>{after}
       </blockquote>
     </div>
@@ -194,12 +199,17 @@ export function ArticlePage() {
           <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
             <article className="min-w-0 py-9 lg:border-r lg:border-zinc-300 lg:py-14 lg:pr-12 xl:pr-20">
               <header className="border-b-2 border-black pb-9">
+                {focus && (
+                  <div className="mb-6 flex items-start gap-3 border-l-2 border-violet-400 bg-violet-50 px-3 py-2.5 text-xs leading-5 text-zinc-700">
+                    <strong className="shrink-0 text-violet-900">Opened from comparison</strong>
+                    <span>The referenced passage is highlighted in this article.</span>
+                  </div>
+                )}
                 <div className="mb-6 flex flex-wrap items-center gap-3 text-xs">
                   <strong className="text-sm">{article.publisher.name}</strong>
                   <span className="text-zinc-500">{categoryLabel(article.category)}</span>
                   <span className="text-zinc-500">{formatDate(article.published_at, true)}</span>
                   <AnalysisBadge state={article.analysis_state} />
-                  {focus && <span className="border border-violet-300 bg-violet-50 px-2 py-1 font-bold text-violet-900">Compared coverage</span>}
                 </div>
                 <HighlightedText
                   text={article.title}
@@ -259,7 +269,14 @@ export function ArticlePage() {
                   </>
                 ) : !analysisQuery.isLoading && (
                   <div className="border-y border-zinc-300 py-8">
-                    <p className="font-serif text-xl font-bold">No findings are available yet.</p>
+                    <p className="font-serif text-xl font-bold">
+                      {focus ? 'No standalone findings for this article.' : 'No findings are available yet.'}
+                    </p>
+                    {focus && (
+                      <p className="mt-3 text-sm leading-6 text-zinc-600">
+                        The passage opened from compared coverage remains highlighted in the article.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
