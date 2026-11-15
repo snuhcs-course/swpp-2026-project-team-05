@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
@@ -8,29 +8,49 @@ import { AppShell } from '../components/AppShell'
 import { SaveArticleButton } from '../components/SaveArticleButton'
 import type { Finding } from '../lib/types'
 import { api } from '../lib/api'
-import { articleOrigin } from '../lib/navigation'
+import { articleOrigin, comparisonArticleRouteState, comparisonFocus } from '../lib/navigation'
 import { segmentText, sourceRange } from '../lib/text'
 import { categoryLabel, cn, findingCategoryLabel, formatDate } from '../lib/utils'
 
-function HighlightedText({ text, findings, selectedId, onSelect, className }: {
+function HighlightedText({ text, findings, selectedId, onSelect, focus = null, className }: {
   text: string
   findings: Finding[]
   selectedId: string | null
   onSelect: (id: string) => void
+  focus?: { start: number; end: number } | null
   className?: string
 }) {
-  const segments = useMemo(() => segmentText(text, findings.map(sourceRange)), [text, findings])
+  const focusId = '__comparison_context__'
+  const focusRef = useRef<HTMLElement | null>(null)
+  const segments = useMemo(() => segmentText(text, [
+    ...findings.map(sourceRange),
+    ...(focus ? [{ id: focusId, start: focus.start, end: focus.end }] : []),
+  ]), [text, findings, focus])
+
+  useEffect(() => {
+    focusRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+  }, [text, focus?.start, focus?.end])
+
   return (
     <div className={cn('whitespace-pre-wrap', className)}>
       {segments.map((segment, index) => {
-        const findingId = segment.findingIds[0]
-        if (!findingId) return <span key={index}>{segment.text}</span>
+        const findingId = segment.findingIds.find((id) => id !== focusId)
+        const isComparisonContext = segment.findingIds.includes(focusId)
+        if (!findingId) return (
+          <span
+            key={index}
+            ref={isComparisonContext ? (node) => { focusRef.current = node } : undefined}
+            className={cn(isComparisonContext && 'rounded-[2px] bg-violet-100 px-0.5 font-semibold ring-1 ring-violet-300')}
+          >{segment.text}</span>
+        )
         return (
           <button
             key={index}
+            ref={isComparisonContext ? (node) => { focusRef.current = node } : undefined}
             className={cn(
               'relative rounded-[2px] bg-amber-200/75 px-0.5 text-left text-inherit decoration-2 underline-offset-4 hover:bg-amber-300 focus:outline-none focus:ring-2 focus:ring-black',
               selectedId === findingId && 'bg-amber-300 underline',
+              isComparisonContext && 'ring-2 ring-violet-400',
             )}
             onClick={() => onSelect(findingId)}
           >
@@ -43,6 +63,7 @@ function HighlightedText({ text, findings, selectedId, onSelect, className }: {
 }
 
 function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
+  const location = useLocation()
   const article = finding.comparison_articles[page]
   if (!article) return null
   const evidence = article.evidence[0]
@@ -53,9 +74,21 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-300 pb-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-300 pb-3">
         <p className="text-xs text-zinc-500">{formatDate(article.published_at)}</p>
-        <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">Original <ArrowUpRight size={13} /></a>
+        <div className="flex items-center gap-3">
+          <Link
+            to={`/articles/${article.article_id}`}
+            state={comparisonArticleRouteState(
+              location.pathname,
+              location.search,
+              article.article_id,
+              evidence,
+            )}
+            className="border border-black bg-black px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white hover:text-black"
+          >Read article</Link>
+          <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">Original <ArrowUpRight size={13} /></a>
+        </div>
       </div>
       <h4 className="font-serif text-lg font-bold leading-6">{article.title}</h4>
       <blockquote className="mt-4 border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
@@ -126,6 +159,7 @@ export function ArticlePage() {
   const analysisQuery = useQuery({ queryKey: ['analysis', id], queryFn: () => api.analysis(token, id), enabled: Boolean(id) })
   const findings = analysisQuery.data?.findings ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const focus = comparisonFocus(location.state, id)
 
   const selectedFinding = findings.find((finding) => finding.id === selectedId) ?? findings[0]
   const selectedIndex = selectedFinding ? findings.findIndex((finding) => finding.id === selectedFinding.id) : -1
@@ -142,6 +176,8 @@ export function ArticlePage() {
   const origin = articleOrigin(location.state)
   const backLabel = origin === '/saved'
     ? 'Back to saved articles'
+    : origin?.startsWith('/articles/')
+      ? 'Back to source article'
     : `Back to ${categoryLabel(article.category)}`
   const goBack = () => {
     if (origin) navigate(-1)
@@ -163,12 +199,14 @@ export function ArticlePage() {
                   <span className="text-zinc-500">{categoryLabel(article.category)}</span>
                   <span className="text-zinc-500">{formatDate(article.published_at, true)}</span>
                   <AnalysisBadge state={article.analysis_state} />
+                  {focus && <span className="border border-violet-300 bg-violet-50 px-2 py-1 font-bold text-violet-900">Compared coverage</span>}
                 </div>
                 <HighlightedText
                   text={article.title}
                   findings={titleFindings}
                   selectedId={selectedFinding?.id ?? null}
                   onSelect={setSelectedId}
+                  focus={focus?.scope === 'TITLE' ? { start: focus.start, end: focus.end } : null}
                   className="font-serif text-[clamp(2.5rem,5vw,5.6rem)] font-black leading-[1.03] tracking-[-0.06em]"
                 />
                 <div className="mt-7 flex items-center justify-end gap-3">
@@ -181,6 +219,7 @@ export function ArticlePage() {
                 findings={bodyFindings}
                 selectedId={selectedFinding?.id ?? null}
                 onSelect={setSelectedId}
+                focus={focus?.scope === 'BODY' ? { start: focus.start, end: focus.end } : null}
                 className="article-body py-10"
               />
             </article>

@@ -33,6 +33,12 @@ comparison sheet.
 - [Component] The active finding is identified as `Finding n of m`; previous and
   next actions change findings without a row of numeric finding buttons.\
   Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage analysis rail > separates finding navigation from named comparison sources`
+- [Component] A comparison publisher page opens its first-class target article
+  in the ordinary Reader with the exact evidence marker as transient context;
+  back returns to the source Reader at its preserved scroll position and the
+  original external link remains available.\
+  Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage comparison navigation > opens a comparison target in Reader context and returns to its source`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.comparisonReaderNavigationPreservesSourceBackStackAndFocus`
 
 ### Stored analysis contract
 
@@ -86,6 +92,10 @@ comparison sheet.
   swipe and a compact floating previous/page/next navigator with disabled
   boundary actions. The navigator does not reserve article height.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+- [Component] Android comparison detail exposes an internal article action;
+  selecting it sends the target article and its first exact evidence range to
+  Reader navigation rather than opening the publisher URL.\
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
 - [Component] Comparison navigation uses publisher names and exposes the active
   publisher as a tab; it does not add a second `n / m` numeric pager.\
   Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage analysis rail > separates finding navigation from named comparison sources`
@@ -110,6 +120,8 @@ comparison sheet.
   the rail width; v1 does not abbreviate publisher names.
 - Android publisher pages follow stored order. Swipe and button navigation share
   one pager state; the detail sheet has no middle anchor or height transition.
+- Navigation focus lasts only for the in-app transition. Reloading or reopening
+  the same article normally does not create a comparison-context marker.
 - Finding order and comparison-source order continue to follow the stored
   display order.
 

@@ -64,7 +64,7 @@ class NewsScreensInstrumentedTest {
                 onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = { selectedId = it }, onLogout = {}
+                onSavedOpen = {}, onArticle = { selectedId = it }, onLogin = {}, onLogout = {}
             )
         }
 
@@ -89,7 +89,7 @@ class NewsScreensInstrumentedTest {
                 onCategory = {}, onSearchFilter = {}, onScope = { selectedScope = it }, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = {}, onLogout = {}
+                onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
             )
         }
 
@@ -146,7 +146,7 @@ class NewsScreensInstrumentedTest {
                 onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = {}, onLogout = {}
+                onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
             )
         }
 
@@ -204,7 +204,7 @@ class NewsScreensInstrumentedTest {
                 onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = {}, onLogout = {}
+                onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
             )
         }
 
@@ -374,11 +374,13 @@ class NewsScreensInstrumentedTest {
             analysis = ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", listOf(finding)),
             analysisEnabled = true
         )
+        var openedComparison: ComparisonArticleUi? = null
         compose.setContent {
             NewsReaderScreen(
                 state = remember { state },
                 onBack = {}, onRetry = {}, onAnalysisEnabled = {},
-                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
+                onOpenComparisonArticle = { article, _ -> openedComparison = article }
             )
         }
 
@@ -404,6 +406,13 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
         compose.onAllNodesWithText("다른 기사 2곳과 비교", substring = true).assertCountEquals(0)
+
+        compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
+        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
+        compose.onNodeWithText("기사 읽기").performClick()
+        compose.waitUntil { openedComparison != null }
+        assertEquals("comparison-1", openedComparison?.articleId)
+        assertEquals(targetMarker, openedComparison?.evidence?.single()?.markerText)
     }
 
     @Test

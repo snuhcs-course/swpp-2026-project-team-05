@@ -1,6 +1,6 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: Implemented baseline including guest and offline reading
+Status: Implemented baseline including guest, offline reading, and comparison-to-Reader navigation
 
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
@@ -406,7 +406,10 @@ Comparison behavior:
 - Return at most three publisher-diverse pages.
 - One publisher occupies one horizontal page.
 - Multiple supporting sentences from one publisher remain in that page.
-- Show publisher, publication time, exact target marker, and original link.
+- Show publisher, publication time, exact target marker, a primary
+  `기사 읽기`/`Read article` action, and a secondary original link.
+- The primary action opens the existing article Reader for that comparison
+  target. It does not create a second comparison-only article view.
 - Show a speaker label such as `교육부 표현` only when a specific attributed
   speaker is stored. Omit the generic `기자 표현` label.
 - The sheet opens directly at its maximum height. The target article scrolls
@@ -421,6 +424,15 @@ Comparison behavior:
 ### 6.4 Navigation and gesture ownership
 
 - Tapping the preview action opens the expanded comparison sheet without moving the source Reader.
+- Tapping a comparison page's article action closes the sheet and opens that
+  target in the ordinary Reader. Back returns to the source Reader rather than
+  the feed or app exit and restores the source Reader's scroll position.
+- The stored target marker is shown with a restrained comparison-context style
+  and scrolled into view. It is not presented as an A–G finding and does not
+  alter the article string.
+- Saving from the target Reader uses the ordinary saved-article control. A
+  comparison-support article stays absent from feed and search unless
+  `is_feed_visible` is separately enabled.
 - There is no middle sheet anchor and no expand/collapse transition.
 - Back, outside tap, or downward dismissal returns to the same Reader position
   and clears the preview instead of reopening a surface the reader has already completed.
@@ -449,6 +461,10 @@ right rail. Its two navigation levels must use different controls:
 - Product copy shows natural-language finding labels and publisher names. Raw
   A–G codes and evaluation-only article IDs such as `S`, `A1`, or `A2` never
   appear in the Reader.
+- Each active publisher page exposes `Read article` as its primary destination
+  and `Original` as an external secondary destination. Browser back returns to
+  the source Reader. Refreshing the target URL keeps the article available but
+  may clear the transient comparison marker.
 
 ## 7. Account menu
 
@@ -509,8 +525,9 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Icons need Korean descriptions unless decorative.
 - Test long publisher names, three-line headlines, long paragraphs, long explanations, and three comparison publishers.
 - No automatic scrolling while the user is reading. Opening a preview never moves the article.
-  A comparison page may move once to its first body evidence when first shown;
-  after that, it preserves the reader's own position.
+  A comparison page, or a Reader opened directly from that page, may move once
+  to its first body evidence when first shown; after that, it preserves the
+  reader's own position.
 
 ## 10. Compose boundaries
 

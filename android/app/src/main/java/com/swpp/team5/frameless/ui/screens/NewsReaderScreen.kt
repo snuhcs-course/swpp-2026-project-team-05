@@ -62,6 +62,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
@@ -92,11 +93,14 @@ import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.SourceLink
 import com.swpp.team5.frameless.ui.theme.TagPill
 import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
+import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 private val NewsMarker = Color(0xFFE9E1F5)
 private val NewsTargetMarker = Color(0xFFE5D0F2)
+private val ComparisonContextMarker = Color(0xFFE8E2F0)
 
 @Composable
 internal fun NewsReaderScreen(
@@ -106,7 +110,8 @@ internal fun NewsReaderScreen(
     onAnalysisEnabled: (Boolean) -> Unit,
     onToggleSaved: (String, Boolean) -> Unit,
     savedPending: Boolean,
-    saveError: String?
+    saveError: String?,
+    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit = { _, _ -> }
 ) {
     when {
         state.isArticleLoading -> {
@@ -119,7 +124,8 @@ internal fun NewsReaderScreen(
         }
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
-            onToggleSaved, savedPending, saveError)
+            onToggleSaved, savedPending, saveError, state.comparisonFocus,
+            state.initialScrollOffset, onOpenComparisonArticle)
     }
 }
 
@@ -135,7 +141,10 @@ private fun NewsReaderContent(
     onAnalysisEnabled: (Boolean) -> Unit,
     onToggleSaved: (String, Boolean) -> Unit,
     savedPending: Boolean,
-    saveError: String?
+    saveError: String?,
+    comparisonFocus: ReaderFocus?,
+    initialScrollOffset: Int,
+    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -143,13 +152,34 @@ private fun NewsReaderContent(
     }
     val titleFindings = visibleFindings.filter { it.scope == "TITLE" }
     val bodyFindings = visibleFindings.filter { it.scope == "BODY" }
-    val titleText = remember(article.title, titleFindings) { annotatedFindings(article.title, titleFindings) }
-    val bodyText = remember(article.body, bodyFindings) { annotatedFindings(article.body, bodyFindings) }
+    val titleFocus = comparisonFocus?.takeIf { it.scope == "TITLE" }
+    val bodyFocus = comparisonFocus?.takeIf { it.scope == "BODY" }
+    val titleText = remember(article.title, titleFindings, titleFocus) {
+        annotatedReaderText(article.title, titleFindings, titleFocus)
+    }
+    val bodyText = remember(article.body, bodyFindings, bodyFocus) {
+        annotatedReaderText(article.body, bodyFindings, bodyFocus)
+    }
     var selected by remember(article.id) { mutableStateOf<FindingUi?>(null) }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
     var previewHeightPx by remember(article.id) { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val scroll = rememberScrollState()
+    val scroll = remember(article.id) { ScrollState(initialScrollOffset) }
+    var bodyLayout by remember(article.id) { mutableStateOf<TextLayoutResult?>(null) }
+    var bodyTopPx by remember(article.id) { mutableFloatStateOf(0f) }
+    var comparisonFocusApplied by remember(article.id, comparisonFocus) { mutableStateOf(false) }
+
+    LaunchedEffect(bodyFocus, bodyLayout, bodyTopPx, scroll.maxValue) {
+        if (comparisonFocusApplied || bodyFocus == null ||
+            !bodyFocus.markerRange.isWithin(article.body)) return@LaunchedEffect
+        val layout = bodyLayout ?: return@LaunchedEffect
+        awaitFrame()
+        val markerTop = layout.getBoundingBox(bodyFocus.markerRange.start).top
+        val target = (bodyTopPx + markerTop - with(density) { 96.dp.toPx() })
+            .roundToInt().coerceIn(0, scroll.maxValue)
+        scroll.scrollTo(target)
+        comparisonFocusApplied = true
+    }
 
     LaunchedEffect(analysisEnabled) {
         if (!analysisEnabled) {
@@ -173,6 +203,8 @@ private fun NewsReaderContent(
                             role = Role.Button
                             contentDescription = if (selected != null) {
                                 "표현 분석 닫기"
+                            } else if (comparisonFocus != null) {
+                                "이전 기사로 돌아가기"
                             } else {
                                 "기사 목록으로 돌아가기"
                             }
@@ -182,7 +214,7 @@ private fun NewsReaderContent(
                     modifier = Modifier.weight(1f))
                 IconButton(
                     onClick = { onToggleSaved(article.id, article.isSaved) },
-                    enabled = !savedPending && (article.isSaved || !analysisLoading),
+                    enabled = !savedPending,
                     modifier = Modifier.semantics {
                         contentDescription = if (article.isSaved) "저장 취소" else "기사 저장"
                     }
@@ -233,6 +265,15 @@ private fun NewsReaderContent(
                     modifier = Modifier.fillMaxWidth().background(Fl.Inset)
                         .padding(horizontal = 18.dp, vertical = 9.dp))
             }
+            if (comparisonFocus != null) {
+                Text(
+                    "비교 기사에서 확인한 표현을 표시했어요.",
+                    color = Fl.Ink2,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth().background(Fl.Inset)
+                        .padding(horizontal = 18.dp, vertical = 9.dp)
+                )
+            }
             Column(
                 Modifier.fillMaxSize().verticalScroll(scroll)
                     .padding(horizontal = 22.dp, vertical = 22.dp)
@@ -260,7 +301,11 @@ private fun NewsReaderContent(
                     lineHeight = 29,
                     fontWeight = FontWeight.Normal,
                     onFinding = { selected = it; detailOpen = false },
-                    onPlainTextTap = { selected = null }
+                    onPlainTextTap = { selected = null },
+                    modifier = Modifier.onGloballyPositioned {
+                        bodyTopPx = it.positionInParent().y
+                    },
+                    onTextLayout = { bodyLayout = it }
                 )
                 val previewSpace = with(density) { previewHeightPx.toDp() } + 24.dp
                 Spacer(Modifier.height(
@@ -290,7 +335,8 @@ private fun NewsReaderContent(
             onDismiss = {
                 detailOpen = false
                 selected = null
-            }
+            },
+            onOpenArticle = { onOpenComparisonArticle(it, scroll.value) }
         )
     }
 }
@@ -323,13 +369,15 @@ private fun FindingText(
     lineHeight: Int,
     fontWeight: FontWeight,
     onFinding: (FindingUi) -> Unit,
-    onPlainTextTap: () -> Unit = {}
+    onPlainTextTap: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    onTextLayout: (TextLayoutResult) -> Unit = {}
 ) {
     var layout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
     val currentLayout = rememberUpdatedState(layout)
     Text(
         text = text,
-        modifier = Modifier.fillMaxWidth().pointerInput(text, findings) {
+        modifier = modifier.fillMaxWidth().pointerInput(text, findings) {
             detectTapGestures { position: Offset ->
                 val offset = currentLayout.value?.getOffsetForPosition(position) ?: return@detectTapGestures
                 val id = text.getStringAnnotations(
@@ -344,7 +392,7 @@ private fun FindingText(
         lineHeight = lineHeight.sp,
         fontWeight = fontWeight,
         color = Fl.Ink,
-        onTextLayout = { layout = it }
+        onTextLayout = { layout = it; onTextLayout(it) }
     )
 }
 
@@ -360,6 +408,25 @@ internal fun annotatedFindings(text: String, findings: List<FindingUi>): Annotat
                 finding.markerRange.end
             )
         }
+    }
+}
+
+private fun annotatedReaderText(
+    text: String,
+    findings: List<FindingUi>,
+    comparisonFocus: ReaderFocus?
+): AnnotatedString = buildAnnotatedString {
+    append(annotatedFindings(text, findings))
+    comparisonFocus?.markerRange?.takeIf { it.isWithin(text) }?.let { marker ->
+        addStyle(
+            SpanStyle(
+                background = ComparisonContextMarker,
+                fontWeight = FontWeight.SemiBold,
+                textDecoration = TextDecoration.Underline
+            ),
+            marker.start,
+            marker.end
+        )
     }
 }
 
@@ -449,22 +516,28 @@ internal fun FindingPreviewCard(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-internal fun FindingDetailSheet(finding: FindingUi, onDismiss: () -> Unit) {
+internal fun FindingDetailSheet(
+    finding: FindingUi,
+    onDismiss: () -> Unit,
+    onOpenArticle: (ComparisonArticleUi) -> Unit = {}
+) {
     if (finding.comparisons.isEmpty()) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val pagerState = rememberPagerState(pageCount = { finding.comparisons.size })
     val comparisonOverview = finding.comparisonOverview.ifBlank { finding.explanation }
     val scope = rememberCoroutineScope()
     var dismissing by remember { mutableStateOf(false) }
-    val dismissSheet: () -> Unit = {
+    val closeSheet: (() -> Unit) -> Unit = { afterClose ->
         if (!dismissing) {
             dismissing = true
             scope.launch {
                 sheetState.hide()
                 onDismiss()
+                afterClose()
             }
         }
     }
+    val dismissSheet: () -> Unit = { closeSheet {} }
     val handleDismissModifier = downwardDismissModifier(dismissSheet)
     val sectionDismissModifier = downwardDismissModifier(dismissSheet)
     ModalBottomSheet(
@@ -520,6 +593,7 @@ internal fun FindingDetailSheet(finding: FindingUi, onDismiss: () -> Unit) {
                         page = finding.comparisons[index],
                         sheetState = sheetState,
                         onDismiss = dismissSheet,
+                        onOpenArticle = { page -> closeSheet { onOpenArticle(page) } },
                         hasFloatingNavigator = finding.comparisons.size > 1
                     )
                 }
@@ -631,6 +705,7 @@ private fun NewsComparisonPage(
     page: ComparisonArticleUi,
     sheetState: SheetState,
     onDismiss: () -> Unit,
+    onOpenArticle: (ComparisonArticleUi) -> Unit,
     hasFloatingNavigator: Boolean
 ) {
     val uriHandler = LocalUriHandler.current
@@ -679,7 +754,14 @@ private fun NewsComparisonPage(
             Caption("${page.publisher.name} · ${formatNewsTimestamp(page.publishedAt)}")
             Text(title, fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
                 fontWeight = FontWeight.Bold, color = Fl.Ink)
-            SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedPill(text = "기사 읽기", onClick = { onOpenArticle(page) })
+                SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
+            }
             HorizontalDivider(color = Fl.Line)
         }
         Box(

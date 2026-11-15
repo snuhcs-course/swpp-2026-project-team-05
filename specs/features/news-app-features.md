@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented baseline |
-| Version | 0.5 |
-| Date | 2026-11-05 |
+| Version | 0.6 |
+| Date | 2026-11-15 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -57,7 +57,7 @@ become an optional user filter later, but it must not be used as a substitute fo
 an indexed search implementation.
 
 The current reviewed dataset therefore exposes 30 searchable source stories.
-The 148 comparison-support articles remain readable inside reviewed comparison
+Comparison-support articles remain readable inside reviewed comparison
 pages but do not appear in feed search. If an article later becomes an ordinary
 feed story, setting `is_feed_visible=true` makes it searchable without a client
 release.
@@ -347,8 +347,9 @@ while implementing article search v1.
 
 ### 9.1 Product goal
 
-A signed-in user can save or remove an ordinary feed article from Web or
-Android, then reopen it from a personal list ordered by most recently saved.
+A signed-in user can save or remove any visible article opened in the Reader
+from Web or Android, then reopen it from a personal list ordered by most
+recently saved.
 Both clients use the same server-owned state. Saving an article never copies its
 headline, body, analysis, or publisher metadata into a user record.
 
@@ -362,12 +363,13 @@ read cache is defined separately in
 An article can be newly saved only when all of the following are true:
 
 - `Article.visibility == VISIBLE`;
-- `Article.is_feed_visible == true`;
 - its publisher is active.
 
-Comparison-support articles are not independently saveable in v1. An
-ineligible or unknown article uses the same not-found response so the endpoint
-does not reveal unpublished data.
+`Article.is_feed_visible` is deliberately not a saveability condition. A
+comparison-support article opened from reviewed evidence is the same first-class
+`Article` as a feed article and can be saved from its Reader without becoming a
+feed or search result. An ineligible or unknown article uses the same not-found
+response so the endpoint does not reveal unpublished data.
 
 Removing a save is idempotent: the final state is not saved whether or not the
 relationship existed. Operational article removal uses existing soft-visibility
@@ -440,9 +442,8 @@ timestamp:
 
 The ordinary feed, search results, and article detail also include
 `is_saved: boolean`; it is false for a guest and account-specific for an
-authenticated user. Analysis comparison pages do not
-include save state because their supporting articles are outside the v1 saveable
-corpus.
+authenticated user. Analysis comparison pages do not duplicate save state; the
+ordinary article-detail request supplies it after internal navigation.
 
 The saved list accepts only `limit` in the existing range of 1 to 50 and an
 opaque cursor. It does not add category, publisher, search, or sort controls.
@@ -480,6 +481,8 @@ internal stack trace.
 - Add `Saved` to desktop and mobile navigation and route it at `/saved`.
 - Add an accessible save/remove control only to the article Reader. Feed and
   saved-list rows remain focused on opening the article.
+- The same control applies after internal navigation to a comparison-support
+  article; saving it does not add it to feed or search.
 - Reuse the existing article-row layout for the saved list.
 - Opening a saved row records `/saved` as the Reader origin. Reader back returns
   to that saved list instead of redirecting to the category feed.
@@ -494,6 +497,8 @@ internal stack trace.
 
 - Add a saved-articles action beside search in the feed header.
 - Add an accessible save/remove action only to the Reader header.
+- Internal comparison navigation opens the same Reader and therefore reuses the
+  same save/remove action and mutation path.
 - Open saved articles in a separate route and ViewModel state so the ordinary
   feed retains its category, feed scope, search, rows, and scroll context.
 - Reader back returns to its recorded origin from loaded, loading, and error
@@ -537,7 +542,6 @@ show the first account's saved state.
 - folders, labels, tags, or free-form notes;
 - offline copies of article text or analysis;
 - automatic saving from reading history;
-- saving comparison-support articles;
 - saved-list search, category filters, publisher filters, or custom sorting;
 - bulk save, bulk removal, import, or export;
 - notifications when a saved article or analysis changes;

@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented v1.8 baseline |
-| Version | 1.8 |
-| Date | 2026-11-14 |
+| Status | Implemented v1.9 baseline |
+| Version | 1.9 |
+| Date | 2026-11-15 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -66,6 +66,7 @@ Android offline reading behavior are specified in
 - Exact title/body highlights for stored findings
 - Source-only finding explanations
 - Optional cross-publisher comparison pages
+- Internal navigation from comparison evidence to the compared article Reader
 - Multiple compared publishers for one finding
 - Complete loading, empty, error, and retry states
 - Reviewed demonstration data loaded through a repeatable importer
@@ -100,8 +101,8 @@ It must not complicate the v1 read APIs or client UI.
 ### 2.1 Publishers
 
 Publisher rows come from the database; neither client hard-codes publisher
-branches. The reviewed dataset currently exposes 30 feed articles and keeps 148
-comparison-support articles readable only through analysis evidence. Adding an
+branches. The reviewed dataset currently exposes 30 feed articles and keeps its
+comparison-support articles discoverable only through analysis evidence. Adding an
 outlet must not require a client release.
 
 `Publisher.code` is the only stable API identifier. Use `yna` consistently; do not introduce a second `yonhap` code.
@@ -272,6 +273,17 @@ When comparisons exist, add `같은 내용을 다른 기사에서는`:
 - publisher, target title, publication time, target sentence, highlighted target marker, and original link;
 - multiple evidence sentences from one publisher remain on the same page.
 
+Each comparison page also links to the compared article's ordinary Reader. The
+target is the existing `Article` identified by `article_id`, not a copied or
+temporary comparison record. Reader navigation carries the exact stored target
+marker as transient context, scrolls it into view, and keeps the original source
+link available as a secondary action. Back returns to the source article.
+
+A comparison-support article may have no findings of its own because the
+reviewed dataset is source-centered. In that case the transient comparison
+marker remains visible, while the analysis area honestly reports that the
+article has no displayable findings. Navigation must not synthesize a finding.
+
 When comparisons do not exist, omit the comparison section entirely. Do not render an empty comparison container or claim that other articles lack the content.
 
 On Android, tapping a marker first opens a non-modal, fixed-size preview over the
@@ -339,6 +351,8 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 - unique canonical URL;
 - exact title/body and SHA-256 content hash;
 - category, publication time, visibility, timestamps.
+- `is_feed_visible` controls feed/search discovery only; any visible article
+  from an active publisher remains addressable by Reader and may be saved.
 
 `ExpressionFinding`
 
@@ -366,7 +380,7 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 
 `SavedArticle`
 
-- one account and one feed-visible article;
+- one account and one visible article from an active publisher;
 - unique per `(user, article)` with a saved timestamp.
 
 `UserPublisherFollow`
@@ -399,6 +413,8 @@ One marker may have multiple independently reviewed categories. This does not cr
 - All comparison targets belong to the source finding's cluster.
 - Source and target marker text exactly match their stored offsets.
 - A target sentence does not need its own finding.
+- A comparison target remains a first-class article: its `article_id` opens the
+  same Reader/detail endpoint used by feed articles.
 - Multiple categories on one marker do not duplicate comparison rows.
 - Equivalent wording or merely related sentences do not become comparison rows.
 
@@ -512,7 +528,9 @@ session receives the current account's value.
 Return publisher, title, exact body, category, publication time, original URL,
 analysis state, immutable `content_hash`, and save state. The save state is false
 for a guest and account-specific for a valid session. Hidden articles return
-`NOT_FOUND` to ordinary users.
+`NOT_FOUND` to ordinary users. `is_feed_visible=false` does not block detail
+access: a visible comparison target from an active publisher uses this same
+endpoint.
 
 ### 6.5 Article analysis
 

@@ -555,10 +555,23 @@ class NewsApiTests(TestCase):
         comparison_only = self.target
         comparison_only.is_feed_visible = False
         comparison_only.save(update_fields=["is_feed_visible"])
-        rejected = self.client.put(
+        saved_comparison = self.client.put(
             f"/api/v1/saved-articles/{comparison_only.id}", **self.auth
         )
-        self.assertEqual(rejected.status_code, 404)
+        self.assertEqual(saved_comparison.status_code, 200)
+        self.assertTrue(saved_comparison.json()["is_saved"])
+        self.assertEqual(
+            [row["id"] for row in self.client.get(
+                "/api/v1/saved-articles", **self.auth
+            ).json()["items"]],
+            [str(comparison_only.id)],
+        )
+        self.assertNotIn(
+            str(comparison_only.id),
+            [row["id"] for row in self.client.get(
+                "/api/v1/articles", **self.auth
+            ).json()["items"]],
+        )
         hidden_article = self._article(
             publisher=self.yna,
             title="숨긴 기사",
@@ -588,13 +601,19 @@ class NewsApiTests(TestCase):
         self.source.visibility = ArticleVisibility.HIDDEN
         self.source.save(update_fields=["visibility"])
         hidden = self.client.get("/api/v1/saved-articles", **self.auth)
-        self.assertEqual(hidden.json()["items"], [])
+        self.assertEqual(
+            [item["id"] for item in hidden.json()["items"]],
+            [str(comparison_only.id)],
+        )
         self.assertTrue(SavedArticle.objects.filter(id=row.id).exists())
 
         self.source.visibility = ArticleVisibility.VISIBLE
         self.source.save(update_fields=["visibility"])
         restored = self.client.get("/api/v1/saved-articles", **self.auth)
-        self.assertEqual(restored.json()["items"][0]["id"], str(self.source.id))
+        self.assertEqual(
+            {item["id"] for item in restored.json()["items"]},
+            {str(self.source.id), str(comparison_only.id)},
+        )
 
         self.source.visibility = ArticleVisibility.HIDDEN
         self.source.save(update_fields=["visibility"])

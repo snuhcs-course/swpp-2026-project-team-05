@@ -142,3 +142,50 @@ describe('ArticlePage analysis rail', () => {
     expect(screen.getByText('1 source')).toBeInTheDocument()
   })
 })
+
+describe('ArticlePage comparison navigation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.article).mockImplementation(async (_token, id) => {
+      if (id === 'comparison-2') {
+        return {
+          id,
+          publisher: { code: 'comparison-2', name: 'MBC', logo_url: '' },
+          title: 'MBC comparison',
+          body: 'The other article uses measured wording.',
+          original_url: 'https://example.com/comparison-2',
+          content_hash: 'comparison-hash',
+          category: 'POLITICS',
+          published_at: '2026-11-02T11:00:00+09:00',
+          analysis_state: 'READY',
+          is_saved: false,
+        }
+      }
+      return article
+    })
+    vi.mocked(api.analysis).mockImplementation(async (_token, id) => ({
+      state: 'READY',
+      version: 'test',
+      source_content_hash: id === 'comparison-2' ? 'comparison-hash' : 'source-hash',
+      findings: id === 'comparison-2' ? [] : findings,
+    }))
+  })
+
+  it('opens a comparison target in Reader context and returns to its source', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText('Finding 1 of 2')
+    await user.click(screen.getByRole('tab', { name: 'MBC' }))
+    await user.click(screen.getByRole('link', { name: 'Read article' }))
+
+    expect(await screen.findByText('Compared coverage')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to source article' })).toBeInTheDocument()
+    expect(screen.getByText('measured wording')).toHaveClass('bg-violet-100')
+    expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Back to source article' }))
+    expect(await screen.findByText('A reviewed headline')).toBeInTheDocument()
+    expect(screen.getByText('Finding 1 of 2')).toBeInTheDocument()
+  })
+})
