@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.text.KeyboardOptions
@@ -332,6 +333,23 @@ internal fun NewsFeedScreen(
                 }
                 state.nextPageError?.let { message ->
                     item { FeedMessage("다음 기사를 불러오지 못했어요", message, "다시 시도", onLoadMore) }
+                }
+                // On a tall screen the scroll rule above never reaches the last rows of a 20-article page, so the
+                // next page also has a button (as search results do).
+                if (state.nextCursor != null && !state.isLoadingMore && state.nextPageError == null) {
+                    item(key = "feed-more") {
+                        Text(
+                            "기사 더 보기",
+                            color = Fl.Accent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable(onClick = onLoadMore)
+                                .padding(vertical = 18.dp)
+                                .semantics { role = Role.Button },
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
