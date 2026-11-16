@@ -44,7 +44,7 @@ internal interface NewsService {
     suspend fun saveArticle(token: String, articleId: String)
     suspend fun removeSavedArticle(token: String, articleId: String)
     /** Analyses a pasted article link on the server and returns the stored source article's id. */
-    suspend fun analyzeLink(token: String, url: String): String =
+    suspend fun analyzeLink(token: String?, url: String): String =
         throw NewsApiException("UNSUPPORTED", "링크 분석을 사용할 수 없어요.")
 }
 
@@ -75,7 +75,7 @@ internal object NewsApi : NewsService {
         client.saveArticle(token, articleId)
     override suspend fun removeSavedArticle(token: String, articleId: String) =
         client.removeSavedArticle(token, articleId)
-    override suspend fun analyzeLink(token: String, url: String): String = client.analyzeLink(token, url)
+    override suspend fun analyzeLink(token: String?, url: String): String = client.analyzeLink(token, url)
 }
 
 internal class NewsApiClient(baseUrl: String) {
@@ -172,7 +172,7 @@ internal class NewsApiClient(baseUrl: String) {
     }
 
     /** The server searches other outlets and runs the analysis, so the answer can take a few minutes. */
-    suspend fun analyzeLink(token: String, url: String): String = try {
+    suspend fun analyzeLink(token: String?, url: String): String = try {
         request(
             method = "POST",
             path = "/api/v1/link-analyses",

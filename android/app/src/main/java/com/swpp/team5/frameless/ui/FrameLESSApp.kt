@@ -141,7 +141,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                                 }
                             },
                             link = news.link,
-                            onLinkOpen = { if (session == null) auth.openLogin() else news.openLinkAnalysis() },
+                            onLinkOpen = news::openLinkAnalysis,
                             onLinkInput = news::updateLinkInput,
                             onLinkSubmit = news::submitLinkAnalysis,
                             onLinkClose = news::closeLinkAnalysis
