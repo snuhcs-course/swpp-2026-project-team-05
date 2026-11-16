@@ -19,6 +19,9 @@ internal interface NewsDataSource {
     fun savedAnalysisEnabled(): Boolean
     fun saveCategory(category: NewsCategory)
     fun saveAnalysisEnabled(enabled: Boolean)
+    /** Analyses a pasted article link and returns the article id the reader opens. */
+    suspend fun analyzeLink(url: String): String =
+        throw NewsApiException("UNSUPPORTED", "링크 분석을 사용할 수 없어요.")
 }
 
 internal class NewsRepository(
@@ -36,6 +39,8 @@ internal class NewsRepository(
     private fun optionalToken(): String? = auth.currentSession()?.token
 
     override suspend fun publishers(): List<PublisherItem> = service.publishers(optionalToken())
+
+    override suspend fun analyzeLink(url: String): String = service.analyzeLink(token(), url)
 
     override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> =
         service.replaceFollowedPublishers(token(), publisherCodes)

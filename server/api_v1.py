@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from hashlib import sha256
 from uuid import uuid4
 
@@ -24,6 +25,9 @@ from .authentication import (
     session_from_request,
     user_from_request,
 )
+from .analysis.staged import llm as staged_llm
+from .analysis.staged.link import LinkAnalysisError, analyze_link
+from .analysis.v2.article_fetch import validate_article_url
 from .article_search import MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, normalize_search_query
 from .models import AuthSession, NewsCategory, Publisher, UserAccount
 from .news_queries import (
@@ -340,6 +344,47 @@ def saved_articles(request):
     except InvalidSavedCursor:
         return _error("INVALID_CURSOR", "저장 목록을 처음부터 다시 불러와 주세요.", 400)
     return JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+
+
+_link_analysis_slot = threading.BoundedSemaphore(1)
+
+
+@csrf_exempt
+@require_POST
+def link_analyses(request):
+    """Analyse a pasted article link (staged A-G analysis) and answer the stored source article's id.
+
+    The analysis searches other outlets and calls a model, so it needs a signed-in user, runs one at a time, and
+    takes one to two minutes. A link that is already stored answers at once with status 'existing'."""
+    user, error = _auth(request)
+    if error:
+        return error
+    payload, error = _body(request)
+    if error:
+        return error
+    url = payload.get("url")
+    if not isinstance(url, str) or not url.strip() or len(url) > 2048:
+        return _error("VALIDATION_ERROR", "기사 링크를 입력해 주세요.", 400, fields={"url": "기사 링크를 입력해 주세요."})
+    try:
+        url = validate_article_url(url.strip())
+    except ValueError as exc:
+        return _error("VALIDATION_ERROR", str(exc), 400, fields={"url": str(exc)})
+    if not staged_llm.configured():
+        return _error("ANALYSIS_UNAVAILABLE", "지금은 링크 분석을 사용할 수 없어요.", 503)
+    if not _link_analysis_slot.acquire(blocking=False):
+        response = _error("BUSY", "다른 기사를 분석하고 있어요. 잠시 후 다시 시도해 주세요.", 429)
+        response["Retry-After"] = "30"
+        return response
+    try:
+        result = analyze_link(url)
+    except LinkAnalysisError as exc:
+        response = _error(exc.code.upper(), str(exc), 503 if exc.retryable else 422)
+        if exc.retryable:
+            response["Retry-After"] = "30"
+        return response
+    finally:
+        _link_analysis_slot.release()
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
 
 
 @csrf_exempt

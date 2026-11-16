@@ -10,6 +10,9 @@ import java.net.HttpURLConnection
 import java.net.URLEncoder
 import java.net.URL
 
+/** Link analysis searches other outlets and runs the model on the server: one to two minutes, a few at most. */
+internal const val LINK_ANALYSIS_TIMEOUT_MS = 300_000
+
 internal interface NewsService {
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession
@@ -27,6 +30,9 @@ internal interface NewsService {
                               limit: Int = 20): ArticlePage
     suspend fun saveArticle(token: String, articleId: String)
     suspend fun removeSavedArticle(token: String, articleId: String)
+    /** Analyses a pasted article link on the server and returns the stored source article's id. */
+    suspend fun analyzeLink(token: String, url: String): String =
+        throw NewsApiException("UNSUPPORTED", "링크 분석을 사용할 수 없어요.")
 }
 
 internal object NewsApi : NewsService {
@@ -56,6 +62,7 @@ internal object NewsApi : NewsService {
         client.saveArticle(token, articleId)
     override suspend fun removeSavedArticle(token: String, articleId: String) =
         client.removeSavedArticle(token, articleId)
+    override suspend fun analyzeLink(token: String, url: String): String = client.analyzeLink(token, url)
 }
 
 internal class NewsApiClient(baseUrl: String) {
@@ -151,14 +158,24 @@ internal class NewsApiClient(baseUrl: String) {
         )
     }
 
+    /** The server searches other outlets and runs the analysis, so the answer can take a few minutes. */
+    suspend fun analyzeLink(token: String, url: String): String = request(
+        method = "POST",
+        path = "/api/v1/link-analyses",
+        token = token,
+        body = JSONObject().put("url", url),
+        readTimeoutMs = LINK_ANALYSIS_TIMEOUT_MS
+    ).getString("article_id")
+
     private suspend fun request(method: String, path: String, token: String? = null,
-                                body: JSONObject? = null, allowEmpty: Boolean = false): JSONObject =
+                                body: JSONObject? = null, allowEmpty: Boolean = false,
+                                readTimeoutMs: Int = 25_000): JSONObject =
         withContext(Dispatchers.IO) {
             val connection = URL("$baseUrl$path").openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = method
                 connection.connectTimeout = 10_000
-                connection.readTimeout = 25_000
+                connection.readTimeout = readTimeoutMs
                 connection.setRequestProperty("Accept", "application/json")
                 token?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
                 if (body != null) {
