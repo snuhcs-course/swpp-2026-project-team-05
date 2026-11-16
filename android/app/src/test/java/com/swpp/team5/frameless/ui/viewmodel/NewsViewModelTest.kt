@@ -567,7 +567,98 @@ class NewsViewModelTest {
         assertEquals(NewsRoute.FEED, viewModel.route)
     }
 
+    @Test
+    fun anAnalysedLinkOpensItsArticleInTheReader() {
+        val repository = FakeNewsDataSource().apply { linkResult = "linked" }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openLinkAnalysis()
+        viewModel.updateLinkInput("  https://n.news.naver.com/mnews/article/001/0000000001  ")
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+
+        assertEquals(listOf("https://n.news.naver.com/mnews/article/001/0000000001"), repository.linkCalls)
+        assertFalse(viewModel.link.isOpen)
+        assertEquals(NewsRoute.READER, viewModel.route)
+        assertEquals("linked", viewModel.reader.articleId)
+    }
+
+    @Test
+    fun aFieldThatIsNotAnHttpLinkStaysInTheSheetWithoutARequest() {
+        val repository = FakeNewsDataSource()
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openLinkAnalysis()
+        viewModel.submitLinkAnalysis()
+        assertEquals("기사 링크를 입력해 주세요.", viewModel.link.error)
+        viewModel.updateLinkInput("ftp://example.com/a")
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+
+        assertTrue(viewModel.link.isOpen)
+        assertFalse(viewModel.link.isRunning)
+        assertTrue(viewModel.link.error!!.contains("https://"))
+        assertTrue(repository.linkCalls.isEmpty())
+        assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
+    @Test
+    fun aServerErrorStaysInTheSheetAndCanBeRetried() {
+        val repository = FakeNewsDataSource().apply {
+            linkFailure = NewsApiException("NO_SAME_EVENT", "같은 사건을 다룬 다른 언론사 기사를 찾지 못했어요.")
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openLinkAnalysis()
+        viewModel.updateLinkInput("https://example.com/news/1")
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+
+        assertTrue(viewModel.link.isOpen)
+        assertFalse(viewModel.link.isRunning)
+        assertEquals("같은 사건을 다룬 다른 언론사 기사를 찾지 못했어요.", viewModel.link.error)
+        assertEquals("https://example.com/news/1", viewModel.link.input)
+        assertEquals(NewsRoute.FEED, viewModel.route)
+
+        repository.linkFailure = null
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+        assertEquals(NewsRoute.READER, viewModel.route)
+    }
+
+    @Test
+    fun closingWhileTheServerAnalysesStopsWaiting() {
+        val gate = CompletableDeferred<String>()
+        val repository = FakeNewsDataSource().apply { linkGate = gate }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openLinkAnalysis()
+        viewModel.updateLinkInput("https://example.com/news/1")
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+        assertTrue(viewModel.link.isRunning)
+
+        viewModel.closeLinkAnalysis()
+        gate.complete("late")
+        mainLooper.idle()
+
+        assertFalse(viewModel.link.isOpen)
+        assertFalse(viewModel.link.isRunning)
+        assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
     private inner class FakeNewsDataSource : NewsDataSource {
+        var linkResult = "linked"
+        var linkFailure: Exception? = null
+        var linkGate: CompletableDeferred<String>? = null
+        val linkCalls = mutableListOf<String>()
+
+        override suspend fun analyzeLink(url: String): String {
+            linkCalls += url
+            linkFailure?.let { throw it }
+            return linkGate?.await() ?: linkResult
+        }
+
         val pages = ArrayDeque<ArticlePage>()
         val searchPages = (listOf<NewsCategory?>(null) + NewsCategory.entries)
             .associateWith { ArrayDeque<ArticlePage>() }

@@ -33,6 +33,7 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.text.BasicTextField
@@ -70,6 +71,7 @@ import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
+import com.swpp.team5.frameless.ui.viewmodel.LinkAnalysisState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
@@ -98,7 +100,12 @@ internal fun NewsFeedScreen(
     onSavedOpen: () -> Unit,
     onArticle: (String) -> Unit,
     onLogin: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    link: LinkAnalysisState = LinkAnalysisState(),
+    onLinkOpen: () -> Unit = {},
+    onLinkInput: (String) -> Unit = {},
+    onLinkSubmit: () -> Unit = {},
+    onLinkClose: () -> Unit = {}
 ) {
     var showFeedScope by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
@@ -145,6 +152,16 @@ internal fun NewsFeedScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.padding(start = 18.dp)) { BrandRow() }
                     Spacer(Modifier.weight(1f))
+                    if (session?.user?.isDeveloper == true) {
+                        IconButton(
+                            onClick = onLinkOpen,
+                            modifier = Modifier.size(40.dp).semantics {
+                                contentDescription = "기사 링크로 분석하기"
+                            }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Fl.Ink2)
+                        }
+                    }
                     IconButton(
                         onClick = {
                             savedFeedIndex = listState.firstVisibleItemIndex
@@ -370,6 +387,10 @@ internal fun NewsFeedScreen(
             }
         }
     }
+    if (link.isOpen) {
+        LinkAnalysisSheet(state = link, onInput = onLinkInput, onSubmit = onLinkSubmit, onDismiss = onLinkClose)
+    }
+
     if (showUrlAnalysisMock) {
         UrlAnalysisMockSheet(onDismiss = { showUrlAnalysisMock = false })
     }

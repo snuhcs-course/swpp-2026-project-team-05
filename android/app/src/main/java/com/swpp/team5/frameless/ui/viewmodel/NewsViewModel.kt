@@ -123,9 +123,28 @@ internal data class SavedArticlesState(
     val nextPageError: String? = null
 )
 
+internal fun isHttpLink(value: String): Boolean = try {
+    val uri = java.net.URI(value.trim())
+    (uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) &&
+        !uri.host.isNullOrBlank()
+} catch (_: Exception) {
+    false
+}
+
+/** The feed's link dialog: the pasted link, whether the server is analysing it, and the last error. */
+internal data class LinkAnalysisState(
+    val isOpen: Boolean = false,
+    val input: String = "",
+    val isRunning: Boolean = false,
+    val error: String? = null
+)
+
 internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel() {
     var route by mutableStateOf(NewsRoute.FEED)
         private set
+    var link by mutableStateOf(LinkAnalysisState())
+        private set
+    private var linkJob: Job? = null
     var feed by mutableStateOf(
         NewsFeedState(
             category = repository.savedCategory()
@@ -728,6 +747,47 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 saveError = failure.message ?: "저장 상태를 바꾸지 못했어요."
             } finally {
                 savedMutationArticleId = null
+            }
+        }
+    }
+
+    fun openLinkAnalysis() {
+        if (!link.isRunning) link = LinkAnalysisState(isOpen = true)
+    }
+
+    fun updateLinkInput(value: String) {
+        if (!link.isRunning) link = link.copy(input = value, error = null)
+    }
+
+    /** Closing while the server analyses stops waiting; the analysis already sent still finishes on the server. */
+    fun closeLinkAnalysis() {
+        linkJob?.cancel()
+        linkJob = null
+        link = LinkAnalysisState()
+    }
+
+    fun submitLinkAnalysis() {
+        val url = link.input.trim()
+        if (link.isRunning) return
+        if (url.isBlank()) {
+            link = link.copy(error = "기사 링크를 입력해 주세요.")
+            return
+        }
+        if (!isHttpLink(url)) {
+            link = link.copy(error = "http:// 또는 https://로 시작하는 전체 기사 주소를 입력해 주세요.")
+            return
+        }
+        link = link.copy(isRunning = true, error = null)
+        linkJob = viewModelScope.launch {
+            try {
+                val articleId = repository.analyzeLink(url)
+                link = LinkAnalysisState()
+                openArticle(articleId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                link = link.copy(isRunning = false, error = failure.message ?: "기사를 분석하지 못했어요.")
             }
         }
     }

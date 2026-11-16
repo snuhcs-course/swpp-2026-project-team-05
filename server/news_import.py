@@ -140,20 +140,34 @@ def hydrate_articles(dataset: dict, *, max_workers: int = 5) -> dict:
 
 
 @transaction.atomic
-def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -> ImportCounts:
+def import_dataset(
+    dataset: dict,
+    *,
+    dataset_hash: str,
+    dry_run: bool = False,
+    preserve_existing_publishers: bool = False,
+) -> ImportCounts:
+    """Validate and persist one canonical dataset revision.
+
+    Reviewed full-dataset imports remain authoritative for publisher metadata.
+    Incremental runtime imports may set ``preserve_existing_publishers`` so an
+    article fetched through an aggregator cannot erase an existing outlet logo,
+    canonical domain, or display order.
+    """
     publisher_by_code: dict[str, Publisher] = {}
     for item in dataset["publishers"]:
         code = _required(item, "code", "publisher")
-        publisher, _ = Publisher.objects.update_or_create(
-            code=code,
-            defaults={
-                "name_ko": _required(item, "name_ko", f"publisher {code}"),
-                "domain": _required(item, "domain", f"publisher {code}"),
-                "logo_url": item.get("logo_url") or None,
-                "is_active": item.get("is_active", True),
-                "display_order": item.get("display_order", 0),
-            },
-        )
+        defaults = {
+            "name_ko": _required(item, "name_ko", f"publisher {code}"),
+            "domain": _required(item, "domain", f"publisher {code}"),
+            "logo_url": item.get("logo_url") or None,
+            "is_active": item.get("is_active", True),
+            "display_order": item.get("display_order", 0),
+        }
+        if preserve_existing_publishers:
+            publisher, _ = Publisher.objects.get_or_create(code=code, defaults=defaults)
+        else:
+            publisher, _ = Publisher.objects.update_or_create(code=code, defaults=defaults)
         publisher_by_code[code] = publisher
 
     article_total = proposition_total = finding_total = comparison_total = 0

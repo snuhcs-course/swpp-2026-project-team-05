@@ -182,6 +182,30 @@ class NewsApiClientTest {
         assertEquals("NETWORK_ERROR", network.code)
     }
 
+    @Test
+    fun linkAnalysisPostsTheLinkAndExplainsAServerWithoutTheApi() = runBlocking {
+        responses += Response(200, """{"article_id":"a1","status":"created","highlight_count":3}""")
+        assertEquals("a1", client.analyzeLink("token", "https://example.com/news/1"))
+        assertEquals("POST", requests[0].method)
+        assertEquals("/api/v1/link-analyses", requests[0].path)
+        assertEquals("Bearer token", requests[0].authorization)
+        assertTrue(requests[0].body.contains("https://example.com/news/1"))
+
+        responses += Response(404, "<html>Not Found</html>")
+        val missing = assertThrows(NewsApiException::class.java) {
+            runBlocking { client.analyzeLink("token", "https://example.com/news/1") }
+        }
+        assertEquals("LINK_ANALYSIS_NOT_DEPLOYED", missing.code)
+        assertEquals(LINK_ANALYSIS_NOT_DEPLOYED_MESSAGE, missing.message)
+
+        responses += Response(422, """{"error":{"code":"NO_SAME_EVENT","message":"같은 사건 기사가 없어요."}}""")
+        val apiError = assertThrows(NewsApiException::class.java) {
+            runBlocking { client.analyzeLink("token", "https://example.com/news/1") }
+        }
+        assertEquals("NO_SAME_EVENT", apiError.code)
+        assertEquals("같은 사건 기사가 없어요.", apiError.message)
+    }
+
     private fun respond(exchange: HttpExchange, response: Response) {
         val bytes = response.body.toByteArray(Charsets.UTF_8)
         if (response.status == 204) {
