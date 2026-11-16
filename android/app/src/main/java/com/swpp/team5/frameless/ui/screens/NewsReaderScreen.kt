@@ -54,15 +54,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
@@ -88,12 +91,15 @@ import com.swpp.team5.frameless.data.FindingUi
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
+import com.swpp.team5.frameless.ui.components.CoachMarkOverlay
+import com.swpp.team5.frameless.ui.components.CoachTooltip
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.SourceLink
 import com.swpp.team5.frameless.ui.theme.TagPill
 import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
+import com.swpp.team5.frameless.ui.viewmodel.ReaderCoachStep
 import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
@@ -102,6 +108,15 @@ import kotlin.math.roundToInt
 private val NewsMarker = Color(0xFFE9E1F5)
 private val NewsTargetMarker = Color(0xFFE5D0F2)
 private val ComparisonContextMarker = Color(0xFFE8E2F0)
+
+/** 첫 기사 코치마크 연결. 기본값은 코치마크 없이 동작한다. */
+internal data class ReaderCoachUi(
+    val step: ReaderCoachStep? = null,
+    val onEligible: () -> Unit = {},
+    val onFindingOpened: () -> Unit = {},
+    val onPreviewNext: (hasComparisons: Boolean) -> Unit = {},
+    val onFinish: () -> Unit = {}
+)
 
 @Composable
 internal fun NewsReaderScreen(
@@ -112,7 +127,8 @@ internal fun NewsReaderScreen(
     onToggleSaved: (String, Boolean) -> Unit,
     savedPending: Boolean,
     saveError: String?,
-    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit = { _, _ -> }
+    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit = { _, _ -> },
+    coach: ReaderCoachUi = ReaderCoachUi()
 ) {
     when {
         state.isArticleLoading -> {
@@ -126,7 +142,7 @@ internal fun NewsReaderScreen(
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
-            state.initialScrollOffset, onOpenComparisonArticle)
+            state.initialScrollOffset, onOpenComparisonArticle, coach)
     }
 }
 
@@ -145,7 +161,8 @@ private fun NewsReaderContent(
     saveError: String?,
     comparisonFocus: ReaderFocus?,
     initialScrollOffset: Int,
-    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit
+    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit,
+    coach: ReaderCoachUi
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -169,6 +186,36 @@ private fun NewsReaderContent(
     var bodyLayout by remember(article.id) { mutableStateOf<TextLayoutResult?>(null) }
     var bodyTopPx by remember(article.id) { mutableFloatStateOf(0f) }
     var comparisonFocusApplied by remember(article.id, comparisonFocus) { mutableStateOf(false) }
+    var titleLayout by remember(article.id) { mutableStateOf<TextLayoutResult?>(null) }
+    var titleRootOffset by remember(article.id) { mutableStateOf(Offset.Zero) }
+    var bodyRootOffset by remember(article.id) { mutableStateOf(Offset.Zero) }
+    var previewBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var guideCodes by remember(article.id) { mutableStateOf<Set<String>?>(null) }
+    val coachFinding = titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
+    val openFinding: (FindingUi) -> Unit = {
+        selected = it
+        detailOpen = false
+        coach.onFindingOpened()
+    }
+
+    LaunchedEffect(coachFinding?.id, comparisonFocus) {
+        if (coachFinding != null && comparisonFocus == null) coach.onEligible()
+    }
+    LaunchedEffect(coach.step, coachFinding?.id) {
+        if (coach.step == ReaderCoachStep.TAP_FINDING && coachFinding == null) coach.onFinish()
+    }
+    LaunchedEffect(coach.step, coachFinding?.id, bodyLayout, scroll.maxValue) {
+        val finding = coachFinding
+        if (coach.step != ReaderCoachStep.TAP_FINDING || finding == null || finding.scope != "BODY" ||
+            scroll.maxValue == Int.MAX_VALUE) return@LaunchedEffect
+        val layout = bodyLayout ?: return@LaunchedEffect
+        if (finding.markerRange.start !in article.body.indices) return@LaunchedEffect
+        awaitFrame()
+        val markerTop = layout.getBoundingBox(finding.markerRange.start).top
+        val target = (bodyTopPx + markerTop - with(density) { 160.dp.toPx() })
+            .roundToInt().coerceIn(0, scroll.maxValue)
+        scroll.animateScrollTo(target)
+    }
 
     LaunchedEffect(bodyFocus, bodyLayout, bodyTopPx, scroll.maxValue) {
         if (comparisonFocusApplied || bodyFocus == null ||
@@ -192,6 +239,9 @@ private fun NewsReaderContent(
 
     BackHandler(enabled = selected == null && !detailOpen, onBack = onBack)
     BackHandler(enabled = selected != null && !detailOpen) { selected = null }
+    BackHandler(enabled = coach.step != null && coach.step != ReaderCoachStep.COMPARISON) {
+        coach.onFinish()
+    }
 
     Box(Modifier.fillMaxSize().background(Fl.Card)) {
         Column(Modifier.fillMaxSize()) {
@@ -300,8 +350,10 @@ private fun NewsReaderContent(
                     fontSize = 26,
                     lineHeight = 34,
                     fontWeight = FontWeight.Bold,
-                    onFinding = { selected = it; detailOpen = false },
-                    onPlainTextTap = { selected = null }
+                    onFinding = openFinding,
+                    onPlainTextTap = { selected = null },
+                    modifier = Modifier.onGloballyPositioned { titleRootOffset = it.positionInRoot() },
+                    onTextLayout = { titleLayout = it }
                 )
                 SourceLink(onClick = { uriHandler.openUri(article.originalUrl) })
                 AnalysisNotice(
@@ -319,10 +371,11 @@ private fun NewsReaderContent(
                     fontSize = 16,
                     lineHeight = 29,
                     fontWeight = FontWeight.Normal,
-                    onFinding = { selected = it; detailOpen = false },
+                    onFinding = openFinding,
                     onPlainTextTap = { selected = null },
                     modifier = Modifier.onGloballyPositioned {
                         bodyTopPx = it.positionInParent().y
+                        bodyRootOffset = it.positionInRoot()
                     },
                     onTextLayout = { bodyLayout = it }
                 )
@@ -342,10 +395,61 @@ private fun NewsReaderContent(
                     if (finding.comparisons.isNotEmpty()) detailOpen = true
                 },
                 onHeightChanged = { previewHeightPx = it },
+                onShowLabelGuide = { guideCodes = finding.categories.toSet() },
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .onGloballyPositioned { previewBounds = it.boundsInRoot() }
             )
         }
+
+        when (coach.step) {
+            ReaderCoachStep.TAP_FINDING -> {
+                val finding = coachFinding
+                val spotlight = finding?.let {
+                    if (it.scope == "TITLE") markerBoundsInRoot(titleLayout, it, titleRootOffset)
+                    else markerBoundsInRoot(bodyLayout, it, bodyRootOffset)
+                }
+                if (finding != null && spotlight != null) {
+                    CoachMarkOverlay(
+                        spotlightInRoot = spotlight,
+                        stepLabel = "1 / 3",
+                        title = "보라색 표현을 눌러보세요",
+                        body = "같은 사건을 다룬 다른 언론사 기사와 비교했을 때 표현이 다른 부분이에요. " +
+                            "오른쪽 위 '표현 분석'을 끄면 표시가 사라져요.",
+                        primaryLabel = "다음",
+                        onPrimary = { openFinding(finding) },
+                        secondaryLabel = "건너뛰기",
+                        onSecondary = coach.onFinish,
+                        onSpotlightTap = { openFinding(finding) }
+                    )
+                }
+            }
+            ReaderCoachStep.PREVIEW_CARD -> {
+                val finding = selected
+                if (finding != null && !detailOpen) {
+                    val hasComparisons = finding.comparisons.isNotEmpty()
+                    CoachMarkOverlay(
+                        spotlightInRoot = previewBounds,
+                        stepLabel = if (hasComparisons) "2 / 3" else "2 / 2",
+                        title = "어떤 차이인지 확인해요",
+                        body = "보라색 라벨은 어떤 종류의 표현 차이인지 알려줘요. " +
+                            "라벨 옆의 ? 를 누르면 라벨 기준을 볼 수 있어요.",
+                        primaryLabel = if (hasComparisons) "다음" else "완료",
+                        onPrimary = {
+                            if (hasComparisons) detailOpen = true
+                            coach.onPreviewNext(hasComparisons)
+                        },
+                        secondaryLabel = "건너뛰기",
+                        onSecondary = coach.onFinish
+                    )
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    guideCodes?.let { codes ->
+        ExpressionLabelGuideDialog(highlightCodes = codes, onDismiss = { guideCodes = null })
     }
 
     selected?.takeIf { detailOpen }?.let { finding ->
@@ -354,8 +458,11 @@ private fun NewsReaderContent(
             onDismiss = {
                 detailOpen = false
                 selected = null
+                coach.onFinish()
             },
-            onOpenArticle = { onOpenComparisonArticle(it, scroll.value) }
+            onOpenArticle = { onOpenComparisonArticle(it, scroll.value) },
+            coachVisible = coach.step == ReaderCoachStep.COMPARISON,
+            onCoachDone = coach.onFinish
         )
     }
 }
@@ -473,7 +580,8 @@ internal fun FindingPreviewCard(
     onDismiss: () -> Unit,
     onOpenDetail: () -> Unit,
     onHeightChanged: (Int) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onShowLabelGuide: (() -> Unit)? = null
 ) {
     val hasComparisons = finding.comparisons.isNotEmpty()
     var explanationExpanded by remember(finding.id) { mutableStateOf(false) }
@@ -501,14 +609,17 @@ internal fun FindingPreviewCard(
         Text("“${finding.markerText}”", fontFamily = Fl.Serif, fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold, color = Fl.InkDiff,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                .padding(top = 2.dp, bottom = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            finding.categories.map(::categoryLabel).distinct().forEach {
-                TagPill(it, Fl.TintDiff, Fl.InkDiff)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).horizontalScroll(rememberScrollState())
+                    .padding(top = 2.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                finding.categories.map(::categoryLabel).distinct().forEach {
+                    TagPill(it, Fl.TintDiff, Fl.InkDiff)
+                }
             }
+            if (onShowLabelGuide != null) LabelGuideButton(onShowLabelGuide)
         }
         Text(finding.explanation, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2,
             maxLines = if (explanationExpanded) Int.MAX_VALUE else 4,
@@ -545,7 +656,9 @@ internal fun FindingPreviewCard(
 internal fun FindingDetailSheet(
     finding: FindingUi,
     onDismiss: () -> Unit,
-    onOpenArticle: (ComparisonArticleUi) -> Unit = {}
+    onOpenArticle: (ComparisonArticleUi) -> Unit = {},
+    coachVisible: Boolean = false,
+    onCoachDone: () -> Unit = {}
 ) {
     if (finding.comparisons.isEmpty()) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -610,6 +723,22 @@ internal fun FindingDetailSheet(
                             .padding(end = 12.dp, bottom = 10.dp)
                             .background(Fl.Inset, RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp, vertical = 10.dp)
+                    )
+                }
+                if (coachVisible) {
+                    CoachTooltip(
+                        stepLabel = "3 / 3",
+                        title = "다른 언론사는 이렇게 썼어요",
+                        body = "아래 기사에서 밑줄 친 문장이 같은 내용을 다룬 부분이에요.",
+                        primaryLabel = "완료",
+                        onPrimary = onCoachDone,
+                        secondaryLabel = null,
+                        onSecondary = {},
+                        modifier = Modifier.padding(end = 12.dp, bottom = 12.dp),
+                        extra = {
+                            CoachTermRow("이 기사 읽기", "앱에서 이 기사 전체를 읽어요")
+                            CoachTermRow("원문 보기", "언론사 사이트에서 원문을 열어요")
+                        }
                     )
                 }
             }
@@ -825,7 +954,25 @@ private fun annotatedTarget(text: String, evidence: List<com.swpp.team5.frameles
         }
     }
 
-private fun categoryLabel(code: String): String = when (code) {
+/** 표현 구간의 루트 좌표 사각형. 레이아웃이 없거나 구간이 맞지 않으면 null. */
+private fun markerBoundsInRoot(layout: TextLayoutResult?, finding: FindingUi, origin: Offset): Rect? {
+    val textLayout = layout ?: return null
+    val range = finding.markerRange
+    if (range.start < 0 || range.end <= range.start ||
+        range.end > textLayout.layoutInput.text.length) return null
+    return textLayout.getPathForRange(range.start, range.end).getBounds().translate(origin)
+}
+
+@Composable
+private fun CoachTermRow(term: String, meaning: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(term, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
+            modifier = Modifier.width(76.dp))
+        Text(meaning, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2)
+    }
+}
+
+internal fun categoryLabel(code: String): String = when (code) {
     "A" -> "보도 태도가 드러나는 표현"
     "B" -> "발언을 규정하는 표현"
     "C" -> "행위를 규정하는 표현"

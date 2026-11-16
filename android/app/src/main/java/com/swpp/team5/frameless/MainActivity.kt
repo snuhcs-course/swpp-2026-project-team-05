@@ -8,9 +8,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.swpp.team5.frameless.data.AuthRepository
 import com.swpp.team5.frameless.data.NewsRepository
+import com.swpp.team5.frameless.data.SharedPrefsTutorialStore
 import com.swpp.team5.frameless.ui.FrameLESSApp
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
 import com.swpp.team5.frameless.ui.viewmodel.NewsViewModel
+import com.swpp.team5.frameless.ui.viewmodel.TutorialViewModel
 
 /** 앱 시작만 담당한다. 화면과 상태는 ui 패키지에 있다. */
 class MainActivity : ComponentActivity() {
@@ -27,9 +29,15 @@ class MainActivity : ComponentActivity() {
                 AuthViewModel(AuthRepository(applicationContext)) as T
         }
     }
+    private val tutorialViewModel: TutorialViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                TutorialViewModel(SharedPrefsTutorialStore(applicationContext)) as T
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { FrameLESSApp(newsViewModel, authViewModel) }
+        setContent { FrameLESSApp(newsViewModel, authViewModel, tutorialViewModel) }
     }
 }
