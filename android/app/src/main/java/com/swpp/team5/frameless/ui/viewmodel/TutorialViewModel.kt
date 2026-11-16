@@ -28,6 +28,13 @@ internal class TutorialViewModel(private val store: TutorialStore) : ViewModel()
         showIntro = false
     }
 
+    /** 피드의 ? 버튼. 소개 화면을 다시 띄우고, 다음에 표현이 있는 기사를 열면 코치마크도 다시 보여준다. */
+    fun replay() {
+        readerStep = null
+        store.readerCoachSeen = false
+        showIntro = true
+    }
+
     /** 표시할 표현이 있는 기사가 열렸을 때 호출한다. */
     fun onReaderEligible() {
         if (showIntro || store.readerCoachSeen || readerStep != null) return

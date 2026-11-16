@@ -46,6 +46,17 @@ internal val ExpressionLabelExamples = listOf(
     ExpressionLabelExample("G", "~할 전망이다", "확실시된다")
 )
 
+/** 소개 화면의 라벨 한 줄 설명. */
+internal val ExpressionLabelSummaries = mapOf(
+    "A" to "발언을 전하는 동사에 태도가 실린 경우",
+    "B" to "발언 자체를 규정하는 이름을 붙인 경우",
+    "C" to "같은 행위를 더 강하게 규정한 경우",
+    "D" to "수치나 변화의 정도를 강조한 경우",
+    "E" to "평가나 감정이 담긴 말을 덧붙인 경우",
+    "F" to "한쪽 입장의 이름으로 부른 경우",
+    "G" to "전망이나 추정을 확신·단정으로 쓴 경우"
+)
+
 /** 분석 카드의 ? 버튼. */
 @Composable
 internal fun LabelGuideButton(onClick: () -> Unit) {

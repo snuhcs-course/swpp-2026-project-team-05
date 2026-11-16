@@ -29,6 +29,20 @@ class TutorialViewModelTest {
     }
 
     @Test
+    fun replayShowsIntroAgainAndRearmsTheReaderCoach() {
+        val store = FakeTutorialStore(introSeen = true, readerCoachSeen = true)
+        val viewModel = TutorialViewModel(store)
+
+        viewModel.replay()
+        assertTrue(viewModel.showIntro)
+        assertFalse(store.readerCoachSeen)
+
+        viewModel.finishIntro()
+        viewModel.onReaderEligible()
+        assertEquals(ReaderCoachStep.TAP_FINDING, viewModel.readerStep)
+    }
+
+    @Test
     fun readerCoachWaitsUntilIntroIsFinished() {
         val viewModel = TutorialViewModel(FakeTutorialStore())
 

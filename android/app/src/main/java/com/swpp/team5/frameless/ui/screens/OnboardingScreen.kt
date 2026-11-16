@@ -45,16 +45,16 @@ import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.PillShape
 import kotlinx.coroutines.launch
 
-private const val OnboardingPages = 2
+private const val OnboardingPages = 3
 private val OnboardingMarker = Color(0xFFE9E1F5)
 
 /**
- * 첫 실행 온보딩 2장.
- * 1장: 앱의 관점(판정하지 않고 차이를 보여준다). 2장: 사용 순서 세 단계.
- * 끝내기·건너뛰기·로그인 모두 [onFinish] 계열로 끝나고 다시 나오지 않는다.
+ * 첫 실행 온보딩 3장. 피드의 ? 버튼으로 언제든 다시 볼 수 있다.
+ * 1장: 앱의 관점(판정하지 않고 차이를 보여준다). 2장: 사용 순서 세 단계. 3장: 라벨 A~G 한 줄 설명.
+ * 끝내기·건너뛰기·로그인 모두 [onFinish] 계열로 끝난다. 로그인한 상태면 로그인 버튼은 숨긴다.
  */
 @Composable
-internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit) {
+internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit, showLogin: Boolean = true) {
     val pager = rememberPagerState(pageCount = { OnboardingPages })
     val scope = rememberCoroutineScope()
     BackHandler(enabled = pager.currentPage > 0) {
@@ -84,7 +84,11 @@ internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit) {
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                if (page == 0) PerspectivePage() else HowToPage()
+                when (page) {
+                    0 -> PerspectivePage()
+                    1 -> HowToPage()
+                    else -> LabelsPage()
+                }
             }
         }
         Column(
@@ -98,7 +102,7 @@ internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit) {
                 }, Modifier.fillMaxWidth())
             } else {
                 FilledPill("시작하기", onFinish, Modifier.fillMaxWidth())
-                OutlinedPill("로그인하러 가기", onLogin, Modifier.fillMaxWidth())
+                if (showLogin) OutlinedPill("로그인하러 가기", onLogin, Modifier.fillMaxWidth())
             }
         }
     }
@@ -154,6 +158,33 @@ private fun HowToPage() {
     StepCard(3, "다른 기사와 비교하기", "같은 내용을 다른 언론사는 어떻게 썼는지 보고, 원문까지 확인해요.")
     Text("로그인하면 기사를 저장해 두고 나중에 다시 볼 수 있어요.",
         fontSize = 13.sp, lineHeight = 20.sp, color = Fl.Muted, modifier = Modifier.padding(top = 4.dp))
+}
+
+@Composable
+private fun LabelsPage() {
+    Spacer(Modifier.height(8.dp))
+    Text("7가지 표현 차이", fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+    Text("표시된 표현에는 아래 라벨이 붙어요. 차이의 종류일 뿐, 옳고 그름을 판정하지 않아요.",
+        fontSize = 15.sp, lineHeight = 23.sp, color = Fl.Ink2)
+    ExpressionLabelExamples.forEach { example ->
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(28.dp).background(Fl.TintDiff, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(example.code, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.InkDiff)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(categoryLabel(example.code), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                Text(ExpressionLabelSummaries.getValue(example.code), fontSize = 13.sp, lineHeight = 18.sp,
+                    color = Fl.Muted)
+            }
+        }
+    }
 }
 
 @Composable

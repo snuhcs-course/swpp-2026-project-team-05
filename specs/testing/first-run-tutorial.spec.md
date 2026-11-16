@@ -32,6 +32,12 @@ label guide dialog.
 - [Unit] With comparisons, the coach advances TAP_FINDING → PREVIEW_CARD →
   COMPARISON and persists only when finished.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.fullReaderCoachWithComparisonsAdvancesThroughThreeStepsAndPersists`
+- [Unit] The feed `?` button shows onboarding again and re-arms the reader
+  coach for the next article with findings.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.replayShowsIntroAgainAndRearmsTheReaderCoach`
+- [Acceptance] Onboarding page 3 lists A–G with the chip label and a one-line
+  summary; a signed-in replay hides `로그인하러 가기`.\
+  Tip: add a Compose UI test that pages to the third page.
 - [Unit] The label guide lists A–G once, each with a real chip label.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ExpressionLabelGuideTest.guideListsEveryRubricCategoryOnceWithTheChipLabel`
 - [Acceptance] Tapping the spotlighted phrase opens its preview card; `다음`

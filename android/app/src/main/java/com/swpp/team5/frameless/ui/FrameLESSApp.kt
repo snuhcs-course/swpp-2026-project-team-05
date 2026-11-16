@@ -57,7 +57,8 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                         onLogin = {
                             tutorial.finishIntro()
                             auth.openLogin()
-                        }
+                        },
+                        showLogin = session == null
                     )
                     return@Box
                 }
@@ -142,6 +143,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                             },
                             link = news.link,
                             onLinkOpen = news::openLinkAnalysis,
+                            onTutorialOpen = tutorial::replay,
                             onLinkInput = news::updateLinkInput,
                             onLinkSubmit = news::submitLinkAnalysis,
                             onLinkClose = news::closeLinkAnalysis
