@@ -104,6 +104,7 @@ internal fun NewsFeedScreen(
     onLogout: () -> Unit,
     link: LinkAnalysisState = LinkAnalysisState(),
     onLinkOpen: () -> Unit = {},
+    onTutorialOpen: () -> Unit = {},
     onLinkInput: (String) -> Unit = {},
     onLinkSubmit: () -> Unit = {},
     onLinkClose: () -> Unit = {}
@@ -153,6 +154,19 @@ internal fun NewsFeedScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.padding(start = 18.dp)) { BrandRow() }
                     Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = onTutorialOpen,
+                        modifier = Modifier.size(40.dp).semantics {
+                            contentDescription = "튜토리얼 다시 보기"
+                        }
+                    ) {
+                        Box(
+                            Modifier.size(22.dp).border(1.5.dp, Fl.Ink2, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.Ink2)
+                        }
+                    }
                     IconButton(
                         onClick = onLinkOpen,
                         modifier = Modifier.size(40.dp).semantics {

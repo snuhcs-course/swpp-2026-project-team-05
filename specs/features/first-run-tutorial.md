@@ -27,12 +27,16 @@ was worded differently.
 
 - Shown once per installation, after session restore, before the feed. The
   feed still initializes in the background.
-- Two pages in a horizontal pager:
+- The feed header's `?` button (left of `+`) shows it again at any time and
+  re-arms the reader coach marks for the next article with findings. On a
+  replay while signed in, `로그인하러 가기` is hidden.
+- Three pages in a horizontal pager:
   1. *같은 사건, 다른 표현* — two example sentences with the differing phrase
      highlighted, and the stance sentence above.
   2. *이렇게 읽어요* — three steps (choose an article, tap a highlighted
      expression, compare with other articles) and a note that signing in
      enables saving.
+  3. *7가지 표현 차이* — the A–G chip labels, each with a one-line summary.
 - `건너뛰기`, `시작하기`, and `로그인하러 가기` all mark onboarding as seen.
   `로그인하러 가기` then opens the existing login screen.
 - System Back on page 2 returns to page 1; on page 1 it follows the default
@@ -75,6 +79,6 @@ Device-local `SharedPreferences` (`frameless_tutorial`): `intro_seen`,
 
 ## 6. Non-goals
 
-- Web onboarding; a replay entry point; server-side tutorial state.
+- Web onboarding; server-side tutorial state.
 - Changing finding, comparison, or analysis behavior.
 - Coach marks on the feed, search, saved list, or Following controls.
