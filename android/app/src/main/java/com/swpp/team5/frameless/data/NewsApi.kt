@@ -13,6 +13,19 @@ import java.net.URL
 /** Link analysis searches other outlets and runs the model on the server: one to two minutes, a few at most. */
 internal const val LINK_ANALYSIS_TIMEOUT_MS = 300_000
 
+internal const val LINK_ANALYSIS_NOT_DEPLOYED_MESSAGE =
+    "링크 분석은 서버 업데이트 후 사용할 수 있어요. 지금은 링크 입력 화면만 미리 볼 수 있어요."
+
+/**
+ * A server without the link analysis API answers with a page that is not the API's JSON (404, 405 or a rejected
+ * request): the reader is told the feature arrives with a server update. Errors from the API itself pass through.
+ */
+internal fun linkAnalysisError(error: NewsApiException): NewsApiException {
+    val missingApi = error.code in setOf("HTTP_404", "HTTP_405") ||
+        (error.code == "INVALID_RESPONSE" && listOf("HTTP 400", "HTTP 404", "HTTP 405").any { it in error.message })
+    return if (missingApi) NewsApiException("LINK_ANALYSIS_NOT_DEPLOYED", LINK_ANALYSIS_NOT_DEPLOYED_MESSAGE) else error
+}
+
 internal interface NewsService {
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession
@@ -159,13 +172,17 @@ internal class NewsApiClient(baseUrl: String) {
     }
 
     /** The server searches other outlets and runs the analysis, so the answer can take a few minutes. */
-    suspend fun analyzeLink(token: String, url: String): String = request(
-        method = "POST",
-        path = "/api/v1/link-analyses",
-        token = token,
-        body = JSONObject().put("url", url),
-        readTimeoutMs = LINK_ANALYSIS_TIMEOUT_MS
-    ).getString("article_id")
+    suspend fun analyzeLink(token: String, url: String): String = try {
+        request(
+            method = "POST",
+            path = "/api/v1/link-analyses",
+            token = token,
+            body = JSONObject().put("url", url),
+            readTimeoutMs = LINK_ANALYSIS_TIMEOUT_MS
+        ).getString("article_id")
+    } catch (error: NewsApiException) {
+        throw linkAnalysisError(error)
+    }
 
     private suspend fun request(method: String, path: String, token: String? = null,
                                 body: JSONObject? = null, allowEmpty: Boolean = false,

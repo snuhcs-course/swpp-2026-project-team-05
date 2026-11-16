@@ -23,6 +23,9 @@ The search empty state keeps the URL analysis mock unchanged; this feature is a 
    other outlets' articles and comparing their wording, about one to two minutes.
 4. On success the sheet closes and the reader opens the returned article id.
 5. On failure the sheet stays with the server's message and the entered link, so the reader can retry.
+6. A server without this API yet (it answers 404, 405 or a page that is not the API's JSON) shows
+   `링크 분석은 서버 업데이트 후 사용할 수 있어요` instead of a raw HTTP error. The same app works unchanged once
+   the server is deployed.
 
 ## 3. Server
 

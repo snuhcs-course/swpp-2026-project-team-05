@@ -55,6 +55,15 @@ cluster whose articles are hidden from the feed. The app then opens the source a
   `tests.test_link_analysis.StoredClusterTests.test_no_same_event_article_is_an_error_for_the_reader`
 - [Unit] Model answers that are missing or empty show nothing instead of failing.\
   Tested by: `tests.test_link_analysis.StagedAnalysisTests.test_no_model_answer_shows_nothing`
+- [Unit] The app posts the link to `/api/v1/link-analyses`; a server without the API is explained as a coming
+  server update, and the API's own errors reach the reader unchanged.\
+  Tested by: `com.swpp.team5.frameless.data.NewsApiClientTest.linkAnalysisPostsTheLinkAndExplainsAServerWithoutTheApi`
+- [Unit] The sheet rejects an empty or non-http(s) field without a request, keeps a server error with the entered
+  link for a retry, opens the reader on success, and stops waiting when closed.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.anAnalysedLinkOpensItsArticleInTheReader`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.aFieldThatIsNotAnHttpLinkStaysInTheSheetWithoutARequest`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.aServerErrorStaysInTheSheetAndCanBeRetried`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.closingWhileTheServerAnalysesStopsWaiting`
 - [Integration] A second analysis while one runs answers 429.\
   Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_one_analysis_at_a_time`
 
