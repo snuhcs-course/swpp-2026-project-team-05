@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented v1.9 baseline |
-| Version | 1.9 |
-| Date | 2026-11-15 |
+| Status | Implemented v1.10 baseline |
+| Version | 1.10 |
+| Date | 2026-11-16 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -90,7 +90,12 @@ The following designs remain valid future work, but they are not required to shi
 - Offline search, offline Following, offline Saved writes, and Web offline storage
 - iOS client
 
-The existing legacy URL-analysis endpoint may remain for compatibility, but it is not linked from the v1 ordinary-user UI and is not part of the new read-path implementation.
+The existing legacy URL-analysis endpoint may remain for compatibility, but it
+is not linked from the v1 ordinary-user UI and is not part of the new read-path
+implementation. A separate developer-only staged link-analysis flow is
+specified in [`link-analysis.md`](../features/link-analysis.md). It stores
+reader-only results outside feed/search and does not change the ordinary-user
+contract.
 
 Future automatic analysis work is documented separately in
 [`cluster-analysis-pipeline-lessons.md`](../../docs/cluster-analysis-pipeline-lessons.md).
@@ -685,7 +690,8 @@ Keep these flows separate:
 - the normal product route is guest or restored session → feed → Reader →
   finding preview → optional detail; sign-in is requested only for personalized
   features;
-- the URL import, live-analysis loading, legacy history, and legacy comparison state machine are not reachable by ordinary users;
+- the URL import, live-analysis loading, legacy history, and staged link
+  analysis are not reachable by ordinary users;
 - legacy URL analysis may remain as an isolated developer-only capability, but it must not shape feed navigation or Reader state.
 
 The feed, Following source manager, saved list, registration, account menu, and

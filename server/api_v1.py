@@ -25,7 +25,6 @@ from .authentication import (
     session_from_request,
     user_from_request,
 )
-from .analysis.staged import llm as staged_llm
 from .analysis.staged.link import LinkAnalysisError, analyze_link
 from .analysis.v2.article_fetch import validate_article_url
 from .article_search import MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, normalize_search_query
@@ -359,6 +358,8 @@ def link_analyses(request):
     user, error = _auth(request)
     if error:
         return error
+    if not user.is_developer:
+        return _error("FORBIDDEN", "개발자 계정에서만 링크 분석을 사용할 수 있습니다.", 403)
     payload, error = _body(request)
     if error:
         return error
@@ -369,8 +370,6 @@ def link_analyses(request):
         url = validate_article_url(url.strip())
     except ValueError as exc:
         return _error("VALIDATION_ERROR", str(exc), 400, fields={"url": str(exc)})
-    if not staged_llm.configured():
-        return _error("ANALYSIS_UNAVAILABLE", "지금은 링크 분석을 사용할 수 없어요.", 503)
     if not _link_analysis_slot.acquire(blocking=False):
         response = _error("BUSY", "다른 기사를 분석하고 있어요. 잠시 후 다시 시도해 주세요.", 429)
         response["Retry-After"] = "30"

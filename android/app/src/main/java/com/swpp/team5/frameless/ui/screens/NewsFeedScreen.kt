@@ -152,13 +152,15 @@ internal fun NewsFeedScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.padding(start = 18.dp)) { BrandRow() }
                     Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = onLinkOpen,
-                        modifier = Modifier.size(40.dp).semantics {
-                            contentDescription = "기사 링크로 분석하기"
+                    if (session?.user?.isDeveloper == true) {
+                        IconButton(
+                            onClick = onLinkOpen,
+                            modifier = Modifier.size(40.dp).semantics {
+                                contentDescription = "기사 링크로 분석하기"
+                            }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Fl.Ink2)
                         }
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Fl.Ink2)
                     }
                     IconButton(
                         onClick = {

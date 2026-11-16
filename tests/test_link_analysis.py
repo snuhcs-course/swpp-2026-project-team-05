@@ -16,7 +16,7 @@ from server.analysis.staged import analysis as staged
 from server.analysis.staged.dataset import build_dataset
 from server.analysis.staged.link import LinkAnalysisError, analyze_link
 from server.authentication import create_session
-from server.models import Article, ExpressionFinding, FindingComparison, UserAccount
+from server.models import Article, ExpressionFinding, FindingComparison, Publisher, UserAccount
 from server.news_import import dataset_digest, import_dataset
 from server.news_queries import list_articles
 
@@ -113,11 +113,46 @@ class StoredClusterTests(TestCase):
         dataset = build_dataset(articles, staged.analyze(articles, fake_model), now="2026-11-05T12:00:00+09:00")
         import_dataset(dataset, dataset_hash=dataset_digest(dataset))
         discover = mock.Mock()
-        with mock.patch("server.analysis.v2.article_input.prepare_article", return_value=SOURCE):
+        with mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}), \
+                mock.patch("server.analysis.v2.article_input.prepare_article") as prepare:
             result = analyze_link(URL, ask=fake_model, discover=discover)
         self.assertEqual(result["status"], "existing")
         self.assertEqual(result["article_id"], str(Article.objects.get(canonical_url=URL).id))
+        prepare.assert_not_called()
         discover.assert_not_called()
+
+    def test_a_new_link_without_the_staged_model_key_is_unavailable(self):
+        with mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}), \
+                mock.patch("server.analysis.v2.article_input.prepare_article", return_value=SOURCE):
+            with self.assertRaises(LinkAnalysisError) as raised:
+                analyze_link(URL)
+        self.assertEqual(raised.exception.code, "analysis_unavailable")
+        self.assertTrue(raised.exception.retryable)
+
+    def test_runtime_import_preserves_existing_publisher_metadata(self):
+        articles = {"S": SOURCE, "A1": OTHER}
+        dataset = build_dataset(articles, staged.analyze(articles, fake_model),
+                                now="2026-11-05T12:00:00+09:00")
+        source_publisher = dataset["publishers"][0]
+        existing = Publisher.objects.create(
+            code=source_publisher["code"],
+            name_ko="검수된 언론사명",
+            domain="publisher.example.com",
+            logo_url="https://publisher.example.com/logo.png",
+            display_order=42,
+        )
+
+        import_dataset(
+            dataset,
+            dataset_hash=dataset_digest(dataset),
+            preserve_existing_publishers=True,
+        )
+
+        existing.refresh_from_db()
+        self.assertEqual(existing.name_ko, "검수된 언론사명")
+        self.assertEqual(existing.domain, "publisher.example.com")
+        self.assertEqual(existing.logo_url, "https://publisher.example.com/logo.png")
+        self.assertEqual(existing.display_order, 42)
 
     def test_no_same_event_article_is_an_error_for_the_reader(self):
         with mock.patch("server.analysis.v2.article_input.prepare_article", return_value=SOURCE):
@@ -132,9 +167,14 @@ class LinkAnalysesEndpointTests(TestCase):
     def setUp(self):
         self.client = Client()
         user = UserAccount.objects.create(email="reader@example.com", username="reader",
-                                          password_hash=make_password("safe-password-123"))
+                                          password_hash=make_password("safe-password-123"),
+                                          is_developer=True)
         token, _ = create_session(user)
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        ordinary = UserAccount.objects.create(email="ordinary@example.com", username="ordinary",
+                                              password_hash=make_password("safe-password-123"))
+        ordinary_token, _ = create_session(ordinary)
+        self.ordinary_auth = {"HTTP_AUTHORIZATION": f"Bearer {ordinary_token}"}
 
     def post(self, body, **headers):
         return self.client.post("/api/v1/link-analyses", data=json.dumps(body), content_type="application/json", **headers)
@@ -151,15 +191,16 @@ class LinkAnalysesEndpointTests(TestCase):
     def test_a_guest_must_sign_in(self):
         self.assertEqual(self.post({"url": URL}).status_code, 401)
 
+    def test_an_ordinary_account_cannot_start_paid_analysis(self):
+        response = self.post({"url": URL}, **self.ordinary_auth)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["error"]["code"], "FORBIDDEN")
+
     def test_a_missing_or_local_link_is_rejected(self):
         with mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):
             self.assertEqual(self.post({"url": ""}, **self.auth).status_code, 400)
             self.assertEqual(self.post({"url": "http://localhost/a"}, **self.auth).status_code, 400)
             self.assertEqual(self.post({}, **self.auth).status_code, 400)
-
-    def test_no_model_key_means_unavailable(self):
-        with mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}):
-            self.assertEqual(self.post({"url": URL}, **self.auth).status_code, 503)
 
     def test_an_analysis_error_reaches_the_reader(self):
         with mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}), \

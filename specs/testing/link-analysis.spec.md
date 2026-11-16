@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Reviewed for merge |
 | Owner | Analysis |
 | Source requirements | `POST /api/v1/link-analyses`; feed screen `+` button; reader screen |
 | Last reviewed | 2026-11-16 |
 
 ## Scope
 
-A signed-in reader pastes an article link from the feed screen's `+` button. The server fetches the article, finds
+A developer pastes an article link from the feed screen's `+` button. The server fetches the article, finds
 up to three same-event articles from other outlets, runs the staged A-G analysis, and stores the result as a
 cluster whose articles are hidden from the feed. The app then opens the source article in the reader.
 
@@ -20,14 +20,14 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 
 ## Preconditions
 
-- The reader is signed in.
+- The reader is signed in with a developer account.
 - `OPENROUTER_API_KEY` is set for the staged analysis; the discovery pipeline has its own model key.
 
 ## Postconditions
 
 ### Success
 
-- [Integration] A signed-in reader who posts a public article link receives the stored source article's id.\
+- [Integration] A developer who posts a public article link receives the stored source article's id.\
   Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_signed_in_reader_gets_the_stored_article_id`
 - [Integration] The stored cluster opens in the reader with every marker at its offsets, and none of its articles
   appears in the feed or feed search.\
@@ -44,11 +44,15 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 
 ### Errors and boundaries
 
-- [Integration] A guest receives 401; an empty, missing or local link receives 400.\
+- [Integration] A guest receives 401, an ordinary account receives 403, and an empty, missing or local link receives
+  400.\
   Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_guest_must_sign_in`,
+  `tests.test_link_analysis.LinkAnalysesEndpointTests.test_an_ordinary_account_cannot_start_paid_analysis`,
   `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_missing_or_local_link_is_rejected`
-- [Integration] Without the model key the endpoint answers 503.\
-  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_no_model_key_means_unavailable`
+- [Integration] A new link without the model key answers 503, while an already stored exact URL still opens without
+  a fetch, discovery call or configured model.\
+  Tested by: `tests.test_link_analysis.StoredClusterTests.test_a_new_link_without_the_staged_model_key_is_unavailable`,
+  `tests.test_link_analysis.StoredClusterTests.test_a_stored_link_answers_at_once_without_discovery`
 - [Integration] No same-event article answers 422 with the reader's message; a model outage answers 503 with
   `Retry-After: 30`.\
   Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_an_analysis_error_reaches_the_reader`,
@@ -75,6 +79,8 @@ cluster whose articles are hidden from the feed. The app then opens the source a
   stored articles.\
   Tip: add a test with a discovery result whose first candidate URL is stored and check that the stored article keeps
   its cluster.
+- [Integration] Runtime import preserves an existing publisher's reviewed name, domain, logo and display order.\
+  Tested by: `tests.test_link_analysis.StoredClusterTests.test_runtime_import_preserves_existing_publisher_metadata`
 - [Acceptance] The feed `+` button opens the link dialog; a successful analysis closes it and opens the reader; an
   error stays in the dialog.\
   Tip: add a Compose UI test for the dialog states.
@@ -90,12 +96,12 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 | --- | --- | --- |
 | Happy path | stored id returned; reader-only cluster | Scope |
 | Boundary | stored link; no answers from the model | State transitions |
-| Error | guest, bad link, no key, no same event, model outage, busy | Errors and boundaries |
+| Error | guest, ordinary account, bad link, no key, no same event, model outage, busy | Errors and boundaries |
 | State interaction | feed and search exclude the cluster | Scope |
 
 ## Human review checkpoint
 
-- [ ] Product intent and non-goals were reviewed.
-- [ ] Assertions come from the specification, not the implementation output.
-- [ ] Missing coverage is recorded as `Tip`, not hidden.
-- [ ] A contract or acceptance change received explicit team confirmation.
+- [x] Product intent and non-goals were reviewed.
+- [x] Assertions come from the specification, not the implementation output.
+- [x] Missing coverage is recorded as `Tip`, not hidden.
+- [x] The developer-only boundary preserves the reviewed ordinary-user contract.

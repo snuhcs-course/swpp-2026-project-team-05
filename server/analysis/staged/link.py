@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.utils import timezone
 
 MAX_RELATED = 3
@@ -46,7 +47,7 @@ def analyze_link(url: str, *, ask: Callable | None = None, discover: Callable | 
                  progress: Callable[[str], None] | None = None) -> dict:
     """{'article_id', 'status': 'existing' | 'created', 'highlight_count'}; raises LinkAnalysisError."""
     from ...models import Article
-    from ...news_import import dataset_digest, import_dataset
+    from ...news_import import DatasetError, dataset_digest, import_dataset
     from ..v2.article_fetch import ArticleFetchError
     from ..v2.article_input import prepare_article
     from ..v2.display_selection import select_display_article_ids
@@ -56,6 +57,9 @@ def analyze_link(url: str, *, ask: Callable | None = None, discover: Callable | 
     from .dataset import build_dataset
 
     notify = progress or (lambda _message: None)
+    stored = Article.objects.filter(canonical_url=url).first()
+    if stored is not None:
+        return {"article_id": str(stored.id), "status": "existing", "highlight_count": stored.findings.count()}
     try:
         source = prepare_article(url)
     except (ArticleFetchError, ValueError):
@@ -63,6 +67,12 @@ def analyze_link(url: str, *, ask: Callable | None = None, discover: Callable | 
     stored = Article.objects.filter(canonical_url=source.get("url") or url).first()
     if stored is not None:
         return {"article_id": str(stored.id), "status": "existing", "highlight_count": stored.findings.count()}
+    if ask is None and not llm.configured():
+        raise LinkAnalysisError(
+            "analysis_unavailable",
+            "분석 서비스가 준비되지 않았어요. 잠시 후 다시 시도해 주세요.",
+            retryable=True,
+        )
 
     notify("다른 언론사 기사 찾는 중")
     discovery = (discover or run_discovery_pipeline)(url, _prepared_source=source)
@@ -97,8 +107,18 @@ def analyze_link(url: str, *, ask: Callable | None = None, discover: Callable | 
         raise LinkAnalysisError("analysis_unavailable", "분석 서비스가 응답하지 않아요. 잠시 후 다시 시도해 주세요.",
                                 retryable=True) from None
     dataset = build_dataset(articles, shown, now=timezone.now().isoformat())
-    with transaction.atomic():
-        import_dataset(dataset, dataset_hash=dataset_digest(dataset))
+    try:
+        import_dataset(
+            dataset,
+            dataset_hash=dataset_digest(dataset),
+            preserve_existing_publishers=True,
+        )
+    except (DatasetError, ValidationError, IntegrityError):
+        raise LinkAnalysisError(
+            "storage_unavailable",
+            "분석 결과를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+            retryable=True,
+        ) from None
     article = Article.objects.get(canonical_url=articles["S"]["url"])
     return {"article_id": str(article.id), "status": "created",
             "highlight_count": len(dataset["clusters"][0]["findings"])}
