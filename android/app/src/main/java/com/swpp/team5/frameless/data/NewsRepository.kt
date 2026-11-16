@@ -40,7 +40,7 @@ internal class NewsRepository(
 
     override suspend fun publishers(): List<PublisherItem> = service.publishers(optionalToken())
 
-    override suspend fun analyzeLink(url: String): String = service.analyzeLink(token(), url)
+    override suspend fun analyzeLink(url: String): String = service.analyzeLink(optionalToken(), url)
 
     override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> =
         service.replaceFollowedPublishers(token(), publisherCodes)

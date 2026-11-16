@@ -92,10 +92,10 @@ The following designs remain valid future work, but they are not required to shi
 
 The existing legacy URL-analysis endpoint may remain for compatibility, but it
 is not linked from the v1 ordinary-user UI and is not part of the new read-path
-implementation. A separate developer-only staged link-analysis flow is
-specified in [`link-analysis.md`](../features/link-analysis.md). It stores
-reader-only results outside feed/search and does not change the ordinary-user
-contract.
+implementation. A separate staged link-analysis flow, open to every reader
+with a daily limit outside developer accounts, is specified in
+[`link-analysis.md`](../features/link-analysis.md). It stores reader-only
+results outside feed/search.
 
 Future automatic analysis work is documented separately in
 [`cluster-analysis-pipeline-lessons.md`](../../docs/cluster-analysis-pipeline-lessons.md).

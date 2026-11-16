@@ -22,15 +22,18 @@ import com.swpp.team5.frameless.ui.screens.LoginScreen
 import com.swpp.team5.frameless.ui.screens.NewsFeedScreen
 import com.swpp.team5.frameless.ui.screens.NewsReaderScreen
 import com.swpp.team5.frameless.ui.screens.NewsSavedScreen
+import com.swpp.team5.frameless.ui.screens.OnboardingScreen
+import com.swpp.team5.frameless.ui.screens.ReaderCoachUi
 import com.swpp.team5.frameless.ui.screens.RegistrationScreen
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
 import com.swpp.team5.frameless.ui.viewmodel.NewsRoute
 import com.swpp.team5.frameless.ui.viewmodel.NewsViewModel
+import com.swpp.team5.frameless.ui.viewmodel.TutorialViewModel
 
-/** Normal product navigation: guest or authenticated feed → Reader. */
+/** Normal product navigation: first-run onboarding → guest or authenticated feed → Reader. */
 @Composable
-internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
+internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: TutorialViewModel) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -47,6 +50,16 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                         observedSessionToken = session?.token
                         news.onViewerChanged()
                     }
+                }
+                if (tutorial.showIntro && !auth.showLogin) {
+                    OnboardingScreen(
+                        onFinish = tutorial::finishIntro,
+                        onLogin = {
+                            tutorial.finishIntro()
+                            auth.openLogin()
+                        }
+                    )
+                    return@Box
                 }
                 if (auth.showLogin) {
                     if (auth.showRegistration) {
@@ -128,7 +141,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                                 }
                             },
                             link = news.link,
-                            onLinkOpen = { if (session == null) auth.openLogin() else news.openLinkAnalysis() },
+                            onLinkOpen = news::openLinkAnalysis,
                             onLinkInput = news::updateLinkInput,
                             onLinkSubmit = news::submitLinkAnalysis,
                             onLinkClose = news::closeLinkAnalysis
@@ -154,7 +167,14 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             else news.toggleSaved(articleId, saved)
                         },
                         savedPending = news.savedMutationArticleId == news.reader.articleId,
-                        saveError = news.saveError
+                        saveError = news.saveError,
+                        coach = ReaderCoachUi(
+                            step = tutorial.readerStep,
+                            onEligible = tutorial::onReaderEligible,
+                            onFindingOpened = tutorial::onFindingOpened,
+                            onPreviewNext = tutorial::onPreviewNext,
+                            onFinish = tutorial::finishReaderCoach
+                        )
                     )
                 }
             }

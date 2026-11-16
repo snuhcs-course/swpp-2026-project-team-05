@@ -9,7 +9,7 @@
 
 ## Scope
 
-A developer pastes an article link from the feed screen's `+` button. The server fetches the article, finds
+A reader, signed in or not, pastes an article link from the feed screen's `+` button. The server fetches the article, finds
 up to three same-event articles from other outlets, runs the staged A-G analysis, and stores the result as a
 cluster whose articles are hidden from the feed. The app then opens the source article in the reader.
 
@@ -20,14 +20,14 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 
 ## Preconditions
 
-- The reader is signed in with a developer account.
+- No sign-in is needed; a developer account has no daily limit.
 - `OPENROUTER_API_KEY` is set for the staged analysis; the discovery pipeline has its own model key.
 
 ## Postconditions
 
 ### Success
 
-- [Integration] A developer who posts a public article link receives the stored source article's id.\
+- [Integration] A reader who posts a public article link receives the stored source article's id.\
   Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_signed_in_reader_gets_the_stored_article_id`
 - [Integration] The stored cluster opens in the reader with every marker at its offsets, and none of its articles
   appears in the feed or feed search.\
@@ -44,11 +44,21 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 
 ### Errors and boundaries
 
-- [Integration] A guest receives 401, an ordinary account receives 403, and an empty, missing or local link receives
-  400.\
-  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_guest_must_sign_in`,
-  `tests.test_link_analysis.LinkAnalysesEndpointTests.test_an_ordinary_account_cannot_start_paid_analysis`,
-  `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_missing_or_local_link_is_rejected`
+- [Integration] A guest and an ordinary account can start an analysis, and the usage rows are tied to no account.\
+  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_guest_and_an_ordinary_account_can_analyse_a_link`
+- [Integration] A client that is not a developer account gets `429 DAILY_LIMIT` after its daily limit, counted per
+  client address whether signed in or not, while another address can still analyse.\
+  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_client_that_is_not_a_developer_stops_at_its_daily_limit`
+- [Integration] Every client that is not a developer account shares one daily total.\
+  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_every_client_that_is_not_a_developer_shares_one_daily_total`
+- [Integration] A developer account has no daily limit and records no usage.\
+  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_developer_account_has_no_daily_limit`
+- [Integration] A stored link opens after the limit is used up, and a link whose page could not be read does not use
+  up the limit.\
+  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_stored_link_opens_even_after_the_daily_limit`,
+  `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_link_that_cannot_be_read_does_not_use_up_the_limit`
+- [Integration] An empty, missing or local link receives 400.\
+  Tested by: `tests.test_link_analysis.LinkAnalysesEndpointTests.test_a_missing_or_local_link_is_rejected`
 - [Integration] A new link without the model key answers 503, while an already stored exact URL still opens without
   a fetch, discovery call or configured model.\
   Tested by: `tests.test_link_analysis.StoredClusterTests.test_a_new_link_without_the_staged_model_key_is_unavailable`,
@@ -96,7 +106,7 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 | --- | --- | --- |
 | Happy path | stored id returned; reader-only cluster | Scope |
 | Boundary | stored link; no answers from the model | State transitions |
-| Error | guest, ordinary account, bad link, no key, no same event, model outage, busy | Errors and boundaries |
+| Error | daily limit per client and in total, bad link, no key, no same event, model outage, busy | Errors and boundaries |
 | State interaction | feed and search exclude the cluster | Scope |
 
 ## Human review checkpoint
@@ -104,4 +114,4 @@ cluster whose articles are hidden from the feed. The app then opens the source a
 - [x] Product intent and non-goals were reviewed.
 - [x] Assertions come from the specification, not the implementation output.
 - [x] Missing coverage is recorded as `Tip`, not hidden.
-- [x] The developer-only boundary preserves the reviewed ordinary-user contract.
+- [x] Open access is bounded by the daily limits; developer accounts are exempt.

@@ -16,7 +16,7 @@ from server.analysis.staged import analysis as staged
 from server.analysis.staged.dataset import build_dataset
 from server.analysis.staged.link import LinkAnalysisError, analyze_link
 from server.authentication import create_session
-from server.models import Article, ExpressionFinding, FindingComparison, Publisher, UserAccount
+from server.models import AnalysisRecord, Article, ExpressionFinding, FindingComparison, Publisher, UserAccount
 from server.news_import import dataset_digest, import_dataset
 from server.news_queries import list_articles
 
@@ -188,13 +188,68 @@ class LinkAnalysesEndpointTests(TestCase):
         self.assertEqual(response.json(), answer)
         run.assert_called_once_with(URL)
 
-    def test_a_guest_must_sign_in(self):
-        self.assertEqual(self.post({"url": URL}).status_code, 401)
+    def test_a_guest_and_an_ordinary_account_can_analyse_a_link(self):
+        answer = {"article_id": "a1", "status": "created", "highlight_count": 3}
+        with mock.patch.object(api_v1, "analyze_link", return_value=answer) as run:
+            guest = self.post({"url": URL})
+            ordinary = self.post({"url": URL}, REMOTE_ADDR="10.0.0.2", **self.ordinary_auth)
+        self.assertEqual((guest.status_code, ordinary.status_code), (200, 200))
+        self.assertEqual(guest.json(), answer)
+        self.assertEqual(run.call_count, 2)
+        self.assertFalse(AnalysisRecord.objects.filter(user__isnull=False).exists())
 
-    def test_an_ordinary_account_cannot_start_paid_analysis(self):
-        response = self.post({"url": URL}, **self.ordinary_auth)
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["error"]["code"], "FORBIDDEN")
+    def test_a_client_that_is_not_a_developer_stops_at_its_daily_limit(self):
+        answer = {"article_id": "a1", "status": "created", "highlight_count": 3}
+        limits = {"FRAMELESS_LINK_ANALYSIS_PER_CLIENT_DAILY": "2", "FRAMELESS_LINK_ANALYSIS_DAILY": "30"}
+        with mock.patch.dict("os.environ", limits), \
+                mock.patch.object(api_v1, "analyze_link", return_value=answer) as run:
+            answers = [self.post({"url": URL}), self.post({"url": URL}, **self.ordinary_auth), self.post({"url": URL})]
+            other_client = self.post({"url": URL}, REMOTE_ADDR="10.0.0.9")
+        self.assertEqual([r.status_code for r in answers], [200, 200, 429])
+        self.assertEqual(answers[2].json()["error"]["code"], "DAILY_LIMIT")
+        self.assertEqual(other_client.status_code, 200)
+        self.assertEqual(run.call_count, 3)
+
+    def test_every_client_that_is_not_a_developer_shares_one_daily_total(self):
+        answer = {"article_id": "a1", "status": "created", "highlight_count": 3}
+        limits = {"FRAMELESS_LINK_ANALYSIS_PER_CLIENT_DAILY": "5", "FRAMELESS_LINK_ANALYSIS_DAILY": "1"}
+        with mock.patch.dict("os.environ", limits), mock.patch.object(api_v1, "analyze_link", return_value=answer):
+            first = self.post({"url": URL}, REMOTE_ADDR="10.0.0.1")
+            second = self.post({"url": URL}, REMOTE_ADDR="10.0.0.2")
+        self.assertEqual((first.status_code, second.status_code), (200, 429))
+
+    def test_a_developer_account_has_no_daily_limit(self):
+        answer = {"article_id": "a1", "status": "created", "highlight_count": 3}
+        limits = {"FRAMELESS_LINK_ANALYSIS_PER_CLIENT_DAILY": "0", "FRAMELESS_LINK_ANALYSIS_DAILY": "0"}
+        with mock.patch.dict("os.environ", limits), \
+                mock.patch.object(api_v1, "analyze_link", return_value=answer) as run:
+            answers = [self.post({"url": URL}, **self.auth) for _ in range(3)]
+        self.assertEqual([r.status_code for r in answers], [200, 200, 200])
+        self.assertEqual(run.call_count, 3)
+        self.assertFalse(AnalysisRecord.objects.exists())
+
+    def test_a_stored_link_opens_even_after_the_daily_limit(self):
+        articles = {"S": SOURCE, "A1": OTHER}
+        dataset = build_dataset(articles, staged.analyze(articles, fake_model), now="2026-11-05T12:00:00+09:00")
+        import_dataset(dataset, dataset_hash=dataset_digest(dataset))
+        limits = {"FRAMELESS_LINK_ANALYSIS_PER_CLIENT_DAILY": "0", "FRAMELESS_LINK_ANALYSIS_DAILY": "0"}
+        with mock.patch.dict("os.environ", limits), mock.patch.object(api_v1, "analyze_link") as run:
+            response = self.post({"url": URL})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "existing")
+        self.assertEqual(response.json()["article_id"], str(Article.objects.get(canonical_url=URL).id))
+        run.assert_not_called()
+
+    def test_a_link_that_cannot_be_read_does_not_use_up_the_limit(self):
+        answer = {"article_id": "a1", "status": "created", "highlight_count": 3}
+        limits = {"FRAMELESS_LINK_ANALYSIS_PER_CLIENT_DAILY": "1", "FRAMELESS_LINK_ANALYSIS_DAILY": "30"}
+        unreadable = LinkAnalysisError("source_unavailable", "기사 본문을 가져오지 못했어요.")
+        with mock.patch.dict("os.environ", limits):
+            with mock.patch.object(api_v1, "analyze_link", side_effect=unreadable):
+                failed = self.post({"url": URL})
+            with mock.patch.object(api_v1, "analyze_link", return_value=answer):
+                created = self.post({"url": URL})
+        self.assertEqual((failed.status_code, created.status_code), (422, 200))
 
     def test_a_missing_or_local_link_is_rejected(self):
         with mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):

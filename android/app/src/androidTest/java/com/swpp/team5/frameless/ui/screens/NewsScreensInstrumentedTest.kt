@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import com.swpp.team5.frameless.data.AppSession
@@ -39,6 +40,7 @@ import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -75,6 +77,32 @@ class NewsScreensInstrumentedTest {
         compose.runOnIdle { assertEquals("article-1", selectedId) }
         compose.onNodeWithContentDescription("계정 메뉴").performClick()
         compose.onNodeWithText("reader").assertIsDisplayed()
+    }
+
+    @Test
+    fun feedWithAnotherPageOffersMoreArticlesButton() {
+        var loadMoreCalls = 0
+        val state = NewsFeedState(
+            publishers = listOf(publisher),
+            items = (1..20).map { n ->
+                ArticleSummary("article-$n", publisher, "기사 $n", NewsCategory.POLITICS,
+                    "2026-10-31T12:00:00+09:00", StoredAnalysisState.READY)
+            },
+            nextCursor = "next"
+        )
+        compose.setContent {
+            val listState = rememberLazyListState()
+            NewsFeedScreen(
+                state, null, listState,
+                onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = {}, onRetry = {}, onLoadMore = { loadMoreCalls += 1 }, onLoadMoreSearch = {},
+                onRetrySearch = {}, onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {},
+                onSearchClose = {}, onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
+            )
+        }
+
+        compose.onNodeWithText("기사 더 보기").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(loadMoreCalls >= 1) }
     }
 
     @Test
