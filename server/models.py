@@ -10,6 +10,7 @@ from django.db.models.functions import Lower
 class NewsCategory(models.TextChoices):
     POLITICS = "POLITICS", "Politics"
     SOCIETY = "SOCIETY", "Society"
+    ECONOMY = "ECONOMY", "Economy"
 
 
 class AnalysisStatus(models.TextChoices):
@@ -164,6 +165,9 @@ class StoryCluster(models.Model):
     analysis_version = models.CharField(max_length=64, blank=True)
     analysis_input_hash = models.CharField(max_length=64, blank=True)
     analyzed_at = models.DateTimeField(null=True, blank=True)
+    # Economic articles only: how the cluster's articles differ in economic focus, tone, sources and numbers
+    # (specs/features/economic-lens.md). Sides name article ids; validated by news_import.
+    economic_comparison = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -193,6 +197,9 @@ class Article(models.Model):
         max_length=16, choices=ArticleVisibility.choices, default=ArticleVisibility.VISIBLE,
     )
     is_feed_visible = models.BooleanField(default=True)
+    # Economic articles only: focus channels, tone per channel, evidence sentences, sources and numbers
+    # (specs/features/economic-lens.md). Evidence offsets are validated against title / body_text by news_import.
+    economic_context = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

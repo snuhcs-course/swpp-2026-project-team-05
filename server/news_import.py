@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from .economic_lens import EconomicLensError, validate_comparison, validate_context
 from .models import (
     AnalysisStatus,
     Article,
@@ -216,6 +217,13 @@ def import_dataset(
                     f"{article_context}: stored article title or body changed for {canonical_url}; "
                     "review and import it as a new dataset revision"
                 )
+            economic_context = article_item.get("economic_context")
+            if economic_context is not None and category != NewsCategory.ECONOMY:
+                raise DatasetError(f"{article_context}: economic_context belongs to economy clusters only")
+            try:
+                economic_context = validate_context(economic_context, title=title, body=body, context=article_context)
+            except EconomicLensError as exc:
+                raise DatasetError(str(exc)) from exc
             article, _ = Article.objects.update_or_create(
                 canonical_url=canonical_url,
                 defaults={
@@ -225,6 +233,7 @@ def import_dataset(
                     "title": title,
                     "body_text": body,
                     "content_hash": content_hash,
+                    "economic_context": economic_context,
                     "category": category,
                     "published_at": _parse_timestamp(
                         _required(article_item, "published_at", article_context), article_context
@@ -235,6 +244,15 @@ def import_dataset(
             )
             article_by_key[article_key] = article
             article_total += 1
+
+        economic_comparison = cluster_item.get("economic_comparison")
+        if economic_comparison is not None and category != NewsCategory.ECONOMY:
+            raise DatasetError(f"{context}: economic_comparison belongs to economy clusters only")
+        try:
+            cluster.economic_comparison = validate_comparison(
+                economic_comparison, article_by_key=article_by_key, context=context)
+        except EconomicLensError as exc:
+            raise DatasetError(str(exc)) from exc
 
         # The dataset is the reviewed current analysis for this cluster. Old product rows
         # remain readable until this transaction reaches this point, then are replaced atomically.
@@ -367,7 +385,7 @@ def import_dataset(
         cluster.save(
             update_fields=[
                 "analysis_status", "analysis_version", "analysis_input_hash",
-                "analyzed_at", "updated_at",
+                "analyzed_at", "economic_comparison", "updated_at",
             ]
         )
 

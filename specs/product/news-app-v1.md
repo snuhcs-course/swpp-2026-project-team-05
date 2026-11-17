@@ -118,6 +118,8 @@ v1 supports:
 
 - `POLITICS`
 - `SOCIETY`
+- `ECONOMY` (Web shows it as a third section; economy articles may carry the economic lens of
+  `specs/features/economic-lens.md`)
 
 An article belongs to one category and at most one story cluster in v1.
 
@@ -485,7 +487,7 @@ the account only when a valid bearer session is present.
 
 Query parameters:
 
-- `category=POLITICS|SOCIETY`;
+- `category=POLITICS|SOCIETY|ECONOMY`;
 - `scope=ALL|FOLLOWING`;
 - normalized `q` for global search;
 - repeated `publisher=yna&publisher=mbc`;
@@ -580,9 +582,13 @@ The response is projected onto the selected article. It never triggers collectio
         }
       ]
     }
-  ]
+  ],
+  "economic": null
 }
 ```
+
+`economic` is `null` unless the article is an economy article with a reviewed economic lens; its shape is defined in
+`specs/features/economic-lens.md`.
 
 Offset rules:
 

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../lib/api'
-import type { Analysis, ArticleDetail, Finding } from '../lib/types'
+import type { Analysis, ArticleDetail, EconomicLens, Finding } from '../lib/types'
 import { ArticlePage } from './ArticlePage'
 
 vi.mock('../auth/useAuth', () => ({
@@ -140,6 +140,71 @@ describe('ArticlePage analysis rail', () => {
     expect(singleSource).toHaveAttribute('aria-selected', 'true')
     expect(screen.getAllByText('KBS')).toHaveLength(1)
     expect(screen.getByText('1 source')).toBeInTheDocument()
+  })
+})
+
+describe('ArticlePage economic lens', () => {
+  const body = '금리를 내렸다. 집값엔 큰 영향을 주지 않을 것이란 평가다. 소비가 살아날 것이라는 기대도 나온다.'
+  const limited = '집값엔 큰 영향을 주지 않을 것이란 평가다.'
+  const hopeful = '소비가 살아날 것이라는 기대도 나온다.'
+  const at = (text: string) => ({ scope: 'BODY' as const, start: body.indexOf(text), end: body.indexOf(text) + text.length, text })
+  const economy: ArticleDetail = { ...article, category: 'ECONOMY', title: '집값 또 오르나', body }
+  const lens: EconomicLens = {
+    focus: ['housing'],
+    tone: { housing: 'LIMITED' },
+    evidence: [
+      { sentence: at(limited), channels: ['housing'], role: 'EFFECT_FORECAST', tone: 'LIMITED', voice: 'UNATTRIBUTED',
+        source: 'ANONYMOUS', reasons: ['FOCUS'] },
+      { sentence: at(hopeful), channels: ['macro_growth'], role: 'EFFECT_FORECAST', tone: 'OPTIMISM', voice: 'UNATTRIBUTED',
+        source: 'ANONYMOUS', reasons: ['TONE_CONTRAST'] },
+    ],
+    sources: { ANONYMOUS: 2 },
+    numbers: [],
+    comparison: [{
+      type: 'TONE',
+      channel: 'housing',
+      sides: [
+        { article_id: 'source-1', publisher: article.publisher, title: economy.title, is_current: true, tone: 'LIMITED',
+          sentence: at(limited) },
+        { article_id: 'yna-1', publisher: { code: 'yna', name: '연합뉴스', logo_url: '' }, title: '한은 기준금리 인하',
+          is_current: false, tone: 'CONCERN', sentence: { scope: 'BODY', start: 0, end: 20, text: '집값과 가계부채만 자극할 것이라는 우려도 있다.' } },
+      ],
+    }],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.article).mockResolvedValue(economy)
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY', version: 'test', source_content_hash: 'source-hash', findings: [], economic: lens,
+    } satisfies Analysis)
+  })
+
+  it('summarises the lens, marks its sentences and shows the other outlet for the selected one', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText('Economic lens · Housing')).toBeInTheDocument()
+    expect(screen.getByText('Tone · Limited effect')).toBeInTheDocument()
+    const sentence = screen.getByText(limited, { selector: '[data-economic-evidence]' })
+    expect(sentence).toHaveClass('decoration-teal-600')
+    expect(screen.getByText('Other coverage of the same effect')).toBeInTheDocument()
+    expect(screen.getAllByText('집값과 가계부채만 자극할 것이라는 우려도 있다.')[0].closest('a')).toHaveAttribute('href', '/articles/yna-1')
+    expect(screen.getByText('Same effect, different tone · Housing')).toBeInTheDocument()
+
+    await user.click(screen.getByText(hopeful, { selector: '[data-economic-evidence]' }))
+    expect(screen.getByText('Sentence 2 of 2')).toBeInTheDocument()
+    expect(screen.getByText('Growth & demand · Optimism')).toBeInTheDocument()
+    expect(screen.queryByText('Other coverage of the same effect')).not.toBeInTheDocument()
+  })
+
+  it('shows no economic lens for an article without one', async () => {
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY', version: 'test', source_content_hash: 'source-hash', findings: [], economic: null,
+    } satisfies Analysis)
+    renderPage()
+    expect(await screen.findByText('No findings are available yet.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Economic lens')).not.toBeInTheDocument()
   })
 })
 

@@ -252,7 +252,7 @@ def articles(request):
     category = request.GET.get("category") or None
     if category and category not in NewsCategory.values:
         return _error("VALIDATION_ERROR", "지원하지 않는 기사 분야입니다.", 400,
-                      fields={"category": "정치 또는 사회를 선택해 주세요."})
+                      fields={"category": "정치, 사회 또는 경제를 선택해 주세요."})
     scope = request.GET.get("scope") or "ALL"
     if scope not in {"ALL", "FOLLOWING"}:
         return _error(
