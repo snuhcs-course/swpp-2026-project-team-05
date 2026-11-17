@@ -85,55 +85,34 @@ export interface Finding {
   comparison_articles: ComparisonArticle[]
 }
 
-export type EconomicTone = 'CONCERN' | 'OPTIMISM' | 'LIMITED' | 'OBSERVED'
+export type EconomicStance = 'CONCERN' | 'OPTIMISM' | 'LIMITED' | 'OBSERVED'
 
-export interface EconomicSentence extends TextRange {
-  scope: 'TITLE' | 'BODY'
-}
-
-export interface EconomicEvidence {
-  sentence: EconomicSentence
+export interface EconomicView {
   channels: string[]
-  role: 'EFFECT_REALIZED' | 'EFFECT_FORECAST'
-  tone: EconomicTone
-  voice: 'QUOTE' | 'UNATTRIBUTED' | 'REPORTER'
-  source: string | null
-  reasons: ('FOCUS' | 'FOCUS_TONE' | 'TONE_CONTRAST')[]
+  stance: EconomicStance
+  direction: 'UP' | 'DOWN' | 'SWING' | null
+  phrase: string
+  sentence: TextRange & { scope: 'TITLE' | 'BODY' }
 }
 
-export interface EconomicNumber {
-  indicator: string | null
-  value: string
-  basis: string[]
-  kind: 'LEVEL' | 'CHANGE'
-}
-
-export interface EconomicSide {
+export interface EconomicOutlet {
   article_id: string
   publisher: Publisher
   title: string
-  is_current: boolean
-  channels?: string[]
-  tone?: EconomicTone
-  sentence?: EconomicSentence | null
-  counts?: Record<string, number>
-  values?: EconomicNumber[]
+  views: EconomicView[]
 }
 
-export interface EconomicComparison {
-  type: 'FOCUS' | 'TONE' | 'SOURCES' | 'NUMBERS'
-  channel?: string
-  indicator?: string
-  sides: EconomicSide[]
+export interface EconomicContrast {
+  channel: string
+  stance: EconomicStance
+  others: { article_id: string; publisher: Publisher; stance: EconomicStance }[]
 }
 
 export interface EconomicLens {
-  focus: string[]
-  tone: Record<string, EconomicTone>
-  evidence: EconomicEvidence[]
-  sources: Record<string, number>
-  numbers: EconomicNumber[]
-  comparison: EconomicComparison[]
+  event: string
+  views: EconomicView[]
+  others: EconomicOutlet[]
+  contrasts: EconomicContrast[]
 }
 
 export interface Analysis {

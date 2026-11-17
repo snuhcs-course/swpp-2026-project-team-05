@@ -6,7 +6,7 @@ import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { AppShell } from '../components/AppShell'
 import { SaveArticleButton } from '../components/SaveArticleButton'
-import type { EconomicComparison, EconomicLens, Finding } from '../lib/types'
+import type { EconomicLens, EconomicView, Finding } from '../lib/types'
 import { api } from '../lib/api'
 import { articleOrigin, comparisonArticleRouteState, comparisonFocus } from '../lib/navigation'
 import { segmentText, sourceRange, type HighlightRange } from '../lib/text'
@@ -14,34 +14,33 @@ import {
   categoryLabel,
   channelLabel,
   cn,
-  economicSourceLabel,
-  economicToneLabel,
-  economicVoiceLabel,
+  economicStanceLabel,
   findingCategoryLabel,
   formatDate,
 } from '../lib/utils'
 
-const ECONOMIC_PREFIX = 'economic:'
+const VIEW_SENTENCE = 'economic-sentence:'
+const VIEW_PHRASE = 'economic-phrase:'
 
+/** The article's view sentences, and inside each the phrase that carries the view. */
 function economicRanges(lens: EconomicLens | null, scope: 'TITLE' | 'BODY'): HighlightRange[] {
-  return (lens?.evidence ?? []).flatMap((evidence, index) => (
-    evidence.sentence.scope === scope
-      ? [{ id: `${ECONOMIC_PREFIX}${index}`, start: evidence.sentence.start, end: evidence.sentence.end }]
-      : []
-  ))
+  return (lens?.views ?? []).flatMap((view, index) => {
+    if (view.sentence.scope !== scope) return []
+    const sentence = { id: `${VIEW_SENTENCE}${index}`, start: view.sentence.start, end: view.sentence.end }
+    const at = view.sentence.text.indexOf(view.phrase)
+    if (at < 0) return [sentence]
+    const start = view.sentence.start + Array.from(view.sentence.text.slice(0, at)).length
+    return [sentence, { id: `${VIEW_PHRASE}${index}`, start, end: start + Array.from(view.phrase).length }]
+  })
 }
 
-function HighlightedText({
-  text, findings, selectedId, onSelect, focus = null, economic = [], selectedEconomic = null, onSelectEconomic, className,
-}: {
+function HighlightedText({ text, findings, selectedId, onSelect, focus = null, economic = [], className }: {
   text: string
   findings: Finding[]
   selectedId: string | null
   onSelect: (id: string) => void
   focus?: { start: number; end: number } | null
   economic?: HighlightRange[]
-  selectedEconomic?: number | null
-  onSelectEconomic?: (index: number) => void
   className?: string
 }) {
   const focusId = '__comparison_context__'
@@ -59,37 +58,20 @@ function HighlightedText({
   return (
     <div className={cn('whitespace-pre-wrap', className)}>
       {segments.map((segment, index) => {
-        const findingId = segment.findingIds.find((id) => id !== focusId && !id.startsWith(ECONOMIC_PREFIX))
-        const economicId = segment.findingIds.find((id) => id.startsWith(ECONOMIC_PREFIX))
-        const economicIndex = economicId ? Number(economicId.slice(ECONOMIC_PREFIX.length)) : null
-        const economicClass = economicIndex !== null && cn(
-          'underline decoration-teal-600 decoration-2 underline-offset-[6px]',
-          selectedEconomic === economicIndex && 'bg-teal-100',
+        const findingId = segment.findingIds.find((id) => id !== focusId && !id.startsWith('economic-'))
+        const inViewSentence = segment.findingIds.some((id) => id.startsWith(VIEW_SENTENCE))
+        const inViewPhrase = segment.findingIds.some((id) => id.startsWith(VIEW_PHRASE))
+        const economicClass = cn(
+          inViewSentence && 'underline decoration-teal-500 decoration-1 underline-offset-[6px]',
+          inViewPhrase && 'bg-teal-50 decoration-teal-700 decoration-2 font-semibold',
         )
         const isComparisonContext = segment.findingIds.includes(focusId)
-        if (!findingId && economicIndex !== null) return (
-          <span
-            key={index}
-            role="button"
-            tabIndex={0}
-            data-economic-evidence={economicIndex}
-            ref={isComparisonContext ? (node) => { focusRef.current = node } : undefined}
-            className={cn(economicClass, 'cursor-pointer hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-700',
-              isComparisonContext && 'ring-1 ring-violet-300')}
-            onClick={() => onSelectEconomic?.(economicIndex)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onSelectEconomic?.(economicIndex)
-              }
-            }}
-          >{segment.text}</span>
-        )
         if (!findingId) return (
           <span
             key={index}
+            data-economic-view={inViewSentence ? (inViewPhrase ? 'phrase' : 'sentence') : undefined}
             ref={isComparisonContext ? (node) => { focusRef.current = node } : undefined}
-            className={cn(isComparisonContext && 'rounded-[2px] bg-violet-100 px-0.5 font-semibold ring-1 ring-violet-300')}
+            className={cn(economicClass, isComparisonContext && 'rounded-[2px] bg-violet-100 px-0.5 font-semibold ring-1 ring-violet-300')}
           >{segment.text}</span>
         )
         return (
@@ -112,150 +94,77 @@ function HighlightedText({
   )
 }
 
-function EconomicSummary({ lens }: { lens: EconomicLens }) {
-  const tones = lens.focus.map((channel) => lens.tone[channel]).filter(Boolean)
-  const oneTone = tones.length > 0 && tones.every((tone) => tone === tones[0])
+function ViewLine({ view, differs = false }: { view: EconomicView; differs?: boolean }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2 text-xs" aria-label="Economic lens summary">
-      <span className="border border-teal-700 bg-teal-50 px-2 py-1 font-bold text-teal-900">
-        Economic lens · {lens.focus.length ? lens.focus.map(channelLabel).join(' · ') : 'no clear focus'}
+    <div className={cn('flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6', differs && 'border-l-2 border-rose-500 pl-2')}>
+      <span className="border border-teal-700/50 px-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-teal-900">
+        {view.channels.map(channelLabel).join(' · ')}
       </span>
-      {tones.length > 0 && (
-        <span className="border border-zinc-400 px-2 py-1 font-semibold text-zinc-700">
-          Tone · {oneTone
-            ? economicToneLabel(tones[0])
-            : lens.focus.map((channel) => `${channelLabel(channel)}: ${economicToneLabel(lens.tone[channel] ?? 'OBSERVED')}`).join(' · ')}
-        </span>
+      <span className="font-serif font-bold">«{view.phrase}»</span>
+      <span className="text-xs font-semibold text-zinc-600">{economicStanceLabel(view.stance, view.direction)}</span>
+      {differs && <span className="text-[11px] font-bold text-rose-700">Different view</span>}
+    </div>
+  )
+}
+
+/** The event and this article's view of it, under the publisher line. */
+function EconomicLensHeader({ lens }: { lens: EconomicLens }) {
+  return (
+    <section className="mb-7 border border-teal-700/40 bg-teal-50/40 px-4 py-3" aria-label="Economic lens">
+      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-teal-900">Economic lens</p>
+      <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-[110px_minmax(0,1fr)]">
+        <dt className="text-xs font-bold text-zinc-600">Event</dt>
+        <dd className="text-sm font-bold">{lens.event}</dd>
+        <dt className="text-xs font-bold text-zinc-600">This article</dt>
+        <dd className="grid gap-1.5">
+          {lens.views.length
+            ? lens.views.map((view, index) => <ViewLine key={index} view={view} />)
+            : <span className="text-sm text-zinc-500">No view could be read from this article.</span>}
+        </dd>
+      </dl>
+    </section>
+  )
+}
+
+/** How the other outlets on the same event see it; a channel on which an outlet takes another stance is marked. */
+function OtherOutlets({ lens }: { lens: EconomicLens }) {
+  const differs = (articleId: string, view: EconomicView) => lens.contrasts.some((contrast) => (
+    view.channels.includes(contrast.channel) && contrast.others.some((other) => other.article_id === articleId)
+  ))
+  return (
+    <section className="mt-10 border-t-2 border-teal-700 pt-5" aria-label="How other outlets see this event">
+      <h2 className="text-sm font-black text-teal-900">How other outlets see this event</h2>
+      <p className="mt-1 text-xs text-zinc-600">{lens.event}</p>
+      {lens.contrasts.length > 0 && (
+        <ul className="mt-4 grid gap-1 border border-rose-300 bg-rose-50/60 px-3 py-2 text-xs leading-5">
+          {lens.contrasts.map((contrast) => (
+            <li key={contrast.channel}>
+              <strong>{channelLabel(contrast.channel)}</strong> · this article: {economicStanceLabel(contrast.stance)}
+              {' ↔ '}
+              {contrast.others.map((other) => `${other.publisher.name}: ${economicStanceLabel(other.stance)}`).join(', ')}
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
-  )
-}
-
-function sideName(name: string, isCurrent: boolean) {
-  return <strong className={cn('font-bold', isCurrent && 'text-teal-900')}>{name}{isCurrent ? ' (this article)' : ''}</strong>
-}
-
-function AcrossCoverage({ comparison }: { comparison: EconomicComparison[] }) {
-  if (!comparison.length) return null
-  const rows = comparison.map((row, index) => {
-    if (row.type === 'FOCUS') return (
-      <div key={index} className="py-3">
-        <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-600">What each outlet puts first</dt>
-        {row.sides.map((side) => (
-          <dd key={side.article_id} className="mt-1 text-sm">
-            {sideName(side.publisher.name, side.is_current)} · {(side.channels ?? []).map(channelLabel).join(' · ')}
-          </dd>
-        ))}
-      </div>
-    )
-    if (row.type === 'TONE') return (
-      <div key={index} className="py-3">
-        <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-600">
-          Same effect, different tone · {channelLabel(row.channel ?? '')}
-        </dt>
-        {row.sides.map((side) => (
-          <dd key={side.article_id} className="mt-2 text-sm leading-6">
-            {sideName(side.publisher.name, side.is_current)} · {economicToneLabel(side.tone ?? 'OBSERVED')}
-            {side.sentence && (
-              <span className="mt-1 block border-l-2 border-zinc-300 pl-3 text-[13px] text-zinc-600">
-                {side.is_current ? side.sentence.text : <Link to={`/articles/${side.article_id}`} className="hover:underline">{side.sentence.text}</Link>}
-              </span>
-            )}
-          </dd>
-        ))}
-      </div>
-    )
-    if (row.type === 'SOURCES') return (
-      <div key={index} className="py-3">
-        <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-600">Who is quoted</dt>
-        {row.sides.map((side) => {
-          const counts = Object.entries(side.counts ?? {}).sort((a, b) => b[1] - a[1])
-          return (
-            <dd key={side.article_id} className="mt-1 text-sm">
-              {sideName(side.publisher.name, side.is_current)} · {counts.length
-                ? counts.map(([source, count]) => `${economicSourceLabel(source)} ${count}`).join(' · ')
-                : 'no attributed source'}
-            </dd>
-          )
-        })}
-      </div>
-    )
-    return (
-      <div key={index} className="py-3">
-        <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-zinc-600">Numbers · {row.indicator}</dt>
-        {row.sides.map((side) => (
-          <dd key={side.article_id} className="mt-1 text-sm">
-            {sideName(side.publisher.name, side.is_current)} · {(side.values ?? [])
-              .map((value) => value.basis.length ? `${value.value} (${value.basis.join('·')})` : value.value).join(', ')}
-          </dd>
-        ))}
-      </div>
-    )
-  })
-  return (
-    <div className="mt-6">
-      <h3 className="border-b border-black pb-2 text-xs font-black uppercase tracking-[0.12em]">Across this event</h3>
-      <dl className="divide-y divide-zinc-200">{rows}</dl>
-    </div>
-  )
-}
-
-function EconomicPanel({ lens, selected, onSelect }: {
-  lens: EconomicLens
-  selected: number
-  onSelect: (index: number) => void
-}) {
-  const index = lens.evidence[selected] ? selected : 0
-  const evidence = lens.evidence[index]
-  const otherCoverage = evidence
-    ? lens.comparison
-      .filter((row) => row.type === 'TONE' && row.channel && evidence.channels.includes(row.channel))
-      .flatMap((row) => row.sides.filter((side) => !side.is_current).map((side) => ({ channel: row.channel ?? '', side })))
-    : []
-  return (
-    <section className="mt-10 border-t-2 border-teal-700 pt-5" aria-label="Economic lens">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-black text-teal-900">Economic lens</h2>
-        {lens.evidence.length > 1 && (
-          <div className="flex items-center gap-1 text-xs text-zinc-600">
-            <button type="button" className="grid size-8 place-items-center rounded-full hover:bg-zinc-100 disabled:opacity-25"
-              disabled={index === 0} onClick={() => onSelect(index - 1)} aria-label="Previous economic sentence"><ChevronLeft size={17} /></button>
-            <span>Sentence {index + 1} of {lens.evidence.length}</span>
-            <button type="button" className="grid size-8 place-items-center rounded-full hover:bg-zinc-100 disabled:opacity-25"
-              disabled={index === lens.evidence.length - 1} onClick={() => onSelect(index + 1)} aria-label="Next economic sentence"><ChevronRight size={17} /></button>
-          </div>
-        )}
-      </div>
-      {evidence ? (
-        <div className="border border-teal-700/40 bg-teal-50/60 p-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-teal-900">
-            {evidence.channels.map(channelLabel).join(' · ')} · {economicToneLabel(evidence.tone)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-600">
-            {evidence.role === 'EFFECT_FORECAST' ? 'Expected effect' : 'Reported effect'} · {economicVoiceLabel(evidence.voice)}
-            {evidence.source ? ` · ${economicSourceLabel(evidence.source)}` : ''}
-          </p>
-          <blockquote className="mt-3 border-l-2 border-teal-700 pl-3 text-[15px] leading-7">{evidence.sentence.text}</blockquote>
-          {otherCoverage.length > 0 && (
-            <div className="mt-4 border-t border-teal-700/30 pt-3">
-              <p className="text-xs font-bold text-zinc-700">Other coverage of the same effect</p>
-              {otherCoverage.map(({ channel, side }) => (
-                <div key={`${channel}-${side.article_id}`} className="mt-2 text-sm leading-6">
-                  <strong>{side.publisher.name}</strong> · {channelLabel(channel)} · {economicToneLabel(side.tone ?? 'OBSERVED')}
-                  {side.sentence && (
-                    <Link to={`/articles/${side.article_id}`} className="mt-1 block text-[13px] text-zinc-600 hover:underline">
-                      {side.sentence.text}
-                    </Link>
-                  )}
-                </div>
-              ))}
+      {lens.others.length ? (
+        <div className="mt-4 divide-y divide-zinc-200">
+          {lens.others.map((outlet) => (
+            <div key={outlet.article_id} className="py-3">
+              <Link to={`/articles/${outlet.article_id}`} className="text-sm font-black hover:underline">
+                {outlet.publisher.name}
+              </Link>
+              <p className="mb-2 text-xs text-zinc-500">{outlet.title}</p>
+              <div className="grid gap-1.5">
+                {outlet.views.map((view, index) => (
+                  <ViewLine key={index} view={view} differs={differs(outlet.article_id, view)} />
+                ))}
+              </div>
             </div>
-          )}
+          ))}
         </div>
       ) : (
-        <p className="border-y border-zinc-300 py-4 text-sm text-zinc-500">No sentence was selected as economic evidence.</p>
+        <p className="mt-4 border-y border-zinc-300 py-4 text-sm text-zinc-500">No other outlet's view is available.</p>
       )}
-      <AcrossCoverage comparison={lens.comparison} />
     </section>
   )
 }
@@ -364,7 +273,6 @@ export function ArticlePage() {
   const economic = analysisQuery.data?.economic ?? null
   const titleEconomic = useMemo(() => economicRanges(economic, 'TITLE'), [economic])
   const bodyEconomic = useMemo(() => economicRanges(economic, 'BODY'), [economic])
-  const [selectedEconomic, setSelectedEconomic] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const focus = comparisonFocus(location.state, id)
 
@@ -413,15 +321,13 @@ export function ArticlePage() {
                   <span className="text-zinc-500">{formatDate(article.published_at, true)}</span>
                   <AnalysisBadge state={article.analysis_state} />
                 </div>
-                {economic && <EconomicSummary lens={economic} />}
+                {economic && <EconomicLensHeader lens={economic} />}
                 <HighlightedText
                   text={article.title}
                   findings={titleFindings}
                   selectedId={selectedFinding?.id ?? null}
                   onSelect={setSelectedId}
                   economic={titleEconomic}
-                  selectedEconomic={selectedEconomic}
-                  onSelectEconomic={setSelectedEconomic}
                   focus={focus?.scope === 'TITLE' ? { start: focus.start, end: focus.end } : null}
                   className="font-serif text-[clamp(2.5rem,5vw,5.6rem)] font-black leading-[1.03] tracking-[-0.06em]"
                 />
@@ -436,8 +342,6 @@ export function ArticlePage() {
                 selectedId={selectedFinding?.id ?? null}
                 onSelect={setSelectedId}
                 economic={bodyEconomic}
-                selectedEconomic={selectedEconomic}
-                onSelectEconomic={setSelectedEconomic}
                 focus={focus?.scope === 'BODY' ? { start: focus.start, end: focus.end } : null}
                 className="article-body py-10"
               />
@@ -488,7 +392,7 @@ export function ArticlePage() {
                     )}
                   </div>
                 )}
-                {economic && <EconomicPanel lens={economic} selected={selectedEconomic} onSelect={setSelectedEconomic} />}
+                {economic && <OtherOutlets lens={economic} />}
               </div>
             </aside>
           </div>
