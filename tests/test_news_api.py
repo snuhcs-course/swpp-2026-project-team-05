@@ -972,6 +972,7 @@ class NewsApiTests(TestCase):
         })
 
 
+
 class EconomicLensApiTests(TestCase):
     """specs/testing/economic-lens.spec.md: the economy feed and the economic lens of the reader analysis."""
 
@@ -982,6 +983,7 @@ class EconomicLensApiTests(TestCase):
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
         self.yna = Publisher.objects.create(code="yna", name_ko="연합뉴스", domain="yna.co.kr", display_order=1)
         self.hk = Publisher.objects.create(code="hankyung", name_ko="한국경제", domain="hankyung.com", display_order=2)
+        self.newsis = Publisher.objects.create(code="newsis", name_ko="뉴시스", domain="newsis.com", display_order=3)
         self.cluster = StoryCluster.objects.create(
             internal_label="기준금리 인하", category=NewsCategory.ECONOMY,
             analysis_status=AnalysisStatus.READY, analysis_version="staged-v6",
@@ -991,25 +993,15 @@ class EconomicLensApiTests(TestCase):
                                      now, "https://example.com/econ-yna")
         self.limited = self._article(self.hk, "집값 또 오르나", "이번 인하가 집값엔 큰 영향을 주지 않을 것이란 평가다.",
                                      now - timedelta(hours=1), "https://example.com/econ-hk")
+        self.plain = self._article(self.newsis, "환율 마감", "환율이 1375.9원에 마감했다.",
+                                   now - timedelta(hours=2), "https://example.com/econ-newsis")
         self.politics = Article.objects.create(
             publisher=self.yna, canonical_url="https://example.com/politics", title="정치 기사", body_text="정치 본문.",
             content_hash="0" * 64, category=NewsCategory.POLITICS, published_at=now,
         )
-        worried_sentence = self._sentence(self.worried, "집값과 가계부채만 자극할 것이라는 우려도 있다.")
-        limited_sentence = self._sentence(self.limited, self.limited.body_text)
-        self.worried.economic_context = {
-            "focus": ["housing"], "tone": {"housing": "CONCERN"},
-            "evidence": [{"sentence": worried_sentence, "channels": ["housing", "household_credit"],
-                          "role": "EFFECT_FORECAST", "tone": "CONCERN", "voice": "UNATTRIBUTED", "source": "ANONYMOUS",
-                          "reasons": ["TONE_CONTRAST"], "decided_by": {"role": "code:R3", "tone": "code:T1"}}],
-            "sources": {"ANONYMOUS": 1}, "numbers": [],
-        }
-        self.worried.save()
-        self.cluster.economic_comparison = [{"type": "TONE", "channel": "housing", "sides": [
-            {"article_id": str(self.worried.id), "tone": "CONCERN", "sentence": worried_sentence},
-            {"article_id": str(self.limited.id), "tone": "LIMITED", "sentence": limited_sentence},
-        ]}]
-        self.cluster.save()
+        self._lens(self.worried, "집값과 가계부채만 자극할 것이라는 우려도 있다.", ["housing", "household_credit"], "CONCERN",
+                   "집값과 가계부채만 자극할 것이라는 우려")
+        self._lens(self.limited, self.limited.body_text, ["housing"], "LIMITED", "집값엔 큰 영향을 주지 않을 것")
 
     def _article(self, publisher, title, body, published_at, url):
         return Article.objects.create(
@@ -1018,15 +1010,22 @@ class EconomicLensApiTests(TestCase):
         )
 
     @staticmethod
-    def _sentence(article, text):
-        start = article.body_text.index(text)
-        return {"scope": "BODY", "start": start, "end": start + len(text), "text": text}
+    def _lens(article, sentence, channels, stance, phrase):
+        start = article.body_text.index(sentence)
+        article.economic_context = {"event": "한은, 기준금리 2.50%로 0.25%p 인하", "views": [{
+            "channels": channels, "stance": stance, "direction": None, "phrase": phrase,
+            "sentence": {"scope": "BODY", "start": start, "end": start + len(sentence), "text": sentence},
+        }]}
+        article.save()
+
+    def _economic(self, article):
+        return self.client.get(f"/api/v1/articles/{article.id}/analysis", **self.auth).json()["economic"]
 
     def test_economy_feed_lists_only_economy_articles(self):
         response = self.client.get("/api/v1/articles?category=ECONOMY", **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["id"] for item in response.json()["items"]],
-                         [str(self.worried.id), str(self.limited.id)])
+                         [str(self.worried.id), str(self.limited.id), str(self.plain.id)])
         self.assertEqual({item["category"] for item in response.json()["items"]}, {"ECONOMY"})
         politics = self.client.get("/api/v1/articles?category=POLITICS", **self.auth).json()["items"]
         self.assertEqual([item["id"] for item in politics], [str(self.politics.id)])
@@ -1036,27 +1035,26 @@ class EconomicLensApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["fields"]["category"], "정치, 사회 또는 경제를 선택해 주세요.")
 
-    def test_analysis_carries_the_economic_lens_with_compared_coverage(self):
-        economic = self.client.get(f"/api/v1/articles/{self.worried.id}/analysis", **self.auth).json()["economic"]
-        self.assertEqual(economic["focus"], ["housing"])
-        self.assertEqual(economic["tone"], {"housing": "CONCERN"})
-        self.assertEqual(len(economic["evidence"]), 1)
-        self.assertNotIn("decided_by", economic["evidence"][0])
-        sides = economic["comparison"][0]["sides"]
-        self.assertEqual([(s["publisher"]["name"], s["tone"], s["is_current"]) for s in sides],
-                         [("연합뉴스", "CONCERN", True), ("한국경제", "LIMITED", False)])
-        self.assertEqual(sides[1]["sentence"]["text"], self.limited.body_text)
+    def test_analysis_carries_the_event_the_article_view_and_the_other_outlets_views(self):
+        economic = self._economic(self.worried)
+        self.assertEqual(economic["event"], "한은, 기준금리 2.50%로 0.25%p 인하")
+        self.assertEqual([(v["channels"], v["stance"], v["phrase"]) for v in economic["views"]],
+                         [(["housing", "household_credit"], "CONCERN", "집값과 가계부채만 자극할 것이라는 우려")])
+        self.assertEqual([(o["publisher"]["name"], [v["phrase"] for v in o["views"]]) for o in economic["others"]],
+                         [("한국경제", ["집값엔 큰 영향을 주지 않을 것"])])
+        self.assertEqual(economic["contrasts"], [{
+            "channel": "housing", "stance": "CONCERN",
+            "others": [{"article_id": str(self.limited.id), "publisher": economic["others"][0]["publisher"],
+                        "stance": "LIMITED"}],
+        }])
 
-    def test_hidden_compared_article_and_stale_evidence_are_left_out(self):
+    def test_hidden_outlet_and_stale_view_are_left_out(self):
         self.limited.visibility = ArticleVisibility.HIDDEN
         self.limited.save()
-        context = self.worried.economic_context
-        context["evidence"][0]["sentence"]["text"] = "본문과 다른 문장"
+        self.worried.economic_context["views"][0]["sentence"]["text"] = "본문과 다른 문장"
         self.worried.save()
-        economic = self.client.get(f"/api/v1/articles/{self.worried.id}/analysis", **self.auth).json()["economic"]
-        self.assertEqual(economic["evidence"], [])
-        self.assertEqual([s["article_id"] for s in economic["comparison"][0]["sides"]], [str(self.worried.id)])
+        economic = self._economic(self.worried)
+        self.assertEqual((economic["views"], economic["others"], economic["contrasts"]), ([], [], []))
 
     def test_article_without_economic_lens_answers_null(self):
-        response = self.client.get(f"/api/v1/articles/{self.limited.id}/analysis", **self.auth)
-        self.assertIsNone(response.json()["economic"])
+        self.assertIsNone(self._economic(self.plain))

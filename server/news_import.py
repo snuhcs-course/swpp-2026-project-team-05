@@ -15,7 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .economic_lens import EconomicLensError, validate_comparison, validate_context
+from .economic_lens import EconomicLensError, validate_context
 from .models import (
     AnalysisStatus,
     Article,
@@ -245,15 +245,6 @@ def import_dataset(
             article_by_key[article_key] = article
             article_total += 1
 
-        economic_comparison = cluster_item.get("economic_comparison")
-        if economic_comparison is not None and category != NewsCategory.ECONOMY:
-            raise DatasetError(f"{context}: economic_comparison belongs to economy clusters only")
-        try:
-            cluster.economic_comparison = validate_comparison(
-                economic_comparison, article_by_key=article_by_key, context=context)
-        except EconomicLensError as exc:
-            raise DatasetError(str(exc)) from exc
-
         # The dataset is the reviewed current analysis for this cluster. Old product rows
         # remain readable until this transaction reaches this point, then are replaced atomically.
         ExpressionFinding.objects.filter(article__story_cluster=cluster).delete()
@@ -385,7 +376,7 @@ def import_dataset(
         cluster.save(
             update_fields=[
                 "analysis_status", "analysis_version", "analysis_input_hash",
-                "analyzed_at", "economic_comparison", "updated_at",
+                "analyzed_at", "updated_at",
             ]
         )
 

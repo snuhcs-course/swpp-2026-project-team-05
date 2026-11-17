@@ -134,35 +134,33 @@ class NewsDatasetImportTests(TestCase):
         start = article["body_text"].index(sentence)
         located = {"scope": "BODY", "start": start, "end": start + len(sentence), "text": sentence}
         article["economic_context"] = {
-            "focus": ["housing"], "tone": {"housing": "LIMITED"},
-            "evidence": [{"sentence": located, "channels": ["housing"], "role": "EFFECT_FORECAST", "tone": "LIMITED",
-                          "voice": "UNATTRIBUTED", "source": "ANONYMOUS", "reasons": ["FOCUS"]}],
-            "sources": {"ANONYMOUS": 1},
-            "numbers": [{"indicator": "가계대출", "value": "747조2423억원", "basis": [], "kind": "LEVEL"}],
+            "event": "한은 기준금리 인하",
+            "views": [{"channels": ["housing"], "stance": "LIMITED", "direction": None,
+                       "phrase": "집값엔 큰 영향을 주지 않을 것", "sentence": located}],
         }
-        cluster["economic_comparison"] = [{"type": "TONE", "channel": "housing", "sides": [
-            {"article": "article-a", "tone": "LIMITED", "sentence": located}]}]
         return dataset
 
-    def test_economy_cluster_keeps_its_economic_lens_with_stored_article_ids(self):
+    def test_economy_cluster_keeps_the_event_and_the_article_view(self):
         import_dataset(self._economy_dataset(), dataset_hash="e" * 64)
 
         article = Article.objects.get()
         self.assertEqual(article.category, "ECONOMY")
-        self.assertEqual(article.economic_context["focus"], ["housing"])
-        self.assertEqual(article.economic_context["evidence"][0]["sentence"]["text"], "집값엔 큰 영향을 주지 않을 것이란 평가다.")
-        side = article.story_cluster.economic_comparison[0]["sides"][0]
-        self.assertEqual(side["article_id"], str(article.id))
-        self.assertNotIn("article", side)
+        self.assertEqual(article.economic_context["event"], "한은 기준금리 인하")
+        view = article.economic_context["views"][0]
+        self.assertEqual((view["channels"], view["stance"], view["phrase"]),
+                         (["housing"], "LIMITED", "집값엔 큰 영향을 주지 않을 것"))
+        self.assertEqual(view["sentence"]["text"], "집값엔 큰 영향을 주지 않을 것이란 평가다.")
 
     def test_economic_lens_that_does_not_match_its_article_is_rejected(self):
+        view = lambda d: d["clusters"][0]["articles"][0]["economic_context"]["views"][0]  # noqa: E731
         cases = {
-            "evidence offsets": lambda d: d["clusters"][0]["articles"][0]["economic_context"]["evidence"][0]
-            ["sentence"].update(start=0),
-            "unknown tone": lambda d: d["clusters"][0]["articles"][0]["economic_context"]["tone"].update(housing="SAD"),
-            "unknown channel": lambda d: d["clusters"][0]["articles"][0]["economic_context"].update(focus=["weather"]),
-            "unknown comparison article": lambda d: d["clusters"][0]["economic_comparison"][0]["sides"][0]
-            .update(article="article-z"),
+            "sentence offsets": lambda d: view(d)["sentence"].update(start=0),
+            "phrase not in its sentence": lambda d: view(d).update(phrase="집값이 크게 오른다"),
+            "unknown stance": lambda d: view(d).update(stance="SAD"),
+            "unknown channel": lambda d: view(d).update(channels=["weather"]),
+            "no event": lambda d: d["clusters"][0]["articles"][0]["economic_context"].update(event=""),
+            "too many views": lambda d: d["clusters"][0]["articles"][0]["economic_context"]["views"].extend(
+                [deepcopy(view(d)), deepcopy(view(d))]),
             "outside an economy cluster": lambda d: d["clusters"][0].update(category="POLITICS"),
         }
         for name, change in cases.items():

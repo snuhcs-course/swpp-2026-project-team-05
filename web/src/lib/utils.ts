@@ -40,35 +40,13 @@ export function channelLabel(channel: string) {
   return CHANNEL_LABELS[channel] ?? channel
 }
 
-export function economicToneLabel(tone: string) {
-  const labels: Record<string, string> = {
-    CONCERN: 'Concern',
-    OPTIMISM: 'Optimism',
-    LIMITED: 'Limited effect',
-    OBSERVED: 'Reported without evaluation',
+export function economicStanceLabel(stance: string, direction: string | null = null) {
+  if (stance === 'OBSERVED') {
+    const moves: Record<string, string> = { UP: 'Reports a rise', DOWN: 'Reports a fall', SWING: 'Reports a swing' }
+    return (direction && moves[direction]) ?? 'Reports without evaluation'
   }
-  return labels[tone] ?? tone
-}
-
-export function economicVoiceLabel(voice: string) {
-  const labels: Record<string, string> = {
-    QUOTE: 'Quoted source',
-    UNATTRIBUTED: 'Unattributed view',
-    REPORTER: "Reporter's own words",
-  }
-  return labels[voice] ?? voice
-}
-
-export function economicSourceLabel(source: string) {
-  const labels: Record<string, string> = {
-    BANK_OF_KOREA: 'Bank of Korea',
-    GOVERNMENT: 'Government',
-    FOREIGN_AUTHORITY: 'Foreign authorities',
-    EXPERT: 'Experts',
-    INDUSTRY: 'Industry',
-    ANONYMOUS: 'Anonymous or general',
-  }
-  return labels[source] ?? source
+  const labels: Record<string, string> = { CONCERN: 'Concern', OPTIMISM: 'Optimism', LIMITED: 'Limited effect' }
+  return labels[stance] ?? stance
 }
 
 export function findingCategoryLabel(category: string) {
