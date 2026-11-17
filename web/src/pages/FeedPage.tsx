@@ -11,8 +11,8 @@ import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { orderFeedArticles } from '../lib/feedOrdering'
 import { articleRouteState } from '../lib/navigation'
-import type { ArticleSummary, FeedScope, NewsCategory, Publisher } from '../lib/types'
-import { categoryLabel, cn, formatDate } from '../lib/utils'
+import { NEWS_CATEGORIES, type ArticleSummary, type FeedScope, type NewsCategory, type Publisher } from '../lib/types'
+import { categoryFromParam, categoryLabel, cn, formatDate } from '../lib/utils'
 
 type SearchFilter = 'ALL' | NewsCategory
 
@@ -24,7 +24,7 @@ export function FeedPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const category = (params.get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS') as NewsCategory
+  const category: NewsCategory = categoryFromParam(params.get('category'))
   const requestedScope = (params.get('scope') === 'following' ? 'FOLLOWING' : 'ALL') as FeedScope
   const scope: FeedScope = session ? requestedScope : 'ALL'
   const [queryInput, setQueryInput] = useState('')
@@ -219,7 +219,7 @@ export function FeedPage() {
 
         {activeQuery && (
           <nav className="flex h-14 items-end gap-3 border-b border-zinc-300" aria-label="Search filters">
-            {(['ALL', 'POLITICS', 'SOCIETY'] as const).map((filter) => (
+            {(['ALL', ...NEWS_CATEGORIES] as const).map((filter) => (
               <button
                 key={filter}
                 type="button"

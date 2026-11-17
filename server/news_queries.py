@@ -12,6 +12,7 @@ from django.db.models import BooleanField, Exists, OuterRef, Prefetch, Q, Value
 from django.utils.dateparse import parse_datetime
 
 from .article_search import apply_article_search, search_excerpt
+from .economic_lens import economic_payload
 from .models import (
     AnalysisStatus,
     Article,
@@ -333,6 +334,7 @@ def article_analysis_payload(article: Article) -> dict:
             "version": "",
             "source_content_hash": article.content_hash,
             "findings": [],
+            "economic": None,
         }
 
     comparison_queryset = (FindingComparison.objects
@@ -378,4 +380,5 @@ def article_analysis_payload(article: Article) -> dict:
         "version": cluster.analysis_version,
         "source_content_hash": article.content_hash,
         "findings": findings,
+        "economic": economic_payload(article, publisher_payload),
     }

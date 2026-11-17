@@ -2,13 +2,14 @@ import { LogIn, LogOut, Menu, UserRound, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
-import { cn } from '../lib/utils'
+import { NEWS_CATEGORIES } from '../lib/types'
+import { categoryFromParam, categoryLabel, cn } from '../lib/utils'
 import { Button } from './ui/Button'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session, logout } = useAuth()
   const location = useLocation()
-  const activeCategory = new URLSearchParams(location.search).get('category') === 'SOCIETY' ? 'SOCIETY' : 'POLITICS'
+  const activeCategory = categoryFromParam(new URLSearchParams(location.search).get('category'))
   const [menuOpen, setMenuOpen] = useState(false)
   const returnPath = `${location.pathname}${location.search}`
 
@@ -20,18 +21,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             FrameLESS
           </Link>
           <nav className="ml-12 hidden h-full items-center gap-4 md:flex" aria-label="Primary navigation">
-            {(['POLITICS', 'SOCIETY'] as const).map((category) => {
-              const label = category === 'POLITICS' ? 'Politics' : 'Society'
-              return (
-                <Link
-                  key={category}
-                  to={`/?category=${category}`}
-                  className={cn('nav-link', location.pathname === '/' && activeCategory === category && 'text-black')}
-                >
-                  {label}
-                </Link>
-              )
-            })}
+            {NEWS_CATEGORIES.map((category) => (
+              <Link
+                key={category}
+                to={`/?category=${category}`}
+                className={cn('nav-link', location.pathname === '/' && activeCategory === category && 'text-black')}
+              >
+                {categoryLabel(category)}
+              </Link>
+            ))}
             <Link
               to={session ? '/saved' : '/login'}
               state={session ? undefined : { from: returnPath }}
@@ -66,10 +64,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         {menuOpen && (
           <div className="border-t border-zinc-300 px-5 py-4 md:hidden">
             <div className="flex flex-col gap-3 text-sm font-semibold">
-              {(['POLITICS', 'SOCIETY'] as const).map((category) => {
-                const label = category === 'POLITICS' ? 'Politics' : 'Society'
-                return <Link key={category} to={`/?category=${category}`} onClick={() => setMenuOpen(false)}>{label}</Link>
-              })}
+              {NEWS_CATEGORIES.map((category) => (
+                <Link key={category} to={`/?category=${category}`} onClick={() => setMenuOpen(false)}>{categoryLabel(category)}</Link>
+              ))}
               <Link
                 to={session ? '/saved' : '/login'}
                 state={session ? undefined : { from: returnPath }}

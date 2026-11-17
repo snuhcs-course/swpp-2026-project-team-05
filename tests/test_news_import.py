@@ -124,6 +124,55 @@ class NewsDatasetImportTests(TestCase):
             Article.objects.filter(canonical_url=replacement_article["canonical_url"]).exists()
         )
 
+    def _economy_dataset(self):
+        dataset = deepcopy(self.dataset)
+        cluster = dataset["clusters"][0]
+        cluster["category"] = "ECONOMY"
+        article = cluster["articles"][0]
+        article["body_text"] = "금리를 내렸다. 집값엔 큰 영향을 주지 않을 것이란 평가다."
+        sentence = "집값엔 큰 영향을 주지 않을 것이란 평가다."
+        start = article["body_text"].index(sentence)
+        located = {"scope": "BODY", "start": start, "end": start + len(sentence), "text": sentence}
+        article["economic_context"] = {
+            "focus": ["housing"], "tone": {"housing": "LIMITED"},
+            "evidence": [{"sentence": located, "channels": ["housing"], "role": "EFFECT_FORECAST", "tone": "LIMITED",
+                          "voice": "UNATTRIBUTED", "source": "ANONYMOUS", "reasons": ["FOCUS"]}],
+            "sources": {"ANONYMOUS": 1},
+            "numbers": [{"indicator": "가계대출", "value": "747조2423억원", "basis": [], "kind": "LEVEL"}],
+        }
+        cluster["economic_comparison"] = [{"type": "TONE", "channel": "housing", "sides": [
+            {"article": "article-a", "tone": "LIMITED", "sentence": located}]}]
+        return dataset
+
+    def test_economy_cluster_keeps_its_economic_lens_with_stored_article_ids(self):
+        import_dataset(self._economy_dataset(), dataset_hash="e" * 64)
+
+        article = Article.objects.get()
+        self.assertEqual(article.category, "ECONOMY")
+        self.assertEqual(article.economic_context["focus"], ["housing"])
+        self.assertEqual(article.economic_context["evidence"][0]["sentence"]["text"], "집값엔 큰 영향을 주지 않을 것이란 평가다.")
+        side = article.story_cluster.economic_comparison[0]["sides"][0]
+        self.assertEqual(side["article_id"], str(article.id))
+        self.assertNotIn("article", side)
+
+    def test_economic_lens_that_does_not_match_its_article_is_rejected(self):
+        cases = {
+            "evidence offsets": lambda d: d["clusters"][0]["articles"][0]["economic_context"]["evidence"][0]
+            ["sentence"].update(start=0),
+            "unknown tone": lambda d: d["clusters"][0]["articles"][0]["economic_context"]["tone"].update(housing="SAD"),
+            "unknown channel": lambda d: d["clusters"][0]["articles"][0]["economic_context"].update(focus=["weather"]),
+            "unknown comparison article": lambda d: d["clusters"][0]["economic_comparison"][0]["sides"][0]
+            .update(article="article-z"),
+            "outside an economy cluster": lambda d: d["clusters"][0].update(category="POLITICS"),
+        }
+        for name, change in cases.items():
+            with self.subTest(name):
+                dataset = self._economy_dataset()
+                change(dataset)
+                with self.assertRaises(DatasetError):
+                    import_dataset(dataset, dataset_hash="e" * 64)
+                self.assertEqual(Article.objects.count(), 0)
+
     def test_failed_replace_rolls_back_old_news(self):
         import_dataset(self.dataset, dataset_hash="a" * 64)
         invalid = deepcopy(self.dataset)

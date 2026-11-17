@@ -1,4 +1,5 @@
-export type NewsCategory = 'POLITICS' | 'SOCIETY'
+export type NewsCategory = 'POLITICS' | 'SOCIETY' | 'ECONOMY'
+export const NEWS_CATEGORIES: readonly NewsCategory[] = ['POLITICS', 'SOCIETY', 'ECONOMY']
 export type AnalysisState = 'NOT_STARTED' | 'PROCESSING' | 'READY' | 'PARTIAL' | 'FAILED'
 export type FeedScope = 'ALL' | 'FOLLOWING'
 
@@ -84,11 +85,63 @@ export interface Finding {
   comparison_articles: ComparisonArticle[]
 }
 
+export type EconomicTone = 'CONCERN' | 'OPTIMISM' | 'LIMITED' | 'OBSERVED'
+
+export interface EconomicSentence extends TextRange {
+  scope: 'TITLE' | 'BODY'
+}
+
+export interface EconomicEvidence {
+  sentence: EconomicSentence
+  channels: string[]
+  role: 'EFFECT_REALIZED' | 'EFFECT_FORECAST'
+  tone: EconomicTone
+  voice: 'QUOTE' | 'UNATTRIBUTED' | 'REPORTER'
+  source: string | null
+  reasons: ('FOCUS' | 'FOCUS_TONE' | 'TONE_CONTRAST')[]
+}
+
+export interface EconomicNumber {
+  indicator: string | null
+  value: string
+  basis: string[]
+  kind: 'LEVEL' | 'CHANGE'
+}
+
+export interface EconomicSide {
+  article_id: string
+  publisher: Publisher
+  title: string
+  is_current: boolean
+  channels?: string[]
+  tone?: EconomicTone
+  sentence?: EconomicSentence | null
+  counts?: Record<string, number>
+  values?: EconomicNumber[]
+}
+
+export interface EconomicComparison {
+  type: 'FOCUS' | 'TONE' | 'SOURCES' | 'NUMBERS'
+  channel?: string
+  indicator?: string
+  sides: EconomicSide[]
+}
+
+export interface EconomicLens {
+  focus: string[]
+  tone: Record<string, EconomicTone>
+  evidence: EconomicEvidence[]
+  sources: Record<string, number>
+  numbers: EconomicNumber[]
+  comparison: EconomicComparison[]
+}
+
 export interface Analysis {
   state: AnalysisState
   version: string
   source_content_hash: string
   findings: Finding[]
+  economic?: EconomicLens | null
 }
 
 export interface ArticlePage {
