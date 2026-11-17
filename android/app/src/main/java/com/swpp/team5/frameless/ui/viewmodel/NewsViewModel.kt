@@ -25,7 +25,8 @@ internal enum class NewsRoute { FEED, SAVED, READER }
 internal enum class SearchFilter(val category: NewsCategory?, val label: String) {
     ALL(null, "전체"),
     POLITICS(NewsCategory.POLITICS, "정치"),
-    SOCIETY(NewsCategory.SOCIETY, "사회")
+    SOCIETY(NewsCategory.SOCIETY, "사회"),
+    ECONOMY(NewsCategory.ECONOMY, "경제")
 }
 
 private val reviewedExampleOrder = listOf(
@@ -327,7 +328,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         val normalized = normalizeSearch(value)
         feed = feed.copy(searchInput = value, error = null, nextPageError = null)
         when {
-            normalized.isEmpty() -> restoreOrdinaryFeedInsideSearch(value)
+            normalized.isEmpty() -> showSearchPrompt(value)
             normalized.length < 2 -> feed = feed.copy(
                 items = emptyList(),
                 searchSections = emptyMap(),
@@ -401,27 +402,21 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feedJob = viewModelScope.launch { loadSearchFilter(SearchFilter.ALL, query) }
     }
 
-    private fun restoreOrdinaryFeedInsideSearch(input: String) {
+    /** An empty field inside search shows only the prompt; the feed comes back when search closes. */
+    private fun showSearchPrompt(input: String) {
         feedJob?.cancel()
-        val snapshot = feedBeforeSearch
-        if (snapshot != null && snapshot.category == feed.category && snapshot.scope == feed.scope) {
-            feed = snapshot.copy(isSearchOpen = true, searchInput = input)
-            return
-        }
         feed = feed.copy(
-            items = emptyList(),
-            searchSections = emptyMap(),
-            nextCursor = null,
             searchInput = input,
+            searchFilter = SearchFilter.ALL,
+            searchSections = emptyMap(),
             activeSearchQuery = "",
             isSearchPending = false,
-            isLoading = true,
+            isLoading = false,
             isRefreshing = false,
             isLoadingMore = false,
             error = null,
             nextPageError = null
         )
-        feedJob = viewModelScope.launch { loadFirstPage() }
     }
 
     private fun reloadForFilters() {
@@ -814,6 +809,16 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             article.articleId,
             evidence?.let { ReaderFocus(it.scope, it.markerRange) }
         )
+    }
+
+    /** Another outlet's article on the same event, opened from the economic lens; back returns here. */
+    fun openRelatedArticle(articleId: String, sourceScrollOffset: Int) {
+        if (route != NewsRoute.READER || reader.articleId.isBlank()) {
+            openArticle(articleId)
+            return
+        }
+        readerHistory.addLast(ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset))
+        loadReader(articleId, null)
     }
 
     private fun loadReader(

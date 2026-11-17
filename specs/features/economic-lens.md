@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft for review |
 | Owner | Analysis |
-| Clients | Web (Android keeps POLITICS / SOCIETY) |
+| Clients | Web and Android |
 | Test specification | `specs/testing/economic-lens.spec.md` |
 
 ## Purpose
@@ -29,7 +29,8 @@ cut by code from the articles' sentences.
 
 ## Categories
 
-`ECONOMY` is a third news category. The feed, search filters and section navigation of the Web client include it.
+`ECONOMY` is a third news category (경제). The feed tabs, search filters and section navigation of the Web and Android
+clients include it.
 Only economy clusters and their articles may carry the lens; the importer rejects it elsewhere.
 
 ## Stored data
@@ -88,3 +89,10 @@ different stance. Views whose sentence no longer matches the stored article are 
 - Analysis rail, below the A-G findings: "How other outlets see this event". It lists the contrasts first, then each
   other outlet (linked to its article) with its views. A view on a channel where that outlet differs is marked
   "Different view".
+
+## Android display
+
+- Reader, under the analysis notice: a "경제 관점" card with the event (사건) and this article's views (이 기사의 시각).
+- Title and body: with 표현 분석 on, each view sentence is underlined and its phrase is tinted.
+- Below the body: "다른 언론사는 이 사건을 이렇게 봐요", with the contrasts first and then each other outlet with its
+  views; "시각 다름" marks a differing view, and tapping an outlet opens its article (back returns to this one).

@@ -240,6 +240,8 @@ selected in the background and are restored when search closes.
 └──────────────────────────────────────┘
 ```
 
+- With an empty field the screen shows only `검색어를 입력하세요`: no article list
+  and no filter row. The filter row appears once the query has two characters.
 - Ordinary feed navigation remains unchanged. Search adds a separate compact
   `All / Politics / Society` filter row so section navigation and result
   filtering are not conflated.

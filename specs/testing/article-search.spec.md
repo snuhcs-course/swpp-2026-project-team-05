@@ -115,6 +115,9 @@ restoration of the ordinary feed.
   debounced to the latest query; the full corpus is searched first; closing
   search restores the existing feed.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
+- [Unit] Clearing the field inside search shows only the prompt: no query, no
+  filter sections, no request; closing search still restores the feed.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.clearingTheSearchFieldShowsOnlyThePromptWithoutReloadingTheFeed`
 - [Component] Search exposes dedicated All, Politics, and Society filters without
   count badges; All can contain mixed-category rows and a selected category shows
   only that filter's rows. A category with no matches offers an explicit return

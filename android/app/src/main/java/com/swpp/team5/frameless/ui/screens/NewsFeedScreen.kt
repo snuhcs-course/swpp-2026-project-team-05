@@ -135,12 +135,13 @@ internal fun NewsFeedScreen(
     }
 
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
-        if (state.activeSearchQuery.isBlank() && state.items.isNotEmpty() &&
+        if (!state.isSearchOpen && state.items.isNotEmpty() &&
             listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
             onLoadMore()
         }
     }
 
+    val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
     Column(Modifier.fillMaxSize().background(Fl.Card).dismissKeyboardOnTap()) {
         Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             if (state.isSearchOpen) {
@@ -217,7 +218,8 @@ internal fun NewsFeedScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (state.isSearchOpen) {
-                    SearchFilter.entries.forEach { filter ->
+                    // Filters appear once a query can be searched (two characters).
+                    if (normalizedSearch.length >= 2) SearchFilter.entries.forEach { filter ->
                         SearchFilterTab(
                             label = filter.label,
                             selected = state.searchFilter == filter,
@@ -249,8 +251,8 @@ internal fun NewsFeedScreen(
             }
         }
         HorizontalDivider(color = Fl.Line)
-        val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
         when {
+            state.isSearchOpen && normalizedSearch.isEmpty() -> SearchPrompt()
             state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
                 title = "검색어를 조금 더 입력해 주세요",
                 detail = "두 글자 이상부터 전체 기사에서 검색해요.",
@@ -726,6 +728,14 @@ internal fun LoadingFeed() {
                 Box(Modifier.fillMaxWidth(0.72f).height(20.dp).background(Fl.Line, RoundedCornerShape(5.dp)))
             }
         }
+    }
+}
+
+/** Search with an empty field: no article list, only the prompt. */
+@Composable
+private fun SearchPrompt() {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp), contentAlignment = Alignment.Center) {
+        Text("검색어를 입력하세요", fontSize = 15.sp, color = Fl.Muted)
     }
 }
 

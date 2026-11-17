@@ -336,7 +336,42 @@ private fun decodeArticleAnalysis(root: JSONObject) = ApiArticleAnalysis(
         )
     },
     sourceContentHash = root.requireString("source_content_hash"),
-    rawJson = root.toString()
+    rawJson = root.toString(),
+    economic = root.optJSONObject("economic")?.let(::parseEconomic)
+)
+
+private fun parseEconomicView(view: JSONObject): ApiEconomicView {
+    val sentence = view.requireObject("sentence")
+    return ApiEconomicView(
+        channels = view.optJSONArray("channels").orEmptyStrings(),
+        stance = view.requireString("stance"),
+        direction = view.optString("direction").takeIf { view.has("direction") && !view.isNull("direction") && it.isNotBlank() },
+        phrase = view.requireString("phrase"),
+        scope = sentence.requireString("scope"),
+        sentence = parseSentence(sentence)
+    )
+}
+
+private fun parseEconomic(root: JSONObject) = ApiEconomicLens(
+    event = root.optString("event"),
+    views = root.optJSONArray("views").orEmptyObjects().map(::parseEconomicView),
+    others = root.optJSONArray("others").orEmptyObjects().map { outlet ->
+        ApiEconomicOutlet(
+            articleId = outlet.requireString("article_id"),
+            publisher = parsePublisher(outlet.requireObject("publisher")),
+            title = outlet.optString("title"),
+            views = outlet.optJSONArray("views").orEmptyObjects().map(::parseEconomicView)
+        )
+    },
+    contrasts = root.optJSONArray("contrasts").orEmptyObjects().map { contrast ->
+        ApiEconomicContrast(
+            channel = contrast.requireString("channel"),
+            stance = contrast.requireString("stance"),
+            others = contrast.optJSONArray("others").orEmptyObjects().map { other ->
+                other.requireObject("publisher").requireString("name") to other.requireString("stance")
+            }
+        )
+    }
 )
 
 private fun parsePublisher(root: JSONObject) = PublisherItem(

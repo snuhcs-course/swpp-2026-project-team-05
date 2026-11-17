@@ -6,6 +6,53 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NewsAnalysisMapperTest {
+    /** specs/features/economic-lens.md: the event, this article's view with its ranges, other outlets, contrasts. */
+    @Test
+    fun economicLensDecodesAndMapsTheViewOntoTheArticle() {
+        val body = "😀금리를 내렸다. 집값엔 큰 영향을 주지 않을 것이란 평가다."
+        val sentence = "집값엔 큰 영향을 주지 않을 것이란 평가다."
+        val start = body.codePointCount(0, body.indexOf(sentence))
+        val end = start + sentence.length
+        val article = ArticleDetail(
+            id = "hk", publisher = PublisherItem("hankyung", "한국경제", null),
+            title = "집값 또 오르나", body = body, category = NewsCategory.ECONOMY,
+            publishedAt = "2025-05-30T12:00:00+09:00", originalUrl = "https://example.com",
+            analysisState = StoredAnalysisState.READY
+        )
+        val raw = """
+            {"state": "READY", "version": "v", "source_content_hash": "h", "findings": [],
+             "economic": {"event": "한은, 기준금리 2.50%로 0.25%p 인하",
+              "views": [{"channels": ["housing"], "stance": "LIMITED", "direction": null,
+                         "phrase": "집값엔 큰 영향을 주지 않을 것",
+                         "sentence": {"scope": "BODY", "start": $start, "end": $end, "text": "$sentence"}},
+                        {"channels": ["housing"], "stance": "LIMITED", "direction": null, "phrase": "없는 문구",
+                         "sentence": {"scope": "BODY", "start": 0, "end": 3, "text": "다른 문장"}}],
+              "others": [{"article_id": "yna", "publisher": {"code": "yna", "name": "연합뉴스"}, "title": "한은 인하",
+                          "views": [{"channels": ["housing", "household_credit"], "stance": "CONCERN",
+                                     "direction": "UP", "phrase": "집값을 자극",
+                                     "sentence": {"scope": "TITLE", "start": 0, "end": 6, "text": "집값을 자극"}}]}],
+              "contrasts": [{"channel": "housing", "stance": "LIMITED",
+                             "others": [{"article_id": "yna", "publisher": {"code": "yna", "name": "연합뉴스"},
+                                         "stance": "CONCERN"}]}]}}
+        """.trimIndent()
+
+        val lens = decodeArticleAnalysis(raw).toUi(article).economic!!
+
+        assertEquals("한은, 기준금리 2.50%로 0.25%p 인하", lens.event)
+        val view = lens.views.first()
+        assertEquals(sentence, body.substring(view.sentenceRange!!.start, view.sentenceRange!!.end))
+        assertEquals("집값엔 큰 영향을 주지 않을 것", body.substring(view.phraseRange!!.start, view.phraseRange!!.end))
+        assertNull(lens.views[1].sentenceRange)
+        val other = lens.others.single()
+        assertEquals("연합뉴스", other.publisher.name)
+        assertEquals(listOf("housing", "household_credit"), other.views.single().channels)
+        assertEquals("UP", other.views.single().direction)
+        assertNull(other.views.single().sentenceRange)
+        assertEquals(listOf("연합뉴스" to "CONCERN"), lens.contrasts.single().others)
+        assertNull(decodeArticleAnalysis("""{"state": "READY", "source_content_hash": "h", "findings": []}""")
+            .toUi(article).economic)
+    }
+
     @Test
     fun codePointOffsetsConvertAcrossSupplementaryCharacters() {
         val text = "😀정책 전격 추진"

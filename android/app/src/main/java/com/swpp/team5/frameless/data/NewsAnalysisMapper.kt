@@ -77,5 +77,27 @@ internal fun ApiArticleAnalysis.toUi(article: ArticleDetail): ArticleAnalysisUi 
             comparisons = comparisons
         )
     }
-    return ArticleAnalysisUi(state, version, mappedFindings, discarded)
+    return ArticleAnalysisUi(state, version, mappedFindings, discarded, economic?.toUi(article))
 }
+
+private fun ApiEconomicView.toUi(article: ArticleDetail?): EconomicViewUi {
+    if (article == null) return EconomicViewUi(channels, stance, direction, phrase, scope)
+    val selectedText = if (scope == "TITLE") article.title else article.body
+    val sentenceRange = mappedRange(selectedText, sentence.start, sentence.end, sentence.text)
+    val phraseRange = sentenceRange?.let { range ->
+        sentence.text.indexOf(phrase).takeIf { it >= 0 }?.let {
+            TextRange(range.start + it, range.start + it + phrase.length)
+        }
+    }
+    return EconomicViewUi(channels, stance, direction, phrase, scope, sentenceRange, phraseRange)
+}
+
+/** The current article's views keep their highlight ranges; a view whose sentence no longer matches has none. */
+internal fun ApiEconomicLens.toUi(article: ArticleDetail): EconomicLensUi = EconomicLensUi(
+    event = event,
+    views = views.map { it.toUi(article) },
+    others = others.map { outlet ->
+        EconomicOutletUi(outlet.articleId, outlet.publisher, outlet.title, outlet.views.map { it.toUi(null) })
+    },
+    contrasts = contrasts
+)

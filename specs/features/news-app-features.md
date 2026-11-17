@@ -216,7 +216,9 @@ signal and may also become an explicit user-selected filter.
   action, and back action.
 - Back exits search and restores the previous category, feed scope, feed items,
   and scroll context.
-- Clearing a non-empty field returns to the ordinary feed state.
+- An empty field shows no article list and no filter row, only `검색어를 입력하세요`.
+  This applies when search opens and when a non-empty field is cleared; it makes no
+  request. The ordinary feed returns when search closes.
 
 ### 5.2 Request behavior
 

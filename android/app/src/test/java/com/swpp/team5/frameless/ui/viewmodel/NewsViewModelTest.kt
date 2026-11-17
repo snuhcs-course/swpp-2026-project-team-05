@@ -278,6 +278,34 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun clearingTheSearchFieldShowsOnlyThePromptWithoutReloadingTheFeed() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("ordinary")), null)
+            searchPages.getValue(null) += ArticlePage(listOf(summary("result")), null, 1)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+
+        viewModel.openSearch()
+        viewModel.updateSearchInput("정책")
+        mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
+        assertEquals("정책", viewModel.feed.activeSearchQuery)
+        val calls = repository.articlePageCalls
+
+        viewModel.updateSearchInput("")
+        mainLooper.idle()
+        assertEquals("", viewModel.feed.activeSearchQuery)
+        assertTrue(viewModel.feed.searchSections.isEmpty())
+        assertEquals(SearchFilter.ALL, viewModel.feed.searchFilter)
+        assertFalse(viewModel.feed.isLoading)
+        assertEquals(calls, repository.articlePageCalls)
+
+        viewModel.closeSearch()
+        assertEquals(listOf("ordinary"), viewModel.feed.items.map { it.id })
+    }
+
+    @Test
     fun searchRetriesOneFilterWithoutDiscardingTheOther() {
         val repository = FakeNewsDataSource().apply {
             pages += ArticlePage(listOf(summary("ordinary")), null)

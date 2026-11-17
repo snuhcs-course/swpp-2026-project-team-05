@@ -164,6 +164,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                         onRetry = news::retryReader,
                         onAnalysisEnabled = news::setAnalysisEnabled,
                         onOpenComparisonArticle = news::openComparisonArticle,
+                        onOpenRelatedArticle = news::openRelatedArticle,
                         onToggleSaved = { articleId, saved ->
                             if (session == null) auth.openLogin()
                             else news.toggleSaved(articleId, saved)
