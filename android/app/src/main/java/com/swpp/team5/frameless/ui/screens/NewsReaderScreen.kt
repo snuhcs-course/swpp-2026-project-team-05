@@ -87,6 +87,8 @@ import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ComparisonArticleUi
+import com.swpp.team5.frameless.data.EconomicLensUi
+import com.swpp.team5.frameless.data.EconomicViewUi
 import com.swpp.team5.frameless.data.FindingUi
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.theme.Caption
@@ -128,6 +130,7 @@ internal fun NewsReaderScreen(
     savedPending: Boolean,
     saveError: String?,
     onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit = { _, _ -> },
+    onOpenRelatedArticle: (String, Int) -> Unit = { _, _ -> },
     coach: ReaderCoachUi = ReaderCoachUi()
 ) {
     when {
@@ -142,7 +145,7 @@ internal fun NewsReaderScreen(
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
-            state.initialScrollOffset, onOpenComparisonArticle, coach)
+            state.initialScrollOffset, onOpenComparisonArticle, onOpenRelatedArticle, coach)
     }
 }
 
@@ -162,6 +165,7 @@ private fun NewsReaderContent(
     comparisonFocus: ReaderFocus?,
     initialScrollOffset: Int,
     onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit,
+    onOpenRelatedArticle: (String, Int) -> Unit,
     coach: ReaderCoachUi
 ) {
     val uriHandler = LocalUriHandler.current
@@ -172,11 +176,13 @@ private fun NewsReaderContent(
     val bodyFindings = visibleFindings.filter { it.scope == "BODY" }
     val titleFocus = comparisonFocus?.takeIf { it.scope == "TITLE" }
     val bodyFocus = comparisonFocus?.takeIf { it.scope == "BODY" }
-    val titleText = remember(article.title, titleFindings, titleFocus) {
-        annotatedReaderText(article.title, titleFindings, titleFocus)
+    val economic = analysis?.economic
+    val economicViews = if (analysisEnabled) economic?.views.orEmpty() else emptyList()
+    val titleText = remember(article.title, titleFindings, titleFocus, economicViews) {
+        annotatedReaderText(article.title, titleFindings, titleFocus, economicViews.filter { it.scope == "TITLE" })
     }
-    val bodyText = remember(article.body, bodyFindings, bodyFocus) {
-        annotatedReaderText(article.body, bodyFindings, bodyFocus)
+    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews) {
+        annotatedReaderText(article.body, bodyFindings, bodyFocus, economicViews.filter { it.scope == "BODY" })
     }
     var selected by remember(article.id) { mutableStateOf<FindingUi?>(null) }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
@@ -362,6 +368,10 @@ private fun NewsReaderContent(
                     analysisError,
                     fromComparison = comparisonFocus != null
                 )
+                economic?.let {
+                    Spacer(Modifier.height(12.dp))
+                    EconomicLensCard(it)
+                }
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = Fl.Line)
                 Spacer(Modifier.height(20.dp))
@@ -379,6 +389,10 @@ private fun NewsReaderContent(
                     },
                     onTextLayout = { bodyLayout = it }
                 )
+                economic?.let { lens ->
+                    Spacer(Modifier.height(28.dp))
+                    OtherOutletsSection(lens, onOpenArticle = { onOpenRelatedArticle(it, scroll.value) })
+                }
                 val previewSpace = with(density) { previewHeightPx.toDp() } + 24.dp
                 Spacer(Modifier.height(
                     if (selected != null && !detailOpen) previewSpace.coerceAtLeast(210.dp)
@@ -547,9 +561,18 @@ internal fun annotatedFindings(text: String, findings: List<FindingUi>): Annotat
 private fun annotatedReaderText(
     text: String,
     findings: List<FindingUi>,
-    comparisonFocus: ReaderFocus?
+    comparisonFocus: ReaderFocus?,
+    economicViews: List<EconomicViewUi> = emptyList()
 ): AnnotatedString = buildAnnotatedString {
     append(annotatedFindings(text, findings))
+    economicViews.forEach { view ->
+        view.sentenceRange?.takeIf { it.isWithin(text) }?.let {
+            addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = Fl.Ink), it.start, it.end)
+        }
+        view.phraseRange?.takeIf { it.isWithin(text) }?.let {
+            addStyle(SpanStyle(background = EconomicPhraseMarker, fontWeight = FontWeight.SemiBold), it.start, it.end)
+        }
+    }
     comparisonFocus?.markerRange?.takeIf { it.isWithin(text) }?.let { marker ->
         addStyle(
             SpanStyle(
@@ -969,6 +992,115 @@ private fun CoachTermRow(term: String, meaning: String) {
         Text(term, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
             modifier = Modifier.width(76.dp))
         Text(meaning, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2)
+    }
+}
+
+private val EconomicInk = Color(0xFF0F5F58)
+private val EconomicTint = Color(0xFFE7F3F1)
+private val EconomicPhraseMarker = Color(0xFFD5ECE8)
+private val DifferentInk = Color(0xFFB4233C)
+
+internal fun economicChannelLabel(code: String): String = when (code) {
+    "fx" -> "환율"
+    "capital_market" -> "금융시장"
+    "household_credit" -> "가계대출"
+    "housing" -> "부동산"
+    "macro_growth" -> "경기·내수"
+    "prices" -> "물가"
+    "trade" -> "수출입"
+    "corporate" -> "기업"
+    "fiscal" -> "재정"
+    "labor" -> "고용"
+    else -> code
+}
+
+internal fun economicStanceLabel(stance: String, direction: String? = null): String = when (stance) {
+    "CONCERN" -> "우려"
+    "OPTIMISM" -> "기대"
+    "LIMITED" -> "영향 제한적"
+    else -> when (direction) {
+        "UP" -> "상승 보도"
+        "DOWN" -> "하락 보도"
+        "SWING" -> "등락 보도"
+        else -> "평가 없이 보도"
+    }
+}
+
+@Composable
+private fun EconomicViewRow(view: EconomicViewUi, differs: Boolean = false) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                view.channels.joinToString(" · ", transform = ::economicChannelLabel),
+                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk,
+                modifier = Modifier.border(1.dp, EconomicInk.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+            )
+            Text(economicStanceLabel(view.stance, view.direction), fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold, color = Fl.Muted)
+            if (differs) Text("시각 다름", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DifferentInk)
+        }
+        Text("«${view.phrase}»", fontFamily = Fl.Serif, fontSize = 15.sp, lineHeight = 22.sp,
+            fontWeight = FontWeight.Bold, color = Fl.Ink, modifier = Modifier.padding(top = 3.dp))
+    }
+}
+
+/** The event and this article's view of it (specs/features/economic-lens.md). */
+@Composable
+private fun EconomicLensCard(lens: EconomicLensUi) {
+    Column(
+        Modifier.fillMaxWidth().background(EconomicTint, RoundedCornerShape(8.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .semantics { contentDescription = "경제 관점" }
+    ) {
+        Text("경제 관점", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk)
+        Spacer(Modifier.height(6.dp))
+        Text("사건", fontSize = 11.sp, color = Fl.Muted)
+        Text(lens.event, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+        Spacer(Modifier.height(8.dp))
+        Text("이 기사의 시각", fontSize = 11.sp, color = Fl.Muted)
+        if (lens.views.isEmpty()) {
+            Text("이 기사에서는 시각을 읽어내지 못했어요.", fontSize = 13.sp, color = Fl.Muted)
+        } else lens.views.forEach { EconomicViewRow(it) }
+    }
+}
+
+/** How the other outlets on the same event see it; a channel on which one takes another stance is marked. */
+@Composable
+private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) -> Unit) {
+    val differing = lens.contrasts.associate { contrast -> contrast.channel to contrast.others.map { it.first }.toSet() }
+    Column(Modifier.fillMaxWidth().semantics { contentDescription = "다른 언론사의 시각" }) {
+        HorizontalDivider(color = EconomicInk, thickness = 2.dp)
+        Spacer(Modifier.height(12.dp))
+        Text("다른 언론사는 이 사건을 이렇게 봐요", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EconomicInk)
+        Text(lens.event, fontSize = 12.sp, color = Fl.Muted)
+        lens.contrasts.forEach { contrast ->
+            Text(
+                "${economicChannelLabel(contrast.channel)} · 이 기사 ${economicStanceLabel(contrast.stance)} ↔ " +
+                    contrast.others.joinToString(", ") { "${it.first} ${economicStanceLabel(it.second)}" },
+                fontSize = 12.sp, lineHeight = 18.sp, color = DifferentInk,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            )
+        }
+        if (lens.others.isEmpty()) {
+            Text("같은 사건을 다룬 다른 기사의 시각이 아직 없어요.", fontSize = 13.sp, color = Fl.Muted,
+                modifier = Modifier.padding(top = 10.dp))
+        }
+        lens.others.forEach { outlet ->
+            Column(
+                Modifier.fillMaxWidth().padding(top = 12.dp)
+                    .clickable { onOpenArticle(outlet.articleId) }
+                    .semantics { role = Role.Button; contentDescription = "${outlet.publisher.name} 기사 열기" }
+            ) {
+                Text("${outlet.publisher.name}  ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                Text(outlet.title, fontSize = 12.sp, lineHeight = 17.sp, color = Fl.Muted,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                outlet.views.forEach { view ->
+                    EconomicViewRow(view, differs = view.channels.any { outlet.publisher.name in differing[it].orEmpty() })
+                }
+            }
+            HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(top = 10.dp))
+        }
     }
 }
 

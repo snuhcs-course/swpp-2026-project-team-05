@@ -25,7 +25,8 @@ internal enum class NewsRoute { FEED, SAVED, READER }
 internal enum class SearchFilter(val category: NewsCategory?, val label: String) {
     ALL(null, "전체"),
     POLITICS(NewsCategory.POLITICS, "정치"),
-    SOCIETY(NewsCategory.SOCIETY, "사회")
+    SOCIETY(NewsCategory.SOCIETY, "사회"),
+    ECONOMY(NewsCategory.ECONOMY, "경제")
 }
 
 private val reviewedExampleOrder = listOf(
@@ -808,6 +809,16 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             article.articleId,
             evidence?.let { ReaderFocus(it.scope, it.markerRange) }
         )
+    }
+
+    /** Another outlet's article on the same event, opened from the economic lens; back returns here. */
+    fun openRelatedArticle(articleId: String, sourceScrollOffset: Int) {
+        if (route != NewsRoute.READER || reader.articleId.isBlank()) {
+            openArticle(articleId)
+            return
+        }
+        readerHistory.addLast(ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset))
+        loadReader(articleId, null)
     }
 
     private fun loadReader(
