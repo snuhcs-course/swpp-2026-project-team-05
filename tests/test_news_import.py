@@ -151,6 +151,14 @@ class NewsDatasetImportTests(TestCase):
                          (["housing"], "LIMITED", "집값엔 큰 영향을 주지 않을 것"))
         self.assertEqual(view["sentence"]["text"], "집값엔 큰 영향을 주지 않을 것이란 평가다.")
 
+    def test_loan_soundness_and_policy_stance_are_known_channels(self):
+        dataset = self._economy_dataset()
+        dataset["clusters"][0]["articles"][0]["economic_context"]["views"][0]["channels"] = [
+            "credit_quality", "monetary_policy"]
+        import_dataset(dataset, dataset_hash="e" * 64)
+        self.assertEqual(Article.objects.get().economic_context["views"][0]["channels"],
+                         ["credit_quality", "monetary_policy"])
+
     def test_economic_lens_that_does_not_match_its_article_is_rejected(self):
         view = lambda d: d["clusters"][0]["articles"][0]["economic_context"]["views"][0]  # noqa: E731
         cases = {

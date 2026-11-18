@@ -1040,13 +1040,10 @@ class EconomicLensApiTests(TestCase):
         self.assertEqual(economic["event"], "한은, 기준금리 2.50%로 0.25%p 인하")
         self.assertEqual([(v["channels"], v["stance"], v["phrase"]) for v in economic["views"]],
                          [(["housing", "household_credit"], "CONCERN", "집값과 가계부채만 자극할 것이라는 우려")])
-        self.assertEqual([(o["publisher"]["name"], [v["phrase"] for v in o["views"]]) for o in economic["others"]],
-                         [("한국경제", ["집값엔 큰 영향을 주지 않을 것"])])
-        self.assertEqual(economic["contrasts"], [{
-            "channel": "housing", "stance": "CONCERN",
-            "others": [{"article_id": str(self.limited.id), "publisher": economic["others"][0]["publisher"],
-                        "stance": "LIMITED"}],
-        }])
+        self.assertEqual([(o["article_id"], o["publisher"]["name"], [(v["stance"], v["phrase"]) for v in o["views"]])
+                          for o in economic["others"]],
+                         [(str(self.limited.id), "한국경제", [("LIMITED", "집값엔 큰 영향을 주지 않을 것")])])
+        self.assertNotIn("contrasts", economic)
 
     def test_hidden_outlet_and_stale_view_are_left_out(self):
         self.limited.visibility = ArticleVisibility.HIDDEN
@@ -1054,7 +1051,7 @@ class EconomicLensApiTests(TestCase):
         self.worried.economic_context["views"][0]["sentence"]["text"] = "본문과 다른 문장"
         self.worried.save()
         economic = self._economic(self.worried)
-        self.assertEqual((economic["views"], economic["others"], economic["contrasts"]), ([], [], []))
+        self.assertEqual((economic["views"], economic["others"]), ([], []))
 
     def test_article_without_economic_lens_answers_null(self):
         self.assertIsNone(self._economic(self.plain))

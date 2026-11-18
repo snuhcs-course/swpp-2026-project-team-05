@@ -1,9 +1,9 @@
 """Economic lens for economy articles: validation of reviewed dataset rows and the reader projection.
 
-An economy article may carry `economic_context`: the economic event as the articles name it, and the article's view
-of it in one or two phrases of its own words (which economic channel, with which stance). The reader sees that view
-beside the other outlets' views of the same event. The lens is produced offline by the economic pipeline and reviewed
-before import; the API never computes it. Contract: specs/features/economic-lens.md.
+An economy article may carry `economic_context`: the economic event as a keyword ('한은 기준금리 2.50%로 인하'), and
+the article's view of it in one or two phrases of its own words (which economic channel, with which stance). The
+reader sees that view beside the other outlets' views of the same event. The lens is produced offline by the economic
+pipeline and reviewed before import; the API never computes it. Contract: specs/features/economic-lens.md.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from .models import Article, ArticleVisibility
 
 CHANNELS = frozenset({
     "fx", "capital_market", "household_credit", "housing", "macro_growth", "prices", "trade", "corporate", "fiscal",
-    "labor",
+    "labor", "credit_quality", "monetary_policy",
 })
 STANCES = frozenset({"CONCERN", "OPTIMISM", "LIMITED", "OBSERVED"})
 DIRECTIONS = frozenset({"UP", "DOWN", "SWING"})
@@ -84,9 +84,8 @@ def _views(article: Article) -> list[dict]:
 def economic_payload(article: Article, publisher_payload) -> dict | None:
     """The reader's economic lens for one article, or None when the article has none.
 
-    `others` are the other visible articles of the cluster that carry a lens, newest first; `contrasts` name each
-    channel this article views on which another outlet takes a different stance. Views whose sentence no longer
-    matches the stored article are left out."""
+    `others` are the other visible articles of the cluster that carry a lens, newest first. Views whose sentence no
+    longer matches the stored article are left out."""
     context = article.economic_context
     if not context:
         return None
@@ -102,12 +101,4 @@ def economic_payload(article: Article, publisher_payload) -> dict | None:
             if other_views:
                 others.append({"article_id": str(other.id), "publisher": publisher_payload(other.publisher),
                                "title": other.title, "views": other_views})
-    contrasts = []
-    for channel in dict.fromkeys(ch for view in views for ch in view["channels"]):
-        mine = next(view["stance"] for view in views if channel in view["channels"])
-        differing = [{"article_id": other["article_id"], "publisher": other["publisher"], "stance": view["stance"]}
-                     for other in others for view in other["views"]
-                     if channel in view["channels"] and view["stance"] != mine]
-        if differing:
-            contrasts.append({"channel": channel, "stance": mine, "others": differing})
-    return {"event": context.get("event", ""), "views": views, "others": others, "contrasts": contrasts}
+    return {"event": context.get("event", ""), "views": views, "others": others}

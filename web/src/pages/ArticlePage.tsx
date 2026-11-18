@@ -12,7 +12,6 @@ import { articleOrigin, comparisonArticleRouteState, comparisonFocus } from '../
 import { segmentText, sourceRange, type HighlightRange } from '../lib/text'
 import {
   categoryLabel,
-  channelLabel,
   cn,
   economicStanceLabel,
   findingCategoryLabel,
@@ -94,15 +93,13 @@ function HighlightedText({ text, findings, selectedId, onSelect, focus = null, e
   )
 }
 
-function ViewLine({ view, differs = false }: { view: EconomicView; differs?: boolean }) {
+function ViewLine({ view }: { view: EconomicView }) {
   return (
-    <div className={cn('flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6', differs && 'border-l-2 border-rose-500 pl-2')}>
-      <span className="border border-teal-700/50 px-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-teal-900">
-        {view.channels.map(channelLabel).join(' · ')}
-      </span>
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6">
       <span className="font-serif font-bold">«{view.phrase}»</span>
-      <span className="text-xs font-semibold text-zinc-600">{economicStanceLabel(view.stance, view.direction)}</span>
-      {differs && <span className="text-[11px] font-bold text-rose-700">Different view</span>}
+      <span className="border border-teal-700/50 px-1.5 text-[11px] font-bold text-teal-900">
+        {economicStanceLabel(view.stance, view.direction)}
+      </span>
     </div>
   )
 }
@@ -126,39 +123,20 @@ function EconomicLensHeader({ lens }: { lens: EconomicLens }) {
   )
 }
 
-/** How the other outlets on the same event see it; a channel on which an outlet takes another stance is marked. */
+/** How the other outlets on the same event see it, each in its own words. */
 function OtherOutlets({ lens }: { lens: EconomicLens }) {
-  const differs = (articleId: string, view: EconomicView) => lens.contrasts.some((contrast) => (
-    view.channels.includes(contrast.channel) && contrast.others.some((other) => other.article_id === articleId)
-  ))
   return (
     <section className="mt-10 border-t-2 border-teal-700 pt-5" aria-label="How other outlets see this event">
       <h2 className="text-sm font-black text-teal-900">How other outlets see this event</h2>
       <p className="mt-1 text-xs text-zinc-600">{lens.event}</p>
-      {lens.contrasts.length > 0 && (
-        <ul className="mt-4 grid gap-1 border border-rose-300 bg-rose-50/60 px-3 py-2 text-xs leading-5">
-          {lens.contrasts.map((contrast) => (
-            <li key={contrast.channel}>
-              <strong>{channelLabel(contrast.channel)}</strong> · this article: {economicStanceLabel(contrast.stance)}
-              {' ↔ '}
-              {contrast.others.map((other) => `${other.publisher.name}: ${economicStanceLabel(other.stance)}`).join(', ')}
-            </li>
-          ))}
-        </ul>
-      )}
       {lens.others.length ? (
         <div className="mt-4 divide-y divide-zinc-200">
           {lens.others.map((outlet) => (
-            <div key={outlet.article_id} className="py-3">
+            <div key={outlet.article_id} className="grid gap-1.5 py-3">
               <Link to={`/articles/${outlet.article_id}`} className="text-sm font-black hover:underline">
                 {outlet.publisher.name}
               </Link>
-              <p className="mb-2 text-xs text-zinc-500">{outlet.title}</p>
-              <div className="grid gap-1.5">
-                {outlet.views.map((view, index) => (
-                  <ViewLine key={index} view={view} differs={differs(outlet.article_id, view)} />
-                ))}
-              </div>
+              {outlet.views.map((view, index) => <ViewLine key={index} view={view} />)}
             </div>
           ))}
         </div>
