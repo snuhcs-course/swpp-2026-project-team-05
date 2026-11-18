@@ -360,6 +360,8 @@ def word_list(this_w: list, this_ids: list, other_w: list, other_ids: list) -> t
         return "show", "G", "this" if ma > mb else "other"
     if X.plain_predicates(_pred_forms(this_w, this_ids), tt) and X.plain_predicates(_pred_forms(other_w, other_ids), ot):
         return ("hide",)
+    if X.plans_only(tf, of):  # 방침이다 / 예정이다: the same plan
+        return ("hide",)
     return None
 
 

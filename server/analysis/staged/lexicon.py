@@ -59,7 +59,8 @@ G_MODES = {
 G_ORDER = (1, 3, 2)
 # Vivid reporting phrases of more than one word.
 A2_PHRASES = ("날 선", "날을 세", "목소리를 높", "목소리를 냈", "쓴소리", "선을 그", "포문을 열", "각을 세", "잘라 말",
-              "못 박", "직격했", "직격한", "털어놨", "털어놓")
+              "못 박", "직격했", "직격한", "털어놨", "털어놓", "강하게 비판", "강력히 비판", "강도 높게", "비판을 쏟아",
+              "저격", "엄포", "으름장", "칼을 빼", "쐐기를 박")
 # Plain reporting phrases of more than one word.
 A0_PHRASES = ("운을 뗐", "운을 떼")
 
@@ -109,6 +110,18 @@ def g_mode(text: str) -> int | None:
 def plain_predicates(pred_forms: list[str], text: str) -> bool:
     """A span whose predicates are all neutral (NEUTRAL_PRED) and that carries no evaluative word."""
     return bool(pred_forms) and all(f in NEUTRAL_PRED for f in pred_forms) and not any(w in text for w in EVALUATIVE)
+
+
+# Plan nouns: two spans that differ only in these tell the same plan (방침이다 / 예정이다 / 계획이다); the S4b judge
+# called all 11 such pairs similar in the v6 runs.
+PLAN_WORDS = {"예정", "방침", "계획"}
+
+
+def plans_only(this_forms: list[str], other_forms: list[str]) -> bool:
+    """Two spans whose content words differ only in plan nouns, each holding one."""
+    differ = set(this_forms) ^ set(other_forms)
+    return (bool(differ) and differ <= PLAN_WORDS and bool(set(this_forms) & PLAN_WORDS)
+            and bool(set(other_forms) & PLAN_WORDS))
 
 
 def d_word(text: str) -> bool:
