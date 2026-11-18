@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NewsAnalysisMapperTest {
-    /** specs/features/economic-lens.md: the event, this article's view with its ranges, other outlets, contrasts. */
+    /** specs/features/economic-lens.md: the event, this article's view with its ranges, the other outlets' views. */
     @Test
     fun economicLensDecodesAndMapsTheViewOntoTheArticle() {
         val body = "😀금리를 내렸다. 집값엔 큰 영향을 주지 않을 것이란 평가다."
@@ -30,10 +30,7 @@ class NewsAnalysisMapperTest {
               "others": [{"article_id": "yna", "publisher": {"code": "yna", "name": "연합뉴스"}, "title": "한은 인하",
                           "views": [{"channels": ["housing", "household_credit"], "stance": "CONCERN",
                                      "direction": "UP", "phrase": "집값을 자극",
-                                     "sentence": {"scope": "TITLE", "start": 0, "end": 6, "text": "집값을 자극"}}]}],
-              "contrasts": [{"channel": "housing", "stance": "LIMITED",
-                             "others": [{"article_id": "yna", "publisher": {"code": "yna", "name": "연합뉴스"},
-                                         "stance": "CONCERN"}]}]}}
+                                     "sentence": {"scope": "TITLE", "start": 0, "end": 6, "text": "집값을 자극"}}]}]}}
         """.trimIndent()
 
         val lens = decodeArticleAnalysis(raw).toUi(article).economic!!
@@ -48,7 +45,7 @@ class NewsAnalysisMapperTest {
         assertEquals(listOf("housing", "household_credit"), other.views.single().channels)
         assertEquals("UP", other.views.single().direction)
         assertNull(other.views.single().sentenceRange)
-        assertEquals(listOf("연합뉴스" to "CONCERN"), lens.contrasts.single().others)
+        assertEquals("CONCERN", other.views.single().stance)
         assertNull(decodeArticleAnalysis("""{"state": "READY", "source_content_hash": "h", "findings": []}""")
             .toUi(article).economic)
     }

@@ -98,6 +98,5 @@ internal fun ApiEconomicLens.toUi(article: ArticleDetail): EconomicLensUi = Econ
     views = views.map { it.toUi(article) },
     others = others.map { outlet ->
         EconomicOutletUi(outlet.articleId, outlet.publisher, outlet.title, outlet.views.map { it.toUi(null) })
-    },
-    contrasts = contrasts
+    }
 )

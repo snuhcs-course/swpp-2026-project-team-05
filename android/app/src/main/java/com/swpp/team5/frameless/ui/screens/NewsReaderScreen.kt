@@ -998,50 +998,31 @@ private fun CoachTermRow(term: String, meaning: String) {
 private val EconomicInk = Color(0xFF0F5F58)
 private val EconomicTint = Color(0xFFE7F3F1)
 private val EconomicPhraseMarker = Color(0xFFD5ECE8)
-private val DifferentInk = Color(0xFFB4233C)
-
-internal fun economicChannelLabel(code: String): String = when (code) {
-    "fx" -> "환율"
-    "capital_market" -> "금융시장"
-    "household_credit" -> "가계대출"
-    "housing" -> "부동산"
-    "macro_growth" -> "경기·내수"
-    "prices" -> "물가"
-    "trade" -> "수출입"
-    "corporate" -> "기업"
-    "fiscal" -> "재정"
-    "labor" -> "고용"
-    else -> code
-}
-
+/** How a view sees the event: its evaluation, or the move it reports when it evaluates nothing. */
 internal fun economicStanceLabel(stance: String, direction: String? = null): String = when (stance) {
     "CONCERN" -> "우려"
     "OPTIMISM" -> "기대"
-    "LIMITED" -> "영향 제한적"
+    "LIMITED" -> "제한적"
     else -> when (direction) {
-        "UP" -> "상승 보도"
-        "DOWN" -> "하락 보도"
-        "SWING" -> "등락 보도"
-        else -> "평가 없이 보도"
+        "UP" -> "상승"
+        "DOWN" -> "하락"
+        "SWING" -> "등락"
+        else -> "중립"
     }
 }
 
 @Composable
-private fun EconomicViewRow(view: EconomicViewUi, differs: Boolean = false) {
+private fun EconomicViewRow(view: EconomicViewUi) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                view.channels.joinToString(" · ", transform = ::economicChannelLabel),
-                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk,
-                modifier = Modifier.border(1.dp, EconomicInk.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 1.dp)
-            )
-            Text(economicStanceLabel(view.stance, view.direction), fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold, color = Fl.Muted)
-            if (differs) Text("시각 다름", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DifferentInk)
-        }
         Text("«${view.phrase}»", fontFamily = Fl.Serif, fontSize = 15.sp, lineHeight = 22.sp,
-            fontWeight = FontWeight.Bold, color = Fl.Ink, modifier = Modifier.padding(top = 3.dp))
+            fontWeight = FontWeight.Bold, color = Fl.Ink)
+        Text(
+            economicStanceLabel(view.stance, view.direction),
+            fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk,
+            modifier = Modifier.padding(top = 3.dp)
+                .border(1.dp, EconomicInk.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 1.dp)
+        )
     }
 }
 
@@ -1065,23 +1046,14 @@ private fun EconomicLensCard(lens: EconomicLensUi) {
     }
 }
 
-/** How the other outlets on the same event see it; a channel on which one takes another stance is marked. */
+/** How the other outlets on the same event see it, each in its own words. */
 @Composable
 private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) -> Unit) {
-    val differing = lens.contrasts.associate { contrast -> contrast.channel to contrast.others.map { it.first }.toSet() }
     Column(Modifier.fillMaxWidth().semantics { contentDescription = "다른 언론사의 시각" }) {
         HorizontalDivider(color = EconomicInk, thickness = 2.dp)
         Spacer(Modifier.height(12.dp))
         Text("다른 언론사는 이 사건을 이렇게 봐요", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EconomicInk)
         Text(lens.event, fontSize = 12.sp, color = Fl.Muted)
-        lens.contrasts.forEach { contrast ->
-            Text(
-                "${economicChannelLabel(contrast.channel)} · 이 기사 ${economicStanceLabel(contrast.stance)} ↔ " +
-                    contrast.others.joinToString(", ") { "${it.first} ${economicStanceLabel(it.second)}" },
-                fontSize = 12.sp, lineHeight = 18.sp, color = DifferentInk,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            )
-        }
         if (lens.others.isEmpty()) {
             Text("같은 사건을 다룬 다른 기사의 시각이 아직 없어요.", fontSize = 13.sp, color = Fl.Muted,
                 modifier = Modifier.padding(top = 10.dp))
@@ -1093,11 +1065,7 @@ private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) ->
                     .semantics { role = Role.Button; contentDescription = "${outlet.publisher.name} 기사 열기" }
             ) {
                 Text("${outlet.publisher.name}  ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                Text(outlet.title, fontSize = 12.sp, lineHeight = 17.sp, color = Fl.Muted,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                outlet.views.forEach { view ->
-                    EconomicViewRow(view, differs = view.channels.any { outlet.publisher.name in differing[it].orEmpty() })
-                }
+                outlet.views.forEach { EconomicViewRow(it) }
             }
             HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(top = 10.dp))
         }

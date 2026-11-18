@@ -362,15 +362,6 @@ private fun parseEconomic(root: JSONObject) = ApiEconomicLens(
             title = outlet.optString("title"),
             views = outlet.optJSONArray("views").orEmptyObjects().map(::parseEconomicView)
         )
-    },
-    contrasts = root.optJSONArray("contrasts").orEmptyObjects().map { contrast ->
-        ApiEconomicContrast(
-            channel = contrast.requireString("channel"),
-            stance = contrast.requireString("stance"),
-            others = contrast.optJSONArray("others").orEmptyObjects().map { other ->
-                other.requireObject("publisher").requireString("name") to other.requireString("stance")
-            }
-        )
     }
 )
 

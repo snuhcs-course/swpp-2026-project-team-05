@@ -167,7 +167,6 @@ describe('ArticlePage economic lens', () => {
         sentence: { scope: 'TITLE', start: 0, end: 6, text: '코스피 상승' },
       }] },
     ],
-    contrasts: [{ channel: 'housing', stance: 'LIMITED', others: [{ article_id: 'yna-1', publisher: yna, stance: 'CONCERN' }] }],
   }
 
   beforeEach(() => {
@@ -194,9 +193,9 @@ describe('ArticlePage economic lens', () => {
     const others = screen.getByRole('region', { name: 'How other outlets see this event' })
     expect(within(others).getByRole('link', { name: '연합뉴스' })).toHaveAttribute('href', '/articles/yna-1')
     expect(within(others).getByText('«집값과 가계부채만 자극할 것이라는 우려»')).toBeInTheDocument()
-    expect(within(others).getAllByText('Different view')).toHaveLength(1)
-    expect(within(others).getByText('Reports a rise')).toBeInTheDocument()
-    expect(within(others).getByText(/this article: Limited effect/)).toHaveTextContent('연합뉴스: Concern')
+    expect(within(others).getByText('Concern')).toBeInTheDocument()
+    expect(within(others).getByText('Rise')).toBeInTheDocument()
+    expect(within(others).queryByText('한은 기준금리 인하')).not.toBeInTheDocument()
   })
 
   it('shows no economic lens for an article without one', async () => {

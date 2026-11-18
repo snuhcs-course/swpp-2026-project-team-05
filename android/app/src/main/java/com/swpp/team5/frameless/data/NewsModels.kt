@@ -122,16 +122,10 @@ internal data class ApiEconomicOutlet(
     val title: String,
     val views: List<ApiEconomicView>
 )
-internal data class ApiEconomicContrast(
-    val channel: String,
-    val stance: String,
-    val others: List<Pair<String, String>>  // publisher name, stance
-)
 internal data class ApiEconomicLens(
     val event: String,
     val views: List<ApiEconomicView>,
-    val others: List<ApiEconomicOutlet>,
-    val contrasts: List<ApiEconomicContrast>
+    val others: List<ApiEconomicOutlet>
 )
 internal data class ApiArticleAnalysis(
     val state: StoredAnalysisState,
@@ -199,8 +193,7 @@ internal data class EconomicOutletUi(
 internal data class EconomicLensUi(
     val event: String,
     val views: List<EconomicViewUi>,
-    val others: List<EconomicOutletUi>,
-    val contrasts: List<ApiEconomicContrast>
+    val others: List<EconomicOutletUi>
 )
 
 internal data class ArticleAnalysisUi(

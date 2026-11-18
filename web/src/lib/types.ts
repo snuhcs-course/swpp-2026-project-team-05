@@ -102,17 +102,10 @@ export interface EconomicOutlet {
   views: EconomicView[]
 }
 
-export interface EconomicContrast {
-  channel: string
-  stance: EconomicStance
-  others: { article_id: string; publisher: Publisher; stance: EconomicStance }[]
-}
-
 export interface EconomicLens {
   event: string
   views: EconomicView[]
   others: EconomicOutlet[]
-  contrasts: EconomicContrast[]
 }
 
 export interface Analysis {

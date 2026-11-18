@@ -23,27 +23,11 @@ export function categoryFromParam(value: string | null) {
   return value === 'SOCIETY' || value === 'ECONOMY' ? value : 'POLITICS'
 }
 
-const CHANNEL_LABELS: Record<string, string> = {
-  fx: 'Exchange rate',
-  capital_market: 'Financial markets',
-  household_credit: 'Household credit',
-  housing: 'Housing',
-  macro_growth: 'Growth & demand',
-  prices: 'Prices',
-  trade: 'Trade',
-  corporate: 'Companies',
-  fiscal: 'Fiscal policy',
-  labor: 'Jobs',
-}
-
-export function channelLabel(channel: string) {
-  return CHANNEL_LABELS[channel] ?? channel
-}
-
+/** How a view sees the event: its evaluation, or the move it reports when it evaluates nothing. */
 export function economicStanceLabel(stance: string, direction: string | null = null) {
   if (stance === 'OBSERVED') {
-    const moves: Record<string, string> = { UP: 'Reports a rise', DOWN: 'Reports a fall', SWING: 'Reports a swing' }
-    return (direction && moves[direction]) ?? 'Reports without evaluation'
+    const moves: Record<string, string> = { UP: 'Rise', DOWN: 'Fall', SWING: 'Swing' }
+    return (direction && moves[direction]) ?? 'Neutral'
   }
   const labels: Record<string, string> = { CONCERN: 'Concern', OPTIMISM: 'Optimism', LIMITED: 'Limited effect' }
   return labels[stance] ?? stance
