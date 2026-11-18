@@ -567,4 +567,149 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("지역별 반응").performTouchInput { click() }
         compose.onAllNodesWithText("“$marker”").assertCountEquals(0)
     }
+
+    private fun summaryComparison(
+        id: String,
+        publisherName: String,
+        body: String,
+        marker: String
+    ): ComparisonArticleUi {
+        val start = body.indexOf(marker)
+        return ComparisonArticleUi(
+            articleId = id,
+            publisher = PublisherItem(id, publisherName, null),
+            title = "$publisherName 비교 기사",
+            publishedAt = "2026-11-18T10:00:00+09:00",
+            originalUrl = "https://example.com/$id",
+            body = body,
+            evidence = listOf(ComparisonEvidenceUi(
+                scope = "BODY",
+                sentenceRange = TextRange(0, body.length),
+                sentenceText = body,
+                markerRange = TextRange(start, start + marker.length),
+                markerText = marker,
+                owner = "REPORTER",
+                speakerLabel = null,
+                summary = "같은 내용을 다른 말로 전해요."
+            ))
+        )
+    }
+
+    private fun summaryFinding(
+        id: String,
+        body: String,
+        marker: String,
+        comparisons: List<ComparisonArticleUi>,
+        overview: String = "한 기사는 징계라고 쓰고 다른 기사는 중징계라고 전해요."
+    ): FindingUi {
+        val start = body.indexOf(marker)
+        return FindingUi(
+            id = id,
+            categories = listOf("C", "D"),
+            scope = "BODY",
+            sentenceRange = TextRange(start, start + marker.length),
+            sentenceText = marker,
+            markerRange = TextRange(start, start + marker.length),
+            markerText = marker,
+            explanation = "$marker 표현의 특징이에요.",
+            comparisonOverview = overview,
+            comparisons = comparisons
+        )
+    }
+
+    private fun summaryArticle(id: String, body: String) = ArticleDetail(
+        id, publisher, "윤리위 징계 결정", body,
+        NewsCategory.POLITICS, "2026-11-18T09:00:00+09:00",
+        "https://example.com/$id", StoredAnalysisState.READY
+    )
+
+    private fun setSummaryReader(
+        article: ArticleDetail,
+        findings: List<FindingUi>,
+        onOpenComparison: (ComparisonArticleUi) -> Unit = {}
+    ) {
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", findings),
+                    analysisEnabled = true
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
+                onOpenComparisonArticle = { page, _ -> onOpenComparison(page) }
+            )
+        }
+    }
+
+    @Test
+    fun comparisonPointsSectionIsHiddenWithoutAValidComparison() {
+        val body = "윤리위는 의장에게 징계를 내렸다. 위원들은 거세게 반발했다."
+        val sourceOnly = summaryFinding("source-only", body, "징계", emptyList())
+        val blankTarget = summaryComparison("kbs", "KBS", "위원들이 반발했다.", "반발했다").let { page ->
+            page.copy(evidence = page.evidence.map { it.copy(markerText = "  ") })
+        }
+        val noTargetMarker = summaryFinding("no-target-marker", body, "거세게", listOf(blankTarget))
+        setSummaryReader(summaryArticle("article-no-points", body), listOf(sourceOnly, noTargetMarker))
+
+        compose.onNodeWithText(body).assertIsDisplayed()
+        compose.onAllNodesWithText("비교 포인트").assertCountEquals(0)
+        compose.onAllNodesWithText("표현 비교 보기", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun comparisonPointsSectionShowsPublisherMarkersOnceWithoutOverviewOrLabels() {
+        val body = "윤리위는 의장에게 징계를 내렸다. 부의장에게도 징계를 내렸다. 결정은 신속했다."
+        val kbs = summaryComparison("kbs", "KBS", "윤리위가 중징계를 결정했다.", "중징계")
+        val overview = "A5 기사는 징계라고 쓰고 B2 기사는 중징계라고 써요."
+        val first = summaryFinding("f1", body, "징계", listOf(kbs), overview)
+        val secondStart = body.indexOf("징계", body.indexOf("징계") + 1)
+        val duplicate = summaryFinding("f2", body, "징계", listOf(kbs), overview).copy(
+            markerRange = TextRange(secondStart, secondStart + 2),
+            sentenceRange = TextRange(secondStart, secondStart + 2)
+        )
+        val other = summaryFinding("f3", body, "신속했다",
+            listOf(summaryComparison("mbc", "MBC", "결정은 졸속이었다.", "졸속이었다")), overview)
+        setSummaryReader(summaryArticle("article-points", body), listOf(first, duplicate, other))
+
+        compose.onNodeWithText("비교 포인트").assertIsDisplayed()
+        compose.onAllNodesWithText("연합뉴스  “징계”", substring = true).assertCountEquals(1)
+        compose.onAllNodesWithText("KBS  “중징계”", substring = true).assertCountEquals(1)
+        compose.onAllNodesWithText("MBC  “졸속이었다”", substring = true).assertCountEquals(1)
+        compose.onAllNodesWithText("표현 비교 보기", substring = true).assertCountEquals(2)
+        compose.onAllNodesWithText(overview).assertCountEquals(0)
+        compose.onAllNodesWithText(first.explanation).assertCountEquals(0)
+        listOf("A", "B", "C", "D", "E", "F", "G").forEach { code ->
+            compose.onAllNodesWithText(code).assertCountEquals(0)
+            compose.onAllNodesWithText(categoryLabel(code)).assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun comparisonPointOpensTheExistingComparisonDetail() {
+        val body = "윤리위는 의장에게 징계를 내렸다."
+        val finding = summaryFinding("f1", body, "징계", listOf(
+            summaryComparison("kbs", "KBS", "윤리위가 중징계를 결정했다.", "중징계"),
+            summaryComparison("mbc", "MBC", "윤리위가 탈당권고를 의결했다.", "탈당권고")
+        ))
+        var opened: ComparisonArticleUi? = null
+        setSummaryReader(summaryArticle("article-route", body), listOf(finding)) { opened = it }
+
+        compose.onNodeWithText("표현 비교 보기", substring = true).performClick()
+        compose.onNodeWithText("같은 내용을 다른 기사에서는").assertIsDisplayed()
+        compose.onNodeWithContentDescription("비교 상세 닫기").assertIsDisplayed()
+        compose.onAllNodesWithText(finding.comparisonOverview).assertCountEquals(1)
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+        compose.onAllNodesWithText(finding.explanation).assertCountEquals(0)
+
+        compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
+        compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
+        compose.onNodeWithText("비교 포인트").assertIsDisplayed()
+
+        compose.onNodeWithText("표현 비교 보기", substring = true).performClick()
+        compose.onNodeWithText("이 기사 읽기").performClick()
+        compose.waitUntil { opened != null }
+        assertEquals("kbs", opened?.articleId)
+    }
 }
