@@ -108,12 +108,58 @@ export interface EconomicLens {
   others: EconomicOutlet[]
 }
 
+/** A Media Frames Corpus frame (Card et al., 2015) and one sentence of the article's own text that shows it. */
+export interface FrameOutlet {
+  article_id: string
+  publisher: Publisher
+  title: string
+  frame: string
+  sentence: string
+  /** The outlet's positions on the event's issues (from the issue table); empty when it only reports facts. */
+  positions: { issue: string; position: string }[]
+}
+
+export interface OutletRef {
+  article_id: string
+  publisher: Publisher
+}
+
+/** One pairwise A-G item inside an issue or fact group: both outlets' phrases, stored once for both articles. */
+export interface IssueWording {
+  left: OutletRef & { phrase: string }
+  right: OutletRef & { phrase: string }
+  code: string
+  explanation: string
+}
+
+/** One issue of the event, seen from the article being read. */
+export interface IssueView {
+  question: string
+  kind: 'contested' | 'one_side' | 'common_fact'
+  own: { covered: boolean; fact_only: boolean; position: string | null }
+  /** Positions taken, each with the other outlets taking it; `is_own` marks this article's position. */
+  positions: { label: string; is_own: boolean; outlets: OutletRef[] }[]
+  fact_only_outlets: OutletRef[]
+  wordings: IssueWording[]
+}
+
+export interface FrameLens {
+  event: string
+  frame: string
+  sentence: TextRange & { scope: 'TITLE' | 'BODY' }
+  others: FrameOutlet[]
+  issues: IssueView[]
+  /** What the outlets report alike (the event's facts), with the wording differences found inside them. */
+  facts: { label: string; outlets: number; wordings: IssueWording[] }[]
+}
+
 export interface Analysis {
   state: AnalysisState
   version: string
   source_content_hash: string
   findings: Finding[]
   economic?: EconomicLens | null
+  frame?: FrameLens | null
 }
 
 export interface ArticlePage {

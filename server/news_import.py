@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .economic_lens import EconomicLensError, validate_context
+from .event_issues import IssueTableError, validate_frame_context, validate_issue_table
 from .models import (
     AnalysisStatus,
     Article,
@@ -224,6 +225,12 @@ def import_dataset(
                 economic_context = validate_context(economic_context, title=title, body=body, context=article_context)
             except EconomicLensError as exc:
                 raise DatasetError(str(exc)) from exc
+            try:
+                frame_context = validate_frame_context(
+                    article_item.get("frame_context"), title=title, body=body, context=article_context
+                )
+            except IssueTableError as exc:
+                raise DatasetError(str(exc)) from exc
             article, _ = Article.objects.update_or_create(
                 canonical_url=canonical_url,
                 defaults={
@@ -234,6 +241,7 @@ def import_dataset(
                     "body_text": body,
                     "content_hash": content_hash,
                     "economic_context": economic_context,
+                    "frame_context": frame_context,
                     "category": category,
                     "published_at": _parse_timestamp(
                         _required(article_item, "published_at", article_context), article_context
@@ -369,6 +377,13 @@ def import_dataset(
             proposition.comparison_overview = "\n\n".join(distinct)
             proposition.save(update_fields=["comparison_overview"])
 
+        # The issue table names this revision's articles; a revision without one clears the old table.
+        try:
+            cluster.issue_table = validate_issue_table(
+                cluster_item.get("issue_table"), articles=article_by_key, context=context
+            )
+        except IssueTableError as exc:
+            raise DatasetError(str(exc)) from exc
         cluster.analysis_status = AnalysisStatus.READY
         cluster.analysis_version = dataset.get("analysis_version", "reviewed-v1")
         cluster.analysis_input_hash = dataset_hash
@@ -376,7 +391,7 @@ def import_dataset(
         cluster.save(
             update_fields=[
                 "analysis_status", "analysis_version", "analysis_input_hash",
-                "analyzed_at", "updated_at",
+                "analyzed_at", "issue_table", "updated_at",
             ]
         )
 

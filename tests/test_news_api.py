@@ -969,6 +969,7 @@ class NewsApiTests(TestCase):
             "source_content_hash": self.target.content_hash,
             "findings": [],
             "economic": None,
+            "frame": None,
         })
 
 
@@ -1055,3 +1056,98 @@ class EconomicLensApiTests(TestCase):
 
     def test_article_without_economic_lens_answers_null(self):
         self.assertIsNone(self._economic(self.plain))
+
+
+class EventIssueViewApiTests(TestCase):
+    """specs/testing/event-issue-view.spec.md: the frame box and the issue view of the reader analysis."""
+
+    def setUp(self):
+        self.client = Client()
+        user = UserAccount.objects.create(username="issue-reader", password_hash=make_password("safe-password-123"))
+        token, _ = create_session(user)
+        self.auth = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        self.cluster = StoryCluster.objects.create(
+            internal_label="법안 통과", category=NewsCategory.POLITICS,
+            analysis_status=AnalysisStatus.READY, analysis_version="event-issues-v1",
+        )
+        now = timezone.now()
+        pubs = [Publisher.objects.create(code=c, name_ko=n, domain=f"{c}.example.com", display_order=k)
+                for k, (c, n) in enumerate([("a", "가신문"), ("b", "나일보"), ("c", "다방송")], 1)]
+        bodies = ["국회가 법안을 강행 처리했다. 야당은 반발했다.", "국회가 법안을 통과시켰다. 여당은 개혁이라고 밝혔다.",
+                  "국회가 법안을 처리했다. 표결은 오후에 열렸다."]
+        self.a, self.b, self.c = [
+            Article.objects.create(publisher=p, story_cluster=self.cluster, canonical_url=f"https://{p.code}.example.com/1",
+                                   title=f"{p.name_ko} 기사", body_text=body, content_hash="0" * 64,
+                                   category=NewsCategory.POLITICS, published_at=now + timedelta(minutes=k))
+            for k, (p, body) in enumerate(zip(pubs, bodies))]
+        for article, frame in ((self.a, "정치"), (self.b, "정책 평가"), (self.c, "정치")):
+            sentence = article.body_text.split(". ")[0] + "."  # the first sentence
+            article.frame_context = {"frame": frame, "sentence": {"scope": "BODY", "start": 0, "end": len(sentence),
+                                                                  "text": sentence}}
+            article.save()
+        ids = {k: str(x.id) for k, x in (("a", self.a), ("b", self.b), ("c", self.c))}
+        self.cluster.issue_table = {
+            "event": "국회, 법안 통과",
+            "issues": [
+                {"key": "K2", "question": "표결 시점은 적절했나?", "kind": "common_fact", "positions": {},
+                 "outlets": [{"article": ids["c"], "position": "F"}], "wordings": []},
+                {"key": "K1", "question": "법안 처리 절차는 정당했나?", "kind": "contested",
+                 "positions": {"P1": "일방 처리", "P2": "정상 처리"},
+                 "outlets": [{"article": ids["a"], "position": "P1"}, {"article": ids["b"], "position": "P2"},
+                             {"article": ids["c"], "position": "F"}],
+                 "wordings": [{"left": {"article": ids["a"], "phrase": "강행 처리했다"},
+                               "right": {"article": ids["b"], "phrase": "통과시켰다"}, "code": "C",
+                               "explanation": "같은 행위를 서술하면서 가신문 쪽이 더 센 말을 골랐습니다."}]},
+            ],
+            "facts": [{"key": "F1", "label": "국회가 법안을 처리했다", "outlets": [ids["a"], ids["b"], ids["c"]],
+                       "wordings": []}],
+        }
+        self.cluster.save()
+
+    def _frame(self, article):
+        return self.client.get(f"/api/v1/articles/{article.id}/analysis", **self.auth).json()["frame"]
+
+    def test_each_article_sees_the_same_table_from_its_own_side(self):
+        a = self._frame(self.a)
+        self.assertEqual((a["event"], a["frame"], a["sentence"]["text"]), ("국회, 법안 통과", "정치", "국회가 법안을 강행 처리했다."))
+        first = a["issues"][0]
+        self.assertEqual(first["question"], "법안 처리 절차는 정당했나?")
+        self.assertEqual(first["own"], {"covered": True, "fact_only": False, "position": "일방 처리"})
+        self.assertEqual([(g["label"], g["is_own"], [o["publisher"]["name"] for o in g["outlets"]])
+                          for g in first["positions"]], [("일방 처리", True, []), ("정상 처리", False, ["나일보"])])
+        self.assertEqual([o["publisher"]["name"] for o in first["fact_only_outlets"]], ["다방송"])
+        self.assertEqual([(w["left"]["phrase"], w["right"]["phrase"]) for w in first["wordings"]], [("강행 처리했다", "통과시켰다")])
+        self.assertEqual(a["issues"][1]["own"]["covered"], False)  # an issue it does not cover comes last
+        self.assertEqual(a["facts"], [{"label": "국회가 법안을 처리했다", "outlets": 3, "wordings": []}])
+        self.assertEqual([(o["publisher"]["name"], o["frame"], o["positions"]) for o in a["others"]],
+                         [("나일보", "정책 평가", [{"issue": "법안 처리 절차는 정당했나?", "position": "정상 처리"}]),
+                          ("다방송", "정치", [])])
+
+        c = self._frame(self.c)
+        # both only as fact here: contested before common fact
+        self.assertEqual([i["question"] for i in c["issues"]], ["법안 처리 절차는 정당했나?", "표결 시점은 적절했나?"])
+        self.assertEqual(c["issues"][0]["own"], {"covered": True, "fact_only": True, "position": None})
+        self.assertEqual([[o["publisher"]["name"] for o in g["outlets"]] for g in c["issues"][0]["positions"]],
+                         [["가신문"], ["나일보"]])
+
+    def test_hidden_outlet_and_stale_frame_are_left_out(self):
+        self.b.visibility = ArticleVisibility.HIDDEN
+        self.b.save()
+        a = self._frame(self.a)
+        contested = next(i for i in a["issues"] if i["kind"] == "contested")
+        self.assertEqual([g["label"] for g in contested["positions"]], ["일방 처리"])
+        self.assertEqual(contested["wordings"], [])
+        self.assertEqual(a["facts"][0]["outlets"], 2)
+        self.assertEqual([o["publisher"]["name"] for o in a["others"]], ["다방송"])
+        self.c.frame_context["sentence"]["text"] = "본문과 다른 문장"
+        self.c.save()
+        self.assertIsNone(self._frame(self.c))
+        self.assertEqual(self._frame(self.a)["others"], [])
+
+    def test_article_without_frame_or_cluster_table_answers_null(self):
+        self.a.frame_context = None
+        self.a.save()
+        self.assertIsNone(self._frame(self.a))
+        self.cluster.issue_table = None
+        self.cluster.save()
+        self.assertIsNone(self._frame(self.b))

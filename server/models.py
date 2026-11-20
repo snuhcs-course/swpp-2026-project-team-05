@@ -165,6 +165,9 @@ class StoryCluster(models.Model):
     analysis_version = models.CharField(max_length=64, blank=True)
     analysis_input_hash = models.CharField(max_length=64, blank=True)
     analyzed_at = models.DateTimeField(null=True, blank=True)
+    # The event's issue table (specs/features/event-issue-view.md): its issues, each outlet's position on them and the
+    # wording differences inside them. Article ids are validated by news_import; each reader view is computed from it.
+    issue_table = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -197,6 +200,9 @@ class Article(models.Model):
     # Economy articles only: the event and the article's view of it in its own words (specs/features/economic-lens.md).
     # View sentence offsets are validated against title / body_text by news_import.
     economic_context = models.JSONField(null=True, blank=True)
+    # The article's frame of the event and one sentence of its own text that shows it
+    # (specs/features/event-issue-view.md); the sentence offsets are validated by news_import.
+    frame_context = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
