@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Drafted for the final Iteration 4 release run |
+| Status | Executed for Iteration 4 release candidate `806283a` |
 | Owner | Release and testing owner |
 | Source requirements | [`acceptance-v1.spec.md`](acceptance-v1.spec.md), [`acceptance-v2.spec.md`](acceptance-v2.spec.md), [`../product/news-app-v1.md`](../product/news-app-v1.md) |
 | Last reviewed | 2026-11-20 |
@@ -25,9 +25,9 @@ may support a result, but it is not the test oracle.
 
 ## Release identity
 
-Before the run, record all of the following in `docs/testing-documentation.md`:
+Record all of the following in `docs/testing-documentation.md`:
 
-- final `main` commit and GitHub Actions run;
+- tested release commit and its GitHub Actions run;
 - Web and API deployment revisions and URLs;
 - APK SHA-256, device, Android version, and installation method;
 - database dataset or seed revision;
@@ -185,3 +185,9 @@ state explicitly that no new semantic-accuracy claim is made.
   for every rerun.
 - Export the final English Wiki page to PDF only after the same release identity
   appears in the automated, acceptance, and device evidence.
+
+The 2026-11-20 release run is recorded in
+`docs/testing-documentation.md` and
+`docs/evidence/iteration-4-release-api-smoke.json`. Unexecuted manual cases stay
+explicitly open; they are not converted into passes from automated or demo
+evidence.
