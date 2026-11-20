@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Living team document |
-| Current revision | 2026-11-06 |
+| Current revision | 2026-11-20 |
 | Historical baseline | [`archive/iteration-2/testing-documentation-iter2.md`](archive/iteration-2/testing-documentation-iter2.md) |
 
 This page is the maintainable entry point for the testing plan and measured
@@ -51,6 +51,9 @@ backend and Android coverage gates and uploads reports for 14 days.
 | URL-analysis preview | [`specs/testing/url-analysis-mock.spec.md`](../specs/testing/url-analysis-mock.spec.md) | Implemented as a client-only mock; no upload or analysis is claimed |
 | Evaluation feed opening order | [`specs/testing/feed-opening-order.spec.md`](../specs/testing/feed-opening-order.spec.md) | Implemented as an isolated, temporary evaluation-build behavior |
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Six stories frozen for Iteration 3 against `ab8d9bf` |
+| Guest and offline reading | [`specs/testing/acceptance-v2.spec.md`](../specs/testing/acceptance-v2.spec.md) | Implemented behavior with five supplemental cases still awaiting team freeze and execution |
+| Staged link analysis | [`specs/testing/link-analysis.spec.md`](../specs/testing/link-analysis.spec.md) | Deterministic endpoint boundaries implemented; live model quality remains separate evaluation evidence |
+| Iteration 4 release verification | [`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md) | Drafted before the final release run; no result is claimed yet |
 | Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Passed 6/6 on `ff16cd1`; exact API structure matched 6/6 |
 
 ### Result recording template
@@ -141,3 +144,80 @@ The 11/05 APK was downloaded from the named CI run rather than rebuilt locally.
 The 11/06 APK digest belongs only to the local regression build recorded in its
 row. Iteration 2 evidence and known gaps remain preserved in the historical
 baseline linked at the top of this document.
+
+## 8. Iteration 4 release verification
+
+The execution contract for the final Iteration 4 candidate is versioned in
+[`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md).
+This section is intentionally a result shell until the final feature branches
+are merged and one release identity is available. Do not copy successful counts
+from a preview branch or combine an APK, deployment, and database seed from
+different revisions.
+
+### 8.1 Release identity
+
+| Field | Final value |
+| --- | --- |
+| `main` commit | Pending final merge |
+| GitHub Actions run | Pending |
+| Web deployment | Pending |
+| API deployment | Pending |
+| APK SHA-256 | Pending |
+| Android device/version | Pending |
+| Database dataset/seed | Pending |
+| Test date and tester | Pending |
+
+### 8.2 Automated and integration results
+
+| Area | Command or CI job | Tests/result | Coverage versus target | Evidence |
+| --- | --- | --- | --- | --- |
+| Django | `FRAMELESS_USE_SQLITE=1 python3.12 manage.py test` | Pending | Pending | Pending final CI run |
+| Web | `npm test`, `npm run lint`, `npm run build` | Pending | Not used as a coverage gate | Pending final CI run |
+| Android | `:app:jacocoDebugUnitTestReport`, `:app:lintDebug`, `:app:assembleDebug` | Pending | Pending | Pending final CI run |
+
+### 8.3 Frozen acceptance results
+
+Run the six unchanged stories in
+[`acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md). The signed-out
+expectation in UAT-01 predates public guest reading; its observed deviation must
+be recorded rather than edited away.
+
+| Story | Client/environment | Tester/date | Expected and observed behavior | Result | Deviation/evidence |
+| --- | --- | --- | --- | --- | --- |
+| UAT-01 Account session | Pending | Pending | Pending | Pending | Guest-contract change must be reported explicitly |
+| UAT-02 Feed browsing | Pending | Pending | Pending | Pending | Pending |
+| UAT-03 Complete-corpus search | Pending | Pending | Pending | Pending | Pending |
+| UAT-04 Article and optional analysis | Pending | Pending | Pending | Pending | Pending |
+| UAT-05 Grounded comparison | Pending | Pending | Pending | Pending | Pending |
+| UAT-06 Per-account Saved synchronization | Pending | Pending | Pending | Pending | Pending |
+
+### 8.4 Iteration 4 focused regression
+
+These checks cover current behavior added after the frozen v1 plan. They are
+supplementary until the team reviews and freezes acceptance v2.
+
+| Case | Scope | Result | Evidence or deviation |
+| --- | --- | --- | --- |
+| R4-01 | Guest feed, search, Reader, and comparison | Pending | Pending |
+| R4-02 | Account isolation and Android offline Saved | Pending | Pending |
+| R4-03 | Compared article opens in Reader and can be saved | Pending | Pending |
+| R4-04 | Existing/new/invalid/failed staged link analysis | Pending | Pending |
+| R4-05 | First-run guidance and understandable analysis vocabulary | Pending | Pending |
+| R4-06 | Feed categories and economic-lens projection | Pending | Pending |
+
+### 8.5 AI-module evaluation update
+
+The Iteration 3 human-review result remains historical evidence. Iteration 4
+must add the exact case-set revision, pipeline/model settings, reviewer method,
+per-metric denominators, and failure analysis for any new semantic result. Until
+that run is completed, deterministic fixture and grounding checks must not be
+described as editorial accuracy. If no new semantic run is performed, the final
+record will say so explicitly and report only the structural results actually
+measured.
+
+### 8.6 Final limitations and publication
+
+After the run, record every unresolved failure or intentional deviation, update
+the separate English Wiki page without removing earlier iteration evidence, add
+the final revision-history row, and export that exact Wiki revision to PDF for
+eTL submission.
