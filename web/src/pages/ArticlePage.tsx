@@ -185,7 +185,7 @@ function OutletLinks({ outlets }: { outlets: (OutletRef & { voice?: string | nul
           <Link to={`/articles/${o.article_id}`} className="font-bold text-zinc-700 underline-offset-4 hover:underline">
             {o.publisher.name}
           </Link>
-          {o.voice && <span className="text-zinc-500"> (quoting {o.voice})</span>}
+          {o.voice && <span className="text-zinc-500"> ({o.voice})</span>}
         </span>
       ))}
     </span>

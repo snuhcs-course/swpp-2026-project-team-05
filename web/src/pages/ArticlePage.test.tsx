@@ -314,7 +314,7 @@ describe('ArticlePage frame and issue view', () => {
     const own = within(issues).getByText('This article')
     expect(own.parentElement).toHaveTextContent('일방 처리')
     expect(within(issues).getByRole('link', { name: '나일보' })).toHaveAttribute('href', '/articles/b-1')
-    expect(within(issues).getByText('(quoting 여당)')).toBeInTheDocument()
+    expect(within(issues).getByText('(여당)')).toBeInTheDocument()
     expect(within(issues).getAllByRole('link', { name: '다방송' })[0]).toHaveAttribute('href', '/articles/c-1')
     expect(within(issues).getByText(/Facts only/)).toBeInTheDocument()
     for (const gone of ['«통과시켰다»', '국회가 법안을 처리했다', 'Not covered by this article', 'Different wording']) {
