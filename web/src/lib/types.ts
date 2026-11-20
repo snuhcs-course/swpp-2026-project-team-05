@@ -137,16 +137,27 @@ export interface IssueView {
   question: string
   kind: 'contested' | 'one_side' | 'common_fact'
   own: { covered: boolean; fact_only: boolean; position: string | null }
-  /** Positions taken, each with the other outlets taking it; `is_own` marks this article's position. */
-  positions: { label: string; is_own: boolean; outlets: OutletRef[] }[]
+  /** Positions taken, each with the other outlets taking it (`voice`: the speaker when the outlet's position comes
+   * from words it quotes); `is_own` marks this article's position. */
+  positions: { label: string; is_own: boolean; outlets: (OutletRef & { voice?: string | null })[] }[]
   fact_only_outlets: OutletRef[]
   wordings: IssueWording[]
+}
+
+/** What the article puts in front in its headline and lead: its own position, the voices it quotes, or the fact its
+ * headline adds (its own words). */
+export interface FrameFront {
+  kind: 'position' | 'voices' | 'fact'
+  label?: string
+  phrase?: string
+  voices?: { speaker: string; quote: string }[]
 }
 
 export interface FrameLens {
   event: string
   frame: string
-  sentence: TextRange & { scope: 'TITLE' | 'BODY' }
+  sentence: (TextRange & { scope: 'TITLE' | 'BODY' }) | null
+  front?: FrameFront | null
   others: FrameOutlet[]
   issues: IssueView[]
   /** What the outlets report alike (the event's facts), with the wording differences found inside them. */

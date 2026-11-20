@@ -40,7 +40,7 @@ Web reader's frame box and issue view.
   the other outlets' frames with their positions.\
   Tested by: `tests.test_news_api.EventIssueViewApiTests.test_each_article_sees_the_same_table_from_its_own_side`
 - [Integration] A hidden outlet disappears from positions, wordings, fact counts and frames; an article whose frame
-  sentence no longer matches answers `frame: null` and is left out of the others' frames.\
+  sentence no longer matches answers `sentence: null` and keeps its front.\
   Tested by: `tests.test_news_api.EventIssueViewApiTests.test_hidden_outlet_and_stale_frame_are_left_out`
 - [Integration] An article without a frame, or in a cluster without a table, answers `frame: null`.\
   Tested by: `tests.test_news_api.EventIssueViewApiTests.test_article_without_frame_or_cluster_table_answers_null`,
@@ -48,8 +48,9 @@ Web reader's frame box and issue view.
 
 ### Web reader
 
-- [Component] The reader shows the event and this article's frame on top and, below the article, the issues with
-  this article's position, the other outlets linked to their articles, the wording differences and the shared facts.\
+- [Component] The reader shows the event and this article's frame on top and, below the article, the issues on which
+  some outlet takes a position, each position with its outlets linked to their articles and this article's position
+  tagged, and the outlets reporting facts only; no wording differences, shared facts or "not covered" line.\
   Tested by: `web/src/pages/ArticlePage.test.tsx › shows the event and this article's frame on top and the issues across outlets at the bottom`
 - [Component] An economy article keeps the economic lens on top and lists the issues under "Issue by issue across
   outlets".\
