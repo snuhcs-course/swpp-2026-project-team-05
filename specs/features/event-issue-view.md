@@ -100,7 +100,8 @@ the stored article. The view is computed per request from the cluster's table:
 
 - Header, under the publisher line: a Frame box with the event and this article's sentence and frame; the sentence is
   underlined in teal. An economy article with an economic lens shows the lens there instead.
-- Below the article: "How other outlets see this event", one block per issue (question, kind, this article's line,
-  the positions with their outlets linked to their articles, the outlets reporting facts only, the wording
-  differences), then "Facts the outlets report alike". Under an economic lens the section is titled "Issue by issue
-  across outlets".
+- Below the article: "How other outlets see this event", one block per issue on which some outlet takes a position:
+  the question, each position with the outlets taking it linked to their articles (this article's position tagged
+  "This article"), and the outlets reporting the issue as fact only. The wording differences and the shared facts are
+  not shown there (the A-G highlights in the article carry the wording differences). Under an economic lens the
+  section is titled "Issue by issue across outlets".

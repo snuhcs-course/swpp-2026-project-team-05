@@ -277,6 +277,15 @@ describe('ArticlePage frame and issue view', () => {
       wordings: [{ left: { article_id: 'source-1', publisher: article.publisher, phrase: '강행 처리했다' },
         right: { article_id: 'b-1', publisher: b, phrase: '통과시켰다' }, code: 'C',
         explanation: '같은 행위를 서술하면서 Source News 쪽이 더 센 말을 골랐습니다.' }],
+    }, {
+      question: '야당의 필리버스터는 적절했나?', kind: 'one_side',
+      own: { covered: false, fact_only: false, position: null },
+      positions: [{ label: '정당한 저항', is_own: false, outlets: [{ article_id: 'c-1', publisher: c }] }],
+      fact_only_outlets: [], wordings: [],
+    }, {
+      question: '표결은 언제 열렸나?', kind: 'common_fact',
+      own: { covered: false, fact_only: false, position: null },
+      positions: [], fact_only_outlets: [{ article_id: 'b-1', publisher: b }], wordings: [],
     }],
     facts: [{ label: '국회가 법안을 처리했다', outlets: 3, wordings: [] }],
   }
@@ -297,12 +306,16 @@ describe('ArticlePage frame and issue view', () => {
     expect(within(header).getByText(`«${sentence}»`)).toBeInTheDocument()
 
     const issues = screen.getByRole('region', { name: 'How other outlets see this event' })
-    expect(within(issues).getByText('법안 처리 절차는 정당했나?')).toBeInTheDocument()
-    expect(within(issues).getByText('Views differ')).toBeInTheDocument()
-    expect(within(issues).getAllByText('일방 처리')).toHaveLength(2)  // this article's line and its position group
-    expect(within(issues).getByRole('link', { name: '다방송' })).toHaveAttribute('href', '/articles/c-1')
-    expect(within(issues).getByText('«통과시켰다»')).toBeInTheDocument()
-    expect(within(issues).getByText('국회가 법안을 처리했다')).toBeInTheDocument()
+    expect(within(issues).getAllByRole('heading', { level: 3 }).map((h) => h.textContent))
+      .toEqual(['법안 처리 절차는 정당했나?', '야당의 필리버스터는 적절했나?'])  // an issue nobody takes a side on is left out
+    const own = within(issues).getByText('This article')
+    expect(own.parentElement).toHaveTextContent('일방 처리')
+    expect(within(issues).getByRole('link', { name: '나일보' })).toHaveAttribute('href', '/articles/b-1')
+    expect(within(issues).getAllByRole('link', { name: '다방송' })[0]).toHaveAttribute('href', '/articles/c-1')
+    expect(within(issues).getByText(/Facts only/)).toBeInTheDocument()
+    for (const gone of ['«통과시켰다»', '국회가 법안을 처리했다', 'Not covered by this article', 'Different wording']) {
+      expect(within(issues).queryByText(gone)).not.toBeInTheDocument()
+    }
   })
 
   it('keeps the economic lens on top for an economy article and lists the issues under another title', async () => {

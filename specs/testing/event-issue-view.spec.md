@@ -48,8 +48,9 @@ Web reader's frame box and issue view.
 
 ### Web reader
 
-- [Component] The reader shows the event and this article's frame on top and, below the article, the issues with
-  this article's position, the other outlets linked to their articles, the wording differences and the shared facts.\
+- [Component] The reader shows the event and this article's frame on top and, below the article, the issues on which
+  some outlet takes a position, each position with its outlets linked to their articles and this article's position
+  tagged, and the outlets reporting facts only; no wording differences, shared facts or "not covered" line.\
   Tested by: `web/src/pages/ArticlePage.test.tsx › shows the event and this article's frame on top and the issues across outlets at the bottom`
 - [Component] An economy article keeps the economic lens on top and lists the issues under "Issue by issue across
   outlets".\
