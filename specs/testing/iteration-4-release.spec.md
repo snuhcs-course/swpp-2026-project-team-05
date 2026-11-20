@@ -27,7 +27,7 @@ may support a result, but it is not the test oracle.
 
 Record all of the following in `docs/testing-documentation.md`:
 
-- final `main` commit and GitHub Actions run;
+- tested release commit and its GitHub Actions run;
 - Web and API deployment revisions and URLs;
 - APK SHA-256, device, Android version, and installation method;
 - database dataset or seed revision;

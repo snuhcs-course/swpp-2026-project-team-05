@@ -159,7 +159,7 @@ silently combined.
 
 | Field | Final value |
 | --- | --- |
-| `main` commit | `806283a100ba9dc018f2ee1e339b364e84ca8ecb` |
+| Tested release commit | `806283a100ba9dc018f2ee1e339b364e84ca8ecb` |
 | GitHub Actions run | [Verify 44695281510](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44695281510) |
 | Web deployment | [`https://frameless-team05-web.vercel.app`](https://frameless-team05-web.vercel.app), Vercel status passed for `806283a` |
 | API deployment | [`https://frameless-team05-api.vercel.app`](https://frameless-team05-api.vercel.app), Vercel status passed for `806283a` |
