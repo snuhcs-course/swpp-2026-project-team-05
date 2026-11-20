@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -33,7 +34,6 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.text.BasicTextField
@@ -142,8 +142,11 @@ internal fun NewsFeedScreen(
     }
 
     val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
-    Column(Modifier.fillMaxSize().background(Fl.Card).dismissKeyboardOnTap()) {
-        Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+    Column(Modifier.fillMaxSize().background(HomeTokens.OffWhite).dismissKeyboardOnTap()) {
+        Column(
+            Modifier.fillMaxWidth().background(HomeTokens.OffWhite)
+                .padding(top = if (state.isSearchOpen) 12.dp else 0.dp)
+        ) {
             if (state.isSearchOpen) {
                 SearchHeader(
                     value = state.searchInput,
@@ -152,54 +155,38 @@ internal fun NewsFeedScreen(
                     onClose = onSearchClose
                 )
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.padding(start = 18.dp)) { BrandRow() }
+                Row(
+                    Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Link analysis and the tutorial replay live in this menu; both callbacks are unchanged.
+                    FeedMenuButton(onLinkOpen = onLinkOpen, onTutorialOpen = onTutorialOpen)
+                    BrandRow()
                     Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = onTutorialOpen,
-                        modifier = Modifier.size(40.dp).semantics {
-                            contentDescription = "튜토리얼 다시 보기"
-                        }
-                    ) {
-                        Box(
-                            Modifier.size(22.dp).border(1.5.dp, Fl.Ink2, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.Ink2)
-                        }
-                    }
-                    IconButton(
-                        onClick = onLinkOpen,
-                        modifier = Modifier.size(40.dp).semantics {
-                            contentDescription = "기사 링크로 분석하기"
-                        }
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Fl.Ink2)
-                    }
                     IconButton(
                         onClick = {
                             savedFeedIndex = listState.firstVisibleItemIndex
                             savedFeedOffset = listState.firstVisibleItemScrollOffset
                             onSearchOpen()
                         },
-                        modifier = Modifier.size(40.dp).semantics {
+                        modifier = Modifier.size(44.dp).semantics {
                             contentDescription = "기사 검색"
                         }
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink2)
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink,
+                            modifier = Modifier.size(22.dp))
                     }
                     IconButton(
                         onClick = onSavedOpen,
-                        modifier = Modifier.size(40.dp).semantics {
+                        modifier = Modifier.size(44.dp).semantics {
                             contentDescription = "저장한 기사"
                         }
                     ) {
-                        ArticleBookmarkIcon(true, Fl.Ink2, Modifier.size(19.dp))
+                        ArticleBookmarkIcon(true, Fl.Ink, Modifier.size(19.dp))
                     }
                     Box(
-                        Modifier.padding(end = 18.dp).size(36.dp)
-                            .background(Fl.Inset, CircleShape)
-                            .border(1.dp, Fl.Line, CircleShape)
+                        Modifier.padding(start = 4.dp, end = 14.dp).size(32.dp)
+                            .background(HomeTokens.Lavender, CircleShape)
                             .clickable { showAccount = true }
                             .semantics {
                                 role = Role.Button
@@ -207,14 +194,14 @@ internal fun NewsFeedScreen(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(session?.user?.username?.take(1)?.uppercase() ?: "↗", color = Fl.Accent,
-                            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(session?.user?.username?.take(1)?.uppercase() ?: "↗",
+                            color = HomeTokens.LavenderInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            Spacer(Modifier.height(if (state.isSearchOpen) 8.dp else 12.dp))
+            Spacer(Modifier.height(if (state.isSearchOpen) 8.dp else 0.dp))
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                Modifier.fillMaxWidth().padding(horizontal = if (state.isSearchOpen) 18.dp else 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (state.isSearchOpen) {
@@ -227,7 +214,7 @@ internal fun NewsFeedScreen(
                         )
                     }
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         NewsCategory.entries.forEach { category ->
                             CategoryTab(
                                 label = category.label,
@@ -241,7 +228,7 @@ internal fun NewsFeedScreen(
                         if (state.scope == FeedScope.ALL) "최신  ⌄"
                         else "팔로잉 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
                         color = Fl.Ink2,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.clickable { showFeedScope = true }
                             .padding(horizontal = 4.dp, vertical = 12.dp)
@@ -250,7 +237,7 @@ internal fun NewsFeedScreen(
                 }
             }
         }
-        HorizontalDivider(color = Fl.Line)
+        HorizontalDivider(color = HomeTokens.Hairline)
         when {
             state.isSearchOpen && normalizedSearch.isEmpty() -> SearchPrompt()
             state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
@@ -310,35 +297,48 @@ internal fun NewsFeedScreen(
                     else onRefresh()
                 }
             )
-            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().background(HomeTokens.OffWhite)
+            ) {
+                // The newest article leads the normal online feed; it is the same stored data, shown larger.
+                val split = splitFeaturedArticle(
+                    items = state.items,
+                    enabled = !state.isOffline && !state.isSearchOpen && state.activeSearchQuery.isBlank()
+                )
+                split.featured?.let { lead ->
+                    // The reading guide shares the lead item so list positions (and load-more) are unchanged.
+                    item(key = "featured-${lead.id}") {
+                        Column {
+                            ReadingGuideRail(onClick = onTutorialOpen)
+                            FeaturedArticleCard(article = lead, onClick = { onArticle(lead.id) })
+                        }
+                    }
+                }
                 item {
-                    Row(Modifier.fillMaxWidth().background(Fl.Inset)
-                        .padding(horizontal = 18.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (state.isOffline) "이 기기에 저장한 기사 · 오프라인"
+                    FeedSectionHeader(
+                        title = when {
+                            state.isOffline -> "이 기기의 기사"
+                            split.featured != null && split.rest.isEmpty() -> null
+                            else -> "최신 기사"
+                        },
+                        caption = if (state.isOffline) "이 기기에 저장한 기사 · 오프라인"
                             else if (state.isRefreshing) "새 기사를 확인하는 중…"
                             else if (state.activeSearchQuery.isNotBlank())
                                 "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
                             else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
                             else "전체 언론사 · 최신순",
-                            color = Fl.Muted,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text("새로고침", fontSize = 11.sp, color = Fl.Accent,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable(enabled = !state.isRefreshing, onClick = onRefresh)
-                                .padding(horizontal = 6.dp, vertical = 4.dp))
-                    }
+                        refreshEnabled = !state.isRefreshing,
+                        onRefresh = onRefresh
+                    )
+                    if (split.rest.isNotEmpty()) FeedRowDivider()
                 }
-                items(state.items, key = { it.id }) { article ->
+                itemsIndexed(split.rest, key = { _, article -> article.id }) { index, article ->
                     ArticleFeedRow(
                         article = article,
                         onClick = { onArticle(article.id) }
                     )
-                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
+                    if (index < split.rest.lastIndex) FeedRowDivider()
                 }
                 if (state.isLoadingMore) {
                     item { Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
@@ -354,7 +354,7 @@ internal fun NewsFeedScreen(
                     item(key = "feed-more") {
                         Text(
                             "기사 더 보기",
-                            color = Fl.Accent,
+                            color = HomeTokens.Navy,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.fillMaxWidth()
@@ -453,7 +453,7 @@ private fun SearchResultsFeed(
             action = "다시 시도",
             onAction = { onRetrySection(selectedFilter) }
         )
-        else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+        else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(HomeTokens.OffWhite)) {
             item {
                 Row(
                     Modifier.fillMaxWidth().background(Fl.Inset)
@@ -516,7 +516,7 @@ private fun SearchResultsFeed(
             }
             items(selected.items, key = { "${selected.filter.name}-${it.id}" }) { article ->
                 ArticleFeedRow(article = article, onClick = { onArticle(article.id) })
-                HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
+                FeedRowDivider()
             }
             when {
                 selected.isLoadingMore -> {
@@ -565,29 +565,6 @@ private fun SearchResultsFeed(
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
-        }
-    }
-}
-
-@Composable
-internal fun ArticleFeedRow(
-    article: ArticleSummary,
-    onClick: () -> Unit
-) {
-    Column(
-        Modifier.fillMaxWidth().clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Caption("${article.publisher.name} · ${relativeTime(article.publishedAt)}")
-        }
-        Text(article.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
-            fontWeight = FontWeight.SemiBold, color = Fl.Ink)
-        article.searchExcerpt?.let { excerpt ->
-            Text(excerpt, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Muted)
         }
     }
 }
@@ -673,13 +650,17 @@ private fun CategoryTab(
     ) {
         Text(
             label,
-            modifier = Modifier.padding(horizontal = 3.dp, vertical = 7.dp),
-            fontSize = 15.sp,
-            color = if (selected) Fl.Ink else Fl.Muted,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 8.dp),
+            fontSize = 15.5.sp,
+            color = if (selected) HomeTokens.Navy else Fl.Muted,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            letterSpacing = if (selected) (-0.2).sp else 0.sp
         )
-        Box(Modifier.height(2.dp).fillMaxWidth()
-            .background(if (selected) Fl.Accent else androidx.compose.ui.graphics.Color.Transparent))
+        Box(Modifier.width(22.dp).height(3.dp)
+            .background(
+                if (selected) HomeTokens.Navy else androidx.compose.ui.graphics.Color.Transparent,
+                RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)
+            ))
     }
 }
 
@@ -893,7 +874,7 @@ private fun CheckboxRow(label: String, checked: Boolean, onClick: () -> Unit) {
     }
 }
 
-private fun relativeTime(raw: String): String = try {
+internal fun feedRelativeTime(raw: String): String = try {
     val then = OffsetDateTime.parse(raw)
     val now = OffsetDateTime.now(then.offset)
     val minutes = Duration.between(then, now).toMinutes()

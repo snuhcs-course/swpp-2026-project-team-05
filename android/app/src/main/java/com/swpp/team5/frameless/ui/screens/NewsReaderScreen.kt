@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -476,7 +477,8 @@ private fun NewsReaderContent(
             },
             onOpenArticle = { onOpenComparisonArticle(it, scroll.value) },
             coachVisible = coach.step == ReaderCoachStep.COMPARISON,
-            onCoachDone = coach.onFinish
+            onCoachDone = coach.onFinish,
+            sourcePublisher = article.publisher.name
         )
     }
 }
@@ -681,7 +683,8 @@ internal fun FindingDetailSheet(
     onDismiss: () -> Unit,
     onOpenArticle: (ComparisonArticleUi) -> Unit = {},
     coachVisible: Boolean = false,
-    onCoachDone: () -> Unit = {}
+    onCoachDone: () -> Unit = {},
+    sourcePublisher: String = ""
 ) {
     if (finding.comparisons.isEmpty()) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -718,7 +721,7 @@ internal fun FindingDetailSheet(
                 BottomSheetDefaults.DragHandle()
             }
         },
-        containerColor = Fl.Card,
+        containerColor = HomeTokens.OffWhite,
         contentColor = Fl.Ink
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.93f)) {
@@ -727,8 +730,8 @@ internal fun FindingDetailSheet(
                     .padding(start = 20.dp, end = 8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("같은 내용을 다른 기사에서는", fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text("같은 내용을 다른 기사에서는", fontFamily = Fl.Serif, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold, color = HomeTokens.Navy, modifier = Modifier.weight(1f))
                     IconButton(
                         onClick = dismissSheet,
                         modifier = Modifier.semantics { contentDescription = "비교 상세 닫기" }
@@ -737,16 +740,21 @@ internal fun FindingDetailSheet(
                     }
                 }
                 if (comparisonOverview.isNotBlank()) {
-                    Text(
-                        comparisonOverview,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        color = Fl.Ink2,
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(end = 12.dp, bottom = 10.dp)
-                            .background(Fl.Inset, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    )
+                    // Stored overview, unchanged; set as a quiet editorial note with a navy rule.
+                    Row(
+                        Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+                            .padding(end = 12.dp, bottom = 12.dp)
+                    ) {
+                        Box(Modifier.width(2.dp).fillMaxHeight()
+                            .background(HomeTokens.Navy.copy(alpha = 0.55f), RoundedCornerShape(1.dp)))
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            comparisonOverview,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
+                            color = Fl.Ink2
+                        )
+                    }
                 }
                 if (coachVisible) {
                     CoachTooltip(
@@ -767,8 +775,12 @@ internal fun FindingDetailSheet(
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
+                    val page = finding.comparisons[index]
                     NewsComparisonPage(
-                        page = finding.comparisons[index],
+                        page = page,
+                        pair = remember(finding, page, sourcePublisher) {
+                            expressionPairFor(finding, sourcePublisher, page)
+                        },
                         sheetState = sheetState,
                         onDismiss = dismissSheet,
                         onOpenArticle = { page -> closeSheet { onOpenArticle(page) } },
@@ -781,8 +793,8 @@ internal fun FindingDetailSheet(
                     Row(
                         Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
                             .shadow(6.dp, RoundedCornerShape(50))
-                            .background(Fl.Card.copy(alpha = 0.92f), RoundedCornerShape(50))
-                            .border(1.dp, Fl.Line.copy(alpha = 0.75f), RoundedCornerShape(50))
+                            .background(HomeTokens.OffWhite.copy(alpha = 0.95f), RoundedCornerShape(50))
+                            .border(1.dp, HomeTokens.Hairline, RoundedCornerShape(50))
                             .height(48.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -795,7 +807,7 @@ internal fun FindingDetailSheet(
                             contentAlignment = Alignment.Center
                         ) {
                             Text("‹", fontSize = 24.sp,
-                                color = if (hasPrevious) Fl.Accent else Fl.Line)
+                                color = if (hasPrevious) HomeTokens.Navy else HomeTokens.Hairline)
                         }
                         Caption("${pagerState.currentPage + 1} / ${finding.comparisons.size}")
                         Box(
@@ -807,7 +819,7 @@ internal fun FindingDetailSheet(
                             contentAlignment = Alignment.Center
                         ) {
                             Text("›", fontSize = 24.sp,
-                                color = if (hasNext) Fl.Accent else Fl.Line)
+                                color = if (hasNext) HomeTokens.Navy else HomeTokens.Hairline)
                         }
                     }
                 }
@@ -881,6 +893,7 @@ private fun rememberPullDownDismissConnection(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun NewsComparisonPage(
     page: ComparisonArticleUi,
+    pair: ExpressionPairUi?,
     sheetState: SheetState,
     onDismiss: () -> Unit,
     onOpenArticle: (ComparisonArticleUi) -> Unit,
@@ -924,26 +937,30 @@ private fun NewsComparisonPage(
         focused = true
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp)) {
+    Column(Modifier.fillMaxSize().padding(bottom = 8.dp)) {
+        // The pair sits edge to edge above the article; it belongs to the drag-to-dismiss header region.
         Column(Modifier.fillMaxWidth().then(headerDismissModifier)) {
-            if (speakerLabels.isNotEmpty()) {
-                Caption(speakerLabels.joinToString(" · ") { "$it 표현" }, color = Fl.InkDiff)
+            pair?.let { ExpressionPairPanel(it) }
+            Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
+                if (speakerLabels.isNotEmpty()) {
+                    Caption(speakerLabels.joinToString(" · ") { "$it 표현" }, color = Fl.InkDiff)
+                }
+                Caption("${page.publisher.name} · ${formatNewsTimestamp(page.publishedAt)}")
+                Text(title, fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
+                    fontWeight = FontWeight.Bold, color = Fl.Ink)
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledPill(text = "이 기사 읽기", onClick = { onOpenArticle(page) })
+                    SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
+                }
+                HorizontalDivider(color = HomeTokens.Hairline)
             }
-            Caption("${page.publisher.name} · ${formatNewsTimestamp(page.publishedAt)}")
-            Text(title, fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
-                fontWeight = FontWeight.Bold, color = Fl.Ink)
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilledPill(text = "이 기사 읽기", onClick = { onOpenArticle(page) })
-                SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
-            }
-            HorizontalDivider(color = Fl.Line)
         }
         Box(
-            Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }
+            Modifier.fillMaxSize().padding(horizontal = 20.dp).onSizeChanged { viewportHeight = it.height }
                 .onGloballyPositioned { coordinates ->
                     visibleHeight = (rootView.height - coordinates.positionInWindow().y).toInt()
                         .coerceIn(0, coordinates.size.height)
