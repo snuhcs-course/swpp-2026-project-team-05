@@ -66,6 +66,11 @@ android {
     }
 }
 
+val robolectricRuntime = configurations.create("robolectricRuntime") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -85,6 +90,7 @@ dependencies {
     // AI-assisted tests parse real JSON on the host JVM instead of Android's placeholder org.json classes.
     testImplementation("org.json:json:20240303")
     testImplementation("org.robolectric:robolectric:4.17")
+    add(robolectricRuntime.name, "org.robolectric:android-all-instrumented:15-robolectric-13954326-i7")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -93,7 +99,21 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
+val robolectricRuntimeDirectory = layout.buildDirectory.dir("robolectric-runtime")
+val prepareRobolectricRuntime by tasks.registering(Copy::class) {
+    from(robolectricRuntime)
+    into(robolectricRuntimeDirectory)
+}
+
 tasks.withType<Test>().configureEach {
+    // Resolve the Android runtime through Gradle before the tests start. This
+    // keeps Robolectric's separate HTTP fetcher out of the CI critical path.
+    dependsOn(prepareRobolectricRuntime)
+    systemProperty(
+        "robolectric.dependency.dir",
+        robolectricRuntimeDirectory.get().asFile.absolutePath,
+    )
+
     // Robolectric loads Android production classes through a sandbox classloader.
     extensions.configure<JacocoTaskExtension> {
         isIncludeNoLocationClasses = true
