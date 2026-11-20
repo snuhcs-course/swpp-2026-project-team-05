@@ -15,6 +15,7 @@ import re
 from .models import EXPRESSION_CATEGORIES, Article, ArticleVisibility
 
 KINDS = ("contested", "one_side", "common_fact")
+FRONT_KINDS = ("position", "voices", "fact")
 SCOPES = frozenset({"TITLE", "BODY"})
 FACT_ONLY = "F"
 POSITION_ID = re.compile(r"^P\d{1,2}$")
@@ -38,22 +39,53 @@ def _text(value, context: str, field: str, limit: int) -> str:
     return value.strip()
 
 
+def _front(value, *, title: str, body: str, context: str) -> dict | None:
+    """What the article puts in front in its headline and lead: its own position (a label), the voices it quotes
+    (speaker and words found in the article), or the fact its headline adds (words of the article)."""
+    if value is None:
+        return None
+    _check(isinstance(value, dict) and value.get("kind") in FRONT_KINDS, context, "front kind must be one of "
+           + ", ".join(FRONT_KINDS))
+    kind = value["kind"]
+    if kind == "position":
+        return {"kind": kind, "label": _text(value.get("label"), context, "front label", 60)}
+    if kind == "fact":
+        phrase = _text(value.get("phrase"), context, "front phrase", 80)
+        _check(phrase in title or phrase in body, context, "front phrase is not words of the article")
+        return {"kind": kind, "phrase": phrase}
+    voices = value.get("voices")
+    _check(isinstance(voices, list) and 0 < len(voices) <= 2, context, "front voices must hold one or two")
+    out = []
+    for v in voices:
+        _check(isinstance(v, dict), context, "voice must be an object")
+        quote = _text(v.get("quote"), context, "voice quote", 80)
+        _check(quote in title or quote in body, context, "voice quote is not words of the article")
+        out.append({"speaker": _text(v.get("speaker"), context, "voice speaker", 30), "quote": quote})
+    return {"kind": kind, "voices": out}
+
+
 def validate_frame_context(value, *, title: str, body: str, context: str) -> dict | None:
-    """The reviewed `frame_context` of one article, checked against its title and body."""
+    """The reviewed `frame_context` of one article, checked against its title and body: the frame, optionally the
+    sentence that shows it, and optionally what the article puts in front (`front`)."""
     if value is None:
         return None
     _check(isinstance(value, dict), context, "frame_context must be an object")
-    frame = _text(value.get("frame"), context, "frame", 40)
+    out = {"frame": _text(value.get("frame"), context, "frame", 40)}
     sentence = value.get("sentence")
-    _check(isinstance(sentence, dict), context, "sentence must be an object")
-    scope, start, end, text = (sentence.get(k) for k in ("scope", "start", "end", "text"))
-    _check(scope in SCOPES, context, "sentence scope must be TITLE or BODY")
-    _check(isinstance(start, int) and isinstance(end, int) and isinstance(text, str), context,
-           "sentence needs integer start / end and its text")
-    selected = title if scope == "TITLE" else body
-    _check(0 <= start < end <= len(selected) and selected[start:end] == text, context,
-           "sentence text does not match its offsets")
-    return {"frame": frame, "sentence": {"scope": scope, "start": start, "end": end, "text": text}}
+    if sentence is not None:
+        _check(isinstance(sentence, dict), context, "sentence must be an object")
+        scope, start, end, text = (sentence.get(k) for k in ("scope", "start", "end", "text"))
+        _check(scope in SCOPES, context, "sentence scope must be TITLE or BODY")
+        _check(isinstance(start, int) and isinstance(end, int) and isinstance(text, str), context,
+               "sentence needs integer start / end and its text")
+        selected = title if scope == "TITLE" else body
+        _check(0 <= start < end <= len(selected) and selected[start:end] == text, context,
+               "sentence text does not match its offsets")
+        out["sentence"] = {"scope": scope, "start": start, "end": end, "text": text}
+    front = _front(value.get("front"), title=title, body=body, context=context)
+    if front:
+        out["front"] = front
+    return out
 
 
 def validate_issue_table(value, *, articles: dict[str, Article], context: str) -> dict | None:
@@ -116,7 +148,12 @@ def validate_issue_table(value, *, articles: dict[str, Article], context: str) -
             seen.add(aid)
             _check(o.get("position") == FACT_ONLY or o.get("position") in positions, c,
                    "outlet position must be one of the issue's positions or F")
-            out_outlets.append({"article": aid, "position": o["position"]})
+            voice = o.get("voice")  # who said it, when the position comes from words the outlet quotes
+            _check(voice is None or isinstance(voice, str) and len(voice.strip()) <= 30, c,
+                   "voice must be a short text")
+            out_outlets.append({"article": aid, "position": o["position"],
+                                "voice": voice.strip() if voice and voice.strip() and o["position"] != FACT_ONLY
+                                else None})
         out_issues.append({"key": key, "question": _text(issue.get("question"), c, "question", 300),
                            "kind": issue["kind"], "positions": positions, "outlets": out_outlets,
                            "wordings": wordings(issue.get("wordings", []), c)})
@@ -154,8 +191,9 @@ def frame_payload(article: Article, publisher_payload) -> dict | None:
     context = article.frame_context
     if cluster is None or not context or not cluster.issue_table:
         return None
-    if not _sentence_matches(article, context["sentence"]):
-        return None
+    sentence = context.get("sentence")
+    if sentence and not _sentence_matches(article, sentence):
+        sentence = None  # stale offsets: the sentence is left out, the rest still applies
     siblings = list(Article.objects
                     .filter(story_cluster_id=cluster.id, visibility=ArticleVisibility.VISIBLE,
                             publisher__is_active=True)
@@ -182,7 +220,8 @@ def frame_payload(article: Article, publisher_payload) -> dict | None:
             members = [o for o in outlets if o["position"] == pid]
             if members:
                 groups.append({"label": label, "is_own": bool(own and own["position"] == pid),
-                               "outlets": [ref(o["article"]) for o in members if o["article"] != own_id]})
+                               "outlets": [{**ref(o["article"]), "voice": o.get("voice")}
+                                           for o in members if o["article"] != own_id]})
         issues.append({
             "question": issue["question"], "kind": issue["kind"],
             "own": {"covered": own is not None, "fact_only": bool(own and own["position"] == FACT_ONLY),
@@ -198,16 +237,18 @@ def frame_payload(article: Article, publisher_payload) -> dict | None:
     others = []
     for other in siblings:
         frame = other.frame_context
-        if other.id == article.id or not frame or not _sentence_matches(other, frame["sentence"]):
+        if other.id == article.id or not frame:
             continue
         aid = str(other.id)
+        other_sentence = frame.get("sentence")
         positions = [{"issue": i["question"], "position": i["positions"][o["position"]]}
                      for i in table["issues"] for o in i["outlets"]
                      if o["article"] == aid and o["position"] != FACT_ONLY]
         others.append({**ref(aid), "title": other.title, "frame": frame["frame"],
-                       "sentence": frame["sentence"]["text"], "positions": positions[:MAX_POSITIONS_SHOWN]})
+                       "sentence": other_sentence["text"] if other_sentence and _sentence_matches(other, other_sentence)
+                       else "", "front": frame.get("front"), "positions": positions[:MAX_POSITIONS_SHOWN]})
     others.sort(key=lambda o: not o["positions"])
     facts = [{"label": f["label"], "outlets": sum(1 for aid in f["outlets"] if aid in by_id),
               "wordings": wordings(f["wordings"])} for f in table["facts"]]
-    return {"event": table["event"], "frame": context["frame"], "sentence": context["sentence"],
+    return {"event": table["event"], "frame": context["frame"], "sentence": sentence, "front": context.get("front"),
             "others": others, "issues": issues, "facts": facts}

@@ -1085,6 +1085,11 @@ class EventIssueViewApiTests(TestCase):
             article.frame_context = {"frame": frame, "sentence": {"scope": "BODY", "start": 0, "end": len(sentence),
                                                                   "text": sentence}}
             article.save()
+        self.a.frame_context["front"] = {"kind": "position", "label": "일방 처리"}
+        self.b.frame_context["front"] = {"kind": "voices", "voices": [{"speaker": "여당", "quote": "개혁"}]}
+        self.c.frame_context["front"] = {"kind": "fact", "phrase": "표결은 오후에 열렸다."}
+        for article in (self.a, self.b, self.c):
+            article.save()
         ids = {k: str(x.id) for k, x in (("a", self.a), ("b", self.b), ("c", self.c))}
         self.cluster.issue_table = {
             "event": "국회, 법안 통과",
@@ -1093,7 +1098,8 @@ class EventIssueViewApiTests(TestCase):
                  "outlets": [{"article": ids["c"], "position": "F"}], "wordings": []},
                 {"key": "K1", "question": "법안 처리 절차는 정당했나?", "kind": "contested",
                  "positions": {"P1": "일방 처리", "P2": "정상 처리"},
-                 "outlets": [{"article": ids["a"], "position": "P1"}, {"article": ids["b"], "position": "P2"},
+                 "outlets": [{"article": ids["a"], "position": "P1"},
+                             {"article": ids["b"], "position": "P2", "voice": "여당"},
                              {"article": ids["c"], "position": "F"}],
                  "wordings": [{"left": {"article": ids["a"], "phrase": "강행 처리했다"},
                                "right": {"article": ids["b"], "phrase": "통과시켰다"}, "code": "C",
@@ -1110,11 +1116,12 @@ class EventIssueViewApiTests(TestCase):
     def test_each_article_sees_the_same_table_from_its_own_side(self):
         a = self._frame(self.a)
         self.assertEqual((a["event"], a["frame"], a["sentence"]["text"]), ("국회, 법안 통과", "정치", "국회가 법안을 강행 처리했다."))
+        self.assertEqual(a["front"], {"kind": "position", "label": "일방 처리"})
         first = a["issues"][0]
         self.assertEqual(first["question"], "법안 처리 절차는 정당했나?")
         self.assertEqual(first["own"], {"covered": True, "fact_only": False, "position": "일방 처리"})
-        self.assertEqual([(g["label"], g["is_own"], [o["publisher"]["name"] for o in g["outlets"]])
-                          for g in first["positions"]], [("일방 처리", True, []), ("정상 처리", False, ["나일보"])])
+        self.assertEqual([(g["label"], g["is_own"], [(o["publisher"]["name"], o["voice"]) for o in g["outlets"]])
+                          for g in first["positions"]], [("일방 처리", True, []), ("정상 처리", False, [("나일보", "여당")])])
         self.assertEqual([o["publisher"]["name"] for o in first["fact_only_outlets"]], ["다방송"])
         self.assertEqual([(w["left"]["phrase"], w["right"]["phrase"]) for w in first["wordings"]], [("강행 처리했다", "통과시켰다")])
         self.assertEqual(a["issues"][1]["own"]["covered"], False)  # an issue it does not cover comes last
@@ -1141,8 +1148,10 @@ class EventIssueViewApiTests(TestCase):
         self.assertEqual([o["publisher"]["name"] for o in a["others"]], ["다방송"])
         self.c.frame_context["sentence"]["text"] = "본문과 다른 문장"
         self.c.save()
-        self.assertIsNone(self._frame(self.c))
-        self.assertEqual(self._frame(self.a)["others"], [])
+        stale = self._frame(self.c)
+        self.assertIsNone(stale["sentence"])  # only the stale sentence is left out
+        self.assertEqual(stale["front"], {"kind": "fact", "phrase": "표결은 오후에 열렸다."})
+        self.assertEqual([o["sentence"] for o in self._frame(self.a)["others"]], [""])
 
     def test_article_without_frame_or_cluster_table_answers_null(self):
         self.a.frame_context = None

@@ -266,13 +266,14 @@ describe('ArticlePage frame and issue view', () => {
     event: '국회, 법안 통과',
     frame: '정치',
     sentence: { scope: 'BODY', start: 0, end: sentence.length, text: sentence },
+    front: { kind: 'voices', voices: [{ speaker: '야당', quote: '야당은 반발했다' }] },
     others: [{ article_id: 'b-1', publisher: b, title: '법안 통과', frame: '정책 평가', sentence: '국회가 법안을 통과시켰다.',
       positions: [{ issue: '법안 처리 절차는 정당했나?', position: '정상 처리' }] }],
     issues: [{
       question: '법안 처리 절차는 정당했나?', kind: 'contested',
       own: { covered: true, fact_only: false, position: '일방 처리' },
       positions: [{ label: '일방 처리', is_own: true, outlets: [] },
-        { label: '정상 처리', is_own: false, outlets: [{ article_id: 'b-1', publisher: b }] }],
+        { label: '정상 처리', is_own: false, outlets: [{ article_id: 'b-1', publisher: b, voice: '여당' }] }],
       fact_only_outlets: [{ article_id: 'c-1', publisher: c }],
       wordings: [{ left: { article_id: 'source-1', publisher: article.publisher, phrase: '강행 처리했다' },
         right: { article_id: 'b-1', publisher: b, phrase: '통과시켰다' }, code: 'C',
@@ -303,7 +304,9 @@ describe('ArticlePage frame and issue view', () => {
 
     const header = await screen.findByRole('region', { name: 'Frame' })
     expect(within(header).getByText('국회, 법안 통과')).toBeInTheDocument()
-    expect(within(header).getByText(`«${sentence}»`)).toBeInTheDocument()
+    expect(within(header).getByText('야당')).toBeInTheDocument()
+    expect(within(header).getByText('«야당은 반발했다»')).toBeInTheDocument()
+    expect(within(header).queryByText(`«${sentence}»`)).not.toBeInTheDocument()
 
     const issues = screen.getByRole('region', { name: 'How other outlets see this event' })
     expect(within(issues).getAllByRole('heading', { level: 3 }).map((h) => h.textContent))
@@ -311,6 +314,7 @@ describe('ArticlePage frame and issue view', () => {
     const own = within(issues).getByText('This article')
     expect(own.parentElement).toHaveTextContent('일방 처리')
     expect(within(issues).getByRole('link', { name: '나일보' })).toHaveAttribute('href', '/articles/b-1')
+    expect(within(issues).getByText('(quoting 여당)')).toBeInTheDocument()
     expect(within(issues).getAllByRole('link', { name: '다방송' })[0]).toHaveAttribute('href', '/articles/c-1')
     expect(within(issues).getByText(/Facts only/)).toBeInTheDocument()
     for (const gone of ['«통과시켰다»', '국회가 법안을 처리했다', 'Not covered by this article', 'Different wording']) {

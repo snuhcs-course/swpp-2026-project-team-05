@@ -33,9 +33,10 @@ function economicRanges(lens: EconomicLens | null, scope: 'TITLE' | 'BODY'): Hig
   })
 }
 
-/** The sentence that shows the article's frame, underlined like an economic view sentence. */
+/** The sentence that shows the article's frame, underlined like an economic view sentence; only shown when the frame
+ * box quotes it (an article without `front`). */
 function frameRanges(lens: FrameLens | null, scope: 'TITLE' | 'BODY'): HighlightRange[] {
-  if (!lens || lens.sentence.scope !== scope) return []
+  if (!lens || lens.front || !lens.sentence || lens.sentence.scope !== scope) return []
   return [{ id: `${VIEW_SENTENCE}frame`, start: lens.sentence.start, end: lens.sentence.end }]
 }
 
@@ -138,7 +139,26 @@ function FrameChip({ frame, muted = false }: { frame: string; muted?: boolean })
   )
 }
 
-/** The event and this article's frame in its own words, under the publisher line (like the economic lens). */
+/** What this article puts in front about the event: its own position, the voices it quotes (speaker and words), or
+ * the fact its headline adds, in its own words. */
+function FrontLine({ lens }: { lens: FrameLens }) {
+  const front = lens.front
+  if (!front) return lens.sentence ? <span className="font-serif font-bold">«{lens.sentence.text}»</span> : null
+  if (front.kind === 'position') return <span className="font-bold">{front.label}</span>
+  if (front.kind === 'fact') return <span className="font-serif font-bold">«{front.phrase}»</span>
+  return (
+    <span className="grid gap-0.5">
+      {front.voices?.map((v) => (
+        <span key={v.speaker}>
+          <span className="text-xs font-bold text-zinc-600">{v.speaker}</span>{' '}
+          <span className="font-serif font-bold">«{v.quote}»</span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** The event and what this article puts in front about it, under the publisher line (like the economic lens). */
 function FrameLensHeader({ lens }: { lens: FrameLens }) {
   return (
     <section className="mb-7 border border-teal-700/40 bg-teal-50/40 px-4 py-3" aria-label="Frame">
@@ -148,7 +168,7 @@ function FrameLensHeader({ lens }: { lens: FrameLens }) {
         <dd className="text-sm font-bold">{lens.event}</dd>
         <dt className="text-xs font-bold text-zinc-600">This article</dt>
         <dd className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6">
-          <span className="font-serif font-bold">«{lens.sentence.text}»</span>
+          <FrontLine lens={lens} />
           <FrameChip frame={lens.frame} />
         </dd>
       </dl>
@@ -156,13 +176,17 @@ function FrameLensHeader({ lens }: { lens: FrameLens }) {
   )
 }
 
-function OutletLinks({ outlets }: { outlets: OutletRef[] }) {
+/** Outlets linked to their articles; an outlet whose position comes from words it quotes names the speaker. */
+function OutletLinks({ outlets }: { outlets: (OutletRef & { voice?: string | null })[] }) {
   return (
-    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+    <span className="flex flex-wrap gap-x-3 gap-y-0.5">
       {outlets.map((o) => (
-        <Link key={o.article_id} to={`/articles/${o.article_id}`} className="text-xs font-bold text-zinc-700 underline-offset-4 hover:underline">
-          {o.publisher.name}
-        </Link>
+        <span key={o.article_id} className="text-xs">
+          <Link to={`/articles/${o.article_id}`} className="font-bold text-zinc-700 underline-offset-4 hover:underline">
+            {o.publisher.name}
+          </Link>
+          {o.voice && <span className="text-zinc-500"> (quoting {o.voice})</span>}
+        </span>
       ))}
     </span>
   )
