@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../lib/api'
-import type { Analysis, ArticleDetail, EconomicLens, Finding } from '../lib/types'
+import type { Analysis, ArticleDetail, EconomicLens, Finding, FrameLens } from '../lib/types'
 import { ArticlePage } from './ArticlePage'
 
 vi.mock('../auth/useAuth', () => ({
@@ -254,5 +254,68 @@ describe('ArticlePage comparison navigation', () => {
     await user.click(screen.getByRole('button', { name: 'Back to source article' }))
     expect(await screen.findByText('A reviewed headline')).toBeInTheDocument()
     expect(screen.getByText('Finding 1 of 2')).toBeInTheDocument()
+  })
+})
+
+describe('ArticlePage frame and issue view', () => {
+  const body = '국회가 법안을 강행 처리했다. 야당은 반발했다.'
+  const sentence = '국회가 법안을 강행 처리했다.'
+  const b = { code: 'b', name: '나일보', logo_url: '' }
+  const c = { code: 'c', name: '다방송', logo_url: '' }
+  const frame: FrameLens = {
+    event: '국회, 법안 통과',
+    frame: '정치',
+    sentence: { scope: 'BODY', start: 0, end: sentence.length, text: sentence },
+    others: [{ article_id: 'b-1', publisher: b, title: '법안 통과', frame: '정책 평가', sentence: '국회가 법안을 통과시켰다.',
+      positions: [{ issue: '법안 처리 절차는 정당했나?', position: '정상 처리' }] }],
+    issues: [{
+      question: '법안 처리 절차는 정당했나?', kind: 'contested',
+      own: { covered: true, fact_only: false, position: '일방 처리' },
+      positions: [{ label: '일방 처리', is_own: true, outlets: [] },
+        { label: '정상 처리', is_own: false, outlets: [{ article_id: 'b-1', publisher: b }] }],
+      fact_only_outlets: [{ article_id: 'c-1', publisher: c }],
+      wordings: [{ left: { article_id: 'source-1', publisher: article.publisher, phrase: '강행 처리했다' },
+        right: { article_id: 'b-1', publisher: b, phrase: '통과시켰다' }, code: 'C',
+        explanation: '같은 행위를 서술하면서 Source News 쪽이 더 센 말을 골랐습니다.' }],
+    }],
+    facts: [{ label: '국회가 법안을 처리했다', outlets: 3, wordings: [] }],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.article).mockResolvedValue({ ...article, body })
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY', version: 'test', source_content_hash: 'source-hash', findings: [], economic: null, frame,
+    } satisfies Analysis)
+  })
+
+  it('shows the event and this article\'s frame on top and the issues across outlets at the bottom', async () => {
+    renderPage()
+
+    const header = await screen.findByRole('region', { name: 'Frame' })
+    expect(within(header).getByText('국회, 법안 통과')).toBeInTheDocument()
+    expect(within(header).getByText(`«${sentence}»`)).toBeInTheDocument()
+
+    const issues = screen.getByRole('region', { name: 'How other outlets see this event' })
+    expect(within(issues).getByText('법안 처리 절차는 정당했나?')).toBeInTheDocument()
+    expect(within(issues).getByText('Views differ')).toBeInTheDocument()
+    expect(within(issues).getAllByText('일방 처리')).toHaveLength(2)  // this article's line and its position group
+    expect(within(issues).getByRole('link', { name: '다방송' })).toHaveAttribute('href', '/articles/c-1')
+    expect(within(issues).getByText('«통과시켰다»')).toBeInTheDocument()
+    expect(within(issues).getByText('국회가 법안을 처리했다')).toBeInTheDocument()
+  })
+
+  it('keeps the economic lens on top for an economy article and lists the issues under another title', async () => {
+    const lens: EconomicLens = { event: '가계빚 증가폭 둔화', views: [], others: [] }
+    vi.mocked(api.article).mockResolvedValue({ ...article, body, category: 'ECONOMY' })
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY', version: 'test', source_content_hash: 'source-hash', findings: [], economic: lens, frame,
+    } satisfies Analysis)
+    renderPage()
+
+    expect(await screen.findByRole('region', { name: 'Economic lens' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Frame' })).not.toBeInTheDocument()
+    const issues = screen.getByRole('region', { name: 'Issue by issue across outlets' })
+    expect(within(issues).getByText('법안 처리 절차는 정당했나?')).toBeInTheDocument()
   })
 })

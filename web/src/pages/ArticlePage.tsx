@@ -6,7 +6,7 @@ import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { AppShell } from '../components/AppShell'
 import { SaveArticleButton } from '../components/SaveArticleButton'
-import type { EconomicLens, EconomicView, Finding } from '../lib/types'
+import type { EconomicLens, EconomicView, Finding, FrameLens, IssueView, IssueWording, OutletRef } from '../lib/types'
 import { api } from '../lib/api'
 import { articleOrigin, comparisonArticleRouteState, comparisonFocus } from '../lib/navigation'
 import { segmentText, sourceRange, type HighlightRange } from '../lib/text'
@@ -31,6 +31,12 @@ function economicRanges(lens: EconomicLens | null, scope: 'TITLE' | 'BODY'): Hig
     const start = view.sentence.start + Array.from(view.sentence.text.slice(0, at)).length
     return [sentence, { id: `${VIEW_PHRASE}${index}`, start, end: start + Array.from(view.phrase).length }]
   })
+}
+
+/** The sentence that shows the article's frame, underlined like an economic view sentence. */
+function frameRanges(lens: FrameLens | null, scope: 'TITLE' | 'BODY'): HighlightRange[] {
+  if (!lens || lens.sentence.scope !== scope) return []
+  return [{ id: `${VIEW_SENTENCE}frame`, start: lens.sentence.start, end: lens.sentence.end }]
 }
 
 function HighlightedText({ text, findings, selectedId, onSelect, focus = null, economic = [], className }: {
@@ -119,6 +125,135 @@ function EconomicLensHeader({ lens }: { lens: EconomicLens }) {
             : <span className="text-sm text-zinc-500">No view could be read from this article.</span>}
         </dd>
       </dl>
+    </section>
+  )
+}
+
+function FrameChip({ frame, muted = false }: { frame: string; muted?: boolean }) {
+  return (
+    <span className={cn(
+      'border px-1.5 text-[11px] font-bold',
+      muted ? 'border-zinc-300 text-zinc-500' : 'border-teal-700/50 text-teal-900',
+    )}>{frame}</span>
+  )
+}
+
+/** The event and this article's frame in its own words, under the publisher line (like the economic lens). */
+function FrameLensHeader({ lens }: { lens: FrameLens }) {
+  return (
+    <section className="mb-7 border border-teal-700/40 bg-teal-50/40 px-4 py-3" aria-label="Frame">
+      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-teal-900">Frame</p>
+      <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-[110px_minmax(0,1fr)]">
+        <dt className="text-xs font-bold text-zinc-600">Event</dt>
+        <dd className="text-sm font-bold">{lens.event}</dd>
+        <dt className="text-xs font-bold text-zinc-600">This article</dt>
+        <dd className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6">
+          <span className="font-serif font-bold">«{lens.sentence.text}»</span>
+          <FrameChip frame={lens.frame} />
+        </dd>
+      </dl>
+    </section>
+  )
+}
+
+function OutletLinks({ outlets }: { outlets: OutletRef[] }) {
+  return (
+    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+      {outlets.map((o) => (
+        <Link key={o.article_id} to={`/articles/${o.article_id}`} className="text-xs font-bold text-zinc-700 underline-offset-4 hover:underline">
+          {o.publisher.name}
+        </Link>
+      ))}
+    </span>
+  )
+}
+
+/** Wording differences inside one issue or fact group: two outlets' phrases for the same content. */
+function Wordings({ items }: { items: IssueWording[] }) {
+  if (!items.length) return null
+  return (
+    <div className="grid gap-2 border-l-2 border-amber-300 pl-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.08em] text-zinc-500">Different wording</p>
+      {items.map((w, k) => (
+        <div key={k} className="grid gap-0.5 text-sm leading-5">
+          <span>
+            <Link to={`/articles/${w.left.article_id}`} className="text-xs font-bold text-zinc-600 hover:underline">{w.left.publisher.name}</Link>{' '}
+            <span className="font-serif font-bold">«{w.left.phrase}»</span>
+          </span>
+          <span>
+            <Link to={`/articles/${w.right.article_id}`} className="text-xs font-bold text-zinc-600 hover:underline">{w.right.publisher.name}</Link>{' '}
+            <span className="font-serif font-bold">«{w.right.phrase}»</span>
+          </span>
+          <span className="text-xs text-zinc-500">{w.explanation}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const ISSUE_KIND: Record<IssueView['kind'], string> = {
+  contested: 'Views differ',
+  one_side: 'One view reported',
+  common_fact: 'Facts only',
+}
+
+/** One issue from the article being read: its own position, the other outlets' positions, wording differences. */
+function IssueBlock({ issue }: { issue: IssueView }) {
+  const own = issue.own.position ?? (issue.own.fact_only ? 'Reports the facts only' : 'Not covered by this article')
+  return (
+    <article className="grid gap-3 py-4">
+      <div className="flex items-start gap-2">
+        <h3 className="flex-1 font-serif text-[15px] font-bold leading-6">{issue.question}</h3>
+        <span className="mt-1 shrink-0 border border-zinc-300 px-1.5 text-[10px] font-bold text-zinc-600">{ISSUE_KIND[issue.kind]}</span>
+      </div>
+      <p className="text-sm">
+        <span className="mr-2 bg-teal-900 px-1.5 py-0.5 text-[11px] font-bold text-white">This article</span>
+        <span className={cn('font-bold', !issue.own.position && 'font-normal text-zinc-500')}>{own}</span>
+      </p>
+      <ul className="grid gap-2">
+        {issue.positions.map((p) => (
+          <li key={p.label} className="grid gap-0.5">
+            <span className="text-sm font-bold leading-5">
+              {p.label}
+              {p.is_own && <span className="ml-2 text-[11px] font-normal text-teal-900">same as this article</span>}
+            </span>
+            {p.outlets.length > 0 && <OutletLinks outlets={p.outlets} />}
+          </li>
+        ))}
+      </ul>
+      {issue.fact_only_outlets.length > 0 && (
+        <p className="flex flex-wrap items-baseline gap-2 text-xs text-zinc-500">
+          Facts only: <OutletLinks outlets={issue.fact_only_outlets} />
+        </p>
+      )}
+      <Wordings items={issue.wordings} />
+    </article>
+  )
+}
+
+/** How the other outlets on the same event see it, issue by issue, then the facts they all report. Under the
+ * economic lens's own outlet list it takes another title. */
+function FrameOtherOutlets({ lens, title = 'How other outlets see this event' }: { lens: FrameLens; title?: string }) {
+  return (
+    <section className="mt-10 border-t-2 border-teal-700 pt-5" aria-label={title}>
+      <h2 className="text-sm font-black text-teal-900">{title}</h2>
+      <p className="mt-1 text-xs text-zinc-600">{lens.event} · {lens.issues.length} issues</p>
+      <div className="mt-2 divide-y divide-zinc-200">
+        {lens.issues.map((issue) => <IssueBlock key={issue.question} issue={issue} />)}
+      </div>
+      {lens.facts.length > 0 && (
+        <div className="mt-4 border-t border-zinc-300 pt-4">
+          <h3 className="text-xs font-black uppercase tracking-[0.08em] text-zinc-600">Facts the outlets report alike</h3>
+          <ul className="mt-2 grid gap-3">
+            {lens.facts.map((f) => (
+              <li key={f.label} className="grid gap-2">
+                <span className="text-sm leading-5">{f.label} <span className="text-xs text-zinc-500">· {f.outlets} outlets</span></span>
+                <Wordings items={f.wordings} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   )
 }
@@ -249,8 +384,12 @@ export function ArticlePage() {
   const analysisQuery = useQuery({ queryKey: ['analysis', id], queryFn: () => api.analysis(token, id), enabled: Boolean(id) })
   const findings = analysisQuery.data?.findings ?? []
   const economic = analysisQuery.data?.economic ?? null
-  const titleEconomic = useMemo(() => economicRanges(economic, 'TITLE'), [economic])
-  const bodyEconomic = useMemo(() => economicRanges(economic, 'BODY'), [economic])
+  // The issue view at the bottom shows for every category; an economy article keeps the economic lens at the top
+  // instead of the frame box.
+  const frame = analysisQuery.data?.frame ?? null
+  const frameHeader = economic ? null : frame
+  const titleEconomic = useMemo(() => [...economicRanges(economic, 'TITLE'), ...frameRanges(frameHeader, 'TITLE')], [economic, frameHeader])
+  const bodyEconomic = useMemo(() => [...economicRanges(economic, 'BODY'), ...frameRanges(frameHeader, 'BODY')], [economic, frameHeader])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const focus = comparisonFocus(location.state, id)
 
@@ -300,6 +439,7 @@ export function ArticlePage() {
                   <AnalysisBadge state={article.analysis_state} />
                 </div>
                 {economic && <EconomicLensHeader lens={economic} />}
+                {frameHeader && <FrameLensHeader lens={frameHeader} />}
                 <HighlightedText
                   text={article.title}
                   findings={titleFindings}
@@ -371,6 +511,7 @@ export function ArticlePage() {
                   </div>
                 )}
                 {economic && <OtherOutlets lens={economic} />}
+                {frame && <FrameOtherOutlets lens={frame} title={economic ? 'Issue by issue across outlets' : undefined} />}
               </div>
             </aside>
           </div>

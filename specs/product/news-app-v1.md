@@ -583,12 +583,15 @@ The response is projected onto the selected article. It never triggers collectio
       ]
     }
   ],
-  "economic": null
+  "economic": null,
+  "frame": null
 }
 ```
 
 `economic` is `null` unless the article is an economy article with a reviewed economic lens; its shape is defined in
 `specs/features/economic-lens.md`.
+`frame` is `null` unless the article has a reviewed frame and its cluster a reviewed issue table; its shape is
+defined in `specs/features/event-issue-view.md`.
 
 Offset rules:
 

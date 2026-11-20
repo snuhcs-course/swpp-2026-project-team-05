@@ -13,6 +13,7 @@ from django.utils.dateparse import parse_datetime
 
 from .article_search import apply_article_search, search_excerpt
 from .economic_lens import economic_payload
+from .event_issues import frame_payload
 from .models import (
     AnalysisStatus,
     Article,
@@ -335,6 +336,7 @@ def article_analysis_payload(article: Article) -> dict:
             "source_content_hash": article.content_hash,
             "findings": [],
             "economic": None,
+            "frame": None,
         }
 
     comparison_queryset = (FindingComparison.objects
@@ -381,4 +383,5 @@ def article_analysis_payload(article: Article) -> dict:
         "source_content_hash": article.content_hash,
         "findings": findings,
         "economic": economic_payload(article, publisher_payload),
+        "frame": frame_payload(article, publisher_payload),
     }
