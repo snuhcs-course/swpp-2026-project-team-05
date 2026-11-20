@@ -94,6 +94,12 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
+    // Robolectric resolves its Android runtime at test execution time. Use Maven
+    // Central's canonical endpoint instead of the repo1 CDN default so CI does
+    // not fail before any test method runs when that CDN is unavailable.
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    systemProperty("robolectric.dependency.repo.id", "mavenCentral")
+
     // Robolectric loads Android production classes through a sandbox classloader.
     extensions.configure<JacocoTaskExtension> {
         isIncludeNoLocationClasses = true
