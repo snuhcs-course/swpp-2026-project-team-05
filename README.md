@@ -150,13 +150,11 @@ content and any live pasted-link result are reviewed separately.
 
 ## Demo video
 
-The final recording will be added before submission at:
+[Watch the Iteration 4 demo](demo/iteration-4-demo.mp4) (`1:56`, silent screen
+recording).
 
-```text
-demo/iteration-4-demo.mp4
-```
-
-The recording should take approximately two to three minutes and follow the
-primary flow above. It should avoid long live-model waits: use the prepared
-articles for the core demonstration, and show pasted-link analysis only after a
-preflight check with a stable URL.
+The recording uses the prepared dataset rather than waiting for a live model
+call. It shows global article search, article-first reading, analysis markers,
+source-linked compared coverage, saving an article, and reopening the complete
+Saved article offline. The recording contains no account password or other
+credential.
