@@ -52,6 +52,27 @@ The result records the exact commands, test counts, failures or skips, measured
 coverage against the pre-existing thresholds, and links to the CI run and
 coverage artifacts. A skipped required job is not a pass.
 
+### Production API smoke
+
+Run `python scripts/smoke_release_api.py --output <evidence.json>` against the
+final API deployment. Unlike the historical Iteration 3 smoke, this check must
+not assume that mutable production data still contains six old article titles.
+It discovers the public corpus and accepts six different articles only when all
+of the following hold:
+
+- the article body and content identity are complete;
+- the analysis is `READY` and refers to the same content hash;
+- every stored source and comparison sentence/marker matches its offsets;
+- at least one finding and one comparison-backed article are present; and
+- a compared article can be fetched as a first-class Reader article with a
+  `READY` analysis.
+
+The evidence file records the exact sampled IDs, content hashes, analysis
+versions, category counts, latencies, and a sample fingerprint. A later dataset
+change may select different valid stories, but a particular run remains
+auditable from that evidence. The six-story Iteration 3 script remains unchanged
+as historical evidence and is not the release oracle for a replaced dataset.
+
 ## 2. Frozen Iteration 3 acceptance results
 
 Run `UAT-01` through `UAT-06` exactly as written in

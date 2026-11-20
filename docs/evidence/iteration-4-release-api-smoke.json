@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-11-20T07:08:28.344668+00:00",
+  "base_url": "https://frameless-team05-api.vercel.app",
+  "health": {
+    "status": "ok",
+    "analysis_ready": true,
+    "latency_ms": 129
+  },
+  "feed_visible_articles": 81,
+  "feed_category_counts": {
+    "POLITICS": 39,
+    "SOCIETY": 29,
+    "ECONOMY": 13
+  },
+  "sample_size_required": 6,
+  "sample_size_observed": 6,
+  "sample_fingerprint": "2f75ede15e3bf7a45abf241ccc05bd7a357f173356b17c410a174031fde8ce7a",
+  "median_detail_plus_analysis_ms": 300,
+  "max_detail_plus_analysis_ms": 400,
+  "cases": [
+    {
+      "article_id": "8731633a-ab1d-45f6-8f91-dd341f0b9a51",
+      "title": "민주유공자법 상정에 국힘 필버 돌입…“국보법 위반자도 유공자 되나”",
+      "publisher": "부산일보",
+      "category": "POLITICS",
+      "content_hash": "8716d31725ab314c0709e14e92e7b8e0eddb6c4ccf91d0d2ad303a070936bf30",
+      "analysis_version": "event-issues-v1",
+      "finding_count": 2,
+      "comparison_article_count": 2,
+      "checked_comparison_article_id": "cc747922-63dd-4f0b-b05b-856f4d7a120e",
+      "detail_ms": 123,
+      "analysis_ms": 144,
+      "comparison_target_ms": 293
+    },
+    {
+      "article_id": "bc4179c2-2c83-4198-a58e-e33695f2f348",
+      "title": "새만금공항, 2심도 제동… “조류충돌 위험 등 검토 부실”",
+      "publisher": "국민일보",
+      "category": "SOCIETY",
+      "content_hash": "40c92277fccbbc1994588cadcbc35f59978a0ae66006ee430c934fcaca17433b",
+      "analysis_version": "event-issues-v1",
+      "finding_count": 2,
+      "comparison_article_count": 2,
+      "checked_comparison_article_id": "11f53c39-96a5-4d69-9d45-5044dc5142f4",
+      "detail_ms": 123,
+      "analysis_ms": 277,
+      "comparison_target_ms": 277
+    },
+    {
+      "article_id": "380146f2-ae1b-4d20-8433-106c58ede176",
+      "title": "미 10월 소매상 매출 0.2% 증가해 997조원…총소비의 30%",
+      "publisher": "뉴시스",
+      "category": "ECONOMY",
+      "content_hash": "40da14432534569ae7939c524c15ce34f5128509160342682f255ca6dd032f0b",
+      "analysis_version": "staged-v6+econ-simple",
+      "finding_count": 1,
+      "comparison_article_count": 2,
+      "checked_comparison_article_id": "f9a72614-9e58-4593-9be0-d03780323814",
+      "detail_ms": 169,
+      "analysis_ms": 134,
+      "comparison_target_ms": 335
+    },
+    {
+      "article_id": "1b7b926e-1379-4ecc-acaf-6124eb2ac1d2",
+      "title": "여 “내란면죄부, 조희대 탄핵하라” 야 “정치보복 만천하에 드러나”",
+      "publisher": "중앙일보",
+      "category": "POLITICS",
+      "content_hash": "4ac313c7107a9a425a4bd3d9cd0674845003a065a00175f4e766d0c507c73dfd",
+      "analysis_version": "event-issues-v1",
+      "finding_count": 3,
+      "comparison_article_count": 3,
+      "checked_comparison_article_id": "918f0498-34dc-474d-aac1-e4d1ae176845",
+      "detail_ms": 118,
+      "analysis_ms": 185,
+      "comparison_target_ms": 292
+    },
+    {
+      "article_id": "0eae65bd-cec6-4449-956d-0b59437c9316",
+      "title": "청와대 \"AI 부정행위 매우 엄중히 봐…수능 앞두고 긴급 대책회의\"",
+      "publisher": "노컷뉴스",
+      "category": "SOCIETY",
+      "content_hash": "2bc9d1ebb1a13f3805151310017088d2d2d0982f4d49429e3f2825a98024662f",
+      "analysis_version": "staged-v6",
+      "finding_count": 2,
+      "comparison_article_count": 4,
+      "checked_comparison_article_id": "ce8b6387-0ebf-46a3-a262-89623fd2c795",
+      "detail_ms": 106,
+      "analysis_ms": 135,
+      "comparison_target_ms": 251
+    },
+    {
+      "article_id": "c8c2580e-2e65-433e-8f16-5bfa34a4862b",
+      "title": "한중 FTA 서비스·투자 협상 타결…경제계 \"성장 동력 강화 기대\"(종합)",
+      "publisher": "뉴스1",
+      "category": "ECONOMY",
+      "content_hash": "d3d25d45478f58bca35edba132921f780f576e8a2a7a1eef5a0c1f215eb7e656",
+      "analysis_version": "staged-v6+econ-simple",
+      "finding_count": 5,
+      "comparison_article_count": 5,
+      "checked_comparison_article_id": "d5d19510-77ac-4a7f-88f4-174a5a241567",
+      "detail_ms": 144,
+      "analysis_ms": 154,
+      "comparison_target_ms": 246
+    }
+  ],
+  "scan_request_errors": [],
+  "failures": [],
+  "result": "PASS"
+}

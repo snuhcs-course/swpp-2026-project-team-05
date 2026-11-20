@@ -53,7 +53,7 @@ backend and Android coverage gates and uploads reports for 14 days.
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Six stories frozen for Iteration 3 against `ab8d9bf` |
 | Guest and offline reading | [`specs/testing/acceptance-v2.spec.md`](../specs/testing/acceptance-v2.spec.md) | Implemented behavior with five supplemental cases still awaiting team freeze and execution |
 | Staged link analysis | [`specs/testing/link-analysis.spec.md`](../specs/testing/link-analysis.spec.md) | Deterministic endpoint boundaries implemented; live model quality remains separate evaluation evidence |
-| Iteration 4 release verification | [`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md) | Drafted before the final release run; no result is claimed yet |
+| Iteration 4 release verification | [`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md) | Release CI, dataset-aware API smoke, UAT cycle 1, and device evidence are recorded below |
 | Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Passed 6/6 on `ff16cd1`; exact API structure matched 6/6 |
 
 ### Result recording template
@@ -149,10 +149,10 @@ baseline linked at the top of this document.
 
 The execution contract for the final Iteration 4 candidate is versioned in
 [`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md).
-This section is intentionally a result shell until the final feature branches
-are merged and one release identity is available. Do not copy successful counts
-from a preview branch or combine an APK, deployment, and database seed from
-different revisions.
+Results are attached to an explicit release identity. Successful counts from a
+preview branch are not copied into the final record, and an APK, deployment, or
+database observation from different revisions is identified rather than
+silently combined.
 
 ### 8.1 Release identity
 
@@ -175,37 +175,62 @@ different revisions.
 | Web | `npm test`, `npm run lint`, `npm run build` | Pending | Not used as a coverage gate | Pending final CI run |
 | Android | `:app:jacocoDebugUnitTestReport`, `:app:lintDebug`, `:app:assembleDebug` | Pending | Pending | Pending final CI run |
 
-### 8.3 Frozen acceptance results
+### 8.3 UAT cycle 1
 
-Run the six unchanged stories in
-[`acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md). The signed-out
-expectation in UAT-01 predates public guest reading; its observed deviation must
-be recorded rather than edited away.
+The Iteration 4 UAT sheet used five current user stories rather than claiming
+that the six historical `acceptance-v1` stories were rerun unchanged. Three
+testers executed 128 of 144 planned step executions on a Galaxy S22. The cycle
+accepted 109/128 executions (85.2%). All 92 positive-path executions passed;
+negative-path executions accepted 17/36 (47.2%), with 16 executions not tested.
 
-| Story | Client/environment | Tester/date | Expected and observed behavior | Result | Deviation/evidence |
-| --- | --- | --- | --- | --- | --- |
-| UAT-01 Account session | Pending | Pending | Pending | Pending | Guest-contract change must be reported explicitly |
-| UAT-02 Feed browsing | Pending | Pending | Pending | Pending | Pending |
-| UAT-03 Complete-corpus search | Pending | Pending | Pending | Pending | Pending |
-| UAT-04 Article and optional analysis | Pending | Pending | Pending | Pending | Pending |
-| UAT-05 Grounded comparison | Pending | Pending | Pending | Pending | Pending |
-| UAT-06 Per-account Saved synchronization | Pending | Pending | Pending | Pending | Pending |
+| User story | Accepted / executed | Acceptance rate |
+| --- | ---: | ---: |
+| Expression analysis and cross-publisher comparison | 28 / 28 | 100% |
+| Source traceability | 20 / 26 | 76.9% |
+| Home-feed browsing | 18 / 25 | 72.0% |
+| Article search and category filtering | 25 / 27 | 92.6% |
+| Save and revisit articles | 18 / 22 | 81.8% |
 
-### 8.4 Iteration 4 focused regression
+The 19 rejections must not be reported as 19 product defects. Most negative
+steps could not be triggered because the session lacked controlled fixtures for
+dead publisher links, empty categories, one-request failures, or a second test
+account. Testers disagreed between `Rejected` and `Not Tested` for these cases.
+The test-design correction is to prepare the state in advance and use `Not
+Tested` when a prerequisite is unavailable. One reproducible product defect was
+found outside the scripted cases: with an empty search query, switching the
+category did not filter the displayed list. The later search-state redesign
+removed that inconsistent mode; current Web regression tests cover normal feed
+category navigation, corpus-wide search, category search filters, retries, and
+query resets.
 
-These checks cover current behavior added after the frozen v1 plan. They are
-supplementary until the team reviews and freezes acceptance v2.
+Evidence: [team UAT thread and analysis report](https://swpp2026fall.slack.com/archives/C0C56TCMKU6/p1795150370788409?thread_ts=1794979945.300139&cid=C0C56TCMKU6).
 
-| Case | Scope | Result | Evidence or deviation |
-| --- | --- | --- | --- |
-| R4-01 | Guest feed, search, Reader, and comparison | Pending | Pending |
-| R4-02 | Account isolation and Android offline Saved | Pending | Pending |
-| R4-03 | Compared article opens in Reader and can be saved | Pending | Pending |
-| R4-04 | Existing/new/invalid/failed staged link analysis | Pending | Pending |
-| R4-05 | First-run guidance and understandable analysis vocabulary | Pending | Pending |
-| R4-06 | Feed categories and economic-lens projection | Pending | Pending |
+### 8.4 Dataset-aware production API smoke
 
-### 8.5 AI-module evaluation update
+The historical six-story script first failed against the final API because all
+six Iteration 3 titles had been replaced in the mutable production dataset.
+That failure was retained as a test-design finding rather than interpreted as
+six application regressions. The current release smoke discovers the public
+corpus, validates evidence offsets and content hashes, opens a compared article
+as a first-class Reader article, and records the exact sampled IDs.
+
+The 2026-11-20 run passed 6/6 sampled articles across Politics, Society, and
+Economy (two per category). The feed exposed 81 articles (39/29/13 by category),
+median detail-plus-analysis latency was 300 ms, maximum was 400 ms, and no scan
+request failed. Sample fingerprint:
+`2f75ede15e3bf7a45abf241ccc05bd7a357f173356b17c410a174031fde8ce7a`.
+
+Evidence: [`docs/evidence/iteration-4-release-api-smoke.json`](evidence/iteration-4-release-api-smoke.json).
+
+### 8.5 Focused device regression
+
+The final installed-app walkthrough covers search, article reading, expression
+selection, compared coverage, Saved, and reopening locally complete Saved
+content offline. Account-isolation failure fixtures, forced one-request errors,
+and all staged link-analysis failure partitions remain separate tests; the demo
+recording is supporting evidence, not an oracle for those unexecuted cases.
+
+### 8.6 AI-module evaluation update
 
 The Iteration 3 human-review result remains historical evidence. Iteration 4
 must add the exact case-set revision, pipeline/model settings, reviewer method,
@@ -215,7 +240,7 @@ described as editorial accuracy. If no new semantic run is performed, the final
 record will say so explicitly and report only the structural results actually
 measured.
 
-### 8.6 Final limitations and publication
+### 8.7 Final limitations and publication
 
 After the run, record every unresolved failure or intentional deviation, update
 the separate English Wiki page without removing earlier iteration evidence, add
