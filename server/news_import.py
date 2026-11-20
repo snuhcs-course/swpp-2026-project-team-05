@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from .economic_lens import EconomicLensError, validate_context
 from .models import (
     AnalysisStatus,
     Article,
@@ -140,20 +141,34 @@ def hydrate_articles(dataset: dict, *, max_workers: int = 5) -> dict:
 
 
 @transaction.atomic
-def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -> ImportCounts:
+def import_dataset(
+    dataset: dict,
+    *,
+    dataset_hash: str,
+    dry_run: bool = False,
+    preserve_existing_publishers: bool = False,
+) -> ImportCounts:
+    """Validate and persist one canonical dataset revision.
+
+    Reviewed full-dataset imports remain authoritative for publisher metadata.
+    Incremental runtime imports may set ``preserve_existing_publishers`` so an
+    article fetched through an aggregator cannot erase an existing outlet logo,
+    canonical domain, or display order.
+    """
     publisher_by_code: dict[str, Publisher] = {}
     for item in dataset["publishers"]:
         code = _required(item, "code", "publisher")
-        publisher, _ = Publisher.objects.update_or_create(
-            code=code,
-            defaults={
-                "name_ko": _required(item, "name_ko", f"publisher {code}"),
-                "domain": _required(item, "domain", f"publisher {code}"),
-                "logo_url": item.get("logo_url") or None,
-                "is_active": item.get("is_active", True),
-                "display_order": item.get("display_order", 0),
-            },
-        )
+        defaults = {
+            "name_ko": _required(item, "name_ko", f"publisher {code}"),
+            "domain": _required(item, "domain", f"publisher {code}"),
+            "logo_url": item.get("logo_url") or None,
+            "is_active": item.get("is_active", True),
+            "display_order": item.get("display_order", 0),
+        }
+        if preserve_existing_publishers:
+            publisher, _ = Publisher.objects.get_or_create(code=code, defaults=defaults)
+        else:
+            publisher, _ = Publisher.objects.update_or_create(code=code, defaults=defaults)
         publisher_by_code[code] = publisher
 
     article_total = proposition_total = finding_total = comparison_total = 0
@@ -202,6 +217,13 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
                     f"{article_context}: stored article title or body changed for {canonical_url}; "
                     "review and import it as a new dataset revision"
                 )
+            economic_context = article_item.get("economic_context")
+            if economic_context is not None and category != NewsCategory.ECONOMY:
+                raise DatasetError(f"{article_context}: economic_context belongs to economy clusters only")
+            try:
+                economic_context = validate_context(economic_context, title=title, body=body, context=article_context)
+            except EconomicLensError as exc:
+                raise DatasetError(str(exc)) from exc
             article, _ = Article.objects.update_or_create(
                 canonical_url=canonical_url,
                 defaults={
@@ -211,6 +233,7 @@ def import_dataset(dataset: dict, *, dataset_hash: str, dry_run: bool = False) -
                     "title": title,
                     "body_text": body,
                     "content_hash": content_hash,
+                    "economic_context": economic_context,
                     "category": category,
                     "published_at": _parse_timestamp(
                         _required(article_item, "published_at", article_context), article_context

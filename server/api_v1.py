@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
 from hashlib import sha256
 from uuid import uuid4
 
@@ -11,6 +13,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import RequestDataTooBig, ValidationError
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
+from django.utils.cache import patch_vary_headers
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
@@ -23,8 +27,11 @@ from .authentication import (
     session_from_request,
     user_from_request,
 )
+from .analysis.staged import llm as staged_llm
+from .analysis.staged.link import LinkAnalysisError, analyze_link
+from .analysis.v2.article_fetch import validate_article_url
 from .article_search import MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, normalize_search_query
-from .models import AuthSession, NewsCategory, Publisher, UserAccount
+from .models import AnalysisRecord, Article, AuthSession, NewsCategory, Publisher, UserAccount
 from .news_queries import (
     InvalidCursor,
     article_analysis_payload,
@@ -95,6 +102,22 @@ def _auth(request) -> tuple[UserAccount | None, JsonResponse | None]:
     if user is None:
         return None, _error("AUTH_REQUIRED", "로그인이 필요합니다.", 401)
     return user, None
+
+
+def _optional_auth(request) -> tuple[UserAccount | None, JsonResponse | None]:
+    """Authenticate a supplied bearer token while allowing a missing header."""
+    header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not header:
+        return None, None
+    session = session_from_request(request)
+    if session is None:
+        return None, _error("AUTH_REQUIRED", "로그인이 만료됐어요. 다시 로그인해 주세요.", 401)
+    return session.user, None
+
+
+def _credential_varying(response: JsonResponse) -> JsonResponse:
+    patch_vary_headers(response, ("Authorization",))
+    return response
 
 
 @csrf_exempt
@@ -180,13 +203,13 @@ def me(request):
 
 @require_GET
 def publishers(request):
-    user, error = _auth(request)
+    user, error = _optional_auth(request)
     if error:
         return error
-    return JsonResponse(
+    return _credential_varying(JsonResponse(
         {"items": list_publishers(user=user)},
         json_dumps_params={"ensure_ascii": False},
-    )
+    ))
 
 
 @csrf_exempt
@@ -223,13 +246,13 @@ def followed_publishers(request):
 
 @require_GET
 def articles(request):
-    user, error = _auth(request)
+    user, error = _optional_auth(request)
     if error:
         return error
     category = request.GET.get("category") or None
     if category and category not in NewsCategory.values:
         return _error("VALIDATION_ERROR", "지원하지 않는 기사 분야입니다.", 400,
-                      fields={"category": "정치 또는 사회를 선택해 주세요."})
+                      fields={"category": "정치, 사회 또는 경제를 선택해 주세요."})
     scope = request.GET.get("scope") or "ALL"
     if scope not in {"ALL", "FOLLOWING"}:
         return _error(
@@ -238,6 +261,8 @@ def articles(request):
             400,
             fields={"scope": "ALL 또는 FOLLOWING을 선택해 주세요."},
         )
+    if scope == "FOLLOWING" and user is None:
+        return _error("AUTH_REQUIRED", "팔로잉 기사는 로그인 후 볼 수 있어요.", 401)
     publisher_codes = list(dict.fromkeys(request.GET.getlist("publisher")))
     if publisher_codes:
         known = set(Publisher.objects.filter(code__in=publisher_codes, is_active=True)
@@ -270,29 +295,35 @@ def articles(request):
         )
     except InvalidCursor:
         return _error("INVALID_CURSOR", "기사 목록을 처음부터 다시 불러와 주세요.", 400)
-    return JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    return _credential_varying(JsonResponse(
+        payload, json_dumps_params={"ensure_ascii": False},
+    ))
 
 
 @require_GET
 def article_detail(request, article_id):
-    user, error = _auth(request)
+    user, error = _optional_auth(request)
     if error:
         return error
     article = get_article(article_id, user=user)
     if article is None:
         return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
-    return JsonResponse(article_detail_payload(article), json_dumps_params={"ensure_ascii": False})
+    return _credential_varying(JsonResponse(
+        article_detail_payload(article), json_dumps_params={"ensure_ascii": False},
+    ))
 
 
 @require_GET
 def article_analysis(request, article_id):
-    _, error = _auth(request)
+    _, error = _optional_auth(request)
     if error:
         return error
     article = get_article(article_id)
     if article is None:
         return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
-    return JsonResponse(article_analysis_payload(article), json_dumps_params={"ensure_ascii": False})
+    return _credential_varying(JsonResponse(
+        article_analysis_payload(article), json_dumps_params={"ensure_ascii": False},
+    ))
 
 
 @require_GET
@@ -315,6 +346,99 @@ def saved_articles(request):
     except InvalidSavedCursor:
         return _error("INVALID_CURSOR", "저장 목록을 처음부터 다시 불러와 주세요.", 400)
     return JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+
+
+_link_analysis_slot = threading.BoundedSemaphore(1)
+LINK_RESULT_VERSION = "link-v6"
+
+
+def _link_limits() -> tuple[int, int]:
+    """(per client, all non-developer clients) new link analyses per day; each is a paid model run."""
+    def read(name: str, default: int) -> int:
+        try:
+            return max(0, int(os.getenv(name, "").strip() or default))
+        except ValueError:
+            return default
+    return read("FRAMELESS_LINK_ANALYSIS_PER_CLIENT_DAILY", 3), read("FRAMELESS_LINK_ANALYSIS_DAILY", 30)
+
+
+def _link_client_key(request) -> str:
+    """A hash of the caller's address (the first X-Forwarded-For entry behind Vercel); the address is not stored."""
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+    address = forwarded or request.META.get("REMOTE_ADDR", "") or "unknown"
+    return "link:" + sha256(address.encode("utf-8")).hexdigest()[:40]
+
+
+def _link_usage_today(owner_key: str | None = None) -> int:
+    start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = AnalysisRecord.objects.filter(result_version=LINK_RESULT_VERSION, created_at__gte=start)
+    return rows.filter(owner_key=owner_key).count() if owner_key else rows.count()
+
+
+def _record_link_use(owner_key: str, user: UserAccount | None, url: str, outcome: str) -> None:
+    """One row per paid run, never tied to an account, so it stays out of every reader's history. Each attempt
+    gets its own hash so a retried link counts again."""
+    AnalysisRecord.objects.create(
+        user=None, owner_key=owner_key, source_url=url, source_title="",
+        source_url_hash=sha256(f"{url}\n{uuid4().hex}".encode("utf-8")).hexdigest(),
+        result={"outcome": outcome, "signed_in": user is not None}, execution_status=outcome,
+        result_version=LINK_RESULT_VERSION,
+    )
+
+
+@csrf_exempt
+@require_POST
+def link_analyses(request):
+    """Analyse a pasted article link (staged A-G analysis) and answer the stored source article's id.
+
+    Anyone may call it, signed in or not. Each new analysis searches other outlets and calls a paid model, so a
+    caller that is not a developer account has a daily limit per client address and all of them share a daily
+    total; developer accounts have no limit. A link that is already stored answers at once with status 'existing'
+    and never counts. One analysis runs at a time; it takes one to two minutes."""
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    developer = bool(user and user.is_developer)
+    payload, error = _body(request)
+    if error:
+        return error
+    url = payload.get("url")
+    if not isinstance(url, str) or not url.strip() or len(url) > 2048:
+        return _error("VALIDATION_ERROR", "기사 링크를 입력해 주세요.", 400, fields={"url": "기사 링크를 입력해 주세요."})
+    try:
+        url = validate_article_url(url.strip())
+    except ValueError as exc:
+        return _error("VALIDATION_ERROR", str(exc), 400, fields={"url": str(exc)})
+    client_key = None if developer else _link_client_key(request)
+    if not developer:
+        stored = Article.objects.filter(canonical_url=url).first()
+        if stored is not None:
+            return JsonResponse({"article_id": str(stored.id), "status": "existing",
+                                 "highlight_count": stored.findings.count()}, json_dumps_params={"ensure_ascii": False})
+        per_client, total = _link_limits()
+        if _link_usage_today(client_key) >= per_client or _link_usage_today() >= total:
+            return _error("DAILY_LIMIT", "오늘 링크 분석 횟수를 모두 썼어요. 내일 다시 시도해 주세요.", 429)
+    if not _link_analysis_slot.acquire(blocking=False):
+        response = _error("BUSY", "다른 기사를 분석하고 있어요. 잠시 후 다시 시도해 주세요.", 429)
+        response["Retry-After"] = "30"
+        return response
+    try:
+        result = analyze_link(url)
+        if client_key and result.get("status") == "created":
+            _record_link_use(client_key, user, url, "created")
+    except LinkAnalysisError as exc:
+        # A failed run that reached discovery or the model still cost a run; an unreadable link or a server
+        # without a model key did not.
+        spent = exc.code != "source_unavailable" and (exc.code != "analysis_unavailable" or staged_llm.configured())
+        if client_key and spent:
+            _record_link_use(client_key, user, url, "failed")
+        response = _error(exc.code.upper(), str(exc), 503 if exc.retryable else 422)
+        if exc.retryable:
+            response["Retry-After"] = "30"
+        return response
+    finally:
+        _link_analysis_slot.release()
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
 
 
 @csrf_exempt

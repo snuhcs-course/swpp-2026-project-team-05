@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import com.swpp.team5.frameless.data.AppSession
@@ -33,10 +35,12 @@ import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.data.TextRange
 import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
+import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -64,7 +68,7 @@ class NewsScreensInstrumentedTest {
                 onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = { selectedId = it }, onLogout = {}
+                onSavedOpen = {}, onArticle = { selectedId = it }, onLogin = {}, onLogout = {}
             )
         }
 
@@ -73,6 +77,32 @@ class NewsScreensInstrumentedTest {
         compose.runOnIdle { assertEquals("article-1", selectedId) }
         compose.onNodeWithContentDescription("계정 메뉴").performClick()
         compose.onNodeWithText("reader").assertIsDisplayed()
+    }
+
+    @Test
+    fun feedWithAnotherPageOffersMoreArticlesButton() {
+        var loadMoreCalls = 0
+        val state = NewsFeedState(
+            publishers = listOf(publisher),
+            items = (1..20).map { n ->
+                ArticleSummary("article-$n", publisher, "기사 $n", NewsCategory.POLITICS,
+                    "2026-10-31T12:00:00+09:00", StoredAnalysisState.READY)
+            },
+            nextCursor = "next"
+        )
+        compose.setContent {
+            val listState = rememberLazyListState()
+            NewsFeedScreen(
+                state, null, listState,
+                onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = {}, onRetry = {}, onLoadMore = { loadMoreCalls += 1 }, onLoadMoreSearch = {},
+                onRetrySearch = {}, onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {},
+                onSearchClose = {}, onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
+            )
+        }
+
+        compose.onNodeWithText("기사 더 보기").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(loadMoreCalls >= 1) }
     }
 
     @Test
@@ -89,7 +119,7 @@ class NewsScreensInstrumentedTest {
                 onCategory = {}, onSearchFilter = {}, onScope = { selectedScope = it }, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = {}, onLogout = {}
+                onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
             )
         }
 
@@ -146,7 +176,7 @@ class NewsScreensInstrumentedTest {
                 onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = {}, onLogout = {}
+                onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
             )
         }
 
@@ -204,7 +234,7 @@ class NewsScreensInstrumentedTest {
                 onScope = {}, onSources = { _, _ -> },
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
-                onSavedOpen = {}, onArticle = {}, onLogout = {}
+                onSavedOpen = {}, onArticle = {}, onLogin = {}, onLogout = {}
             )
         }
 
@@ -256,6 +286,74 @@ class NewsScreensInstrumentedTest {
             .assertIsDisplayed()
         compose.onNodeWithContentDescription("표현 분석 표시").performClick()
         compose.runOnIdle { assertFalse(analysisEnabled) }
+    }
+
+    @Test
+    fun comparisonTargetExplainsTransientContextWithoutClaimingAStandaloneFinding() {
+        val body = "조선비즈는 통상 약 12시간 머물렀다고 전했다."
+        val marker = "통상 약 12시간"
+        val markerStart = body.indexOf(marker)
+        val article = ArticleDetail(
+            "comparison-article", publisher, "비교 기사", body,
+            NewsCategory.SOCIETY, "2026-11-15T09:00:00+09:00",
+            "https://example.com/comparison-article", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", emptyList()
+                    ),
+                    analysisEnabled = true,
+                    comparisonFocus = ReaderFocus(
+                        "BODY", TextRange(markerStart, markerStart + marker.length)
+                    )
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.onNodeWithText("비교 기사에서 이어 읽는 중").assertIsDisplayed()
+        compose.onNodeWithText("확인한 표현을 본문에 표시했어요.").assertIsDisplayed()
+        compose.onNodeWithText("이 기사의 별도 표현 분석은 없어요.").assertIsDisplayed()
+        compose.onAllNodesWithText("분석은 완료되었지만", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun comparisonTargetWaitsForLayoutBeforeScrollingToFocusedPassage() {
+        val prefix = List(60) { "앞부분 기사 문장입니다." }.joinToString("\n\n")
+        val marker = "비교에서 확인한 표현"
+        val body = "$prefix\n\n마지막에 $marker 이 있습니다."
+        val markerStart = body.indexOf(marker)
+        val article = ArticleDetail(
+            "long-comparison-article", publisher, "긴 비교 기사", body,
+            NewsCategory.SOCIETY, "2026-11-15T09:00:00+09:00",
+            "https://example.com/long-comparison-article", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", emptyList()
+                    ),
+                    analysisEnabled = true,
+                    comparisonFocus = ReaderFocus(
+                        "BODY", TextRange(markerStart, markerStart + marker.length)
+                    )
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("비교 기사에서 이어 읽는 중").assertIsNotDisplayed()
+        compose.onNodeWithText(body).assertIsDisplayed()
     }
 
     @Test
@@ -374,11 +472,13 @@ class NewsScreensInstrumentedTest {
             analysis = ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", listOf(finding)),
             analysisEnabled = true
         )
+        var openedComparison: ComparisonArticleUi? = null
         compose.setContent {
             NewsReaderScreen(
                 state = remember { state },
                 onBack = {}, onRetry = {}, onAnalysisEnabled = {},
-                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
+                onOpenComparisonArticle = { article, _ -> openedComparison = article }
             )
         }
 
@@ -404,6 +504,13 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
         compose.onAllNodesWithText("다른 기사 2곳과 비교", substring = true).assertCountEquals(0)
+
+        compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
+        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
+        compose.onNodeWithText("이 기사 읽기").performClick()
+        compose.waitUntil { openedComparison != null }
+        assertEquals("comparison-1", openedComparison?.articleId)
+        assertEquals(targetMarker, openedComparison?.evidence?.single()?.markerText)
     }
 
     @Test

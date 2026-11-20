@@ -54,7 +54,6 @@ def list_saved_articles(
                 .filter(
                     user=user,
                     article__visibility=ArticleVisibility.VISIBLE,
-                    article__is_feed_visible=True,
                     article__publisher__is_active=True,
                 )
                 .select_related("article__publisher", "article__story_cluster")
@@ -86,7 +85,6 @@ def save_article(*, user: UserAccount, article_id: UUID) -> SavedArticle | None:
                .filter(
                    id=article_id,
                    visibility=ArticleVisibility.VISIBLE,
-                   is_feed_visible=True,
                    publisher__is_active=True,
                )
                .first())

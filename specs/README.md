@@ -1,8 +1,8 @@
 # FrameLESS specifications
 
-This directory contains forward-looking product contracts. Historical evidence,
-meeting notes, pilots, presentations, and measured test results remain in
-`docs/`.
+This directory contains forward-looking product contracts. Current operating
+guides and measured results live in `docs/`; historical notes, pilots, and
+presentations live under `docs/archive/`.
 
 ## Structure
 

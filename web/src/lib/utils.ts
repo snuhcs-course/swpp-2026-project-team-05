@@ -15,7 +15,22 @@ export function formatDate(value: string, withTime = false) {
 }
 
 export function categoryLabel(category: string) {
+  if (category === 'ECONOMY') return 'Economy'
   return category === 'SOCIETY' ? 'Society' : 'Politics'
+}
+
+export function categoryFromParam(value: string | null) {
+  return value === 'SOCIETY' || value === 'ECONOMY' ? value : 'POLITICS'
+}
+
+/** How a view sees the event: its evaluation, or the move it reports when it evaluates nothing. */
+export function economicStanceLabel(stance: string, direction: string | null = null) {
+  if (stance === 'OBSERVED') {
+    const moves: Record<string, string> = { UP: 'Rise', DOWN: 'Fall', SWING: 'Swing' }
+    return (direction && moves[direction]) ?? 'Neutral'
+  }
+  const labels: Record<string, string> = { CONCERN: 'Concern', OPTIMISM: 'Optimism', LIMITED: 'Limited effect' }
+  return labels[stance] ?? stance
 }
 
 export function findingCategoryLabel(category: string) {

@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../lib/api'
-import type { Analysis, ArticleDetail, Finding } from '../lib/types'
+import type { Analysis, ArticleDetail, EconomicLens, Finding } from '../lib/types'
 import { ArticlePage } from './ArticlePage'
 
 vi.mock('../auth/useAuth', () => ({
@@ -32,6 +32,7 @@ const article: ArticleDetail = {
   title: 'A reviewed headline',
   body: 'Evaluative wording appears here. Another framing appears here.',
   original_url: 'https://example.com/source',
+  content_hash: 'source-hash',
   category: 'POLITICS',
   published_at: '2026-11-02T10:00:00+09:00',
   analysis_state: 'READY',
@@ -104,7 +105,12 @@ describe('ArticlePage analysis rail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.article).mockResolvedValue(article)
-    vi.mocked(api.analysis).mockResolvedValue({ state: 'READY', version: 'test', findings } satisfies Analysis)
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY',
+      version: 'test',
+      source_content_hash: 'source-hash',
+      findings,
+    } satisfies Analysis)
   })
 
   it('separates finding navigation from named comparison sources', async () => {
@@ -134,5 +140,119 @@ describe('ArticlePage analysis rail', () => {
     expect(singleSource).toHaveAttribute('aria-selected', 'true')
     expect(screen.getAllByText('KBS')).toHaveLength(1)
     expect(screen.getByText('1 source')).toBeInTheDocument()
+  })
+})
+
+describe('ArticlePage economic lens', () => {
+  const body = '금리를 내렸다. 집값엔 큰 영향을 주지 않을 것이란 평가다. 소비가 살아날 것이라는 기대도 나온다.'
+  const limited = '집값엔 큰 영향을 주지 않을 것이란 평가다.'
+  const hopeful = '소비가 살아날 것이라는 기대도 나온다.'
+  const at = (text: string) => ({ scope: 'BODY' as const, start: body.indexOf(text), end: body.indexOf(text) + text.length, text })
+  const economy: ArticleDetail = { ...article, category: 'ECONOMY', title: '집값 또 오르나', body }
+  const yna = { code: 'yna', name: '연합뉴스', logo_url: '' }
+  const newsis = { code: 'newsis', name: '뉴시스', logo_url: '' }
+  const lens: EconomicLens = {
+    event: '한은, 기준금리 2.50%로 0.25%p 인하',
+    views: [
+      { channels: ['housing'], stance: 'LIMITED', direction: null, phrase: '집값엔 큰 영향을 주지 않을 것', sentence: at(limited) },
+      { channels: ['macro_growth'], stance: 'OPTIMISM', direction: null, phrase: '소비가 살아날 것이라는 기대', sentence: at(hopeful) },
+    ],
+    others: [
+      { article_id: 'yna-1', publisher: yna, title: '한은 기준금리 인하', views: [{
+        channels: ['housing', 'household_credit'], stance: 'CONCERN', direction: null, phrase: '집값과 가계부채만 자극할 것이라는 우려',
+        sentence: { scope: 'BODY', start: 0, end: 26, text: '집값과 가계부채만 자극할 것이라는 우려도 있다.' },
+      }] },
+      { article_id: 'newsis-1', publisher: newsis, title: '코스피 상승', views: [{
+        channels: ['capital_market'], stance: 'OBSERVED', direction: 'UP', phrase: '코스피 상승',
+        sentence: { scope: 'TITLE', start: 0, end: 6, text: '코스피 상승' },
+      }] },
+    ],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.article).mockResolvedValue(economy)
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY', version: 'test', source_content_hash: 'source-hash', findings: [], economic: lens,
+    } satisfies Analysis)
+  })
+
+  it('shows the event, this article\'s view in its own words, and how the other outlets see it', async () => {
+    renderPage()
+
+    const header = await screen.findByRole('region', { name: 'Economic lens' })
+    expect(within(header).getByText('한은, 기준금리 2.50%로 0.25%p 인하')).toBeInTheDocument()
+    expect(within(header).getByText('«집값엔 큰 영향을 주지 않을 것»')).toBeInTheDocument()
+    expect(within(header).getByText('Limited effect')).toBeInTheDocument()
+    expect(within(header).getByText('Optimism')).toBeInTheDocument()
+
+    const phrase = screen.getByText('집값엔 큰 영향을 주지 않을 것', { selector: '[data-economic-view="phrase"]' })
+    expect(phrase).toHaveClass('decoration-teal-700')
+    expect(screen.getByText('이란 평가다.', { selector: '[data-economic-view="sentence"]' })).toHaveClass('decoration-teal-500')
+
+    const others = screen.getByRole('region', { name: 'How other outlets see this event' })
+    expect(within(others).getByRole('link', { name: '연합뉴스' })).toHaveAttribute('href', '/articles/yna-1')
+    expect(within(others).getByText('«집값과 가계부채만 자극할 것이라는 우려»')).toBeInTheDocument()
+    expect(within(others).getByText('Concern')).toBeInTheDocument()
+    expect(within(others).getByText('Rise')).toBeInTheDocument()
+    expect(within(others).queryByText('한은 기준금리 인하')).not.toBeInTheDocument()
+  })
+
+  it('shows no economic lens for an article without one', async () => {
+    vi.mocked(api.analysis).mockResolvedValue({
+      state: 'READY', version: 'test', source_content_hash: 'source-hash', findings: [], economic: null,
+    } satisfies Analysis)
+    renderPage()
+    expect(await screen.findByText('No findings are available yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Economic lens' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'How other outlets see this event' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ArticlePage comparison navigation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.article).mockImplementation(async (_token, id) => {
+      if (id === 'comparison-2') {
+        return {
+          id,
+          publisher: { code: 'comparison-2', name: 'MBC', logo_url: '' },
+          title: 'MBC comparison',
+          body: 'The other article uses measured wording.',
+          original_url: 'https://example.com/comparison-2',
+          content_hash: 'comparison-hash',
+          category: 'POLITICS',
+          published_at: '2026-11-02T11:00:00+09:00',
+          analysis_state: 'READY',
+          is_saved: false,
+        }
+      }
+      return article
+    })
+    vi.mocked(api.analysis).mockImplementation(async (_token, id) => ({
+      state: 'READY',
+      version: 'test',
+      source_content_hash: id === 'comparison-2' ? 'comparison-hash' : 'source-hash',
+      findings: id === 'comparison-2' ? [] : findings,
+    }))
+  })
+
+  it('opens a comparison target in Reader context and returns to its source', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText('Finding 1 of 2')
+    await user.click(screen.getByRole('tab', { name: 'MBC' }))
+    await user.click(screen.getByRole('link', { name: 'Read full article' }))
+
+    expect(await screen.findByText('Opened from comparison')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to source article' })).toBeInTheDocument()
+    expect(screen.getByText('measured wording')).toHaveClass('bg-violet-100')
+    expect(screen.getByRole('button', { name: 'Save article' })).toBeInTheDocument()
+    expect(screen.getByText('No standalone findings for this article.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Back to source article' }))
+    expect(await screen.findByText('A reviewed headline')).toBeInTheDocument()
+    expect(screen.getByText('Finding 1 of 2')).toBeInTheDocument()
   })
 })

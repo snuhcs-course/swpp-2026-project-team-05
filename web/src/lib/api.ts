@@ -15,16 +15,19 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, ''
 
 export class ApiError extends Error {
   status: number
+  code?: string
   fields: Record<string, string>
 
   constructor(
     message: string,
     status: number,
+    code?: string,
     fields: Record<string, string> = {},
   ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
     this.fields = fields
   }
 }
@@ -75,6 +78,7 @@ async function request<T>(
     throw new ApiError(
       (errorCode && englishMessage[errorCode]) ?? 'We could not complete the request.',
       response.status,
+      errorCode,
       body.error?.fields,
     )
   }
@@ -106,7 +110,7 @@ export const api = {
     return body.user
   },
 
-  async publishers(token: string) {
+  async publishers(token?: string) {
     const body = await request<{ items: Publisher[] }>('/api/v1/publishers', {}, token)
     return body.items
   },
@@ -123,7 +127,7 @@ export const api = {
     return body.publisher_codes
   },
 
-  articles(token: string, options: ArticleQuery) {
+  articles(token: string | undefined, options: ArticleQuery) {
     return request<ArticlePage>(
       `/api/v1/articles?${articleQueryString(options)}`,
       {},
@@ -131,11 +135,11 @@ export const api = {
     )
   },
 
-  article(token: string, id: string) {
+  article(token: string | undefined, id: string) {
     return request<ArticleDetail>(`/api/v1/articles/${id}`, {}, token)
   },
 
-  analysis(token: string, id: string) {
+  analysis(token: string | undefined, id: string) {
     return request<Analysis>(`/api/v1/articles/${id}/analysis`, {}, token)
   },
 

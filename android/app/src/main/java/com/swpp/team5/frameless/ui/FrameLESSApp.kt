@@ -12,21 +12,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.swpp.team5.frameless.ui.screens.LoginScreen
 import com.swpp.team5.frameless.ui.screens.NewsFeedScreen
 import com.swpp.team5.frameless.ui.screens.NewsReaderScreen
 import com.swpp.team5.frameless.ui.screens.NewsSavedScreen
+import com.swpp.team5.frameless.ui.screens.OnboardingScreen
+import com.swpp.team5.frameless.ui.screens.ReaderCoachUi
 import com.swpp.team5.frameless.ui.screens.RegistrationScreen
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
 import com.swpp.team5.frameless.ui.viewmodel.NewsRoute
 import com.swpp.team5.frameless.ui.viewmodel.NewsViewModel
+import com.swpp.team5.frameless.ui.viewmodel.TutorialViewModel
 
-/** Normal product navigation: authentication → feed → Reader. */
+/** Normal product navigation: first-run onboarding → guest or authenticated feed → Reader. */
 @Composable
-internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
+internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: TutorialViewModel) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -34,7 +41,28 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                     CircularProgressIndicator(color = Fl.Accent, modifier = Modifier.align(Alignment.Center))
                     return@Box
                 }
-                if (!auth.isLoggedIn) {
+                val session = auth.session
+                var observedSessionToken by remember { mutableStateOf(session?.token) }
+                LaunchedEffect(session?.token) {
+                    if (observedSessionToken == session?.token) {
+                        news.initialize()
+                    } else {
+                        observedSessionToken = session?.token
+                        news.onViewerChanged()
+                    }
+                }
+                if (tutorial.showIntro && !auth.showLogin) {
+                    OnboardingScreen(
+                        onFinish = tutorial::finishIntro,
+                        onLogin = {
+                            tutorial.finishIntro()
+                            auth.openLogin()
+                        },
+                        showLogin = session == null
+                    )
+                    return@Box
+                }
+                if (auth.showLogin) {
                     if (auth.showRegistration) {
                         BackHandler { auth.closeRegistration() }
                         RegistrationScreen(
@@ -53,6 +81,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             onSubmit = auth::register
                         )
                     } else {
+                        BackHandler { auth.closeLogin() }
                         LoginScreen(
                             identifier = auth.identifier,
                             password = auth.password,
@@ -61,16 +90,15 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             onIdentifier = { auth.identifier = it },
                             onPassword = { auth.password = it },
                             onLogin = auth::login,
-                            onRegister = auth::openRegistration
+                            onRegister = auth::openRegistration,
+                            onDismiss = auth::closeLogin
                         )
                     }
                     return@Box
                 }
 
-                val session = auth.session ?: return@Box
                 val feedListState = rememberLazyListState()
                 val savedListState = rememberLazyListState()
-                LaunchedEffect(session.token) { news.initialize() }
                 LaunchedEffect(news.authExpired) {
                     if (news.authExpired) {
                         news.consumeAuthExpired()
@@ -87,8 +115,15 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             listState = feedListState,
                             onCategory = news::selectCategory,
                             onSearchFilter = news::selectSearchFilter,
-                            onScope = news::selectScope,
-                            onSources = news::replaceFollowedPublishers,
+                            onScope = { scope ->
+                                if (scope == com.swpp.team5.frameless.data.FeedScope.FOLLOWING && session == null) {
+                                    auth.openLogin()
+                                } else news.selectScope(scope)
+                            },
+                            onSources = { codes, onSuccess ->
+                                if (session == null) auth.openLogin()
+                                else news.replaceFollowedPublishers(codes, onSuccess)
+                            },
                             onRefresh = news::refresh,
                             onRetry = news::retryFeed,
                             onLoadMore = news::loadMore,
@@ -98,9 +133,20 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                             onSearchInput = news::updateSearchInput,
                             onSearchSubmit = news::submitSearch,
                             onSearchClose = news::closeSearch,
-                            onSavedOpen = news::openSaved,
+                            onSavedOpen = { if (session == null) auth.openLogin() else news.openSaved() },
                             onArticle = news::openArticle,
-                            onLogout = { news.reset(); auth.logout() }
+                            onLogin = auth::openLogin,
+                            onLogout = {
+                                session?.let { current ->
+                                    news.logout(current.user.id, auth::logout)
+                                }
+                            },
+                            link = news.link,
+                            onLinkOpen = news::openLinkAnalysis,
+                            onTutorialOpen = tutorial::replay,
+                            onLinkInput = news::updateLinkInput,
+                            onLinkSubmit = news::submitLinkAnalysis,
+                            onLinkClose = news::closeLinkAnalysis
                         )
                     }
                     NewsRoute.SAVED -> NewsSavedScreen(
@@ -117,9 +163,21 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel) {
                         onBack = news::closeReader,
                         onRetry = news::retryReader,
                         onAnalysisEnabled = news::setAnalysisEnabled,
-                        onToggleSaved = news::toggleSaved,
+                        onOpenComparisonArticle = news::openComparisonArticle,
+                        onOpenRelatedArticle = news::openRelatedArticle,
+                        onToggleSaved = { articleId, saved ->
+                            if (session == null) auth.openLogin()
+                            else news.toggleSaved(articleId, saved)
+                        },
                         savedPending = news.savedMutationArticleId == news.reader.articleId,
-                        saveError = news.saveError
+                        saveError = news.saveError,
+                        coach = ReaderCoachUi(
+                            step = tutorial.readerStep,
+                            onEligible = tutorial::onReaderEligible,
+                            onFindingOpened = tutorial::onFindingOpened,
+                            onPreviewNext = tutorial::onPreviewNext,
+                            onFinish = tutorial::finishReaderCoach
+                        )
                     )
                 }
             }

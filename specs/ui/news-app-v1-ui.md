@@ -1,6 +1,6 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: v1.9 implemented Android and Web baseline
+Status: Implemented baseline including guest, offline reading, and comparison-to-Reader navigation
 
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
@@ -44,8 +44,8 @@ I-series analysis, including I1, is deferred and does not appear in these screen
 
 ```text
 Launch
-  ├─ no valid session → Login → Register if needed
-  └─ valid session → News feed ↔ Saved articles
+  ├─ no valid session → Guest news feed
+  └─ valid session → Authenticated news feed ↔ Saved articles
                                                   ↓
                                             Article Reader
                                                   ↓
@@ -56,11 +56,23 @@ Launch
 
 The feed is the primary discovery destination and Saved is a secondary route.
 Search is a feed mode rather than a separate destination. A small account action
-shows account identity and logout without a permanent bottom navigation bar.
+shows Login for a guest or account identity and logout for an authenticated user
+without a permanent bottom navigation bar.
 
 Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not ordinary-user navigation.
 
-## 3. Authentication wireframes
+## 3. Guest and authentication wireframes
+
+### 3.0 Guest entry and protected actions
+
+A clean client opens the Latest feed without creating a server identity. Feed,
+search, Reader, and stored analysis remain available. Saved, Following, source
+management, and save/remove controls stay discoverable but open one shared
+sign-in explanation when selected.
+
+Successful authentication returns to the same public route and does not replay
+the protected mutation automatically. Android and Web use the same capability
+boundary even when the physical dialog or sheet differs.
 
 ### 3.1 Login
 
@@ -86,8 +98,10 @@ Functional requirements:
 - Password IME action submits login.
 - Validation appears beside the relevant field.
 - Server errors do not clear entered values.
-- Successful login routes directly to the all-publisher feed.
-- There is no guest path.
+- Guest entry keeps an explicit `로그인 없이 둘러보기`/`Continue without
+  signing in` action in addition to platform Back navigation.
+- Successful login returns to the public route that requested authentication,
+  or to the all-publisher feed when Login was opened directly.
 
 ### 3.2 Registration
 
@@ -226,6 +240,8 @@ selected in the background and are restored when search closes.
 └──────────────────────────────────────┘
 ```
 
+- With an empty field the screen shows only `검색어를 입력하세요`: no article list
+  and no filter row. The filter row appears once the query has two characters.
 - Ordinary feed navigation remains unchanged. Search adds a separate compact
   `All / Politics / Society` filter row so section navigation and result
   filtering are not conflated.
@@ -367,7 +383,8 @@ sheet would add navigation without adding information.
 │  └────────────────────────────────┘  │
 │──────────────────────────────────────│
 │  연합뉴스 · 발행 시각                 │
-│  비교 기사 제목                 원문 보기 │
+│  비교 기사 제목                       │
+│  [이 기사 읽기]             원문 보기 │
 │  “피의자”가 들어간 대응 문장           │
 │                                      │
 │  비교 기사 전문...                    │
@@ -392,7 +409,12 @@ Comparison behavior:
 - Return at most three publisher-diverse pages.
 - One publisher occupies one horizontal page.
 - Multiple supporting sentences from one publisher remain in that page.
-- Show publisher, publication time, exact target marker, and original link.
+- Show publisher, publication time, exact target marker, a filled primary
+  `이 기사 읽기`/`Read full article` action, and a visually quieter original
+  link. The article title comes before these actions so the destination is
+  clear before navigation.
+- The primary action opens the existing article Reader for that comparison
+  target. It does not create a second comparison-only article view.
 - Show a speaker label such as `교육부 표현` only when a specific attributed
   speaker is stored. Omit the generic `기자 표현` label.
 - The sheet opens directly at its maximum height. The target article scrolls
@@ -407,6 +429,20 @@ Comparison behavior:
 ### 6.4 Navigation and gesture ownership
 
 - Tapping the preview action opens the expanded comparison sheet without moving the source Reader.
+- Tapping a comparison page's article action closes the sheet and opens that
+  target in the ordinary Reader. Back returns to the source Reader rather than
+  the feed or app exit and restores the source Reader's scroll position.
+- The stored target marker is shown with a restrained comparison-context style
+  and scrolled into view. It is not presented as an A–G finding and does not
+  alter the article string.
+- The target Reader shows one compact comparison-context notice inside the
+  article scroll area, so it leaves the screen naturally while reading. It
+  must not occupy persistent top chrome. When that target has no standalone
+  findings, say so explicitly without implying that the comparison marker is
+  missing or invalid.
+- Saving from the target Reader uses the ordinary saved-article control. A
+  comparison-support article stays absent from feed and search unless
+  `is_feed_visible` is separately enabled.
 - There is no middle sheet anchor and no expand/collapse transition.
 - Back, outside tap, or downward dismissal returns to the same Reader position
   and clears the preview instead of reopening a surface the reader has already completed.
@@ -435,6 +471,11 @@ right rail. Its two navigation levels must use different controls:
 - Product copy shows natural-language finding labels and publisher names. Raw
   A–G codes and evaluation-only article IDs such as `S`, `A1`, or `A2` never
   appear in the Reader.
+- Each active publisher page presents the destination title before its actions,
+  exposes `Read full article` as a comfortably sized primary destination, and
+  keeps `Original` as an external secondary destination. Browser back returns
+  to the source Reader. Refreshing the target URL keeps the article available
+  but may clear the transient comparison marker.
 
 ## 7. Account menu
 
@@ -451,7 +492,9 @@ right rail. Its two navigation levels must use different controls:
 └──────────────────────────────────────┘
 ```
 
-- Logout clears the local token and returns to Login.
+- Logout clears the local token and personalized state, then continues in the
+  public guest feed or Reader. Following falls back to Latest and Saved returns
+  to the feed.
 - Android remembers the last analysis-toggle value locally; Web has no separate
   toggle or default setting in the implemented baseline.
 
@@ -459,15 +502,29 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 
 ## 8. Navigation and state restoration
 
-- Login and registration success → all-publisher feed.
+- Clean launch without a valid session → guest Latest feed.
+- Login and registration success → prior public route, or all-publisher feed
+  when authentication was opened directly.
 - Feed → Reader → back restores feed position and filters.
 - Reader with open detail → back closes both detail and its preview, preserving
   the article position. Back from a preview alone closes the preview first.
 - Account menu dismiss → same feed state.
-- Expired session clears authenticated state and returns to Login with an explanation.
+- Confirmed expired session clears authenticated state, keeps public content
+  readable as a guest, and explains that personalized features require sign-in.
 - Process recreation restores authentication and the last feed category. Followed
   sources and saved articles reload from the account; restoring an open Reader
   preview or detail is deferred.
+
+### 8.1 Android offline restoration
+
+- Online feeds remain server-backed. After a network failure, the feed switches
+  to the active user's locally complete Saved articles for that category.
+- Cached Reader content remains readable with a restrained offline notice.
+- A locally verified Saved snapshot is visible only for the active unexpired
+  account session; guest and other-account states cannot read it.
+- Summary-only Saved rows are omitted offline so every visible row opens.
+- Offline search, Following, follow changes, and save/remove mutations require a
+  connection and never create optimistic queued state.
 
 ## 9. Accessibility and content edge cases
 
@@ -479,8 +536,9 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Icons need Korean descriptions unless decorative.
 - Test long publisher names, three-line headlines, long paragraphs, long explanations, and three comparison publishers.
 - No automatic scrolling while the user is reading. Opening a preview never moves the article.
-  A comparison page may move once to its first body evidence when first shown;
-  after that, it preserves the reader's own position.
+  A comparison page, or a Reader opened directly from that page, may move once
+  to its first body evidence when first shown; after that, it preserves the
+  reader's own position.
 
 ## 10. Compose boundaries
 
@@ -516,7 +574,8 @@ ReaderStatusNotice
 - Routes own navigation and collect state.
 - Components receive immutable UI models and callbacks.
 - UI models follow versioned API DTOs and are not database-shaped.
-- Authentication, feed, article, and analysis repositories remain injectable.
+- Authentication, remote news, and Android local-cache data sources remain
+  injectable behind repositories.
 - Preserve the existing FrameLESS visual language; improve hierarchy and scanability rather than redesigning it.
 - Reuse the existing Reader's full-text annotation, tap targeting, exact evidence highlighting, and Reader-position preservation after extracting them from the legacy `ReaderResult` contract.
 - Do not pass legacy `AnalysisResult`/`ReaderResult` or database models into the news routes. Convert versioned API DTOs to immutable UI models at the repository boundary.
@@ -542,10 +601,13 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 
 ### Authentication and navigation
 
+- Guest launch opens Latest without redirecting to Login
+- Guest feed, search, Reader, and stored analysis remain available
+- Protected controls request sign-in and return to the prior public route
 - Login and registration validation
 - Login error preserves entered values
-- Expired session returns to Login
-- Login and registration open the all-publisher feed
+- Confirmed expired session becomes Guest without discarding public Reader content
+- Direct login opens the all-publisher feed; contextual login returns to its origin
 - Feed → Reader → back restores scroll position, category, and scope
 - Saved → Reader → back restores the saved list rather than exiting the app
 - Back from detail clears detail and preview before leaving Reader; back from a
@@ -560,6 +622,7 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Search and saved-article entry actions
 - Global search with All/Politics/Society filters and active-filter pagination
 - Initial loading, refresh, pagination, empty, and retry states
+- Cached, refreshing, offline-with-cache, and offline-without-cache states on Android
 - Article row with a long headline and no redundant category, analysis, or open
   labels
 
@@ -583,12 +646,17 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 
 The UI is complete when:
 
-- users can register or log in and reach the all-publisher feed directly;
+- guests can browse, search, read, and inspect stored analysis on Android and
+  Web without registration;
+- users can register or log in for Saved and Following and return to their prior
+  public route;
 - users can switch politics/society and Latest/Following without losing state;
 - users can search all feed-visible articles across Politics and Society, narrow
   results with category filters, paginate the active result set, and return to
   the prior feed;
 - users can save an article and return from its Reader to the saved list;
+- authenticated Android users can inspect locally complete Saved articles and
+  reopen their verified analyses offline without queuing writes;
 - every visible article is readable regardless of analysis status;
 - Android analysis can be toggled without changing article content or position;
 - Web analysis remains visible in its rail without changing article content or position;

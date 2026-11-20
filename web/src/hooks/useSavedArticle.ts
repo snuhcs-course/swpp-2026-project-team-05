@@ -24,7 +24,7 @@ function isArticle(value: unknown): value is ArticleSummary {
 export function useSavedArticle() {
   const { session } = useAuth()
   const queryClient = useQueryClient()
-  const userId = session!.user.id
+  const userId = session?.user.id ?? 'guest'
   const relevant = (query: { queryKey: readonly unknown[] }) => (
     query.queryKey[1] === userId
     && ['articles', 'article', 'saved-articles'].includes(String(query.queryKey[0]))
@@ -32,6 +32,7 @@ export function useSavedArticle() {
 
   return useMutation({
     mutationFn: async ({ articleId, isSaved }: ToggleSavedInput) => {
+      if (!session) throw new Error('Sign in to save articles.')
       if (isSaved) {
         await api.removeSavedArticle(session!.token, articleId)
         return false

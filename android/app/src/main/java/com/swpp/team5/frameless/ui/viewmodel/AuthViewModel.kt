@@ -19,6 +19,8 @@ internal class AuthViewModel(private val repository: AuthDataSource) : ViewModel
         private set
     var showRegistration by mutableStateOf(false)
         private set
+    var showLogin by mutableStateOf(false)
+        private set
     var error by mutableStateOf<String?>(null)
         private set
     var fieldErrors by mutableStateOf<Map<String, String>>(emptyMap())
@@ -51,12 +53,27 @@ internal class AuthViewModel(private val repository: AuthDataSource) : ViewModel
     }
 
     fun openRegistration() {
+        showLogin = true
         showRegistration = true
         error = null
         fieldErrors = emptyMap()
     }
 
     fun closeRegistration() {
+        showRegistration = false
+        error = null
+        fieldErrors = emptyMap()
+    }
+
+    fun openLogin() {
+        showLogin = true
+        showRegistration = false
+        error = null
+        fieldErrors = emptyMap()
+    }
+
+    fun closeLogin() {
+        showLogin = false
         showRegistration = false
         error = null
         fieldErrors = emptyMap()
@@ -96,6 +113,7 @@ internal class AuthViewModel(private val repository: AuthDataSource) : ViewModel
                 registrationPassword = ""
                 registrationConfirmation = ""
                 showRegistration = false
+                showLogin = false
             } catch (failure: NewsApiException) {
                 error = failure.message
                 fieldErrors = failure.fields
@@ -113,6 +131,8 @@ internal class AuthViewModel(private val repository: AuthDataSource) : ViewModel
         viewModelScope.launch {
             try {
                 repository.logout()
+            } catch (_: Exception) {
+                // Local logout must still complete when the server is unreachable.
             } finally {
                 session = null
                 password = ""

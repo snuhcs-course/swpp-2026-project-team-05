@@ -119,6 +119,16 @@ describe('FeedPage search', () => {
     expect(screen.queryByRole('heading', { name: 'Section' })).not.toBeInTheDocument()
   })
 
+  it('opens the economy section from the header and asks for economy articles', async () => {
+    renderFeed('/?category=ECONOMY')
+    await waitFor(() => expect(api.articles).toHaveBeenCalledWith(
+      'test-token',
+      expect.objectContaining({ category: 'ECONOMY', scope: 'ALL' }),
+    ))
+    expect(screen.getByRole('link', { name: 'Economy' })).toHaveAttribute('href', '/?category=ECONOMY')
+    expect(screen.getByRole('heading', { name: 'Economy Headlines' })).toBeInTheDocument()
+  })
+
   it('quietly moves reviewed examples first only in Latest', () => {
     const row = (id: string, title: string): ArticleSummary => ({
       id,

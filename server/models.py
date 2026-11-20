@@ -10,6 +10,7 @@ from django.db.models.functions import Lower
 class NewsCategory(models.TextChoices):
     POLITICS = "POLITICS", "Politics"
     SOCIETY = "SOCIETY", "Society"
+    ECONOMY = "ECONOMY", "Economy"
 
 
 class AnalysisStatus(models.TextChoices):
@@ -193,6 +194,9 @@ class Article(models.Model):
         max_length=16, choices=ArticleVisibility.choices, default=ArticleVisibility.VISIBLE,
     )
     is_feed_visible = models.BooleanField(default=True)
+    # Economy articles only: the event and the article's view of it in its own words (specs/features/economic-lens.md).
+    # View sentence offsets are validated against title / body_text by news_import.
+    economic_context = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

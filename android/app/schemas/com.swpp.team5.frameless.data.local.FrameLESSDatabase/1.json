@@ -1,0 +1,219 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "529e9fb611c35b7af88ee1420004ff97",
+    "entities": [
+      {
+        "tableName": "cached_article",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`article_id` TEXT NOT NULL, `publisher_code` TEXT NOT NULL, `publisher_name` TEXT NOT NULL, `publisher_logo_url` TEXT, `category` TEXT NOT NULL, `title` TEXT NOT NULL, `published_at` TEXT NOT NULL, `analysis_state` TEXT NOT NULL, `body_text` TEXT, `original_url` TEXT, `content_hash` TEXT, `summary_cached_at` INTEGER NOT NULL, `detail_cached_at` INTEGER, `last_opened_at` INTEGER, PRIMARY KEY(`article_id`))",
+        "fields": [
+          {
+            "fieldPath": "articleId",
+            "columnName": "article_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publisherCode",
+            "columnName": "publisher_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publisherName",
+            "columnName": "publisher_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publisherLogoUrl",
+            "columnName": "publisher_logo_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publishedAt",
+            "columnName": "published_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analysisState",
+            "columnName": "analysis_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bodyText",
+            "columnName": "body_text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalUrl",
+            "columnName": "original_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "contentHash",
+            "columnName": "content_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "summaryCachedAt",
+            "columnName": "summary_cached_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detailCachedAt",
+            "columnName": "detail_cached_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastOpenedAt",
+            "columnName": "last_opened_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "article_id"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_analysis",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`article_id` TEXT NOT NULL, `payload_json` TEXT NOT NULL, `analysis_version` TEXT NOT NULL, `source_content_hash` TEXT NOT NULL, `cached_at` INTEGER NOT NULL, PRIMARY KEY(`article_id`), FOREIGN KEY(`article_id`) REFERENCES `cached_article`(`article_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "articleId",
+            "columnName": "article_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payload_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "analysisVersion",
+            "columnName": "analysis_version",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceContentHash",
+            "columnName": "source_content_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cachedAt",
+            "columnName": "cached_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "article_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "cached_article",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "article_id"
+            ],
+            "referencedColumns": [
+              "article_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "cached_saved_article",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `article_id` TEXT NOT NULL, `saved_at` TEXT NOT NULL, `last_verified_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`, `article_id`), FOREIGN KEY(`article_id`) REFERENCES `cached_article`(`article_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "articleId",
+            "columnName": "article_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "savedAt",
+            "columnName": "saved_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastVerifiedAt",
+            "columnName": "last_verified_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "user_id",
+            "article_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_cached_saved_article_article_id",
+            "unique": false,
+            "columnNames": [
+              "article_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_cached_saved_article_article_id` ON `${TABLE_NAME}` (`article_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "cached_article",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "article_id"
+            ],
+            "referencedColumns": [
+              "article_id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '529e9fb611c35b7af88ee1420004ff97')"
+    ]
+  }
+}

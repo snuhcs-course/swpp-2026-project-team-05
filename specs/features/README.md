@@ -12,3 +12,11 @@ not be appended to that file by default.
 `url-analysis-mock.md` defines the client-only bridge from an empty article
 search to the future URL ingestion experience. It deliberately creates no
 backend or persistence contract.
+
+`guest-offline-reading.md` defines the guest read boundary shared by Android and
+Web and the deliberately bounded Android Room cache. It does not introduce a
+guest server identity, backend migration, or general synchronization system.
+
+`first-run-tutorial.md` proposes Android first-launch onboarding, first-article
+coach marks, and a label-guide dialog. It is a draft awaiting the separate
+product decision that `news-app-features.md` §12 requires for onboarding.

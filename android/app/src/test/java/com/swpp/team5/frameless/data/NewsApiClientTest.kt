@@ -133,7 +133,9 @@ class NewsApiClientTest {
         assertEquals(NewsCategory.POLITICS, conservative.items.single().category)
         assertEquals(StoredAnalysisState.NOT_STARTED, conservative.items.single().analysisState)
 
-        responses += Response(200, """{"state":"READY","version":"v1"}""")
+        responses += Response(200, """{
+          "state":"READY","version":"v1","source_content_hash":"article-hash"
+        }""")
         assertTrue(client.analysis("token", "a3").findings.isEmpty())
 
         responses += Response(200, """{"items":[{
@@ -180,6 +182,30 @@ class NewsApiClientTest {
         assertEquals("NETWORK_ERROR", network.code)
     }
 
+    @Test
+    fun linkAnalysisPostsTheLinkAndExplainsAServerWithoutTheApi() = runBlocking {
+        responses += Response(200, """{"article_id":"a1","status":"created","highlight_count":3}""")
+        assertEquals("a1", client.analyzeLink("token", "https://example.com/news/1"))
+        assertEquals("POST", requests[0].method)
+        assertEquals("/api/v1/link-analyses", requests[0].path)
+        assertEquals("Bearer token", requests[0].authorization)
+        assertTrue(requests[0].body.contains("https://example.com/news/1"))
+
+        responses += Response(404, "<html>Not Found</html>")
+        val missing = assertThrows(NewsApiException::class.java) {
+            runBlocking { client.analyzeLink("token", "https://example.com/news/1") }
+        }
+        assertEquals("LINK_ANALYSIS_NOT_DEPLOYED", missing.code)
+        assertEquals(LINK_ANALYSIS_NOT_DEPLOYED_MESSAGE, missing.message)
+
+        responses += Response(422, """{"error":{"code":"NO_SAME_EVENT","message":"같은 사건 기사가 없어요."}}""")
+        val apiError = assertThrows(NewsApiException::class.java) {
+            runBlocking { client.analyzeLink("token", "https://example.com/news/1") }
+        }
+        assertEquals("NO_SAME_EVENT", apiError.code)
+        assertEquals("같은 사건 기사가 없어요.", apiError.message)
+    }
+
     private fun respond(exchange: HttpExchange, response: Response) {
         val bytes = response.body.toByteArray(Charsets.UTF_8)
         if (response.status == 204) {
@@ -204,10 +230,10 @@ class NewsApiClientTest {
       "id":"a1","publisher":{"code":"yna","name":"연합뉴스","logo_url":null},
       "title":"정책 추진","body":"정책 본문","category":"POLITICS",
       "published_at":"2026-10-31T12:00:00+09:00","original_url":"https://example.com/a1",
-      "analysis_state":"READY","is_saved":true}"""
+      "analysis_state":"READY","is_saved":true,"content_hash":"article-hash"}"""
 
     private fun analysisJson() = """{
-      "state":"READY","version":"reviewed-v1","findings":[{
+      "state":"READY","version":"reviewed-v1","source_content_hash":"article-hash","findings":[{
         "id":"f1","categories":["C","D"],"explanation":"속도를 강조한다.",
         "source":{"scope":"BODY","sentence":{"start":0,"end":16,"text":"정책을 전격 추진한다고 밝혔다."},
           "marker":{"start_in_sentence":4,"end_in_sentence":6,"text":"전격"}},

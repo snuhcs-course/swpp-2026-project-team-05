@@ -1,36 +1,87 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ArrowLeft, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { AnalysisBadge } from '../components/AnalysisBadge'
 import { AppShell } from '../components/AppShell'
 import { SaveArticleButton } from '../components/SaveArticleButton'
-import type { Finding } from '../lib/types'
+import type { EconomicLens, EconomicView, Finding } from '../lib/types'
 import { api } from '../lib/api'
-import { articleOrigin } from '../lib/navigation'
-import { segmentText, sourceRange } from '../lib/text'
-import { categoryLabel, cn, findingCategoryLabel, formatDate } from '../lib/utils'
+import { articleOrigin, comparisonArticleRouteState, comparisonFocus } from '../lib/navigation'
+import { segmentText, sourceRange, type HighlightRange } from '../lib/text'
+import {
+  categoryLabel,
+  cn,
+  economicStanceLabel,
+  findingCategoryLabel,
+  formatDate,
+} from '../lib/utils'
 
-function HighlightedText({ text, findings, selectedId, onSelect, className }: {
+const VIEW_SENTENCE = 'economic-sentence:'
+const VIEW_PHRASE = 'economic-phrase:'
+
+/** The article's view sentences, and inside each the phrase that carries the view. */
+function economicRanges(lens: EconomicLens | null, scope: 'TITLE' | 'BODY'): HighlightRange[] {
+  return (lens?.views ?? []).flatMap((view, index) => {
+    if (view.sentence.scope !== scope) return []
+    const sentence = { id: `${VIEW_SENTENCE}${index}`, start: view.sentence.start, end: view.sentence.end }
+    const at = view.sentence.text.indexOf(view.phrase)
+    if (at < 0) return [sentence]
+    const start = view.sentence.start + Array.from(view.sentence.text.slice(0, at)).length
+    return [sentence, { id: `${VIEW_PHRASE}${index}`, start, end: start + Array.from(view.phrase).length }]
+  })
+}
+
+function HighlightedText({ text, findings, selectedId, onSelect, focus = null, economic = [], className }: {
   text: string
   findings: Finding[]
   selectedId: string | null
   onSelect: (id: string) => void
+  focus?: { start: number; end: number } | null
+  economic?: HighlightRange[]
   className?: string
 }) {
-  const segments = useMemo(() => segmentText(text, findings.map(sourceRange)), [text, findings])
+  const focusId = '__comparison_context__'
+  const focusRef = useRef<HTMLElement | null>(null)
+  const segments = useMemo(() => segmentText(text, [
+    ...findings.map(sourceRange),
+    ...economic,
+    ...(focus ? [{ id: focusId, start: focus.start, end: focus.end }] : []),
+  ]), [text, findings, economic, focus])
+
+  useEffect(() => {
+    focusRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+  }, [text, focus?.start, focus?.end])
+
   return (
     <div className={cn('whitespace-pre-wrap', className)}>
       {segments.map((segment, index) => {
-        const findingId = segment.findingIds[0]
-        if (!findingId) return <span key={index}>{segment.text}</span>
+        const findingId = segment.findingIds.find((id) => id !== focusId && !id.startsWith('economic-'))
+        const inViewSentence = segment.findingIds.some((id) => id.startsWith(VIEW_SENTENCE))
+        const inViewPhrase = segment.findingIds.some((id) => id.startsWith(VIEW_PHRASE))
+        const economicClass = cn(
+          inViewSentence && 'underline decoration-teal-500 decoration-1 underline-offset-[6px]',
+          inViewPhrase && 'bg-teal-50 decoration-teal-700 decoration-2 font-semibold',
+        )
+        const isComparisonContext = segment.findingIds.includes(focusId)
+        if (!findingId) return (
+          <span
+            key={index}
+            data-economic-view={inViewSentence ? (inViewPhrase ? 'phrase' : 'sentence') : undefined}
+            ref={isComparisonContext ? (node) => { focusRef.current = node } : undefined}
+            className={cn(economicClass, isComparisonContext && 'rounded-[2px] bg-violet-100 px-0.5 font-semibold ring-1 ring-violet-300')}
+          >{segment.text}</span>
+        )
         return (
           <button
             key={index}
+            ref={isComparisonContext ? (node) => { focusRef.current = node } : undefined}
             className={cn(
               'relative rounded-[2px] bg-amber-200/75 px-0.5 text-left text-inherit decoration-2 underline-offset-4 hover:bg-amber-300 focus:outline-none focus:ring-2 focus:ring-black',
               selectedId === findingId && 'bg-amber-300 underline',
+              isComparisonContext && 'ring-2 ring-violet-400',
+              economicClass,
             )}
             onClick={() => onSelect(findingId)}
           >
@@ -42,7 +93,62 @@ function HighlightedText({ text, findings, selectedId, onSelect, className }: {
   )
 }
 
+function ViewLine({ view }: { view: EconomicView }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-6">
+      <span className="font-serif font-bold">«{view.phrase}»</span>
+      <span className="border border-teal-700/50 px-1.5 text-[11px] font-bold text-teal-900">
+        {economicStanceLabel(view.stance, view.direction)}
+      </span>
+    </div>
+  )
+}
+
+/** The event and this article's view of it, under the publisher line. */
+function EconomicLensHeader({ lens }: { lens: EconomicLens }) {
+  return (
+    <section className="mb-7 border border-teal-700/40 bg-teal-50/40 px-4 py-3" aria-label="Economic lens">
+      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-teal-900">Economic lens</p>
+      <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-[110px_minmax(0,1fr)]">
+        <dt className="text-xs font-bold text-zinc-600">Event</dt>
+        <dd className="text-sm font-bold">{lens.event}</dd>
+        <dt className="text-xs font-bold text-zinc-600">This article</dt>
+        <dd className="grid gap-1.5">
+          {lens.views.length
+            ? lens.views.map((view, index) => <ViewLine key={index} view={view} />)
+            : <span className="text-sm text-zinc-500">No view could be read from this article.</span>}
+        </dd>
+      </dl>
+    </section>
+  )
+}
+
+/** How the other outlets on the same event see it, each in its own words. */
+function OtherOutlets({ lens }: { lens: EconomicLens }) {
+  return (
+    <section className="mt-10 border-t-2 border-teal-700 pt-5" aria-label="How other outlets see this event">
+      <h2 className="text-sm font-black text-teal-900">How other outlets see this event</h2>
+      <p className="mt-1 text-xs text-zinc-600">{lens.event}</p>
+      {lens.others.length ? (
+        <div className="mt-4 divide-y divide-zinc-200">
+          {lens.others.map((outlet) => (
+            <div key={outlet.article_id} className="grid gap-1.5 py-3">
+              <Link to={`/articles/${outlet.article_id}`} className="text-sm font-black hover:underline">
+                {outlet.publisher.name}
+              </Link>
+              {outlet.views.map((view, index) => <ViewLine key={index} view={view} />)}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 border-y border-zinc-300 py-4 text-sm text-zinc-500">No other outlet's view is available.</p>
+      )}
+    </section>
+  )
+}
+
 function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
+  const location = useLocation()
   const article = finding.comparison_articles[page]
   if (!article) return null
   const evidence = article.evidence[0]
@@ -53,12 +159,29 @@ function EvidenceQuote({ finding, page }: { finding: Finding; page: number }) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-300 pb-3">
+      <div className="mb-4 border-b border-zinc-300 pb-4">
         <p className="text-xs text-zinc-500">{formatDate(article.published_at)}</p>
-        <a href={article.original_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold">Original <ArrowUpRight size={13} /></a>
+        <h4 className="mt-2 font-serif text-lg font-bold leading-6">{article.title}</h4>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Link
+            to={`/articles/${article.article_id}`}
+            state={comparisonArticleRouteState(
+              location.pathname,
+              location.search,
+              article.article_id,
+              evidence,
+            )}
+            className="inline-flex min-h-10 items-center gap-2 border border-black bg-black px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white hover:text-black focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
+          >Read full article <ArrowRight size={14} /></Link>
+          <a
+            href={article.original_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-10 items-center gap-1 px-2 text-xs font-bold text-zinc-600 underline-offset-4 hover:text-black hover:underline focus:outline-none focus:ring-2 focus:ring-black"
+          >Original <ArrowUpRight size={13} /></a>
+        </div>
       </div>
-      <h4 className="font-serif text-lg font-bold leading-6">{article.title}</h4>
-      <blockquote className="mt-4 border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
+      <blockquote className="border-l-2 border-black pl-4 text-[15px] leading-7 text-zinc-700">
         {before}<mark className="bg-zinc-200 px-0.5 font-semibold text-black">{marker}</mark>{after}
       </blockquote>
     </div>
@@ -120,12 +243,16 @@ export function ArticlePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { session } = useAuth()
-  const token = session!.token
-  const userId = session!.user.id
-  const articleQuery = useQuery({ queryKey: ['article', userId, id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
+  const token = session?.token
+  const viewerId = session?.user.id ?? 'guest'
+  const articleQuery = useQuery({ queryKey: ['article', viewerId, id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
   const analysisQuery = useQuery({ queryKey: ['analysis', id], queryFn: () => api.analysis(token, id), enabled: Boolean(id) })
   const findings = analysisQuery.data?.findings ?? []
+  const economic = analysisQuery.data?.economic ?? null
+  const titleEconomic = useMemo(() => economicRanges(economic, 'TITLE'), [economic])
+  const bodyEconomic = useMemo(() => economicRanges(economic, 'BODY'), [economic])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const focus = comparisonFocus(location.state, id)
 
   const selectedFinding = findings.find((finding) => finding.id === selectedId) ?? findings[0]
   const selectedIndex = selectedFinding ? findings.findIndex((finding) => finding.id === selectedFinding.id) : -1
@@ -142,6 +269,8 @@ export function ArticlePage() {
   const origin = articleOrigin(location.state)
   const backLabel = origin === '/saved'
     ? 'Back to saved articles'
+    : origin?.startsWith('/articles/')
+      ? 'Back to source article'
     : `Back to ${categoryLabel(article.category)}`
   const goBack = () => {
     if (origin) navigate(-1)
@@ -158,17 +287,26 @@ export function ArticlePage() {
           <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
             <article className="min-w-0 py-9 lg:border-r lg:border-zinc-300 lg:py-14 lg:pr-12 xl:pr-20">
               <header className="border-b-2 border-black pb-9">
+                {focus && (
+                  <div className="mb-6 flex items-start gap-3 border-l-2 border-violet-400 bg-violet-50 px-3 py-2.5 text-xs leading-5 text-zinc-700">
+                    <strong className="shrink-0 text-violet-900">Opened from comparison</strong>
+                    <span>The referenced passage is highlighted in this article.</span>
+                  </div>
+                )}
                 <div className="mb-6 flex flex-wrap items-center gap-3 text-xs">
                   <strong className="text-sm">{article.publisher.name}</strong>
                   <span className="text-zinc-500">{categoryLabel(article.category)}</span>
                   <span className="text-zinc-500">{formatDate(article.published_at, true)}</span>
                   <AnalysisBadge state={article.analysis_state} />
                 </div>
+                {economic && <EconomicLensHeader lens={economic} />}
                 <HighlightedText
                   text={article.title}
                   findings={titleFindings}
                   selectedId={selectedFinding?.id ?? null}
                   onSelect={setSelectedId}
+                  economic={titleEconomic}
+                  focus={focus?.scope === 'TITLE' ? { start: focus.start, end: focus.end } : null}
                   className="font-serif text-[clamp(2.5rem,5vw,5.6rem)] font-black leading-[1.03] tracking-[-0.06em]"
                 />
                 <div className="mt-7 flex items-center justify-end gap-3">
@@ -181,6 +319,8 @@ export function ArticlePage() {
                 findings={bodyFindings}
                 selectedId={selectedFinding?.id ?? null}
                 onSelect={setSelectedId}
+                economic={bodyEconomic}
+                focus={focus?.scope === 'BODY' ? { start: focus.start, end: focus.end } : null}
                 className="article-body py-10"
               />
             </article>
@@ -220,9 +360,17 @@ export function ArticlePage() {
                   </>
                 ) : !analysisQuery.isLoading && (
                   <div className="border-y border-zinc-300 py-8">
-                    <p className="font-serif text-xl font-bold">No findings are available yet.</p>
+                    <p className="font-serif text-xl font-bold">
+                      {focus ? 'No standalone findings for this article.' : 'No findings are available yet.'}
+                    </p>
+                    {focus && (
+                      <p className="mt-3 text-sm leading-6 text-zinc-600">
+                        The passage opened from compared coverage remains highlighted in the article.
+                      </p>
+                    )}
                   </div>
                 )}
+                {economic && <OtherOutlets lens={economic} />}
               </div>
             </aside>
           </div>

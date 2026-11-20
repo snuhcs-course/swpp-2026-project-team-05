@@ -29,7 +29,8 @@ internal enum class FeedScope(val wire: String, val label: String) {
 
 internal enum class NewsCategory(val wire: String, val label: String) {
     POLITICS("POLITICS", "정치"),
-    SOCIETY("SOCIETY", "사회");
+    SOCIETY("SOCIETY", "사회"),
+    ECONOMY("ECONOMY", "경제");
 
     companion object {
         fun fromWire(value: String): NewsCategory = entries.firstOrNull { it.wire == value } ?: POLITICS
@@ -72,7 +73,8 @@ internal data class ArticleDetail(
     val publishedAt: String,
     val originalUrl: String,
     val analysisState: StoredAnalysisState,
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    val contentHash: String = ""
 )
 
 /** API offsets are Unicode code points. They are converted before reaching Compose. */
@@ -105,10 +107,33 @@ internal data class ApiFinding(
     val comparisonOverview: String,
     val comparisons: List<ApiComparisonArticle>
 )
+/** Economic lens (specs/features/economic-lens.md): the event and each outlet's view of it in its own words. */
+internal data class ApiEconomicView(
+    val channels: List<String>,
+    val stance: String,
+    val direction: String?,
+    val phrase: String,
+    val scope: String,
+    val sentence: ApiSentence
+)
+internal data class ApiEconomicOutlet(
+    val articleId: String,
+    val publisher: PublisherItem,
+    val title: String,
+    val views: List<ApiEconomicView>
+)
+internal data class ApiEconomicLens(
+    val event: String,
+    val views: List<ApiEconomicView>,
+    val others: List<ApiEconomicOutlet>
+)
 internal data class ApiArticleAnalysis(
     val state: StoredAnalysisState,
     val version: String,
-    val findings: List<ApiFinding>
+    val findings: List<ApiFinding>,
+    val sourceContentHash: String = "",
+    val rawJson: String = "",
+    val economic: ApiEconomicLens? = null
 )
 
 internal data class TextRange(val start: Int, val end: Int) {
@@ -149,11 +174,34 @@ internal data class ComparisonArticleUi(
     val evidence: List<ComparisonEvidenceUi>
 )
 
+/** A view of the current article carries its sentence and phrase ranges (UTF-16); other outlets' views do not. */
+internal data class EconomicViewUi(
+    val channels: List<String>,
+    val stance: String,
+    val direction: String?,
+    val phrase: String,
+    val scope: String,
+    val sentenceRange: TextRange? = null,
+    val phraseRange: TextRange? = null
+)
+internal data class EconomicOutletUi(
+    val articleId: String,
+    val publisher: PublisherItem,
+    val title: String,
+    val views: List<EconomicViewUi>
+)
+internal data class EconomicLensUi(
+    val event: String,
+    val views: List<EconomicViewUi>,
+    val others: List<EconomicOutletUi>
+)
+
 internal data class ArticleAnalysisUi(
     val state: StoredAnalysisState,
     val version: String,
     val findings: List<FindingUi>,
-    val discardedMarkerCount: Int = 0
+    val discardedMarkerCount: Int = 0,
+    val economic: EconomicLensUi? = null
 )
 
 internal class NewsApiException(

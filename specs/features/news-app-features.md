@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented baseline |
-| Version | 0.5 |
-| Date | 2026-11-05 |
+| Version | 0.6 |
+| Date | 2026-11-15 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -37,10 +37,10 @@ directional notes, not authorization to build their schemas or UI in advance.
 
 ### 2.1 Product goal
 
-A signed-in user can find any article that FrameLESS currently exposes in the
-ordinary news feed, including articles the client has not downloaded. Search is
-server-side. Android and Web send the query and filters to Django, and Django
-searches PostgreSQL before returning one bounded page.
+A guest or signed-in user can find any article that FrameLESS currently exposes
+in the ordinary news feed, including articles the client has not downloaded.
+Search is server-side. Android and Web send the query and filters to Django, and
+Django searches PostgreSQL before returning one bounded page.
 
 Client-side filtering of the currently loaded 20 stories is not a valid search
 implementation.
@@ -57,7 +57,7 @@ become an optional user filter later, but it must not be used as a substitute fo
 an indexed search implementation.
 
 The current reviewed dataset therefore exposes 30 searchable source stories.
-The 148 comparison-support articles remain readable inside reviewed comparison
+Comparison-support articles remain readable inside reviewed comparison
 pages but do not appear in feed search. If an article later becomes an ordinary
 feed story, setting `is_feed_visible=true` makes it searchable without a client
 release.
@@ -110,11 +110,12 @@ the API. Query highlighting, if added later, is performed safely from plain text
 
 ## 3. API contract
 
-Search extends the existing authenticated article collection endpoint:
+Search extends the article collection endpoint. A bearer token is optional for
+`scope=ALL` and required for `scope=FOLLOWING`:
 
 ```http
 GET /api/v1/articles?q=검색어&category=POLITICS&publisher=yna&limit=20&cursor=...
-Authorization: Bearer <session token>
+Authorization: Bearer <session token>  # optional for scope=ALL
 ```
 
 Parameters:
@@ -167,7 +168,9 @@ Changing the query or any filter always resets pagination on the client.
 
 | Condition | Response |
 | --- | --- |
-| Missing or expired session | Existing `401 AUTH_REQUIRED` |
+| Missing session with `scope=ALL` | Public guest search with `is_saved=false` |
+| Missing session with `scope=FOLLOWING` | Existing `401 AUTH_REQUIRED` |
+| Supplied invalid or expired session | Existing `401 AUTH_REQUIRED` |
 | Unsupported category or publisher | Existing `400 VALIDATION_ERROR` |
 | Query shorter than 2 or longer than 100 characters | `400 VALIDATION_ERROR` with `q` field detail |
 | Cursor from another query or filter set | `400 INVALID_CURSOR` |
@@ -213,7 +216,9 @@ signal and may also become an explicit user-selected filter.
   action, and back action.
 - Back exits search and restores the previous category, feed scope, feed items,
   and scroll context.
-- Clearing a non-empty field returns to the ordinary feed state.
+- An empty field shows no article list and no filter row, only `검색어를 입력하세요`.
+  This applies when search opens and when a non-empty field is cleared; it makes no
+  request. The ordinary feed returns when search closes.
 
 ### 5.2 Request behavior
 
@@ -268,14 +273,16 @@ distinct button descriptions, and IME search submits immediately.
 - Provide explicit loading, no-results, error, retry, and clear-search states.
 - Keep the layout usable without horizontal overflow at phone and desktop widths.
 
-The Web query cache key includes the current user, normalized query, and
+The Web query cache key includes the viewer identity (`guest` or user ID),
+normalized query, and
 category. Cached results from one search context must never appear under another.
 
 ## 7. Verification
 
 ### 7.1 Backend tests
 
-- authentication remains mandatory;
+- guest `scope=ALL` search succeeds while Following remains authenticated;
+- invalid supplied credentials are rejected rather than silently ignored;
 - title, publisher, and body matches are returned;
 - title matches rank above publisher and body matches;
 - same-tier results are stable and newest first;
@@ -330,7 +337,7 @@ After automated tests pass:
 - searching analysis explanations or A-G codes;
 - searching comparison-only articles;
 - query highlighting with server-provided HTML;
-- exact total-result counts;
+- user-visible total-result counts or count badges;
 - user-selectable relevance or date sorting;
 - date-range controls;
 - saving or sharing a search query.
@@ -342,25 +349,29 @@ while implementing article search v1.
 
 ### 9.1 Product goal
 
-A signed-in user can save or remove an ordinary feed article from Web or
-Android, then reopen it from a personal list ordered by most recently saved.
+A signed-in user can save or remove any visible article opened in the Reader
+from Web or Android, then reopen it from a personal list ordered by most
+recently saved.
 Both clients use the same server-owned state. Saving an article never copies its
 headline, body, analysis, or publisher metadata into a user record.
 
 Saved articles v1 is a complete vertical slice, not the foundation for folders,
-tags, notes, reactions, or offline article storage.
+tags, notes, reactions, or offline write synchronization. The bounded Android
+read cache is defined separately in
+[`guest-offline-reading.md`](guest-offline-reading.md).
 
 ### 9.2 Eligible articles and lifecycle
 
 An article can be newly saved only when all of the following are true:
 
 - `Article.visibility == VISIBLE`;
-- `Article.is_feed_visible == true`;
 - its publisher is active.
 
-Comparison-support articles are not independently saveable in v1. An
-ineligible or unknown article uses the same not-found response so the endpoint
-does not reveal unpublished data.
+`Article.is_feed_visible` is deliberately not a saveability condition. A
+comparison-support article opened from reviewed evidence is the same first-class
+`Article` as a feed article and can be saved from its Reader without becoming a
+feed or search result. An ineligible or unknown article uses the same not-found
+response so the endpoint does not reveal unpublished data.
 
 Removing a save is idempotent: the final state is not saved whether or not the
 relationship existed. Operational article removal uses existing soft-visibility
@@ -432,9 +443,9 @@ timestamp:
 ```
 
 The ordinary feed, search results, and article detail also include
-`is_saved: boolean` for the authenticated user. Analysis comparison pages do not
-include save state because their supporting articles are outside the v1 saveable
-corpus.
+`is_saved: boolean`; it is false for a guest and account-specific for an
+authenticated user. Analysis comparison pages do not duplicate save state; the
+ordinary article-detail request supplies it after internal navigation.
 
 The saved list accepts only `limit` in the existing range of 1 to 50 and an
 opaque cursor. It does not add category, publisher, search, or sort controls.
@@ -458,6 +469,10 @@ personalized caches are cleared when the account changes. Android clears its
 news state on logout. Neither client may briefly present one user's saved state
 to another user who signs in on the same installation.
 
+Android may retain a user-keyed, locally verified Saved read snapshot as defined
+in `guest-offline-reading.md`. It is not a pending-write queue and is never
+visible to a guest or another account.
+
 If a save races with a hard article deletion, the final database state contains
 no orphan relationship. The API returns either the completed save before the
 cascade or a safe not-found response; an integrity failure is not exposed as an
@@ -468,13 +483,15 @@ internal stack trace.
 - Add `Saved` to desktop and mobile navigation and route it at `/saved`.
 - Add an accessible save/remove control only to the article Reader. Feed and
   saved-list rows remain focused on opening the article.
+- The same control applies after internal navigation to a comparison-support
+  article; saving it does not add it to feed or search.
 - Reuse the existing article-row layout for the saved list.
 - Opening a saved row records `/saved` as the Reader origin. Reader back returns
   to that saved list instead of redirecting to the category feed.
 - Keep feed, Reader, and saved-list state consistent through one shared mutation
   boundary rather than separate request logic in each component.
-- Apply the intended state immediately; disable duplicate input while the
-  request is pending and roll back with an inline error if it fails.
+- Disable duplicate input while the request is pending and apply the intended
+  state after server confirmation; a failure leaves the visible state unchanged.
 - Removing an article in the Reader updates the saved page without resetting
   its remaining scroll and pagination context.
 
@@ -482,13 +499,17 @@ internal stack trace.
 
 - Add a saved-articles action beside search in the feed header.
 - Add an accessible save/remove action only to the Reader header.
+- Internal comparison navigation opens the same Reader and therefore reuses the
+  same save/remove action and mutation path.
 - Open saved articles in a separate route and ViewModel state so the ordinary
   feed retains its category, feed scope, search, rows, and scroll context.
 - Reader back returns to its recorded origin from loaded, loading, and error
   states; it must not fall through to Android's app-exit behavior.
 - Reuse the compact feed row and current Reader navigation.
-- Apply and roll back save state consistently across feed, Reader, and saved
-  list. Failed requests are not queued for later offline synchronization.
+- Apply confirmed save state consistently across feed, Reader, and Saved. Failed
+  requests are not shown optimistically or queued for later synchronization.
+- When offline, show only locally complete Saved rows whose body and validated
+  analysis are available; save/remove stays online-only.
 
 ### 9.8 User-visible states
 
@@ -523,7 +544,6 @@ show the first account's saved state.
 - folders, labels, tags, or free-form notes;
 - offline copies of article text or analysis;
 - automatic saving from reading history;
-- saving comparison-support articles;
 - saved-list search, category filters, publisher filters, or custom sorting;
 - bulk save, bulk removal, import, or export;
 - notifications when a saved article or analysis changes;

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import type { Session } from '../lib/types'
 import { AuthContext, type AuthValue } from './auth-context'
 
@@ -9,8 +9,16 @@ const SESSION_KEY = 'frameless.web.session.v1'
 function readSession(): Session | null {
   try {
     const value = localStorage.getItem(SESSION_KEY)
-    return value ? JSON.parse(value) as Session : null
+    if (!value) return null
+    const session = JSON.parse(value) as Session
+    const expiresAt = Date.parse(session.expires_at)
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      localStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return session
   } catch {
+    localStorage.removeItem(SESSION_KEY)
     return null
   }
 }
@@ -34,7 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     api.me(session.token)
       .then((user) => save({ ...session, user }))
-      .catch(() => save(null))
+      .catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 401) save(null)
+      })
       .finally(() => setLoading(false))
     // A stored token only needs to be checked once when the app starts.
     // eslint-disable-next-line react-hooks/exhaustive-deps

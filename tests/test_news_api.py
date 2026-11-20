@@ -34,7 +34,7 @@ class NewsApiTests(TestCase):
             username="reader",
             password_hash=make_password("safe-password-123"),
         )
-        self.token, _ = create_session(self.user)
+        self.token, self.session = create_session(self.user)
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {self.token}"}
         self.yna = Publisher.objects.create(
             code="yna", name_ko="연합뉴스", domain="yna.co.kr", display_order=1,
@@ -122,10 +122,32 @@ class NewsApiTests(TestCase):
             display_rank=rank,
         )
 
-    def test_news_endpoints_require_authentication(self):
-        for path in ("/api/v1/publishers", "/api/v1/articles", "/api/v1/saved-articles",
-                     f"/api/v1/articles/{self.source.id}",
-                     f"/api/v1/articles/{self.source.id}/analysis"):
+    def test_public_news_reads_allow_guests_and_disable_personalization(self):
+        for path in (
+            "/api/v1/publishers",
+            "/api/v1/articles",
+            f"/api/v1/articles/{self.source.id}",
+            f"/api/v1/articles/{self.source.id}/analysis",
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("Authorization", response.headers["Vary"])
+
+        self.assertFalse(self.client.get("/api/v1/publishers").json()["items"][0]["is_followed"])
+        self.assertTrue(all(
+            not item["is_saved"]
+            for item in self.client.get("/api/v1/articles").json()["items"]
+        ))
+        authenticated = self.client.get("/api/v1/articles", **self.auth)
+        self.assertEqual(authenticated.status_code, 200)
+        self.assertIn("Authorization", authenticated.headers["Vary"])
+
+    def test_personalized_news_operations_still_require_authentication(self):
+        for path in (
+            "/api/v1/saved-articles",
+            "/api/v1/articles?scope=FOLLOWING",
+        ):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 401)
@@ -141,6 +163,26 @@ class NewsApiTests(TestCase):
         self.assertEqual(follow.status_code, 401)
         remove = self.client.delete(f"/api/v1/saved-articles/{self.source.id}")
         self.assertEqual(remove.status_code, 401)
+
+    def test_invalid_supplied_token_is_not_downgraded_to_guest(self):
+        for authorization in ("Bearer invalid-token", "Basic malformed"):
+            headers = {"HTTP_AUTHORIZATION": authorization}
+            for path in (
+                "/api/v1/publishers",
+                "/api/v1/articles",
+                f"/api/v1/articles/{self.source.id}",
+                f"/api/v1/articles/{self.source.id}/analysis",
+            ):
+                with self.subTest(path=path, authorization=authorization):
+                    response = self.client.get(path, **headers)
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json()["error"]["code"], "AUTH_REQUIRED")
+
+        self.session.expires_at = timezone.now() - timedelta(seconds=1)
+        self.session.save(update_fields=["expires_at"])
+        expired = self.client.get("/api/v1/articles", **self.auth)
+        self.assertEqual(expired.status_code, 401)
+        self.assertEqual(expired.json()["error"]["code"], "AUTH_REQUIRED")
 
     def test_register_normalizes_fields_and_returns_session(self):
         response = self.client.post(
@@ -513,10 +555,23 @@ class NewsApiTests(TestCase):
         comparison_only = self.target
         comparison_only.is_feed_visible = False
         comparison_only.save(update_fields=["is_feed_visible"])
-        rejected = self.client.put(
+        saved_comparison = self.client.put(
             f"/api/v1/saved-articles/{comparison_only.id}", **self.auth
         )
-        self.assertEqual(rejected.status_code, 404)
+        self.assertEqual(saved_comparison.status_code, 200)
+        self.assertTrue(saved_comparison.json()["is_saved"])
+        self.assertEqual(
+            [row["id"] for row in self.client.get(
+                "/api/v1/saved-articles", **self.auth
+            ).json()["items"]],
+            [str(comparison_only.id)],
+        )
+        self.assertNotIn(
+            str(comparison_only.id),
+            [row["id"] for row in self.client.get(
+                "/api/v1/articles", **self.auth
+            ).json()["items"]],
+        )
         hidden_article = self._article(
             publisher=self.yna,
             title="숨긴 기사",
@@ -546,13 +601,19 @@ class NewsApiTests(TestCase):
         self.source.visibility = ArticleVisibility.HIDDEN
         self.source.save(update_fields=["visibility"])
         hidden = self.client.get("/api/v1/saved-articles", **self.auth)
-        self.assertEqual(hidden.json()["items"], [])
+        self.assertEqual(
+            [item["id"] for item in hidden.json()["items"]],
+            [str(comparison_only.id)],
+        )
         self.assertTrue(SavedArticle.objects.filter(id=row.id).exists())
 
         self.source.visibility = ArticleVisibility.VISIBLE
         self.source.save(update_fields=["visibility"])
         restored = self.client.get("/api/v1/saved-articles", **self.auth)
-        self.assertEqual(restored.json()["items"][0]["id"], str(self.source.id))
+        self.assertEqual(
+            {item["id"] for item in restored.json()["items"]},
+            {str(self.source.id), str(comparison_only.id)},
+        )
 
         self.source.visibility = ArticleVisibility.HIDDEN
         self.source.save(update_fields=["visibility"])
@@ -797,6 +858,7 @@ class NewsApiTests(TestCase):
         response = self.client.get(f"/api/v1/articles/{self.source.id}", **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["body"], self.source.body_text)
+        self.assertEqual(response.json()["content_hash"], self.source.content_hash)
         hidden = self._article(
             publisher=self.yna,
             title="숨긴 기사",
@@ -815,6 +877,7 @@ class NewsApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["state"], "READY")
+        self.assertEqual(payload["source_content_hash"], self.source.content_hash)
         self.assertEqual(len(payload["findings"]), 1)
         result = payload["findings"][0]
         self.assertEqual(result["source"]["marker"]["start_in_sentence"],
@@ -901,5 +964,94 @@ class NewsApiTests(TestCase):
         response = self.client.get(f"/api/v1/articles/{self.target.id}/analysis", **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
-            "state": "READY", "version": "reviewed-v1", "findings": [],
+            "state": "READY",
+            "version": "reviewed-v1",
+            "source_content_hash": self.target.content_hash,
+            "findings": [],
+            "economic": None,
         })
+
+
+
+class EconomicLensApiTests(TestCase):
+    """specs/testing/economic-lens.spec.md: the economy feed and the economic lens of the reader analysis."""
+
+    def setUp(self):
+        self.client = Client()
+        user = UserAccount.objects.create(username="econ-reader", password_hash=make_password("safe-password-123"))
+        token, _ = create_session(user)
+        self.auth = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        self.yna = Publisher.objects.create(code="yna", name_ko="연합뉴스", domain="yna.co.kr", display_order=1)
+        self.hk = Publisher.objects.create(code="hankyung", name_ko="한국경제", domain="hankyung.com", display_order=2)
+        self.newsis = Publisher.objects.create(code="newsis", name_ko="뉴시스", domain="newsis.com", display_order=3)
+        self.cluster = StoryCluster.objects.create(
+            internal_label="기준금리 인하", category=NewsCategory.ECONOMY,
+            analysis_status=AnalysisStatus.READY, analysis_version="staged-v6",
+        )
+        now = timezone.now()
+        self.worried = self._article(self.yna, "한은 기준금리 인하", "금리를 내렸다. 집값과 가계부채만 자극할 것이라는 우려도 있다.",
+                                     now, "https://example.com/econ-yna")
+        self.limited = self._article(self.hk, "집값 또 오르나", "이번 인하가 집값엔 큰 영향을 주지 않을 것이란 평가다.",
+                                     now - timedelta(hours=1), "https://example.com/econ-hk")
+        self.plain = self._article(self.newsis, "환율 마감", "환율이 1375.9원에 마감했다.",
+                                   now - timedelta(hours=2), "https://example.com/econ-newsis")
+        self.politics = Article.objects.create(
+            publisher=self.yna, canonical_url="https://example.com/politics", title="정치 기사", body_text="정치 본문.",
+            content_hash="0" * 64, category=NewsCategory.POLITICS, published_at=now,
+        )
+        self._lens(self.worried, "집값과 가계부채만 자극할 것이라는 우려도 있다.", ["housing", "household_credit"], "CONCERN",
+                   "집값과 가계부채만 자극할 것이라는 우려")
+        self._lens(self.limited, self.limited.body_text, ["housing"], "LIMITED", "집값엔 큰 영향을 주지 않을 것")
+
+    def _article(self, publisher, title, body, published_at, url):
+        return Article.objects.create(
+            publisher=publisher, story_cluster=self.cluster, canonical_url=url, title=title, body_text=body,
+            content_hash="0" * 64, category=NewsCategory.ECONOMY, published_at=published_at,
+        )
+
+    @staticmethod
+    def _lens(article, sentence, channels, stance, phrase):
+        start = article.body_text.index(sentence)
+        article.economic_context = {"event": "한은, 기준금리 2.50%로 0.25%p 인하", "views": [{
+            "channels": channels, "stance": stance, "direction": None, "phrase": phrase,
+            "sentence": {"scope": "BODY", "start": start, "end": start + len(sentence), "text": sentence},
+        }]}
+        article.save()
+
+    def _economic(self, article):
+        return self.client.get(f"/api/v1/articles/{article.id}/analysis", **self.auth).json()["economic"]
+
+    def test_economy_feed_lists_only_economy_articles(self):
+        response = self.client.get("/api/v1/articles?category=ECONOMY", **self.auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.json()["items"]],
+                         [str(self.worried.id), str(self.limited.id), str(self.plain.id)])
+        self.assertEqual({item["category"] for item in response.json()["items"]}, {"ECONOMY"})
+        politics = self.client.get("/api/v1/articles?category=POLITICS", **self.auth).json()["items"]
+        self.assertEqual([item["id"] for item in politics], [str(self.politics.id)])
+
+    def test_unknown_category_names_all_three_fields(self):
+        response = self.client.get("/api/v1/articles?category=CULTURE", **self.auth)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["fields"]["category"], "정치, 사회 또는 경제를 선택해 주세요.")
+
+    def test_analysis_carries_the_event_the_article_view_and_the_other_outlets_views(self):
+        economic = self._economic(self.worried)
+        self.assertEqual(economic["event"], "한은, 기준금리 2.50%로 0.25%p 인하")
+        self.assertEqual([(v["channels"], v["stance"], v["phrase"]) for v in economic["views"]],
+                         [(["housing", "household_credit"], "CONCERN", "집값과 가계부채만 자극할 것이라는 우려")])
+        self.assertEqual([(o["article_id"], o["publisher"]["name"], [(v["stance"], v["phrase"]) for v in o["views"]])
+                          for o in economic["others"]],
+                         [(str(self.limited.id), "한국경제", [("LIMITED", "집값엔 큰 영향을 주지 않을 것")])])
+        self.assertNotIn("contrasts", economic)
+
+    def test_hidden_outlet_and_stale_view_are_left_out(self):
+        self.limited.visibility = ArticleVisibility.HIDDEN
+        self.limited.save()
+        self.worried.economic_context["views"][0]["sentence"]["text"] = "본문과 다른 문장"
+        self.worried.save()
+        economic = self._economic(self.worried)
+        self.assertEqual((economic["views"], economic["others"]), ([], []))
+
+    def test_article_without_economic_lens_answers_null(self):
+        self.assertIsNone(self._economic(self.plain))

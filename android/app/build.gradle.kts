@@ -37,6 +37,13 @@ android {
         buildConfigField("String", "BACKEND_BASE_URL", "\"${backendBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        javaCompileOptions {
+            annotationProcessorOptions {
+                argument("room.schemaLocation", "$projectDir/schemas")
+                argument("room.incremental", "true")
+            }
+        }
     }
 
     buildTypes {
@@ -70,6 +77,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.security:security-crypto:1.1.0")
+    implementation("androidx.room:room-runtime:2.8.5")
+    annotationProcessor("androidx.room:room-compiler:2.8.5")
+    testImplementation("androidx.room:room-testing:2.8.5")
+    testImplementation("androidx.test:core:1.7.0")
     testImplementation(libs.junit)
     // AI-assisted tests parse real JSON on the host JVM instead of Android's placeholder org.json classes.
     testImplementation("org.json:json:20240303")

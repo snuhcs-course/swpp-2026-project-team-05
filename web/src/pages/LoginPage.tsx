@@ -1,12 +1,14 @@
 import { ArrowRight } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { ApiError } from '../lib/api'
 
 export function LoginPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const { session, login, register } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [identifier, setIdentifier] = useState('')
@@ -16,7 +18,16 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  if (session) return <Navigate to="/" replace />
+  const requestedPath = (
+    location.state
+    && typeof location.state === 'object'
+    && 'from' in location.state
+    && typeof location.state.from === 'string'
+    && location.state.from.startsWith('/')
+    && !location.state.from.startsWith('//')
+  ) ? location.state.from : '/'
+
+  if (session) return <Navigate to={requestedPath} replace />
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -25,6 +36,7 @@ export function LoginPage() {
     try {
       if (mode === 'login') await login(identifier, password)
       else await register(email, username, password)
+      navigate(requestedPath, { replace: true })
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Something went wrong. Please try again.')
     } finally {
@@ -74,6 +86,9 @@ export function LoginPage() {
               {submitting ? 'Checking…' : mode === 'login' ? 'Sign in' : 'Create account'} <ArrowRight size={17} />
             </Button>
           </form>
+          <Link to={requestedPath} className="mt-6 block text-center text-sm font-bold underline underline-offset-4">
+            Continue without signing in
+          </Link>
         </div>
       </section>
     </main>

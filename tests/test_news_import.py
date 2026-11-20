@@ -124,6 +124,61 @@ class NewsDatasetImportTests(TestCase):
             Article.objects.filter(canonical_url=replacement_article["canonical_url"]).exists()
         )
 
+    def _economy_dataset(self):
+        dataset = deepcopy(self.dataset)
+        cluster = dataset["clusters"][0]
+        cluster["category"] = "ECONOMY"
+        article = cluster["articles"][0]
+        article["body_text"] = "금리를 내렸다. 집값엔 큰 영향을 주지 않을 것이란 평가다."
+        sentence = "집값엔 큰 영향을 주지 않을 것이란 평가다."
+        start = article["body_text"].index(sentence)
+        located = {"scope": "BODY", "start": start, "end": start + len(sentence), "text": sentence}
+        article["economic_context"] = {
+            "event": "한은 기준금리 인하",
+            "views": [{"channels": ["housing"], "stance": "LIMITED", "direction": None,
+                       "phrase": "집값엔 큰 영향을 주지 않을 것", "sentence": located}],
+        }
+        return dataset
+
+    def test_economy_cluster_keeps_the_event_and_the_article_view(self):
+        import_dataset(self._economy_dataset(), dataset_hash="e" * 64)
+
+        article = Article.objects.get()
+        self.assertEqual(article.category, "ECONOMY")
+        self.assertEqual(article.economic_context["event"], "한은 기준금리 인하")
+        view = article.economic_context["views"][0]
+        self.assertEqual((view["channels"], view["stance"], view["phrase"]),
+                         (["housing"], "LIMITED", "집값엔 큰 영향을 주지 않을 것"))
+        self.assertEqual(view["sentence"]["text"], "집값엔 큰 영향을 주지 않을 것이란 평가다.")
+
+    def test_loan_soundness_and_policy_stance_are_known_channels(self):
+        dataset = self._economy_dataset()
+        dataset["clusters"][0]["articles"][0]["economic_context"]["views"][0]["channels"] = [
+            "credit_quality", "monetary_policy"]
+        import_dataset(dataset, dataset_hash="e" * 64)
+        self.assertEqual(Article.objects.get().economic_context["views"][0]["channels"],
+                         ["credit_quality", "monetary_policy"])
+
+    def test_economic_lens_that_does_not_match_its_article_is_rejected(self):
+        view = lambda d: d["clusters"][0]["articles"][0]["economic_context"]["views"][0]  # noqa: E731
+        cases = {
+            "sentence offsets": lambda d: view(d)["sentence"].update(start=0),
+            "phrase not in its sentence": lambda d: view(d).update(phrase="집값이 크게 오른다"),
+            "unknown stance": lambda d: view(d).update(stance="SAD"),
+            "unknown channel": lambda d: view(d).update(channels=["weather"]),
+            "no event": lambda d: d["clusters"][0]["articles"][0]["economic_context"].update(event=""),
+            "too many views": lambda d: d["clusters"][0]["articles"][0]["economic_context"]["views"].extend(
+                [deepcopy(view(d)), deepcopy(view(d))]),
+            "outside an economy cluster": lambda d: d["clusters"][0].update(category="POLITICS"),
+        }
+        for name, change in cases.items():
+            with self.subTest(name):
+                dataset = self._economy_dataset()
+                change(dataset)
+                with self.assertRaises(DatasetError):
+                    import_dataset(dataset, dataset_hash="e" * 64)
+                self.assertEqual(Article.objects.count(), 0)
+
     def test_failed_replace_rolls_back_old_news(self):
         import_dataset(self.dataset, dataset_hash="a" * 64)
         invalid = deepcopy(self.dataset)

@@ -1,4 +1,5 @@
-export type NewsCategory = 'POLITICS' | 'SOCIETY'
+export type NewsCategory = 'POLITICS' | 'SOCIETY' | 'ECONOMY'
+export const NEWS_CATEGORIES: readonly NewsCategory[] = ['POLITICS', 'SOCIETY', 'ECONOMY']
 export type AnalysisState = 'NOT_STARTED' | 'PROCESSING' | 'READY' | 'PARTIAL' | 'FAILED'
 export type FeedScope = 'ALL' | 'FOLLOWING'
 
@@ -37,6 +38,7 @@ export interface ArticleSummary {
 export interface ArticleDetail extends ArticleSummary {
   body: string
   original_url: string
+  content_hash: string
 }
 
 export interface TextRange {
@@ -83,10 +85,35 @@ export interface Finding {
   comparison_articles: ComparisonArticle[]
 }
 
+export type EconomicStance = 'CONCERN' | 'OPTIMISM' | 'LIMITED' | 'OBSERVED'
+
+export interface EconomicView {
+  channels: string[]
+  stance: EconomicStance
+  direction: 'UP' | 'DOWN' | 'SWING' | null
+  phrase: string
+  sentence: TextRange & { scope: 'TITLE' | 'BODY' }
+}
+
+export interface EconomicOutlet {
+  article_id: string
+  publisher: Publisher
+  title: string
+  views: EconomicView[]
+}
+
+export interface EconomicLens {
+  event: string
+  views: EconomicView[]
+  others: EconomicOutlet[]
+}
+
 export interface Analysis {
   state: AnalysisState
   version: string
+  source_content_hash: string
   findings: Finding[]
+  economic?: EconomicLens | null
 }
 
 export interface ArticlePage {

@@ -33,6 +33,7 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.text.BasicTextField
@@ -54,6 +55,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.text.KeyboardOptions
@@ -70,6 +72,7 @@ import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
+import com.swpp.team5.frameless.ui.viewmodel.LinkAnalysisState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
@@ -80,7 +83,7 @@ import java.time.OffsetDateTime
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun NewsFeedScreen(
     state: NewsFeedState,
-    session: AppSession,
+    session: AppSession?,
     listState: LazyListState,
     onCategory: (NewsCategory) -> Unit,
     onSearchFilter: (SearchFilter) -> Unit,
@@ -97,7 +100,14 @@ internal fun NewsFeedScreen(
     onSearchClose: () -> Unit,
     onSavedOpen: () -> Unit,
     onArticle: (String) -> Unit,
-    onLogout: () -> Unit
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
+    link: LinkAnalysisState = LinkAnalysisState(),
+    onLinkOpen: () -> Unit = {},
+    onTutorialOpen: () -> Unit = {},
+    onLinkInput: (String) -> Unit = {},
+    onLinkSubmit: () -> Unit = {},
+    onLinkClose: () -> Unit = {}
 ) {
     var showFeedScope by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
@@ -125,12 +135,13 @@ internal fun NewsFeedScreen(
     }
 
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
-        if (state.activeSearchQuery.isBlank() && state.items.isNotEmpty() &&
+        if (!state.isSearchOpen && state.items.isNotEmpty() &&
             listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
             onLoadMore()
         }
     }
 
+    val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
     Column(Modifier.fillMaxSize().background(Fl.Card).dismissKeyboardOnTap()) {
         Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             if (state.isSearchOpen) {
@@ -144,6 +155,27 @@ internal fun NewsFeedScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.padding(start = 18.dp)) { BrandRow() }
                     Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = onTutorialOpen,
+                        modifier = Modifier.size(40.dp).semantics {
+                            contentDescription = "튜토리얼 다시 보기"
+                        }
+                    ) {
+                        Box(
+                            Modifier.size(22.dp).border(1.5.dp, Fl.Ink2, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.Ink2)
+                        }
+                    }
+                    IconButton(
+                        onClick = onLinkOpen,
+                        modifier = Modifier.size(40.dp).semantics {
+                            contentDescription = "기사 링크로 분석하기"
+                        }
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Fl.Ink2)
+                    }
                     IconButton(
                         onClick = {
                             savedFeedIndex = listState.firstVisibleItemIndex
@@ -175,7 +207,7 @@ internal fun NewsFeedScreen(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(session.user.username.take(1).uppercase(), color = Fl.Accent,
+                        Text(session?.user?.username?.take(1)?.uppercase() ?: "↗", color = Fl.Accent,
                             fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -186,7 +218,8 @@ internal fun NewsFeedScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (state.isSearchOpen) {
-                    SearchFilter.entries.forEach { filter ->
+                    // Filters appear once a query can be searched (two characters).
+                    if (normalizedSearch.length >= 2) SearchFilter.entries.forEach { filter ->
                         SearchFilterTab(
                             label = filter.label,
                             selected = state.searchFilter == filter,
@@ -218,8 +251,8 @@ internal fun NewsFeedScreen(
             }
         }
         HorizontalDivider(color = Fl.Line)
-        val normalizedSearch = state.searchInput.trim().replace(Regex("\\s+"), " ")
         when {
+            state.isSearchOpen && normalizedSearch.isEmpty() -> SearchPrompt()
             state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
                 title = "검색어를 조금 더 입력해 주세요",
                 detail = "두 글자 이상부터 전체 기사에서 검색해요.",
@@ -253,21 +286,25 @@ internal fun NewsFeedScreen(
                 onClearSearch = { onSearchInput("") }
             )
             state.items.isEmpty() -> FeedMessage(
-                title = if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                title = if (state.isOffline) "오프라인에서 읽을 저장 기사가 없어요"
+                else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
                     "팔로우한 언론사가 없어요" else "새 기사가 없어요",
                 detail = when {
+                    state.isOffline -> "온라인에서 기사를 저장하면 본문과 분석을 이 기기에서 다시 볼 수 있어요."
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
                         "자주 읽는 언론사를 선택해 팔로잉 피드를 만들어 보세요."
                     state.scope == FeedScope.FOLLOWING -> "이 분야에는 팔로우한 언론사의 새 기사가 없어요."
                     else -> "잠시 후 새로고침해 주세요."
                 },
                 action = when {
+                    state.isOffline -> "다시 연결"
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } -> "언론사 관리"
                     state.scope == FeedScope.FOLLOWING -> "최신 기사 보기"
                     else -> "새로고침"
                 },
                 onAction = {
-                    if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
+                    if (state.isOffline) onRefresh()
+                    else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
                         showSources = true
                     else if (state.scope == FeedScope.FOLLOWING) onScope(FeedScope.ALL)
                     else onRefresh()
@@ -279,7 +316,8 @@ internal fun NewsFeedScreen(
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (state.isRefreshing) "새 기사를 확인하는 중…"
+                            if (state.isOffline) "이 기기에 저장한 기사 · 오프라인"
+                            else if (state.isRefreshing) "새 기사를 확인하는 중…"
                             else if (state.activeSearchQuery.isNotBlank())
                                 "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
                             else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
@@ -310,6 +348,23 @@ internal fun NewsFeedScreen(
                 state.nextPageError?.let { message ->
                     item { FeedMessage("다음 기사를 불러오지 못했어요", message, "다시 시도", onLoadMore) }
                 }
+                // On a tall screen the scroll rule above never reaches the last rows of a 20-article page, so the
+                // next page also has a button (as search results do).
+                if (state.nextCursor != null && !state.isLoadingMore && state.nextPageError == null) {
+                    item(key = "feed-more") {
+                        Text(
+                            "기사 더 보기",
+                            color = Fl.Accent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable(onClick = onLoadMore)
+                                .padding(vertical = 18.dp)
+                                .semantics { role = Role.Button },
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
@@ -321,7 +376,10 @@ internal fun NewsFeedScreen(
             followedCount = state.publishers.count { it.isFollowed },
             onDismiss = { showFeedScope = false },
             onScope = { onScope(it); showFeedScope = false },
-            onManage = { showFeedScope = false; showSources = true }
+            onManage = {
+                showFeedScope = false
+                if (session == null) onLogin() else showSources = true
+            }
         )
     }
     if (showSources) {
@@ -337,17 +395,34 @@ internal fun NewsFeedScreen(
         ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = Fl.Card) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("계정", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                Text(session.user.username, fontSize = 15.sp, color = Fl.Ink)
-                session.user.email?.let { Caption(it) }
-                HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
-                Text("로그아웃", color = Fl.Danger, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.fillMaxWidth().clickable { showAccount = false; onLogout() }
-                        .padding(vertical = 14.dp))
+                Text(if (session == null) "게스트로 읽는 중" else "계정",
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                if (session == null) {
+                    Caption("저장과 팔로잉은 로그인 후 사용할 수 있어요.")
+                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
+                    Text("로그인", color = Fl.Accent, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            showAccount = false
+                            onLogin()
+                        }.padding(vertical = 14.dp))
+                } else {
+                    Text(session.user.username, fontSize = 15.sp, color = Fl.Ink)
+                    session.user.email?.let { Caption(it) }
+                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
+                    Text("로그아웃", color = Fl.Danger, fontWeight = FontWeight.Medium,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            showAccount = false
+                            onLogout()
+                        }.padding(vertical = 14.dp))
+                }
                 Spacer(Modifier.height(12.dp))
             }
         }
     }
+    if (link.isOpen) {
+        LinkAnalysisSheet(state = link, onInput = onLinkInput, onSubmit = onLinkSubmit, onDismiss = onLinkClose)
+    }
+
     if (showUrlAnalysisMock) {
         UrlAnalysisMockSheet(onDismiss = { showUrlAnalysisMock = false })
     }
@@ -653,6 +728,14 @@ internal fun LoadingFeed() {
                 Box(Modifier.fillMaxWidth(0.72f).height(20.dp).background(Fl.Line, RoundedCornerShape(5.dp)))
             }
         }
+    }
+}
+
+/** Search with an empty field: no article list, only the prompt. */
+@Composable
+private fun SearchPrompt() {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp), contentAlignment = Alignment.Center) {
+        Text("검색어를 입력하세요", fontSize = 15.sp, color = Fl.Muted)
     }
 }
 
