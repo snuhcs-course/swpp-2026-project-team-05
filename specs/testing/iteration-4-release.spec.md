@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Executed for Iteration 4 release candidate `8ac1eaa` |
+| Status | Executed for Iteration 4 release candidate `ffc093c` |
 | Owner | Release and testing owner |
 | Source requirements | [`acceptance-v1.spec.md`](acceptance-v1.spec.md), [`acceptance-v2.spec.md`](acceptance-v2.spec.md), [`../product/news-app-v1.md`](../product/news-app-v1.md) |
 | Last reviewed | 2026-11-20 |
