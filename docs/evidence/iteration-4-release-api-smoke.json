@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "observed_at": "2026-11-20T07:08:28.344668+00:00",
+  "observed_at": "2026-11-20T07:33:19.628520+00:00",
   "base_url": "https://frameless-team05-api.vercel.app",
   "health": {
     "status": "ok",
     "analysis_ready": true,
-    "latency_ms": 129
+    "latency_ms": 331
   },
   "feed_visible_articles": 81,
   "feed_category_counts": {
@@ -16,8 +16,8 @@
   "sample_size_required": 6,
   "sample_size_observed": 6,
   "sample_fingerprint": "2f75ede15e3bf7a45abf241ccc05bd7a357f173356b17c410a174031fde8ce7a",
-  "median_detail_plus_analysis_ms": 300,
-  "max_detail_plus_analysis_ms": 400,
+  "median_detail_plus_analysis_ms": 278,
+  "max_detail_plus_analysis_ms": 292,
   "cases": [
     {
       "article_id": "8731633a-ab1d-45f6-8f91-dd341f0b9a51",
@@ -29,9 +29,9 @@
       "finding_count": 2,
       "comparison_article_count": 2,
       "checked_comparison_article_id": "cc747922-63dd-4f0b-b05b-856f4d7a120e",
-      "detail_ms": 123,
+      "detail_ms": 127,
       "analysis_ms": 144,
-      "comparison_target_ms": 293
+      "comparison_target_ms": 610
     },
     {
       "article_id": "bc4179c2-2c83-4198-a58e-e33695f2f348",
@@ -43,9 +43,9 @@
       "finding_count": 2,
       "comparison_article_count": 2,
       "checked_comparison_article_id": "11f53c39-96a5-4d69-9d45-5044dc5142f4",
-      "detail_ms": 123,
-      "analysis_ms": 277,
-      "comparison_target_ms": 277
+      "detail_ms": 128,
+      "analysis_ms": 164,
+      "comparison_target_ms": 288
     },
     {
       "article_id": "380146f2-ae1b-4d20-8433-106c58ede176",
@@ -57,9 +57,9 @@
       "finding_count": 1,
       "comparison_article_count": 2,
       "checked_comparison_article_id": "f9a72614-9e58-4593-9be0-d03780323814",
-      "detail_ms": 169,
-      "analysis_ms": 134,
-      "comparison_target_ms": 335
+      "detail_ms": 121,
+      "analysis_ms": 155,
+      "comparison_target_ms": 258
     },
     {
       "article_id": "1b7b926e-1379-4ecc-acaf-6124eb2ac1d2",
@@ -71,9 +71,9 @@
       "finding_count": 3,
       "comparison_article_count": 3,
       "checked_comparison_article_id": "918f0498-34dc-474d-aac1-e4d1ae176845",
-      "detail_ms": 118,
-      "analysis_ms": 185,
-      "comparison_target_ms": 292
+      "detail_ms": 110,
+      "analysis_ms": 171,
+      "comparison_target_ms": 252
     },
     {
       "article_id": "0eae65bd-cec6-4449-956d-0b59437c9316",
@@ -85,9 +85,9 @@
       "finding_count": 2,
       "comparison_article_count": 4,
       "checked_comparison_article_id": "ce8b6387-0ebf-46a3-a262-89623fd2c795",
-      "detail_ms": 106,
-      "analysis_ms": 135,
-      "comparison_target_ms": 251
+      "detail_ms": 111,
+      "analysis_ms": 131,
+      "comparison_target_ms": 252
     },
     {
       "article_id": "c8c2580e-2e65-433e-8f16-5bfa34a4862b",
@@ -99,9 +99,9 @@
       "finding_count": 5,
       "comparison_article_count": 5,
       "checked_comparison_article_id": "d5d19510-77ac-4a7f-88f4-174a5a241567",
-      "detail_ms": 144,
-      "analysis_ms": 154,
-      "comparison_target_ms": 246
+      "detail_ms": 133,
+      "analysis_ms": 150,
+      "comparison_target_ms": 292
     }
   ],
   "scan_request_errors": [],
