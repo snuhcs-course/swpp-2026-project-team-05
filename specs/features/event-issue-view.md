@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft for review |
 | Owner | Analysis |
-| Clients | Web |
+| Clients | Web and Android |
 | Test specification | `specs/testing/event-issue-view.spec.md` |
 
 ## Purpose
@@ -123,3 +123,9 @@ the stored article answers `sentence: null`. The view is computed per request fr
   reporting the issue as fact only. The wording differences and the shared facts are
   not shown there (the A-G highlights in the article carry the wording differences). Under an economic lens the
   section is titled "Issue by issue across outlets".
+
+## Android display
+
+- Reader, between the publisher line and the title: a card with the event (사건), what this article puts in front (이 기사: its position; each voice as speaker «words»; or «the fact phrase») with its frame, and then the `비교 포인트` of the article when it has any. An economy article with an economic lens keeps the lens card and shows the comparison points on their own.
+- Below the article (after the other outlets' lens views for economy): "쟁점별로 본 다른 언론사", one block per issue on which some outlet takes a position: the question, each position with the outlets taking it ("MBC (더불어민주당)" when the position comes from words the outlet quotes; this article's position tagged "이 기사"), and the outlets reporting the issue only as fact (사실만 전함). Tapping an outlet opens its article in the Reader.
+- The analysis is cached with the rest of the stored response, so a saved article shows the same card and list offline.

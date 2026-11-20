@@ -178,6 +178,8 @@ private fun NewsReaderContent(
     val titleFocus = comparisonFocus?.takeIf { it.scope == "TITLE" }
     val bodyFocus = comparisonFocus?.takeIf { it.scope == "BODY" }
     val economic = analysis?.economic
+    // Event issue view (specs/features/event-issue-view.md): an economy article keeps its economic lens on top.
+    val frame = analysis?.frame
     val economicViews = if (analysisEnabled) economic?.views.orEmpty() else emptyList()
     val titleText = remember(article.title, titleFindings, titleFocus, economicViews) {
         annotatedReaderText(article.title, titleFindings, titleFocus, economicViews.filter { it.scope == "TITLE" })
@@ -359,11 +361,20 @@ private fun NewsReaderContent(
                     Spacer(Modifier.height(16.dp))
                 }
                 Caption("${article.publisher.name} · ${formatNewsTimestamp(article.publishedAt)} · ${article.category.label}")
-                ComparisonPointsSection(
-                    points = points,
-                    onOpen = { applySelection(comparisonPointSelection(it)) },
-                    modifier = Modifier.padding(top = 10.dp)
-                )
+                if (frame != null && economic == null) {
+                    FrameCard(
+                        frame = frame,
+                        points = points,
+                        onOpenPoint = { applySelection(comparisonPointSelection(it)) },
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                } else {
+                    ComparisonPointsSection(
+                        points = points,
+                        onOpen = { applySelection(comparisonPointSelection(it)) },
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 FindingText(
                     text = titleText,
@@ -407,6 +418,10 @@ private fun NewsReaderContent(
                 economic?.let { lens ->
                     Spacer(Modifier.height(28.dp))
                     OtherOutletsSection(lens, onOpenArticle = { onOpenRelatedArticle(it, scroll.value) })
+                }
+                frame?.takeIf { it.issues.isNotEmpty() }?.let {
+                    Spacer(Modifier.height(28.dp))
+                    IssueListSection(it, onOpenArticle = { id -> onOpenRelatedArticle(id, scroll.value) })
                 }
                 val previewSpace = with(density) { previewHeightPx.toDp() } + 24.dp
                 Spacer(Modifier.height(

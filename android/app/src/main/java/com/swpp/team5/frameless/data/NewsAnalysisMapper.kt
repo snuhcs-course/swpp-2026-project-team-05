@@ -77,8 +77,21 @@ internal fun ApiArticleAnalysis.toUi(article: ArticleDetail): ArticleAnalysisUi 
             comparisons = comparisons
         )
     }
-    return ArticleAnalysisUi(state, version, mappedFindings, discarded, economic?.toUi(article))
+    return ArticleAnalysisUi(state, version, mappedFindings, discarded, economic?.toUi(article), frame?.forReader())
 }
+
+/** Only issues on which some outlet takes a position are listed (as on the Web); a front with nothing to show is dropped. */
+internal fun FrameLensUi.forReader(): FrameLensUi = copy(
+    front = front?.takeIf { f ->
+        when (f.kind) {
+            "position" -> !f.label.isNullOrBlank()
+            "fact" -> !f.phrase.isNullOrBlank()
+            "voices" -> f.voices.isNotEmpty()
+            else -> false
+        }
+    },
+    issues = issues.filter { it.positions.isNotEmpty() }
+)
 
 private fun ApiEconomicView.toUi(article: ArticleDetail?): EconomicViewUi {
     if (article == null) return EconomicViewUi(channels, stance, direction, phrase, scope)
