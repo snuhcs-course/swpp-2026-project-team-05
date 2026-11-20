@@ -139,7 +139,7 @@ one-to-many, multiple-finding, and mixed single/multi-source structures.
 | --- | --- | --- | --- | --- | --- |
 | 2026-11-05 | `ff16cd1`; APK SHA-256 `901c4a8bdc9ced21e32d0fe0129952979c43a4ddfcbc4ac0ca830ab4422f90e4` | GitHub Actions; production API; Android 16 / API 36 emulator | Verify workflow; `scripts/smoke_iteration3_release.py`; frozen six-story installed-Reader procedure | Pass: Django 381, Web 25, Android JVM 84; API 6/6; Reader 6/6 | [Verify run 42027115443](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/42027115443); Android lint: 0 errors, 28 warnings. No blocking deviation. |
 | 2026-11-06 | `b9d03ef`; APK SHA-256 `04bd3bcbf2dad3281b399f8d7d98f469ce786b98682232efc354afe95d5ab640` | Local macOS; SQLite; Node 24; Android Studio JBR 21 | Canonical backend, Web, and Android commands from `AGENTS.md`; backend and Android coverage gates | Pass: Django 381, Web 27, Android JVM 84; Web lint/build; Android lint/build; all enforced coverage gates | A clean Python environment exposed that the OpenRouter client used `httpx` directly without declaring it; `requirements.txt` now declares it explicitly. Compose views remain a tracked device-test gap. The live API and six-story installed-Reader smoke were not rerun, so the 11/05 integration evidence remains the applicable result. |
-| 2026-11-20 | `806283a`; APK SHA-256 `1b5dc105666789434b73cf5de2a19e4b27948c117a0678bb50ebc58c88d4c251` | GitHub Actions; production API/Web; Samsung Galaxy S22 demo device | Final Verify workflow; dataset-aware six-article API smoke; Iteration 4 UAT cycle 1; recorded device walkthrough | Pass: Django 421, Web 37, Android JVM 122; API smoke 6/6. UAT accepted 109/128 executed steps; manual negative-state gaps remain explicit. | [Verify run 44695281510](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44695281510); [smoke evidence](evidence/iteration-4-release-api-smoke.json); [demo branch](https://github.com/snuhcs-course/swpp-2026-project-team-05/tree/iteration-4-demo). |
+| 2026-11-20 | `8ac1eaa`; APK SHA-256 `ce6dda67c0e0e14d660f1b99d14b6f51b63fb74ec771694e44d3adcb66bb807a` | GitHub Actions; production API/Web; Samsung Galaxy S22 demo device | Final Verify workflow; dataset-aware six-article API smoke; Iteration 4 UAT cycle 1; recorded device walkthrough | Pass: Django 421, Web 37, Android JVM 122; API smoke 6/6. UAT accepted 109/128 executed steps; manual negative-state gaps remain explicit. | [Verify run 44697651126](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44697651126); [smoke evidence](evidence/iteration-4-release-api-smoke.json); [demo branch](https://github.com/snuhcs-course/swpp-2026-project-team-05/tree/iteration-4-demo). |
 
 The 11/05 APK was downloaded from the named CI run rather than rebuilt locally.
 The 11/06 APK digest belongs only to the local regression build recorded in its
@@ -159,13 +159,13 @@ silently combined.
 
 | Field | Final value |
 | --- | --- |
-| Tested release commit | `806283a100ba9dc018f2ee1e339b364e84ca8ecb` |
-| GitHub Actions run | [Verify 44695281510](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44695281510) |
-| Web deployment | [`https://frameless-team05-web.vercel.app`](https://frameless-team05-web.vercel.app), Vercel status passed for `806283a` |
-| API deployment | [`https://frameless-team05-api.vercel.app`](https://frameless-team05-api.vercel.app), Vercel status passed for `806283a` |
-| APK SHA-256 | `1b5dc105666789434b73cf5de2a19e4b27948c117a0678bb50ebc58c88d4c251` (13,941,605 bytes) |
+| Tested release commit | `8ac1eaa199f3568178a7010b12877e65134e542a` |
+| GitHub Actions run | [Verify 44697651126](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44697651126) |
+| Web deployment | [`https://frameless-team05-web.vercel.app`](https://frameless-team05-web.vercel.app), Vercel status passed for `8ac1eaa` |
+| API deployment | [`https://frameless-team05-api.vercel.app`](https://frameless-team05-api.vercel.app), Vercel status passed for `8ac1eaa` |
+| APK SHA-256 | `ce6dda67c0e0e14d660f1b99d14b6f51b63fb74ec771694e44d3adcb66bb807a` (13,941,605 bytes) |
 | Android device/version | Samsung Galaxy S22 (`SM-S901N`), Android 15 physical walkthrough; final debug APK built in CI |
-| Database dataset/seed | Mutable production corpus: 81 visible articles at 2026-11-20 16:33 KST; exact sample IDs, hashes, versions, and fingerprint are frozen in the smoke JSON |
+| Database dataset/seed | Mutable production data; the public feed projection exposed 8 entries at 2026-11-20 16:51 KST. Exact sample IDs, hashes, versions, and fingerprint are frozen in the smoke JSON |
 | Test date and tester | 2026-11-20, Kim Seungmin; UAT cycle 1 used three testers including the course evaluator |
 | Deliberate boundary | No new claim of model editorial accuracy; deterministic tests and production smoke cover structure, grounding, provenance, and failure handling only |
 
@@ -173,7 +173,7 @@ silently combined.
 
 | Area | Command or CI job | Tests/result | Coverage versus target | Evidence |
 | --- | --- | --- | --- | --- |
-| Django | `FRAMELESS_USE_SQLITE=1 python -m coverage run --branch --source=server manage.py test` | 421 passed; configuration and coverage checks passed | endpoint + v2 adapter 88.7% (goal 85%); v2 analysis 82.5% (goal 65%); Reader contract 91.5% (goal 65%); total branch-inclusive report 75% | [Verify run 44695281510](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44695281510), `backend-coverage` artifact |
+| Django | `FRAMELESS_USE_SQLITE=1 python -m coverage run --branch --source=server manage.py test` | 421 passed; configuration and coverage checks passed | endpoint + v2 adapter 88.7% (goal 85%); v2 analysis 82.5% (goal 65%); Reader contract 91.5% (goal 65%); total branch-inclusive report 75% | [Verify run 44697651126](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44697651126), `backend-coverage` artifact |
 | Web | `npm test`, `npm run lint`, `npm run build` | 37 passed in 9 files; lint 0 warnings/errors; production build passed | Not used as a coverage gate | Same Verify run |
 | Android | `:app:jacocoDebugUnitTestReport`, `:app:lintDebug`, `:app:assembleDebug` | 122 passed, 0 skipped/failed; lint 0 errors and 36 warnings; APK built | data 83.8% (goal 80%); presentation state 97.0% (goal 85%); ViewModel 85.0% (goal 60%); Compose 4.9% tracked as an open device-test gap | Same Verify run, `android-test-evidence` and APK artifacts |
 
@@ -216,11 +216,10 @@ corpus, validates evidence offsets and content hashes, opens a compared article
 as a first-class Reader article, and records the exact sampled IDs.
 
 The final 2026-11-20 run passed 6/6 sampled articles across Politics, Society,
-and Economy (two per category). The feed exposed 81 articles (39/29/13 by
-category),
-median detail-plus-analysis latency was 278 ms, maximum was 292 ms, and no scan
-request failed. Sample fingerprint:
-`2f75ede15e3bf7a45abf241ccc05bd7a357f173356b17c410a174031fde8ce7a`.
+and Economy (two per category). The public feed projection exposed eight
+entries (3/3/2 by category). Median detail-plus-analysis latency was 282 ms,
+the maximum was 309 ms, and no scan request failed. Sample fingerprint:
+`9a9c82d539749a4ede237b554b908fced77ab143e32ccda57e00c731c9050831`.
 
 Evidence: [`docs/evidence/iteration-4-release-api-smoke.json`](evidence/iteration-4-release-api-smoke.json).
 

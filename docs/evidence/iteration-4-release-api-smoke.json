@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "observed_at": "2026-11-20T07:33:19.628520+00:00",
+  "observed_at": "2026-11-20T07:51:15.901846+00:00",
   "base_url": "https://frameless-team05-api.vercel.app",
   "health": {
     "status": "ok",
     "analysis_ready": true,
-    "latency_ms": 331
+    "latency_ms": 738
   },
-  "feed_visible_articles": 81,
+  "feed_visible_articles": 8,
   "feed_category_counts": {
-    "POLITICS": 39,
-    "SOCIETY": 29,
-    "ECONOMY": 13
+    "POLITICS": 3,
+    "SOCIETY": 3,
+    "ECONOMY": 2
   },
   "sample_size_required": 6,
   "sample_size_observed": 6,
-  "sample_fingerprint": "2f75ede15e3bf7a45abf241ccc05bd7a357f173356b17c410a174031fde8ce7a",
-  "median_detail_plus_analysis_ms": 278,
-  "max_detail_plus_analysis_ms": 292,
+  "sample_fingerprint": "9a9c82d539749a4ede237b554b908fced77ab143e32ccda57e00c731c9050831",
+  "median_detail_plus_analysis_ms": 282,
+  "max_detail_plus_analysis_ms": 309,
   "cases": [
     {
       "article_id": "8731633a-ab1d-45f6-8f91-dd341f0b9a51",
@@ -29,9 +29,9 @@
       "finding_count": 2,
       "comparison_article_count": 2,
       "checked_comparison_article_id": "cc747922-63dd-4f0b-b05b-856f4d7a120e",
-      "detail_ms": 127,
-      "analysis_ms": 144,
-      "comparison_target_ms": 610
+      "detail_ms": 124,
+      "analysis_ms": 166,
+      "comparison_target_ms": 499
     },
     {
       "article_id": "bc4179c2-2c83-4198-a58e-e33695f2f348",
@@ -43,23 +43,23 @@
       "finding_count": 2,
       "comparison_article_count": 2,
       "checked_comparison_article_id": "11f53c39-96a5-4d69-9d45-5044dc5142f4",
-      "detail_ms": 128,
-      "analysis_ms": 164,
-      "comparison_target_ms": 288
+      "detail_ms": 119,
+      "analysis_ms": 147,
+      "comparison_target_ms": 276
     },
     {
-      "article_id": "380146f2-ae1b-4d20-8433-106c58ede176",
-      "title": "미 10월 소매상 매출 0.2% 증가해 997조원…총소비의 30%",
-      "publisher": "뉴시스",
+      "article_id": "1f4b7f2f-7612-44a9-aae0-d70fa50505a6",
+      "title": "KDI, 내년 성장률 2.2→3.9%로 상향…\"성장의 3분의 2가 반도체\"",
+      "publisher": "연합뉴스",
       "category": "ECONOMY",
-      "content_hash": "40da14432534569ae7939c524c15ce34f5128509160342682f255ca6dd032f0b",
-      "analysis_version": "staged-v6+econ-simple",
-      "finding_count": 1,
-      "comparison_article_count": 2,
-      "checked_comparison_article_id": "f9a72614-9e58-4593-9be0-d03780323814",
-      "detail_ms": 121,
-      "analysis_ms": 155,
-      "comparison_target_ms": 258
+      "content_hash": "93c7e7451665d28f7f937609a64a8827b16d04d91a5b5ddb29405c3092bb4c59",
+      "analysis_version": "event-issues-v1",
+      "finding_count": 3,
+      "comparison_article_count": 3,
+      "checked_comparison_article_id": "8e0a8e09-3aae-45e4-8976-7412c1ebe0c9",
+      "detail_ms": 114,
+      "analysis_ms": 190,
+      "comparison_target_ms": 280
     },
     {
       "article_id": "1b7b926e-1379-4ecc-acaf-6124eb2ac1d2",
@@ -71,37 +71,37 @@
       "finding_count": 3,
       "comparison_article_count": 3,
       "checked_comparison_article_id": "918f0498-34dc-474d-aac1-e4d1ae176845",
-      "detail_ms": 110,
-      "analysis_ms": 171,
-      "comparison_target_ms": 252
+      "detail_ms": 121,
+      "analysis_ms": 188,
+      "comparison_target_ms": 289
     },
     {
-      "article_id": "0eae65bd-cec6-4449-956d-0b59437c9316",
-      "title": "청와대 \"AI 부정행위 매우 엄중히 봐…수능 앞두고 긴급 대책회의\"",
+      "article_id": "29977429-0d84-479c-9467-bf2804fcf9a0",
+      "title": "51일 파업 옛 대우조선 하청노조 26명 항소심도 전부 유죄",
       "publisher": "노컷뉴스",
       "category": "SOCIETY",
-      "content_hash": "2bc9d1ebb1a13f3805151310017088d2d2d0982f4d49429e3f2825a98024662f",
-      "analysis_version": "staged-v6",
-      "finding_count": 2,
-      "comparison_article_count": 4,
-      "checked_comparison_article_id": "ce8b6387-0ebf-46a3-a262-89623fd2c795",
-      "detail_ms": 111,
-      "analysis_ms": 131,
-      "comparison_target_ms": 252
-    },
-    {
-      "article_id": "c8c2580e-2e65-433e-8f16-5bfa34a4862b",
-      "title": "한중 FTA 서비스·투자 협상 타결…경제계 \"성장 동력 강화 기대\"(종합)",
-      "publisher": "뉴스1",
-      "category": "ECONOMY",
-      "content_hash": "d3d25d45478f58bca35edba132921f780f576e8a2a7a1eef5a0c1f215eb7e656",
-      "analysis_version": "staged-v6+econ-simple",
+      "content_hash": "6069659e34cc9fcf83278e03311057d75866fe8f73bf3554e9a22e29dbeb536f",
+      "analysis_version": "event-issues-v1",
       "finding_count": 5,
       "comparison_article_count": 5,
-      "checked_comparison_article_id": "d5d19510-77ac-4a7f-88f4-174a5a241567",
-      "detail_ms": 133,
-      "analysis_ms": 150,
-      "comparison_target_ms": 292
+      "checked_comparison_article_id": "a898c7c2-2240-47ae-9b28-54c2f5de446a",
+      "detail_ms": 126,
+      "analysis_ms": 149,
+      "comparison_target_ms": 283
+    },
+    {
+      "article_id": "50b534c8-db01-404c-9bb7-e18012159fc7",
+      "title": "집·주식 '빚투' 열풍 꺾였다…가계빚 증가폭 3분의 1로 '뚝'",
+      "publisher": "머니투데이",
+      "category": "ECONOMY",
+      "content_hash": "29eb5dc8bb1c9f7ef6ad50bf4aa99644bbd5c5e653d111f16e5f66656cc11a19",
+      "analysis_version": "event-issues-v1",
+      "finding_count": 6,
+      "comparison_article_count": 6,
+      "checked_comparison_article_id": "6217389b-5bfd-4b33-9269-de09bd7af8dd",
+      "detail_ms": 103,
+      "analysis_ms": 167,
+      "comparison_target_ms": 350
     }
   ],
   "scan_request_errors": [],
