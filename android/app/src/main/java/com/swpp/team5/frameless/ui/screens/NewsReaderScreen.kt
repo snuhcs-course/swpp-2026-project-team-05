@@ -204,6 +204,15 @@ private fun NewsReaderContent(
         detailOpen = false
         coach.onFindingOpened()
     }
+    // Reader "비교 포인트" entry (specs/features/reader-comparison-summary.md). Article-level like the
+    // economic lens, so the marker toggle never inserts or removes it.
+    val points = remember(analysis, article.publisher.name) {
+        comparisonPoints(article.publisher.name, analysis?.findings.orEmpty())
+    }
+    val applySelection: (FindingSelection) -> Unit = { next ->
+        selected = next.finding
+        detailOpen = next.detailOpen
+    }
 
     LaunchedEffect(coachFinding?.id, comparisonFocus) {
         if (coachFinding != null && comparisonFocus == null) coach.onEligible()
@@ -350,6 +359,11 @@ private fun NewsReaderContent(
                     Spacer(Modifier.height(16.dp))
                 }
                 Caption("${article.publisher.name} · ${formatNewsTimestamp(article.publishedAt)} · ${article.category.label}")
+                ComparisonPointsSection(
+                    points = points,
+                    onOpen = { applySelection(comparisonPointSelection(it)) },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
                 Spacer(Modifier.height(10.dp))
                 FindingText(
                     text = titleText,
@@ -407,7 +421,7 @@ private fun NewsReaderContent(
                 finding = finding,
                 onDismiss = { selected = null },
                 onOpenDetail = {
-                    if (finding.comparisons.isNotEmpty()) detailOpen = true
+                    applySelection(previewDetailSelection(FindingSelection(finding, detailOpen = false)))
                 },
                 onHeightChanged = { previewHeightPx = it },
                 onShowLabelGuide = { guideCodes = finding.categories.toSet() },
