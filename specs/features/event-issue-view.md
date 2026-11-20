@@ -118,7 +118,7 @@ the stored article answers `sentence: null`. The view is computed per request fr
   frame sentence and underlines it in the body. An economy article with an economic lens shows the lens there
   instead.
 - Below the article: "How other outlets see this event", one block per issue on which some outlet takes a position:
-  the question, each position with the outlets taking it linked to their articles ("(quoting 국민의힘)" when the
+  the question, each position with the outlets taking it linked to their articles ("(국민의힘)", the speaker, when the
   position comes from words the outlet quotes; this article's position tagged "This article"), and the outlets
   reporting the issue as fact only. The wording differences and the shared facts are
   not shown there (the A-G highlights in the article carry the wording differences). Under an economic lens the
