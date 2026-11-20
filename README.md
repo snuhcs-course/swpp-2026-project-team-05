@@ -1,90 +1,162 @@
-# FrameLESS
+# FrameLESS — Iteration 4 Working Demo
 
-**한 기사를 읽으면서, 같은 사건을 다룬 다른 언론사의 표현을 함께 확인하는 뉴스 앱**
+FrameLESS is a news-reading application that lets people read a normal article
+first and inspect how other outlets describe the same issue when they choose to.
+It presents source-linked wording differences without deciding which report is
+correct, neutral, or biased.
 
-FrameLESS는 정치·사회 기사를 일반 뉴스 앱처럼 탐색하고 읽는 경험 위에
-문장 단위 표현 분석을 더합니다. 분석된 표현을 선택하면 그 표현의 설명과
-같은 내용을 다룬 다른 언론사의 근거 문장을 확인할 수 있습니다. FrameLESS는
-어느 보도가 옳거나 편향되었다고 판정하지 않습니다.
+## Environment and how to run
 
-## 주요 기능
+### Environment used
 
-- 정치·사회 기사 피드와 언론사 팔로우 피드
-- 전체 기사 본문 검색과 분야별 결과 필터
-- 기사 전문 읽기와 저장 목록
-- 검토된 표현 분석 표시와 설명
-- 같은 쟁점을 다룬 다른 언론사의 대응 문장 및 원문 링크
-- Android와 Web에서 공유하는 계정·기사·분석 데이터
+- macOS on Apple silicon
+- Android Studio 2025.3 with JDK 21
+- Android SDK 37 and the project Gradle wrapper
+- Samsung Galaxy S22 (`SM-S901N`) running Android 15
+- Production Django API and shared PostgreSQL database
+- Production Web client on Vercel
 
-일반 사용자의 읽기 경로는 미리 검토해 데이터베이스에 저장한 분석 결과를
-사용합니다. 피드나 Reader를 여는 동작은 LLM 분석을 새로 시작하지 않습니다.
-기존 URL 분석 API는 호환성과 내부 실험을 위해 분리된 상태로 남아 있으며,
-일반 사용자 UI에서는 노출하지 않습니다.
+### Run the Android app
 
-## Android 실행
+1. Clone the repository and switch to the `iteration-4-demo` branch.
+2. Open the `android/` directory in Android Studio.
+3. Let Gradle sync, select the `app` run configuration, and run it on an
+   Android phone or emulator.
+4. Continue as a guest to browse public news, or sign in with a team-provided
+   demo account to use Saved and other account-specific actions.
 
-개발 환경은 JDK 21과 Android SDK 37을 기준으로 합니다.
+The demo build uses the deployed team API at
+`https://frameless-team05-api.vercel.app`; no local backend or model key is
+required for the normal feed and Reader flow. Credentials are not stored in
+this repository.
 
-1. Android Studio에서 `android/`를 엽니다.
-2. Gradle 동기화를 완료합니다.
-3. Android 기기 또는 에뮬레이터에서 `app` 구성을 실행합니다.
+To build a debug APK from the repository root:
 
-기본 빌드는 팀 API인 `https://frameless-team05-api.vercel.app`을 사용하므로
-앱 실행에 로컬 API 키가 필요하지 않습니다. 다른 백엔드를 사용할 때만 다음과
-같이 빌드 속성을 지정합니다.
-
-```sh
+```bash
 cd android
-./gradlew :app:installDebug \
-  -PframelessBackendUrl=http://10.0.2.2:8000
+./gradlew :app:assembleDebug
 ```
 
-## Web 실행
+The generated APK is located at:
 
-```sh
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Run the Web client
+
+The deployed client is available at:
+
+<https://frameless-team05-web.vercel.app>
+
+To run it locally:
+
+```bash
 cd web
 npm install
 npm run dev
 ```
 
-개발 서버는 기본적으로 배포된 팀 API에 요청을 전달합니다. 다른 백엔드를
-사용하려면 `web/.env.example`을 `web/.env.local`로 복사하고
-`VITE_API_BASE_URL`을 설정합니다.
+The local client uses the deployed team API by default. To use another backend,
+copy `web/.env.example` to `web/.env.local` and set
+`VITE_API_BASE_URL`.
 
-## Backend 실행
+### Run the backend locally
 
-```sh
+```bash
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 FRAMELESS_USE_SQLITE=1 .venv/bin/python manage.py migrate
 FRAMELESS_USE_SQLITE=1 .venv/bin/python manage.py runserver
 ```
 
-SQLite는 테스트와 빈 로컬 환경에 적합합니다. 실제 공유 기사 데이터에는
-마이그레이션이 적용된 PostgreSQL `DATABASE_URL`이 필요합니다. OpenRouter,
-Gemini, NAVER 키는 일반 뉴스 읽기 API에는 필요하지 않으며, 분리된 기존 URL
-분석 경로를 로컬에서 실행할 때만 사용합니다.
+SQLite is sufficient for an empty local environment and deterministic tests.
+The shared article and analysis dataset uses the migrated PostgreSQL database.
+External search/model credentials are needed only for the developer-only pasted
+link analysis flow, not for reading the prepared demo articles.
 
-자세한 환경변수와 API 경계는 [백엔드 개발·배포 안내](docs/backend.md)를
-참고하세요.
+## What the demo demonstrates
 
-## 검증
+The Iteration 4 demo focuses on one coherent reading journey rather than a list
+of disconnected screens.
 
-```sh
-FRAMELESS_USE_SQLITE=1 .venv/bin/python manage.py test
+| Flow | Demonstrated behavior |
+| --- | --- |
+| Guest access | Enters the public feed without creating an account and reads public articles and stored analysis. |
+| First-run guidance | Explains that FrameLESS highlights wording differences and does not judge which outlet is correct or biased. |
+| News exploration | Browses Politics, Society, and Economy sections and opens an article from the normal feed. |
+| Article-first Reader | Keeps the article body primary and reveals prepared analysis only when the reader enables it. |
+| Expression analysis | Selects a highlighted expression and reads the issue-level explanation and source-linked comparison evidence. |
+| Cross-article navigation | Opens a compared source as a normal internal Reader article, keeps the relevant passage in view, and can inspect that article's own available analysis. |
+| Saved articles | Saves the internally opened comparison article and finds it in Saved. |
+| Android offline reading | Reopens a fully cached Saved article, including stored analysis and comparison context, while offline. |
+| Economic lens | Reads the event-level economic context and each outlet's reported perspective without presenting a winner or numerical score. |
+| Developer link analysis | With a developer account, pastes an article URL, reuses an existing stored result when available, or creates a hidden Reader result through the staged analysis pipeline. |
+
+The primary end-to-end demo flow is:
+
+```text
+Guest feed → article Reader → enable analysis → highlighted expression
+→ compared coverage → open compared article → save article
+→ Saved → reopen the cached article offline
+```
+
+The Economy section and developer-only pasted-link analysis are shown as short
+follow-up flows after the core Reader journey.
+
+## Major Iteration 4 progress
+
+- Added public guest reading on Android and Web while keeping personal
+  mutations account-bound.
+- Added Android Saved-only offline reading using complete local article and
+  analysis snapshots, without introducing anonymous server accounts or an
+  offline write queue.
+- Promoted compared coverage from an evidence-only card to a first-class
+  internal Reader destination that can be saved normally.
+- Improved comparison navigation so Android waits for layout before bringing
+  the referenced passage into view and preserves the reason for navigation.
+- Added first-run guidance and a replayable explanation of highlights and
+  expression labels.
+- Added Politics, Society, and Economy feed support plus an event-level economic
+  lens that separates common context from each outlet's perspective.
+- Added a developer-only pasted-link analysis flow with URL reuse, guarded model
+  access, safe incremental publisher import, grounded storage, and deterministic
+  regression tests.
+- Refined the staged expression pipeline's A, G, and D phrase decisions without
+  moving live model/search calls into deterministic CI.
+
+## Verification
+
+The release branch is verified with the repository's canonical checks:
+
+```bash
+FRAMELESS_USE_SQLITE=1 python3.12 manage.py test
 cd web && npm test && npm run lint && npm run build
 cd android && ./gradlew :app:jacocoDebugUnitTestReport :app:lintDebug :app:assembleDebug
 ```
 
-GitHub Actions의 `Verify` workflow가 pull request와 `main`의 최종 병합
-게이트입니다.
+Focused Iteration 4 evidence also includes:
 
-## 문서
+- guest, signed-in, online, offline, Saved, and Reader state-transition tests;
+- internal compared-article navigation and Saved behavior on Android and Web;
+- physical-device verification that the referenced comparison passage is in
+  view;
+- deterministic link-analysis tests with external fetch/search/model calls
+  replaced;
+- separate production checks for the deployed API and Web client.
 
-- [제품·UI·기능 스펙](specs/README.md)
-- [테스트 전략과 결과](docs/testing-documentation.md)
-- [Iteration 3 데모 촬영 흐름](docs/iteration-3-demo-recording-plan.md)
-- [백엔드 개발·배포 안내](docs/backend.md)
-- [현재 문서와 보관 자료 안내](docs/README.md)
-- [Requirements and Specifications Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Requirements-and-Specifications)
-- [Design Documentation Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Design-Documentation)
+Live model output quality is not inferred from unit tests. The prepared demo
+content and any live pasted-link result are reviewed separately.
+
+## Demo video
+
+The final recording will be added before submission at:
+
+```text
+demo/iteration-4-demo.mp4
+```
+
+The recording should take approximately two to three minutes and follow the
+primary flow above. It should avoid long live-model waits: use the prepared
+articles for the core demonstration, and show pasted-link analysis only after a
+preflight check with a stable URL.
