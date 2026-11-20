@@ -127,13 +127,39 @@ internal data class ApiEconomicLens(
     val views: List<ApiEconomicView>,
     val others: List<ApiEconomicOutlet>
 )
+/**
+ * Event issue view (specs/features/event-issue-view.md): the event, what this article puts in front of it in its
+ * headline and lead, and where the outlets stand on each issue. Shown as stored; nothing is computed on the device.
+ */
+internal data class FrameVoice(val speaker: String, val quote: String)
+internal data class FrameFront(
+    val kind: String,
+    val label: String? = null,
+    val phrase: String? = null,
+    val voices: List<FrameVoice> = emptyList()
+)
+/** An outlet on an issue; `voice` names the speaker when its position comes from words it quotes. */
+internal data class IssueOutlet(val articleId: String, val publisherName: String, val voice: String? = null)
+internal data class IssuePosition(val label: String, val isOwn: Boolean, val outlets: List<IssueOutlet>)
+internal data class IssueViewUi(
+    val question: String,
+    val positions: List<IssuePosition>,
+    val factOnly: List<IssueOutlet>
+)
+internal data class FrameLensUi(
+    val event: String,
+    val frame: String,
+    val front: FrameFront?,
+    val issues: List<IssueViewUi>
+)
 internal data class ApiArticleAnalysis(
     val state: StoredAnalysisState,
     val version: String,
     val findings: List<ApiFinding>,
     val sourceContentHash: String = "",
     val rawJson: String = "",
-    val economic: ApiEconomicLens? = null
+    val economic: ApiEconomicLens? = null,
+    val frame: FrameLensUi? = null
 )
 
 internal data class TextRange(val start: Int, val end: Int) {
@@ -201,7 +227,8 @@ internal data class ArticleAnalysisUi(
     val version: String,
     val findings: List<FindingUi>,
     val discardedMarkerCount: Int = 0,
-    val economic: EconomicLensUi? = null
+    val economic: EconomicLensUi? = null,
+    val frame: FrameLensUi? = null
 )
 
 internal class NewsApiException(

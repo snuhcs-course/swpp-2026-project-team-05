@@ -337,7 +337,45 @@ private fun decodeArticleAnalysis(root: JSONObject) = ApiArticleAnalysis(
     },
     sourceContentHash = root.requireString("source_content_hash"),
     rawJson = root.toString(),
-    economic = root.optJSONObject("economic")?.let(::parseEconomic)
+    economic = root.optJSONObject("economic")?.let(::parseEconomic),
+    frame = root.optJSONObject("frame")?.let(::parseFrame)
+)
+
+private fun JSONObject.optText(key: String): String? =
+    optString(key).takeIf { has(key) && !isNull(key) && it.isNotBlank() }
+
+private fun parseIssueOutlet(outlet: JSONObject) = IssueOutlet(
+    articleId = outlet.requireString("article_id"),
+    publisherName = outlet.optJSONObject("publisher")?.optText("name").orEmpty(),
+    voice = outlet.optText("voice")
+)
+
+private fun parseFrame(root: JSONObject) = FrameLensUi(
+    event = root.optString("event"),
+    frame = root.optString("frame"),
+    front = root.optJSONObject("front")?.let { front ->
+        FrameFront(
+            kind = front.optString("kind"),
+            label = front.optText("label"),
+            phrase = front.optText("phrase"),
+            voices = front.optJSONArray("voices").orEmptyObjects().mapNotNull { voice ->
+                voice.optText("quote")?.let { FrameVoice(voice.optText("speaker").orEmpty(), it) }
+            }
+        )
+    },
+    issues = root.optJSONArray("issues").orEmptyObjects().map { issue ->
+        IssueViewUi(
+            question = issue.optString("question"),
+            positions = issue.optJSONArray("positions").orEmptyObjects().map { position ->
+                IssuePosition(
+                    label = position.optString("label"),
+                    isOwn = position.optBoolean("is_own", false),
+                    outlets = position.optJSONArray("outlets").orEmptyObjects().map(::parseIssueOutlet)
+                )
+            },
+            factOnly = issue.optJSONArray("fact_only_outlets").orEmptyObjects().map(::parseIssueOutlet)
+        )
+    }
 )
 
 private fun parseEconomicView(view: JSONObject): ApiEconomicView {

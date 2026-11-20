@@ -50,6 +50,56 @@ class NewsAnalysisMapperTest {
             .toUi(article).economic)
     }
 
+    /** specs/features/event-issue-view.md: the event, the article's front, and only the issues someone takes a side on. */
+    @Test
+    fun frameDecodesTheFrontAndTheIssuesAsStored() {
+        val article = ArticleDetail(
+            id = "a", publisher = PublisherItem("busan", "부산일보", null),
+            title = "법안 상정", body = "본문", category = NewsCategory.POLITICS,
+            publishedAt = "2026-11-19T12:00:00+09:00", originalUrl = "https://example.com",
+            analysisState = StoredAnalysisState.READY
+        )
+        val raw = """
+            {"state": "READY", "version": "v", "source_content_hash": "h", "findings": [],
+             "frame": {"event": "더불어민주당, 민주유공자법 본회의 상정", "frame": "정치", "sentence": null,
+              "front": {"kind": "voices", "voices": [{"speaker": "국민의힘", "quote": "국보법 위반자도 유공자 되나"},
+                                                     {"speaker": "x", "quote": ""}]},
+              "issues": [
+               {"question": "특혜법인가?", "kind": "contested",
+                "positions": [{"label": "특정 세력을 위한 특혜법", "is_own": true,
+                               "outlets": [{"article_id": "d", "publisher": {"name": "디지털타임스"}, "voice": "국민의힘"}]},
+                              {"label": "마땅한 예우", "is_own": false,
+                               "outlets": [{"article_id": "n", "publisher": {"name": "뉴스1"}, "voice": null}]}],
+                "fact_only_outlets": [{"article_id": "y", "publisher": {"name": "연합뉴스"}}], "wordings": []},
+               {"question": "표결 시점은?", "kind": "common_fact", "positions": [],
+                "fact_only_outlets": [{"article_id": "y", "publisher": {"name": "연합뉴스"}}], "wordings": []}],
+              "facts": []}}
+        """.trimIndent()
+
+        val frame = decodeArticleAnalysis(raw).toUi(article).frame!!
+
+        assertEquals("더불어민주당, 민주유공자법 본회의 상정", frame.event)
+        assertEquals("정치", frame.frame)
+        assertEquals(listOf(FrameVoice("국민의힘", "국보법 위반자도 유공자 되나")), frame.front!!.voices)
+        val issue = frame.issues.single()
+        assertEquals("특혜법인가?", issue.question)
+        assertTrue(issue.positions.first().isOwn)
+        assertEquals(IssueOutlet("d", "디지털타임스", "국민의힘"), issue.positions.first().outlets.single())
+        assertNull(issue.positions[1].outlets.single().voice)
+        assertEquals(listOf(IssueOutlet("y", "연합뉴스", null)), issue.factOnly)
+        assertNull(decodeArticleAnalysis("""{"state": "READY", "source_content_hash": "h", "findings": []}""")
+            .toUi(article).frame)
+    }
+
+    @Test
+    fun frameFrontWithNothingToShowIsDropped() {
+        val empty = FrameLensUi("사건", "정치", FrameFront("fact", phrase = " "), emptyList())
+        assertNull(empty.forReader().front)
+        val position = FrameLensUi("사건", "정치", FrameFront("position", label = "거부권 행사해야"), emptyList())
+        assertEquals("거부권 행사해야", position.forReader().front!!.label)
+        assertNull(FrameLensUi("사건", "", FrameFront("tone"), emptyList()).forReader().front)
+    }
+
     @Test
     fun codePointOffsetsConvertAcrossSupplementaryCharacters() {
         val text = "😀정책 전격 추진"
