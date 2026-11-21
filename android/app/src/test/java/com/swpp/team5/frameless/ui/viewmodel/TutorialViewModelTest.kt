@@ -2,6 +2,7 @@ package com.swpp.team5.frameless.ui.viewmodel
 
 import com.swpp.team5.frameless.data.TutorialStore
 import com.swpp.team5.frameless.ui.components.coachTooltipGoesBelow
+import com.swpp.team5.frameless.ui.components.safeCoachPadding
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -61,8 +62,8 @@ class TutorialViewModelTest {
 
         viewModel.onReaderEligible()
         viewModel.onFindingOpened()
-        assertEquals(ReaderCoachStep.PREVIEW_CARD, viewModel.readerStep)
-        viewModel.onPreviewNext(hasComparisons = true)
+        assertEquals(ReaderCoachStep.ANNOTATION_DOCK, viewModel.readerStep)
+        viewModel.onAnnotationNext(hasComparisons = true)
         assertEquals(ReaderCoachStep.COMPARISON, viewModel.readerStep)
         assertFalse(store.readerCoachSeen)
 
@@ -72,13 +73,13 @@ class TutorialViewModelTest {
     }
 
     @Test
-    fun findingWithoutComparisonsEndsCoachAtPreviewCard() {
+    fun findingWithoutComparisonsEndsCoachAtAnnotationDock() {
         val store = FakeTutorialStore(introSeen = true)
         val viewModel = TutorialViewModel(store)
 
         viewModel.onReaderEligible()
         viewModel.onFindingOpened()
-        viewModel.onPreviewNext(hasComparisons = false)
+        viewModel.onAnnotationNext(hasComparisons = false)
 
         assertNull(viewModel.readerStep)
         assertTrue(store.readerCoachSeen)
@@ -106,11 +107,11 @@ class TutorialViewModelTest {
         val viewModel = TutorialViewModel(FakeTutorialStore(introSeen = true))
 
         viewModel.onFindingOpened()
-        viewModel.onPreviewNext(hasComparisons = true)
+        viewModel.onAnnotationNext(hasComparisons = true)
         assertNull(viewModel.readerStep)
 
         viewModel.onReaderEligible()
-        viewModel.onPreviewNext(hasComparisons = true)
+        viewModel.onAnnotationNext(hasComparisons = true)
         assertEquals(ReaderCoachStep.TAP_FINDING, viewModel.readerStep)
     }
 
@@ -132,5 +133,11 @@ class TutorialViewModelTest {
         assertFalse(coachTooltipGoesBelow(spotlightCenterY = 600f, containerHeight = 800f))
         assertFalse(coachTooltipGoesBelow(spotlightCenterY = 400f, containerHeight = 800f))
         assertTrue(coachTooltipGoesBelow(spotlightCenterY = 10f, containerHeight = 0f))
+    }
+
+    @Test
+    fun tooltipPaddingNeverPassesNegativeCoordinatesToCompose() {
+        assertEquals(0f, safeCoachPadding(-24f))
+        assertEquals(18f, safeCoachPadding(18f))
     }
 }

@@ -78,7 +78,7 @@ explanation, fake comparison count, or fabricated text.
 
 [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6.3 says the expanded sheet
 "does not repeat the marker, categories, or explanation already shown in the
-preview". This panel repeats the current article's marker, by explicit product
+annotation dock". This panel repeats the current article's marker, by explicit product
 request, so that both expressions are compared in one place. Categories and the
 explanation are still not repeated. This draft does not amend §6.3; a reviewer
 should either accept the exception there or reject this panel.

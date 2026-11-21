@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Implemented with documented gaps |
 | Owner | Reader / onboarding feature owner |
 | Source requirements | [`../features/first-run-tutorial.md`](../features/first-run-tutorial.md) |
-| Last reviewed | 2026-11-16 |
+| Last reviewed | 2026-11-21 |
 
 ## Scope
 
@@ -29,7 +29,7 @@ label guide dialog.
 - [Unit] A fresh install shows onboarding; finishing it persists and a new
   instance does not show it.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.freshInstallShowsIntroAndFinishingItPersists`
-- [Unit] With comparisons, the coach advances TAP_FINDING → PREVIEW_CARD →
+- [Unit] With comparisons, the coach advances TAP_FINDING → ANNOTATION_DOCK →
   COMPARISON and persists only when finished.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.fullReaderCoachWithComparisonsAdvancesThroughThreeStepsAndPersists`
 - [Unit] The feed `?` button shows onboarding again and re-arms the reader
@@ -40,7 +40,7 @@ label guide dialog.
   Tip: add a Compose UI test that pages to the third page.
 - [Unit] The label guide lists A–G once, each with a real chip label.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ExpressionLabelGuideTest.guideListsEveryRubricCategoryOnceWithTheChipLabel`
-- [Acceptance] Tapping the spotlighted phrase opens its preview card; `다음`
+- [Acceptance] Tapping the spotlighted phrase selects it in the annotation dock; `다음`
   on step 2 opens the comparison sheet with the 3 / 3 callout.\
   Tip: add a Compose instrumented test in `NewsScreensInstrumentedTest` that passes a `ReaderCoachUi` with a fake step holder.
 - [Acceptance] `로그인하러 가기` on onboarding page 2 opens the login screen and
@@ -50,7 +50,7 @@ label guide dialog.
 ### Errors and boundaries
 
 - [Unit] A finding without comparisons ends the coach at step 2.\
-  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.findingWithoutComparisonsEndsCoachAtPreviewCard`
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.findingWithoutComparisonsEndsCoachAtAnnotationDock`
 - [Unit] The coach does not start before onboarding is finished.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.readerCoachWaitsUntilIntroIsFinished`
 - [Unit] Out-of-order events do not skip steps.\
@@ -61,9 +61,17 @@ label guide dialog.
 - [Unit] The tooltip is placed below a spotlight in the upper half and above
   it otherwise.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.tooltipSitsBelowSpotlightInUpperHalfAndAboveInLowerHalf`
+- [Unit] A temporarily stale spotlight coordinate is clamped before it becomes
+  Compose padding, so first Reader entry cannot crash during relayout.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.tooltipPaddingNeverPassesNegativeCoordinatesToCompose`
 - [Acceptance] An article with no findings, or opened from a comparison sheet,
   does not start the coach.\
   Tip: instrumented test asserting `onEligible` is never called for these readers.
+- [Integration] No scroll-synced automatic dock replacement occurs while a coach
+  step is active, and tutorial movement emits no annotation haptic; the
+  spotlighted marker remains the coached selection route.\
+  Tip: cover the coach-active suppression state in the scroll-synced dock
+  Reader integration test.
 
 ### State transitions
 
@@ -89,7 +97,7 @@ label guide dialog.
 
 ## Human review checkpoint
 
-- [ ] Product intent and non-goals were reviewed (see feature §0).
-- [ ] Assertions come from the specification, not the implementation output.
-- [ ] Missing coverage is recorded as `Tip`, not hidden.
-- [ ] A contract or acceptance change received explicit team confirmation.
+- [x] Product intent and non-goals were reviewed (see feature §0).
+- [x] Assertions come from the specification, not the implementation output.
+- [x] Missing coverage is recorded as `Tip`, not hidden.
+- [x] The implemented annotation-dock transition is reflected in the contract.

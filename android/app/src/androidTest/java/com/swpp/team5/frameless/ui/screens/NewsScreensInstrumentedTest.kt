@@ -15,11 +15,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipeUp
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
@@ -405,7 +407,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun readerPreviewsSelectedFindingBeforeOpeningFullDetail() {
+    fun readerAnnotationOpensFullComparisonDetail() {
         val body = "빠르게 확장했다"
         val targetBody = "회사는 사업 영역을 넓히고 있다."
         val targetMarker = "넓히고 있다"
@@ -482,12 +484,12 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
+        compose.onNodeWithTag("analysis-annotation-dock").assertIsDisplayed()
         compose.onNodeWithText("“$body”").assertIsDisplayed()
-        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("다른 보도 2곳", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
 
-        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
+        compose.onNodeWithText("다른 보도 2곳", substring = true).performClick()
         compose.onNodeWithText("같은 내용을 다른 기사에서는").assertIsDisplayed()
         compose.onNodeWithContentDescription("비교 상세 닫기").assertIsDisplayed()
         compose.onAllNodesWithText(finding.comparisonOverview).assertCountEquals(1)
@@ -503,10 +505,9 @@ class NewsScreensInstrumentedTest {
 
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
-        compose.onAllNodesWithText("다른 기사 2곳과 비교", substring = true).assertCountEquals(0)
+        compose.onNodeWithTag("analysis-annotation-dock").assertIsDisplayed()
 
-        compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
-        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
+        compose.onNodeWithText("다른 보도 2곳", substring = true).performClick()
         compose.onNodeWithText("이 기사 읽기").performClick()
         compose.waitUntil { openedComparison != null }
         assertEquals("comparison-1", openedComparison?.articleId)
@@ -514,7 +515,86 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun sourceOnlyFindingEndsInPreviewWithoutDetailAction() {
+    fun readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll() {
+        val paragraphs = (0 until 24).map { index ->
+            if (index in 2..20 && index % 2 == 0) {
+                "문단 $index 에서는 강조표현$index 을 사용한 보도를 설명합니다."
+            } else {
+                "문단 $index 에서는 일반적인 기사 내용을 차분하게 설명합니다."
+            }
+        }
+        val body = paragraphs.joinToString("\n\n")
+        val comparison = summaryComparison(
+            id = "auto-target",
+            publisherName = "MBC",
+            body = "다른 보도는 사업 영역을 넓히고 있다고 전했습니다.",
+            marker = "넓히고 있다"
+        )
+        val findings = (2..20 step 2).map { index ->
+            val marker = "강조표현$index"
+            val start = body.indexOf(marker)
+            FindingUi(
+                id = "auto-$index",
+                categories = listOf("D"),
+                scope = "BODY",
+                sentenceRange = TextRange(start, start + marker.length),
+                sentenceText = marker,
+                markerRange = TextRange(start, start + marker.length),
+                markerText = marker,
+                explanation = "강조된 표현이에요.",
+                comparisonOverview = "두 기사가 확장 상태를 다르게 표현해요.",
+                comparisons = listOf(comparison)
+            )
+        }
+        val article = ArticleDetail(
+            "auto-peek-article", publisher, "자동 분석 미리보기", body,
+            NewsCategory.POLITICS, "2026-11-21T12:00:00+09:00",
+            "https://example.com/auto-peek", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", findings),
+                    analysisEnabled = true
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.waitForIdle()
+        val dock = compose.onNodeWithTag("analysis-annotation-dock").assertIsDisplayed()
+        val heightBefore = dock.fetchSemanticsNode().boundsInRoot.height
+        compose.onNodeWithText("“강조표현2”").assertIsDisplayed()
+
+        var changed = false
+        repeat(10) {
+            if (!changed) {
+                compose.onNodeWithTag("article-reader-scroll").performTouchInput {
+                    swipeUp(startY = centerY + 140f, endY = centerY - 140f, durationMillis = 350)
+                }
+                compose.waitForIdle()
+                changed = (4..20 step 2).any { index ->
+                    compose.onAllNodesWithText("“강조표현$index”")
+                        .fetchSemanticsNodes().isNotEmpty()
+                }
+            }
+        }
+        assertTrue(changed)
+        compose.waitUntil(timeoutMillis = 2_000) {
+            (4..20 step 2).any { index ->
+                compose.onAllNodesWithText("“강조표현$index”")
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+        assertEquals(heightBefore, dock.fetchSemanticsNode().boundsInRoot.height)
+        compose.onNodeWithText("다른 보도 1곳", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun sourceOnlyFindingStaysInDockWithoutDetailAction() {
         val body = "지역별로 온도차가 있었다."
         val marker = "온도차가 있었다"
         val markerStart = body.indexOf(marker)
@@ -555,17 +635,15 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText(body).performTouchInput { click() }
+        compose.onNodeWithTag("analysis-annotation-dock").assertIsDisplayed()
         compose.onNodeWithText(explanation).assertIsDisplayed()
-        compose.onNodeWithText("평가·감정이 담긴 표현").assertIsDisplayed()
-        compose.onNodeWithText("확신·범주화가 드러나는 표현").assertIsDisplayed()
-        compose.onNodeWithText("설명 더보기").assertIsDisplayed().performClick()
-        compose.onNodeWithText("설명 접기").assertIsDisplayed()
+        compose.onNodeWithText("평가·감정이 담긴 표현", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("확신·범주화가 드러나는 표현", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("곳과 비교", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
 
         compose.onNodeWithText("지역별 반응").performTouchInput { click() }
-        compose.onAllNodesWithText("“$marker”").assertCountEquals(0)
+        compose.onNodeWithText("“$marker”").assertIsDisplayed()
     }
 
     private fun summaryComparison(
@@ -679,7 +757,7 @@ class NewsScreensInstrumentedTest {
         compose.onAllNodesWithText("MBC  “졸속이었다”", substring = true).assertCountEquals(1)
         compose.onAllNodesWithText("표현 비교 보기", substring = true).assertCountEquals(2)
         compose.onAllNodesWithText(overview).assertCountEquals(0)
-        compose.onAllNodesWithText(first.explanation).assertCountEquals(0)
+        compose.onAllNodesWithText(first.explanation).assertCountEquals(1)
         listOf("A", "B", "C", "D", "E", "F", "G").forEach { code ->
             compose.onAllNodesWithText(code).assertCountEquals(0)
             compose.onAllNodesWithText(categoryLabel(code)).assertCountEquals(0)

@@ -1,11 +1,17 @@
 package com.swpp.team5.frameless.ui.screens
 
+import android.os.Build
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -58,10 +65,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -71,6 +80,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -117,7 +127,7 @@ internal data class ReaderCoachUi(
     val step: ReaderCoachStep? = null,
     val onEligible: () -> Unit = {},
     val onFindingOpened: () -> Unit = {},
-    val onPreviewNext: (hasComparisons: Boolean) -> Unit = {},
+    val onAnnotationNext: (hasComparisons: Boolean) -> Unit = {},
     val onFinish: () -> Unit = {}
 )
 
@@ -179,28 +189,38 @@ private fun NewsReaderContent(
     val bodyFocus = comparisonFocus?.takeIf { it.scope == "BODY" }
     val economic = analysis?.economic
     val economicViews = if (analysisEnabled) economic?.views.orEmpty() else emptyList()
-    val titleText = remember(article.title, titleFindings, titleFocus, economicViews) {
-        annotatedReaderText(article.title, titleFindings, titleFocus, economicViews.filter { it.scope == "TITLE" })
-    }
-    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews) {
-        annotatedReaderText(article.body, bodyFindings, bodyFocus, economicViews.filter { it.scope == "BODY" })
-    }
     var selected by remember(article.id) { mutableStateOf<FindingUi?>(null) }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
-    var previewHeightPx by remember(article.id) { mutableIntStateOf(0) }
+    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
+        annotatedReaderText(
+            article.title, titleFindings, titleFocus,
+            economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id
+        )
+    }
+    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id) {
+        annotatedReaderText(
+            article.body, bodyFindings, bodyFocus,
+            economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id
+        )
+    }
     val density = LocalDensity.current
+    val readerView = LocalView.current
     val scroll = remember(article.id) { ScrollState(initialScrollOffset) }
     var bodyLayout by remember(article.id) { mutableStateOf<TextLayoutResult?>(null) }
-    var bodyTopPx by remember(article.id) { mutableFloatStateOf(0f) }
+    var bodyPositionInContent by remember(article.id) { mutableStateOf(Offset.Zero) }
     var comparisonFocusApplied by remember(article.id, comparisonFocus) { mutableStateOf(false) }
     var titleLayout by remember(article.id) { mutableStateOf<TextLayoutResult?>(null) }
     var titleRootOffset by remember(article.id) { mutableStateOf(Offset.Zero) }
-    var bodyRootOffset by remember(article.id) { mutableStateOf(Offset.Zero) }
-    var previewBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var annotationDockBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var readerViewportBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var readerRootTopPx by remember(article.id) { mutableFloatStateOf(0f) }
+    var userScrollArmed by remember(article.id) { mutableStateOf(false) }
+    var directUserDragActive by remember(article.id) { mutableStateOf(false) }
+    var lastAnnotationHapticAt by remember(article.id) { mutableStateOf(0L) }
     var guideCodes by remember(article.id) { mutableStateOf<Set<String>?>(null) }
     val coachFinding = titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
-    val openFinding: (FindingUi) -> Unit = {
-        selected = it
+    val openFinding: (FindingUi) -> Unit = { finding ->
+        selected = finding
         detailOpen = false
         coach.onFindingOpened()
     }
@@ -213,6 +233,40 @@ private fun NewsReaderContent(
         selected = next.finding
         detailOpen = next.detailOpen
     }
+    val onReaderUserScroll = rememberUpdatedState {
+        userScrollArmed = true
+    }
+    val readerScrollConnection = remember(article.id) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    onReaderUserScroll.value()
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput &&
+                    (consumed.y != 0f || available.y != 0f)) {
+                    onReaderUserScroll.value()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(article.id, analysisEnabled, visibleFindings) {
+        val visibleIds = visibleFindings.mapTo(mutableSetOf()) { it.id }
+        selected = when {
+            !analysisEnabled || visibleFindings.isEmpty() -> null
+            selected?.id !in visibleIds -> titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
+            else -> selected
+        }
+    }
 
     LaunchedEffect(coachFinding?.id, comparisonFocus) {
         if (coachFinding != null && comparisonFocus == null) coach.onEligible()
@@ -220,7 +274,7 @@ private fun NewsReaderContent(
     LaunchedEffect(coach.step, coachFinding?.id) {
         if (coach.step == ReaderCoachStep.TAP_FINDING && coachFinding == null) coach.onFinish()
     }
-    LaunchedEffect(coach.step, coachFinding?.id, bodyLayout, scroll.maxValue) {
+    LaunchedEffect(coach.step, coachFinding?.id, bodyLayout, bodyPositionInContent, scroll.maxValue) {
         val finding = coachFinding
         if (coach.step != ReaderCoachStep.TAP_FINDING || finding == null || finding.scope != "BODY" ||
             scroll.maxValue == Int.MAX_VALUE) return@LaunchedEffect
@@ -228,50 +282,80 @@ private fun NewsReaderContent(
         if (finding.markerRange.start !in article.body.indices) return@LaunchedEffect
         awaitFrame()
         val markerTop = layout.getBoundingBox(finding.markerRange.start).top
-        val target = (bodyTopPx + markerTop - with(density) { 160.dp.toPx() })
+        val target = (bodyPositionInContent.y + markerTop - with(density) { 160.dp.toPx() })
             .roundToInt().coerceIn(0, scroll.maxValue)
         scroll.animateScrollTo(target)
     }
 
-    LaunchedEffect(bodyFocus, bodyLayout, bodyTopPx, scroll.maxValue) {
+    LaunchedEffect(bodyFocus, bodyLayout, bodyPositionInContent, scroll.maxValue) {
         if (comparisonFocusApplied || bodyFocus == null ||
             !bodyFocus.markerRange.isWithin(article.body) ||
             scroll.maxValue == Int.MAX_VALUE) return@LaunchedEffect
         val layout = bodyLayout ?: return@LaunchedEffect
         awaitFrame()
         val markerTop = layout.getBoundingBox(bodyFocus.markerRange.start).top
-        val target = (bodyTopPx + markerTop - with(density) { 96.dp.toPx() })
+        val target = (bodyPositionInContent.y + markerTop - with(density) { 96.dp.toPx() })
             .roundToInt().coerceIn(0, scroll.maxValue)
         scroll.scrollTo(target)
         comparisonFocusApplied = true
+    }
+
+    LaunchedEffect(
+        article.id,
+        userScrollArmed,
+        analysisEnabled,
+        scroll.value,
+    ) {
+        if (!userScrollArmed || !analysisEnabled ||
+            detailOpen || guideCodes != null || coach.step != null) return@LaunchedEffect
+        val viewport = readerViewportBounds ?: return@LaunchedEffect
+        val measured = bodyFindings.mapIndexedNotNull { index, finding ->
+            markerBoundsInScrolledBody(
+                bodyLayout, finding, bodyPositionInContent, viewport, scroll.value
+            )?.let { bounds ->
+                Triple(finding, bounds, PeekMarkerPosition(finding.id, bounds.center.y, index))
+            }
+        }
+        val candidateId = selectScrollSyncedPeekCandidate(
+            measured.map { it.third }, viewport.top, viewport.bottom
+        )
+        if (candidateId == null || candidateId == selected?.id) return@LaunchedEffect
+        val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect
+        val now = SystemClock.elapsedRealtime()
+        val hapticConstant = annotationHapticFeedbackConstant(Build.VERSION.SDK_INT)
+        if (directUserDragActive && selected != null && hapticConstant != null &&
+            now - lastAnnotationHapticAt >= AnnotationHapticMinIntervalMillis) {
+            readerView.performHapticFeedback(hapticConstant)
+            lastAnnotationHapticAt = now
+        }
+        selected = candidate.first
     }
 
     LaunchedEffect(analysisEnabled) {
         if (!analysisEnabled) {
             selected = null
             detailOpen = false
+            userScrollArmed = false
         }
     }
 
-    BackHandler(enabled = selected == null && !detailOpen, onBack = onBack)
-    BackHandler(enabled = selected != null && !detailOpen) { selected = null }
+    BackHandler(enabled = !detailOpen, onBack = onBack)
     BackHandler(enabled = coach.step != null && coach.step != ReaderCoachStep.COMPARISON) {
         coach.onFinish()
     }
 
-    Box(Modifier.fillMaxSize().background(Fl.Card)) {
+    Box(
+        Modifier.fillMaxSize().background(Fl.Card)
+            .onGloballyPositioned { readerRootTopPx = it.boundsInRoot().top }
+    ) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("←", fontSize = 24.sp, color = Fl.Ink,
-                    modifier = Modifier.clickable {
-                        if (selected != null) selected = null else onBack()
-                    }
+                    modifier = Modifier.clickable(onClick = onBack)
                         .semantics {
                             role = Role.Button
-                            contentDescription = if (selected != null) {
-                                "표현 분석 닫기"
-                            } else if (comparisonFocus != null) {
+                            contentDescription = if (comparisonFocus != null) {
                                 "이전 기사로 돌아가기"
                             } else {
                                 "기사 목록으로 돌아가기"
@@ -334,7 +418,29 @@ private fun NewsReaderContent(
                         .padding(horizontal = 18.dp, vertical = 9.dp))
             }
             Column(
-                Modifier.fillMaxSize().verticalScroll(scroll)
+                Modifier.weight(1f).fillMaxWidth()
+                    .testTag("article-reader-scroll")
+                    .pointerInput(article.id) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            directUserDragActive = false
+                            try {
+                                do {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    if (event.changes.any {
+                                            it.position.y != it.previousPosition.y
+                                        }) {
+                                        directUserDragActive = true
+                                    }
+                                } while (event.changes.any { it.pressed })
+                            } finally {
+                                directUserDragActive = false
+                            }
+                        }
+                    }
+                    .nestedScroll(readerScrollConnection)
+                    .onGloballyPositioned { readerViewportBounds = it.boundsInRoot() }
+                    .verticalScroll(scroll)
                     .padding(horizontal = 22.dp, vertical = 22.dp)
             ) {
                 if (comparisonFocus != null) {
@@ -372,7 +478,7 @@ private fun NewsReaderContent(
                     lineHeight = 34,
                     fontWeight = FontWeight.Bold,
                     onFinding = openFinding,
-                    onPlainTextTap = { selected = null },
+                    onPlainTextTap = {},
                     modifier = Modifier.onGloballyPositioned { titleRootOffset = it.positionInRoot() },
                     onTextLayout = { titleLayout = it }
                 )
@@ -397,10 +503,9 @@ private fun NewsReaderContent(
                     lineHeight = 29,
                     fontWeight = FontWeight.Normal,
                     onFinding = openFinding,
-                    onPlainTextTap = { selected = null },
+                    onPlainTextTap = {},
                     modifier = Modifier.onGloballyPositioned {
-                        bodyTopPx = it.positionInParent().y
-                        bodyRootOffset = it.positionInRoot()
+                        bodyPositionInContent = it.positionInParent()
                     },
                     onTextLayout = { bodyLayout = it }
                 )
@@ -408,26 +513,41 @@ private fun NewsReaderContent(
                     Spacer(Modifier.height(28.dp))
                     OtherOutletsSection(lens, onOpenArticle = { onOpenRelatedArticle(it, scroll.value) })
                 }
-                val previewSpace = with(density) { previewHeightPx.toDp() } + 24.dp
-                Spacer(Modifier.height(
-                    if (selected != null && !detailOpen) previewSpace.coerceAtLeast(210.dp)
-                    else 36.dp
-                ))
+                Spacer(Modifier.height(36.dp))
+            }
+            selected?.let { finding ->
+                AnalysisAnnotationDock(
+                    finding = finding,
+                    onOpenDetail = { target ->
+                        if (target.comparisons.isNotEmpty()) {
+                            selected = target
+                            detailOpen = true
+                        }
+                    },
+                    onShowLabelGuide = { guideCodes = finding.categories.toSet() },
+                    modifier = Modifier.onGloballyPositioned { annotationDockBounds = it.boundsInRoot() }
+                )
             }
         }
 
-        selected?.takeUnless { detailOpen }?.let { finding ->
-            FindingPreviewCard(
-                finding = finding,
-                onDismiss = { selected = null },
-                onOpenDetail = {
-                    applySelection(previewDetailSelection(FindingSelection(finding, detailOpen = false)))
-                },
-                onHeightChanged = { previewHeightPx = it },
-                onShowLabelGuide = { guideCodes = finding.categories.toSet() },
-                modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(horizontal = 12.dp, vertical = 12.dp)
-                    .onGloballyPositioned { previewBounds = it.boundsInRoot() }
+        val focusViewport = readerViewportBounds
+        AnimatedVisibility(
+            visible = analysisEnabled && bodyFindings.isNotEmpty() && userScrollArmed &&
+                scroll.isScrollInProgress && !detailOpen && guideCodes == null &&
+                coach.step == null && focusViewport != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            val focusY = focusViewport?.let {
+                it.top - readerRootTopPx + it.height * PeekAnchorFraction
+            } ?: 0f
+            Box(
+                Modifier.offset { IntOffset(0, focusY.roundToInt()) }
+                    .padding(end = 8.dp)
+                    .width(30.dp)
+                    .height(2.dp)
+                    .background(Fl.Accent.copy(alpha = 0.34f), RoundedCornerShape(50))
             )
         }
 
@@ -436,7 +556,11 @@ private fun NewsReaderContent(
                 val finding = coachFinding
                 val spotlight = finding?.let {
                     if (it.scope == "TITLE") markerBoundsInRoot(titleLayout, it, titleRootOffset)
-                    else markerBoundsInRoot(bodyLayout, it, bodyRootOffset)
+                    else markerBoundsInScrolledBody(
+                        bodyLayout, it, bodyPositionInContent,
+                        readerViewportBounds ?: return@let null,
+                        scroll.value
+                    )
                 }
                 if (finding != null && spotlight != null) {
                     CoachMarkOverlay(
@@ -453,12 +577,12 @@ private fun NewsReaderContent(
                     )
                 }
             }
-            ReaderCoachStep.PREVIEW_CARD -> {
+            ReaderCoachStep.ANNOTATION_DOCK -> {
                 val finding = selected
                 if (finding != null && !detailOpen) {
                     val hasComparisons = finding.comparisons.isNotEmpty()
                     CoachMarkOverlay(
-                        spotlightInRoot = previewBounds,
+                        spotlightInRoot = annotationDockBounds,
                         stepLabel = if (hasComparisons) "2 / 3" else "2 / 2",
                         title = "어떤 차이인지 확인해요",
                         body = "보라색 라벨은 어떤 종류의 표현 차이인지 알려줘요. " +
@@ -466,7 +590,7 @@ private fun NewsReaderContent(
                         primaryLabel = if (hasComparisons) "다음" else "완료",
                         onPrimary = {
                             if (hasComparisons) detailOpen = true
-                            coach.onPreviewNext(hasComparisons)
+                            coach.onAnnotationNext(hasComparisons)
                         },
                         secondaryLabel = "건너뛰기",
                         onSecondary = coach.onFinish
@@ -486,7 +610,6 @@ private fun NewsReaderContent(
             finding = finding,
             onDismiss = {
                 detailOpen = false
-                selected = null
                 coach.onFinish()
             },
             onOpenArticle = { onOpenComparisonArticle(it, scroll.value) },
@@ -578,9 +701,23 @@ private fun annotatedReaderText(
     text: String,
     findings: List<FindingUi>,
     comparisonFocus: ReaderFocus?,
-    economicViews: List<EconomicViewUi> = emptyList()
+    economicViews: List<EconomicViewUi> = emptyList(),
+    selectedFindingId: String? = null
 ): AnnotatedString = buildAnnotatedString {
     append(annotatedFindings(text, findings))
+    findings.firstOrNull { it.id == selectedFindingId }?.markerRange
+        ?.takeIf { it.isWithin(text) }
+        ?.let { marker ->
+            addStyle(
+                SpanStyle(
+                    background = NewsTargetMarker,
+                    fontWeight = FontWeight.SemiBold,
+                    textDecoration = TextDecoration.Underline
+                ),
+                marker.start,
+                marker.end
+            )
+        }
     economicViews.forEach { view ->
         view.sentenceRange?.takeIf { it.isWithin(text) }?.let {
             addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = Fl.Ink), it.start, it.end)
@@ -614,78 +751,83 @@ private fun List<FindingUi>.nonOverlappingByScope(): List<FindingUi> =
     }
 
 @Composable
-internal fun FindingPreviewCard(
+internal fun AnalysisAnnotationDock(
     finding: FindingUi,
-    onDismiss: () -> Unit,
-    onOpenDetail: () -> Unit,
-    onHeightChanged: (Int) -> Unit = {},
+    onOpenDetail: (FindingUi) -> Unit,
     modifier: Modifier = Modifier,
     onShowLabelGuide: (() -> Unit)? = null
 ) {
-    val hasComparisons = finding.comparisons.isNotEmpty()
-    var explanationExpanded by remember(finding.id) { mutableStateOf(false) }
-    var explanationOverflows by remember(finding.id) { mutableStateOf(false) }
+    val content = remember(finding) { analysisPeekContent(finding) }
+    val comparisonCount = content.comparisons.size + content.remainingPublisherCount
+    val hasComparisons = comparisonCount > 0
     Column(
-        modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(18.dp))
-            .background(Fl.Card, RoundedCornerShape(18.dp))
-            .border(1.dp, Fl.Line, RoundedCornerShape(18.dp))
-            .then(if (hasComparisons) Modifier.clickable(onClick = onOpenDetail) else Modifier)
-            .animateContentSize()
-            .onSizeChanged { onHeightChanged(it.height) }
-            .padding(start = 17.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+        modifier.fillMaxWidth().height(118.dp)
+            .background(Fl.Card)
+            .testTag("analysis-annotation-dock")
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("표현 분석", fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                color = Fl.Ink2, modifier = Modifier.weight(1f))
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(48.dp).semantics { contentDescription = "표현 분석 닫기" }
+        HorizontalDivider(color = Fl.Line)
+        Row(
+            Modifier.fillMaxSize()
+                .then(
+                    if (hasComparisons) {
+                        Modifier.clickable(
+                            onClickLabel = "비교 상세 보기",
+                            role = Role.Button,
+                            onClick = { onOpenDetail(finding) }
+                        )
+                    } else Modifier
+                )
+                .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.width(3.dp).height(68.dp)
+                    .background(Fl.Accent.copy(alpha = 0.72f), RoundedCornerShape(50))
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Text("×", fontSize = 23.sp, color = Fl.Muted)
-            }
-        }
-        Text("“${finding.markerText}”", fontFamily = Fl.Serif, fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold, color = Fl.InkDiff,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                Modifier.weight(1f).horizontalScroll(rememberScrollState())
-                    .padding(top = 2.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                finding.categories.map(::categoryLabel).distinct().forEach {
-                    TagPill(it, Fl.TintDiff, Fl.InkDiff)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        finding.categories.map(::categoryLabel).distinct().joinToString(" · "),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Fl.Muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (hasComparisons) {
+                        Text(
+                            "다른 보도 ${comparisonCount}곳  ›",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Fl.Accent,
+                            maxLines = 1
+                        )
+                    }
                 }
+                Text(
+                    "“${finding.markerText}”",
+                    fontFamily = Fl.Serif,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Fl.InkDiff,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    finding.explanation,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = Fl.Ink2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             if (onShowLabelGuide != null) LabelGuideButton(onShowLabelGuide)
-        }
-        Text(finding.explanation, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2,
-            maxLines = if (explanationExpanded) Int.MAX_VALUE else 4,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = {
-                if (!explanationExpanded) explanationOverflows = it.hasVisualOverflow
-            })
-        if (explanationOverflows || explanationExpanded) {
-            Text(
-                if (explanationExpanded) "설명 접기" else "설명 더보기",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Fl.Accent,
-                modifier = Modifier.clickable { explanationExpanded = !explanationExpanded }
-                    .padding(vertical = 4.dp)
-            )
-        }
-        if (hasComparisons) {
-            Row(
-                Modifier.fillMaxWidth().clickable(onClick = onOpenDetail)
-                    .padding(top = 5.dp, bottom = 3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(Modifier.weight(1f))
-                Text("다른 기사 ${finding.comparisons.size}곳과 비교  ›", fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold, color = Fl.Accent)
-            }
         }
     }
 }
@@ -1016,6 +1158,22 @@ private fun markerBoundsInRoot(layout: TextLayoutResult?, finding: FindingUi, or
         range.end > textLayout.layoutInput.text.length) return null
     return textLayout.getPathForRange(range.start, range.end).getBounds().translate(origin)
 }
+
+/** 스크롤 콘텐츠 안의 표현 좌표를 현재 Reader 화면 좌표로 변환한다. */
+private fun markerBoundsInScrolledBody(
+    layout: TextLayoutResult?,
+    finding: FindingUi,
+    bodyPositionInContent: Offset,
+    viewport: Rect,
+    scrollValue: Int
+): Rect? = markerBoundsInRoot(
+    layout,
+    finding,
+    Offset(
+        x = viewport.left + bodyPositionInContent.x,
+        y = viewport.top + bodyPositionInContent.y - scrollValue
+    )
+)
 
 @Composable
 private fun CoachTermRow(term: String, meaning: String) {

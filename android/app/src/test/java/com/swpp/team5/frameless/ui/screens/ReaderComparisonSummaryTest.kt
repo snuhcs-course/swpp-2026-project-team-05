@@ -123,7 +123,7 @@ class ReaderComparisonSummaryTest {
     }
 
     @Test
-    fun tappingAPointOpensTheSameDetailStateAsThePreviewAction() {
+    fun tappingAPointOpensTheSameDetailStateAsTheDockAction() {
         val target = finding("f1", "징계", listOf(page("kbs", "KBS", "중징계"), page("mbc", "MBC", "탈당권고")))
 
         val fromPreview = previewDetailSelection(FindingSelection(target, detailOpen = false))

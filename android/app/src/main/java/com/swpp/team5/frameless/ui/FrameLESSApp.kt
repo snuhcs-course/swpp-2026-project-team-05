@@ -175,7 +175,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                             step = tutorial.readerStep,
                             onEligible = tutorial::onReaderEligible,
                             onFindingOpened = tutorial::onFindingOpened,
-                            onPreviewNext = tutorial::onPreviewNext,
+                            onAnnotationNext = tutorial::onAnnotationNext,
                             onFinish = tutorial::finishReaderCoach
                         )
                     )

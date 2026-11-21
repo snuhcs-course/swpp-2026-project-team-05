@@ -33,7 +33,7 @@ import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.TagPill
 
-/** 판정 기준표 v0.2의 표현 차이 범주 A~G. 이름은 분석 카드 칩과 같은 [categoryLabel]을 쓴다. */
+/** 판정 기준표 v0.2의 표현 차이 범주 A~G. 이름은 하단 주석 라벨과 같은 [categoryLabel]을 쓴다. */
 internal data class ExpressionLabelExample(val code: String, val baseline: String, val marked: String)
 
 internal val ExpressionLabelExamples = listOf(
@@ -57,7 +57,7 @@ internal val ExpressionLabelSummaries = mapOf(
     "G" to "전망이나 추정을 확신·단정으로 쓴 경우"
 )
 
-/** 분석 카드의 ? 버튼. */
+/** 하단 주석의 ? 버튼. */
 @Composable
 internal fun LabelGuideButton(onClick: () -> Unit) {
     IconButton(

@@ -2,18 +2,17 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft — needs team product decision |
+| Status | Implemented |
 | Owner | Reader / onboarding feature owner |
 | Related behavior | [`news-app-features.md`](news-app-features.md) §11.8, §12; [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) |
-| Last reviewed | 2026-11-16 |
+| Last reviewed | 2026-11-21 |
 
-## 0. Decision required
+## 0. Product decision
 
-`news-app-features.md` §11.8 says the Following-sources work must not add an
-onboarding flow, and §12 lists forced onboarding as a non-goal that "requires a
-separate product decision." This document is that separate proposal. It is
-skippable at every step, adds no navigation destination, and does not touch the
-Following scope. The team must confirm it before merge.
+`news-app-features.md` §11.8 kept onboarding out of the Following-sources work,
+and §12 required a separate product decision. The implemented tutorial is that
+separate feature: it is skippable, adds no navigation destination, and does not
+change the Following scope.
 
 ## 1. Purpose
 
@@ -51,18 +50,20 @@ start or consume the coach.
 
 | Step | Spotlight | Primary action |
 | --- | --- | --- |
-| 1 / 3 | First finding (title first, otherwise body; the body scrolls it into view). Copy mentions that turning off `표현 분석` hides highlights. | Tapping the spotlight or `다음` opens that finding's preview card. |
-| 2 / 3 | The preview card. Copy points to the `?` button. | `다음` opens the comparison sheet. If the finding has no comparisons the label reads `완료` (2 / 2) and ends the coach. |
+| 1 / 3 | First finding (title first, otherwise body; the body scrolls it into view). Copy mentions that turning off `표현 분석` hides highlights. | Tapping the spotlight or `다음` selects that finding in the annotation dock. |
+| 2 / 3 | The fixed annotation dock. Copy points to the `?` button. | `다음` opens the comparison sheet. If the finding has no comparisons the label reads `완료` (2 / 2) and ends the coach. |
 | 3 / 3 | Inline callout at the top of the comparison sheet: underlined sentence = matching passage; `이 기사 읽기` = read it in the app; `원문 보기` = open the publisher site. | `완료` ends the coach. |
 
 - Outside the spotlight, touches are blocked while a coach mark is visible.
+- Scroll-synced automatic dock replacement is suppressed while any coach step is active;
+  the tutorial continues to demonstrate the explicit marker-tap path.
 - `건너뛰기`, system Back (steps 1–2), or dismissing the sheet (step 3) end the
   coach and mark it seen.
 - If findings disappear while step 1 is visible, the coach ends.
 
 ## 4. Label guide (`?` button)
 
-- Every preview card shows a `?` button beside its label chips, during and
+- The annotation dock shows a `?` button beside its natural-language labels, during and
   after the tutorial.
 - It opens a dialog listing the seven expression-difference categories A–G,
   using the same names as the chips, each with one baseline → marked example
