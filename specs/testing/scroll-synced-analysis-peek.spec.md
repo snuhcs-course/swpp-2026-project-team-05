@@ -9,7 +9,7 @@
 
 ## Scope
 
-Candidate selection, fixed annotation-dock layout, scroll timing, direct
+Candidate selection, fixed annotation-dock layout, immediate scroll updates, direct
 selection, and routing into the existing Android comparison flow.
 
 ### Non-goals
@@ -28,16 +28,16 @@ selection, and routing into the existing Android comparison flow.
 - [Unit] Initial/restored layout and programmatic movement do not arm automatic
   selection; a real user drag does.\
   Tip: add a pure Reader-state test if scroll arming moves out of Compose.
-- [Timing] A stable candidate replaces the dock finding after 500 ms; renewed
-  scrolling or a candidate change cancels the pending replacement.\
-  Tip: add a controllable coroutine-clock test around the Reader state holder.
+- [Timing] An eligible candidate replaces the dock finding in the same settled
+  Compose cycle; no dwell timer or delayed replacement remains.\
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll`
 
 ### Fixed presentation
 
 - [Component] An analyzed article starts with one populated dock, keeps its
   height after deliberate scrolling, and eventually changes to the new nearest
   finding without creating a second dock.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerKeepsFixedAnnotationDockAndUpdatesItAfterUserScrollSettles`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll`
 - [Unit] Comparison count is publisher-diverse; source-only data produces no
   comparison row or count.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ScrollSyncedAnalysisPeekTest.peekContentKeepsTwoPublisherDiverseExactMarkersAndCountsTheRest`,
@@ -53,7 +53,8 @@ selection, and routing into the existing Android comparison flow.
   grounded target article.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
 - [Regression] Direct marker taps and the article-level `비교 포인트` route to
-  the same finding/detail state.\
+  the same finding/detail state. A manual marker remains selected until a later
+  user scroll makes another BODY marker eligible.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`,
   `com.swpp.team5.frameless.ui.screens.ReaderComparisonSummaryTest.tappingAPointOpensTheSameDetailStateAsThePreviewAction`
 - [Accessibility] The dock comparison action, label guide, active marker, and
@@ -65,7 +66,7 @@ selection, and routing into the existing Android comparison flow.
 | Risk | Representative cases | Oracle |
 | --- | --- | --- |
 | Eligibility | inside/outside/boundary band; tie | feature §4 |
-| Stability | scroll in progress; 500 ms pause; long gap | feature §4 |
+| Stability | immediate change during scroll; long gap | feature §4 |
 | Data shape | source-only; one/two/three publishers | feature §3 |
 | Layout | initial/updated dock has identical height | feature §3 |
 | Navigation | dock; comparison point; target Reader | feature §5 |

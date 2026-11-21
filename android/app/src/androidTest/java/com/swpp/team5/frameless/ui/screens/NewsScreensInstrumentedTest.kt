@@ -515,7 +515,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun readerKeepsFixedAnnotationDockAndUpdatesItAfterUserScrollSettles() {
+    fun readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll() {
         val paragraphs = (0 until 24).map { index ->
             if (index in 2..20 && index % 2 == 0) {
                 "문단 $index 에서는 강조표현$index 을 사용한 보도를 설명합니다."
@@ -570,15 +570,11 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("“강조표현2”").assertIsDisplayed()
 
         var changed = false
-        repeat(8) {
+        repeat(10) {
             if (!changed) {
                 compose.onNodeWithTag("article-reader-scroll").performTouchInput {
                     swipeUp(startY = centerY + 140f, endY = centerY - 140f, durationMillis = 350)
                 }
-                // Let the settled-scroll effect enter its 500 ms dwell before advancing
-                // Compose time; otherwise the next gesture cancels the pending selection.
-                compose.waitForIdle()
-                compose.mainClock.advanceTimeBy(650)
                 compose.waitForIdle()
                 changed = (4..20 step 2).any { index ->
                     compose.onAllNodesWithText("“강조표현$index”")

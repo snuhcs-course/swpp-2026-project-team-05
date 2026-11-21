@@ -86,10 +86,10 @@ precedes an expanded comparison sheet, while direct marker taps remain available
 - [Component] Every dock exposes natural-language feature labels. Its explanation
   is capped at two lines and the dock remains 118 dp tall for every finding.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
-- [State transition] Starting a new article scroll keeps the current annotation;
-  a new eligible finding may replace it only after the scroll settles. Closing
-  Android detail returns to the same annotation, while Back with only the dock
-  visible leaves the Reader.\
+- [State transition] A direct marker tap immediately selects that finding and
+  keeps it through recomposition and detail close. A later user scroll may
+  replace it immediately when a different finding enters the eligible band.
+  Back with only the dock visible leaves the Reader.\
   Tip: add a device-level back-navigation assertion when the instrumentation
   harness owns the activity navigation stack.
 - [Regression] The expanded sheet keeps Material whole-sheet dragging disabled.

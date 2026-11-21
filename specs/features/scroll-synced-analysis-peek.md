@@ -17,7 +17,7 @@ least one displayable finding, Android reserves one fixed annotation dock below
 the Reader and keeps one finding in it while the user reads.
 
 ```text
-read article → annotation updates after a pause → existing comparison sheet → target Reader
+read article → annotation follows the reading position → existing comparison sheet → target Reader
 ```
 
 Direct marker taps and the article-level `비교 포인트` section remain alternate
@@ -49,8 +49,9 @@ comparison sheet, target-article navigation, or saving behavior.
 - The eligible band is 45–65% of the article viewport and its anchor is 55%.
 - Only BODY markers are selected automatically. The eligible marker nearest the
   anchor wins; reading order breaks an equal-distance tie.
-- User scrolling keeps the current annotation stable. After scrolling stops and
-  the same candidate remains eligible for 500 ms, only dock content changes.
+- During a user scroll, the dock content changes as soon as a different BODY
+  marker becomes the nearest eligible marker. There is no dwell timer because
+  the fixed dock neither moves nor covers the article.
 - Long gaps retain the last active annotation rather than flashing an empty
   state. Initial layout, restored scroll, coach movement, and comparison-focus
   movement do not change the annotation automatically.
@@ -60,7 +61,9 @@ comparison sheet, target-article navigation, or saving behavior.
 ## 5. Interaction and existing flow
 
 - Tapping any analyzed title or body expression selects it immediately in the
-  dock without moving the article.
+  dock without moving the article. That manual choice survives recomposition,
+  detail open/close, and idle time; the next actual user scroll may replace it
+  when a different BODY marker becomes eligible.
 - Tapping a comparison-backed dock opens the existing `FindingDetailSheet` for
   the active finding. Closing the sheet returns to the same Reader and leaves
   the annotation selected.
@@ -84,8 +87,8 @@ comparison sheet, target-article navigation, or saving behavior.
 
 - An analyzed Reader with findings always has exactly one 118 dp annotation
   dock; scrolling and finding changes do not resize it.
-- The annotation remains stable during scrolling and changes only after a
-  qualifying 500 ms pause or a direct marker tap.
+- The annotation follows eligible BODY markers immediately during a user scroll;
+  direct marker taps also update it immediately.
 - No floating analysis card follows or obscures article text.
 - One dock tap reaches the existing comparison detail and target-article flow.
 - Zero-finding, analysis-off, direct marker, coach, comparison-point, and Back

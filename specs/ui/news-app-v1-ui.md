@@ -361,11 +361,11 @@ Do not describe the article as neutral.
 - During a real user scroll, a 30 dp low-contrast accent tick at the right edge
   marks the 55% anchor. Do not draw a full-width reading line.
 - A direct marker tap updates the dock immediately. Automatic selection is
-  Android-only and follows the eligibility, 500 ms dwell, and suppression rules
+  Android-only and follows the eligibility and user-scroll rules
   in [`../features/scroll-synced-analysis-peek.md`](../features/scroll-synced-analysis-peek.md).
-- Scrolling retains the current content; 500 ms after settling, the nearest
-  eligible BODY finding replaces it. Opening/restoring a Reader, coach movement,
-  and comparison focus do not trigger automatic replacement.
+- During user scrolling, the nearest eligible BODY finding replaces the dock
+  content immediately. Opening/restoring a Reader, coach movement, and comparison
+  focus do not trigger automatic replacement.
 - A comparison-backed dock shows `다른 보도 N곳 ›`; tapping it opens the
   existing comparison sheet directly. A source-only dock has no comparison
   action and never opens an empty sheet.
@@ -453,8 +453,8 @@ Comparison behavior:
   `is_feed_visible` is separately enabled.
 - There is no middle sheet anchor and no expand/collapse transition.
 - Back, outside tap, or downward dismissal returns to the same Reader position
-  and the same persistent annotation. Automatic replacement waits for another
-  eligible user-scroll pause.
+  and the same persistent annotation. Automatic replacement resumes only when
+  another user scroll brings a different marker into the eligible band.
 - The fixed-heading close action follows the same dismissal path.
 - Back with only the dock visible leaves Reader normally.
 - The dock itself has no swipe or drag gesture. Inside the expanded sheet,
@@ -649,8 +649,7 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - At most three publisher pages
 - Same-publisher evidence stays on one page
 - Attribution and publication time appear
-- Manual marker selection updates the dock immediately; a stable eligible BODY
-  marker replaces it after the specified dwell
+- Manual marker selection and eligible BODY-marker changes update the dock immediately
 - Initial/restored/programmatic positions never auto-replace the dock
 - Scroll restart keeps the current dock content without moving the article
 - Detail sheet opens directly at maximum height
@@ -677,7 +676,7 @@ The UI is complete when:
 - exact title/body markers open the correct article-specific finding;
 - source-only findings end without an empty comparison section;
 - valid compared publishers page horizontally while their articles scroll vertically;
-- the fixed annotation dock can reveal analysis during a reading pause without
+- the fixed annotation dock can follow the reading position without
   covering the article, resizing, interrupting fast scrolling, or requiring dragging;
 - original links, publisher, publication time, and attribution remain visible;
 - ordinary users never encounter URL input or internal diagnostics;

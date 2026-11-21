@@ -22,6 +22,6 @@ coach marks, and a label-guide dialog. It is a draft awaiting the separate
 product decision that `news-app-features.md` §12 requires for onboarding.
 
 `scroll-synced-analysis-peek.md` defines the Android-only reading aid that
-selects a body finding after a stable reading pause. It preserves the existing
+selects a body finding immediately as the reading position changes. It preserves the existing
 article-level comparison entry and comparison sheet and adds no backend or
 analysis contract.

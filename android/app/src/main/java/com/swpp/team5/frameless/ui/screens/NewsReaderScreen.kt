@@ -10,8 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -112,7 +110,6 @@ import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
 import com.swpp.team5.frameless.ui.viewmodel.ReaderCoachStep
 import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import kotlinx.coroutines.android.awaitFrame
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -299,18 +296,9 @@ private fun NewsReaderContent(
         article.id,
         userScrollArmed,
         analysisEnabled,
-        scroll.isScrollInProgress,
         scroll.value,
-        bodyLayout,
-        bodyPositionInContent,
-        readerViewportBounds,
-        bodyFindings,
-        selected?.id,
-        detailOpen,
-        guideCodes,
-        coach.step
     ) {
-        if (!userScrollArmed || !analysisEnabled || scroll.isScrollInProgress ||
+        if (!userScrollArmed || !analysisEnabled ||
             detailOpen || guideCodes != null || coach.step != null) return@LaunchedEffect
         val viewport = readerViewportBounds ?: return@LaunchedEffect
         val measured = bodyFindings.mapIndexedNotNull { index, finding ->
@@ -325,10 +313,6 @@ private fun NewsReaderContent(
         )
         if (candidateId == null || candidateId == selected?.id) return@LaunchedEffect
         val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect
-
-        delay(PeekDwellMillis)
-        if (scroll.isScrollInProgress || detailOpen || guideCodes != null ||
-            !analysisEnabled) return@LaunchedEffect
         selected = candidate.first
     }
 
@@ -421,12 +405,6 @@ private fun NewsReaderContent(
             Column(
                 Modifier.weight(1f).fillMaxWidth()
                     .testTag("article-reader-scroll")
-                    .pointerInput(article.id) {
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            onReaderUserScroll.value()
-                        }
-                    }
                     .nestedScroll(readerScrollConnection)
                     .onGloballyPositioned { readerViewportBounds = it.boundsInRoot() }
                     .verticalScroll(scroll)

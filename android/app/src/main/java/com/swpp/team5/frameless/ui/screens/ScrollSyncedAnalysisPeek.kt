@@ -3,7 +3,6 @@ package com.swpp.team5.frameless.ui.screens
 import com.swpp.team5.frameless.data.FindingUi
 import kotlin.math.abs
 
-internal const val PeekDwellMillis = 500L
 internal const val PeekBandStartFraction = 0.45f
 internal const val PeekBandEndFraction = 0.65f
 internal const val PeekAnchorFraction = 0.55f
