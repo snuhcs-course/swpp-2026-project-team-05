@@ -13,7 +13,7 @@ The UI must remain straightforward to implement and maintain in native Android. 
 - [FeedFlow](https://github.com/prof18/feed-flow) for a maintained, Apache-2.0 reader implementation and practical article-list density.
 - [Material 3 adaptive list-detail](https://developer.android.com/develop/adaptive-apps/guides/list-detail) for future phone/tablet layout adaptation.
 
-FrameLESS-specific behavior stays deliberately small: exact in-article markers, a compact Android finding preview, and an on-demand expanded sheet for publisher comparisons. Particle and Ground News may inform product behavior, but their private implementations are not development dependencies. GPL reader projects may be observed visually but their code must not be copied into this repository.
+FrameLESS-specific behavior stays deliberately small: exact in-article markers, a scroll-synced Android finding peek, and an on-demand expanded sheet for publisher comparisons. Particle and Ground News may inform product behavior, but their private implementations are not development dependencies. GPL reader projects may be observed visually but their code must not be copied into this repository.
 
 ## 1. Scope and priorities
 
@@ -316,8 +316,10 @@ Reader behavior:
   title/body findings and keeps the analysis rail in section 6.5 visible.
 - A marker with multiple categories is one tap target.
 - Overlapping markers render as one target and open one finding.
-- Tapping a marker opens the preview in section 6 on Android or selects the same
-  finding in the Web rail.
+- On Android, tapping a marker opens the peek in section 6 immediately. After a
+  user scroll, pausing with a BODY marker in the lower-middle focus zone may
+  open the same peek automatically. Web marker taps select the same finding in
+  the persistent analysis rail.
 - Opening and closing the preview or comparison sheet preserves source Reader position.
 - `원문 보기` opens the canonical source externally.
 
@@ -340,7 +342,7 @@ Do not describe the article as neutral.
 
 ## 6. Finding preview and comparison detail
 
-### 6.1 Android finding preview
+### 6.1 Android scroll-synced finding peek
 
 ```text
 ┌──────────────────────────────────────┐
@@ -352,19 +354,28 @@ Do not describe the article as neutral.
 └──────────────────────────────────────┘
 ```
 
-- The preview floats over the bottom of the Reader without a scrim and does not
-  change article scroll position.
-- It keeps one anchored compact form and is never dragged or internally
-  scrolled. Only the inline explanation disclosure may increase its height.
-- The article remains scrollable; tapping a different marker replaces the
-  preview content in place.
-- Close, Android back, disabling analysis, or tapping ordinary article text
-  dismisses the preview. Article scrolling alone does not dismiss it.
-- Every preview shows all natural-language feature labels and up to four lines
-  of explanation. When text overflows, `설명 더보기` expands it in place and
-  `설명 접기` restores the compact card; no analysis text becomes inaccessible.
-- A source-only finding ends in the preview with no chevron or detail action.
-- A comparison-backed finding additionally shows `다른 기사 N곳과 비교`.
+- The peek is a screen-fixed overlay above a lower-middle focus zone. It has no
+  scrim, does not participate in article layout, and never changes article
+  scroll position.
+- Once the reader deliberately scrolls, a 30 dp low-contrast accent tick at the
+  right edge marks the 55% anchor. Hide it while a peek, coach, guide, or detail
+  surface is visible; do not draw a full-width reading line.
+- A direct marker tap shows the peek immediately. Automatic presentation is
+  Android-only and follows the eligibility, 500 ms dwell, and suppression rules
+  in [`../features/scroll-synced-analysis-peek.md`](../features/scroll-synced-analysis-peek.md).
+- Automatic presentation applies only to BODY findings after a real user scroll;
+  opening/restoring a Reader, title findings, coach movement, and comparison
+  focus do not trigger it.
+- Starting another scroll hides the peek. Close, Android Back, disabling
+  analysis, or tapping ordinary article text also dismisses it. A dismissed
+  marker cannot reopen automatically until it leaves the focus zone or another
+  finding becomes active.
+- A comparison-backed compact peek shows exact stored expressions from at most
+  two publisher-diverse comparisons and `외 N곳` when more exist. Tapping it
+  opens the existing comparison sheet directly.
+- A source-only peek shows a compact explanation and expands the full stored
+  explanation in place. It has no comparison count, chevron, or detail sheet.
+- The article-level `비교 포인트` entry remains available and unchanged.
 - Show natural-language feature labels rather than raw A–G codes.
 
 ### 6.2 Source-only finding
@@ -428,7 +439,8 @@ Comparison behavior:
 
 ### 6.4 Navigation and gesture ownership
 
-- Tapping the preview action opens the expanded comparison sheet without moving the source Reader.
+- Tapping a comparison-backed peek opens the expanded comparison sheet without
+  moving the source Reader. There is no additional intermediate surface.
 - Tapping a comparison page's article action closes the sheet and opens that
   target in the ordinary Reader. Back returns to the source Reader rather than
   the feed or app exit and restores the source Reader's scroll position.
@@ -445,10 +457,11 @@ Comparison behavior:
   `is_feed_visible` is separately enabled.
 - There is no middle sheet anchor and no expand/collapse transition.
 - Back, outside tap, or downward dismissal returns to the same Reader position
-  and clears the preview instead of reopening a surface the reader has already completed.
+  and clears the peek instead of reopening a surface the reader has already
+  completed. Automatic presentation remains disarmed until another user scroll.
 - The fixed-heading close action follows the same dismissal path.
-- Back from the preview closes it before leaving Reader.
-- The preview itself has no swipe or drag gesture. Inside the expanded sheet,
+- Back from the peek closes it before leaving Reader.
+- The peek itself has no swipe or drag gesture. Inside the expanded sheet,
   vertical gestures scroll the selected article and horizontal gestures page publishers.
 - Downward drag dismisses from the top handle, the fixed comparison heading, or
   the fixed article metadata/evidence area.
@@ -565,7 +578,7 @@ AnalysisStateBadge
 ArticleHeader
 AnalysisToggle
 ExpressionAnnotatedText
-FindingPreviewCard
+ScrollSyncedFindingPeek
 FindingDetailSheet
 ComparisonArticlePage
 ReaderStatusNotice
@@ -584,7 +597,8 @@ ReaderStatusNotice
   controls, and news navigation are product components; do not distort legacy
   screens to imitate them.
 - Convert API code-point offsets to Compose UTF-16 indices once in the mapper and verify the expected quote. Invalid markers are omitted safely while the article remains readable.
-- Re-test preview dismissal, clean expanded-sheet return, long comparison articles, font scaling, and physical-device back behavior.
+- Re-test focus-zone selection, peek dismissal, clean expanded-sheet return,
+  long comparison articles, font scaling, and physical-device back behavior.
 
 Suggested extraction boundary:
 
@@ -638,7 +652,10 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - At most three publisher pages
 - Same-publisher evidence stays on one page
 - Attribution and publication time appear
-- Marker opens preview before detail
+- Manual marker selection opens the peek immediately; a stable eligible BODY
+  marker opens it after the specified dwell
+- Initial/restored/programmatic positions never auto-open a peek
+- Scroll restart and explicit dismissal clear the peek without moving the article
 - Detail sheet opens directly at maximum height
 - Horizontal publisher paging and vertical article scrolling remain stable
 
@@ -663,7 +680,8 @@ The UI is complete when:
 - exact title/body markers open the correct article-specific finding;
 - source-only findings end without an empty comparison section;
 - valid compared publishers page horizontally while their articles scroll vertically;
-- the compact preview does not interrupt article reading or require dragging;
+- the compact peek can reveal analysis during a reading pause without moving the
+  article, interrupting fast scrolling, or requiring dragging;
 - original links, publisher, publication time, and attribution remain visible;
 - ordinary users never encounter URL input or internal diagnostics;
 - required Compose, accessibility, and end-to-end UI tests pass.

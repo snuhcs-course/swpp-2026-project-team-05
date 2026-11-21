@@ -61,9 +61,16 @@ label guide dialog.
 - [Unit] The tooltip is placed below a spotlight in the upper half and above
   it otherwise.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.tooltipSitsBelowSpotlightInUpperHalfAndAboveInLowerHalf`
+- [Unit] A temporarily stale spotlight coordinate is clamped before it becomes
+  Compose padding, so first Reader entry cannot crash during relayout.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.tooltipPaddingNeverPassesNegativeCoordinatesToCompose`
 - [Acceptance] An article with no findings, or opened from a comparison sheet,
   does not start the coach.\
   Tip: instrumented test asserting `onEligible` is never called for these readers.
+- [Integration] No scroll-synced automatic peek appears while a coach step is
+  active; the spotlighted marker remains the only route into the coached peek.\
+  Tip: cover the coach-active suppression state in the scroll-synced peek
+  Reader integration test.
 
 ### State transitions
 

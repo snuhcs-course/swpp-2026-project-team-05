@@ -52,6 +52,9 @@ private val CoachScrim = Color(0xA80E111C)
 internal fun coachTooltipGoesBelow(spotlightCenterY: Float, containerHeight: Float): Boolean =
     containerHeight <= 0f || spotlightCenterY < containerHeight / 2f
 
+/** 루트 좌표가 한 프레임 늦게 갱신돼도 Compose padding에는 음수가 전달되지 않는다. */
+internal fun safeCoachPadding(distance: Float): Float = distance.coerceAtLeast(0f)
+
 /**
  * 화면 전체를 어둡게 덮고 [spotlightInRoot] 영역만 밝게 남기는 코치마크.
  *
@@ -109,9 +112,15 @@ internal fun CoachMarkOverlay(
             spotlight == null -> Modifier.align(Alignment.Center)
             coachTooltipGoesBelow(spotlight.center.y, size.height.toFloat()) ->
                 Modifier.align(Alignment.TopCenter)
-                    .padding(top = with(density) { spotlight.bottom.toDp() } + gap)
+                    .padding(
+                        top = with(density) { safeCoachPadding(spotlight.bottom).toDp() } + gap
+                    )
             else -> Modifier.align(Alignment.BottomCenter)
-                .padding(bottom = with(density) { (size.height - spotlight.top).toDp() } + gap)
+                .padding(
+                    bottom = with(density) {
+                        safeCoachPadding(size.height - spotlight.top).toDp()
+                    } + gap
+                )
         }
         CoachTooltip(
             stepLabel = stepLabel,

@@ -2,6 +2,7 @@ package com.swpp.team5.frameless.ui.viewmodel
 
 import com.swpp.team5.frameless.data.TutorialStore
 import com.swpp.team5.frameless.ui.components.coachTooltipGoesBelow
+import com.swpp.team5.frameless.ui.components.safeCoachPadding
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -132,5 +133,11 @@ class TutorialViewModelTest {
         assertFalse(coachTooltipGoesBelow(spotlightCenterY = 600f, containerHeight = 800f))
         assertFalse(coachTooltipGoesBelow(spotlightCenterY = 400f, containerHeight = 800f))
         assertTrue(coachTooltipGoesBelow(spotlightCenterY = 10f, containerHeight = 0f))
+    }
+
+    @Test
+    fun tooltipPaddingNeverPassesNegativeCoordinatesToCompose() {
+        assertEquals(0f, safeCoachPadding(-24f))
+        assertEquals(18f, safeCoachPadding(18f))
     }
 }

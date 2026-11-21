@@ -11,8 +11,8 @@
 
 The Reader presents analysis in ordinary reader language rather than the
 internal vocabulary of the reviewed dataset. Android progressively discloses a
-finding without interrupting reading: a compact preview precedes an expanded
-comparison sheet.
+finding without interrupting reading: a scroll-synced compact peek precedes an
+expanded comparison sheet, while direct marker taps remain available.
 
 ### Non-goals
 
@@ -79,15 +79,17 @@ comparison sheet.
   pager and remains unchanged while pages move. Publisher pages do not repeat
   that prose, and generic reporter attribution is omitted.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
-- [Component] A source-only finding shows its complete explanation and labels in
-  the preview without exposing a detail action or opening another surface.\
+- [Component] A source-only finding shows its explanation and labels in the peek,
+  expands the complete explanation in place, and exposes no comparison-detail
+  action or empty surface.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
-- [Component] Every preview exposes all feature labels, caps collapsed analysis
-  copy at four lines, and offers inline expand/collapse only when it overflows.\
+- [Component] Every peek exposes all feature labels. A source-only explanation
+  is capped at two lines and offers inline expand/collapse only when it overflows.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
-- [State transition] Closing Android detail clears both detail and its preview,
-  while closing a preview alone keeps the Reader open. Tapping ordinary article
-  text also clears the preview; scrolling the article does not.\
+- [State transition] Closing Android detail clears both detail and its peek,
+  while closing a peek alone keeps the Reader open. Tapping ordinary article
+  text or starting a new article scroll clears the peek; a new eligible finding
+  may appear only after the scroll settles.\
   Tip: add a device-level back-navigation assertion when the instrumentation
   harness owns the activity navigation stack.
 - [Regression] The expanded sheet keeps Material whole-sheet dragging disabled.

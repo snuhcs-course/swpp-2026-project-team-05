@@ -15,11 +15,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipeUp
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
@@ -484,10 +486,13 @@ class NewsScreensInstrumentedTest {
 
         compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
         compose.onNodeWithText("“$body”").assertIsDisplayed()
-        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).assertIsDisplayed()
+        // The retained article-level comparison point and the active peek both show this exact pair.
+        compose.onAllNodesWithText("연합뉴스  “$targetMarker”").assertCountEquals(2)
+        compose.onNodeWithText("MBC  “$secondMarker”").assertIsDisplayed()
+        compose.onNodeWithText("비교 자세히 보기", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
 
-        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
+        compose.onNodeWithText("비교 자세히 보기", substring = true).performClick()
         compose.onNodeWithText("같은 내용을 다른 기사에서는").assertIsDisplayed()
         compose.onNodeWithContentDescription("비교 상세 닫기").assertIsDisplayed()
         compose.onAllNodesWithText(finding.comparisonOverview).assertCountEquals(1)
@@ -503,14 +508,76 @@ class NewsScreensInstrumentedTest {
 
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)
-        compose.onAllNodesWithText("다른 기사 2곳과 비교", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("비교 자세히 보기", substring = true).assertCountEquals(0)
 
         compose.onNodeWithText(body).performTouchInput { click(Offset(24f, centerY)) }
-        compose.onNodeWithText("다른 기사 2곳과 비교", substring = true).performClick()
+        compose.onNodeWithText("비교 자세히 보기", substring = true).performClick()
         compose.onNodeWithText("이 기사 읽기").performClick()
         compose.waitUntil { openedComparison != null }
         assertEquals("comparison-1", openedComparison?.articleId)
         assertEquals(targetMarker, openedComparison?.evidence?.single()?.markerText)
+    }
+
+    @Test
+    fun readerShowsAnalysisPeekOnlyAfterUserScrollSettles() {
+        val paragraphs = (0 until 24).map { index ->
+            if (index in 2..20 && index % 2 == 0) {
+                "문단 $index 에서는 강조표현$index 을 사용한 보도를 설명합니다."
+            } else {
+                "문단 $index 에서는 일반적인 기사 내용을 차분하게 설명합니다."
+            }
+        }
+        val body = paragraphs.joinToString("\n\n")
+        val comparison = summaryComparison(
+            id = "auto-target",
+            publisherName = "MBC",
+            body = "다른 보도는 사업 영역을 넓히고 있다고 전했습니다.",
+            marker = "넓히고 있다"
+        )
+        val findings = (2..20 step 2).map { index ->
+            val marker = "강조표현$index"
+            val start = body.indexOf(marker)
+            FindingUi(
+                id = "auto-$index",
+                categories = listOf("D"),
+                scope = "BODY",
+                sentenceRange = TextRange(start, start + marker.length),
+                sentenceText = marker,
+                markerRange = TextRange(start, start + marker.length),
+                markerText = marker,
+                explanation = "강조된 표현이에요.",
+                comparisonOverview = "두 기사가 확장 상태를 다르게 표현해요.",
+                comparisons = listOf(comparison)
+            )
+        }
+        val article = ArticleDetail(
+            "auto-peek-article", publisher, "자동 분석 미리보기", body,
+            NewsCategory.POLITICS, "2026-11-21T12:00:00+09:00",
+            "https://example.com/auto-peek", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", findings),
+                    analysisEnabled = true
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.waitForIdle()
+        compose.onAllNodesWithText("비교 자세히 보기", substring = true).assertCountEquals(0)
+
+        compose.onNodeWithTag("article-reader-scroll").performTouchInput { swipeUp() }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("비교 자세히 보기", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        // Two retained article-level comparison points plus the active automatic peek.
+        compose.onAllNodesWithText("MBC  “넓히고 있다”").assertCountEquals(3)
     }
 
     @Test

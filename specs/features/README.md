@@ -20,3 +20,8 @@ guest server identity, backend migration, or general synchronization system.
 `first-run-tutorial.md` proposes Android first-launch onboarding, first-article
 coach marks, and a label-guide dialog. It is a draft awaiting the separate
 product decision that `news-app-features.md` §12 requires for onboarding.
+
+`scroll-synced-analysis-peek.md` defines the Android-only reading aid that
+selects a body finding after a stable reading pause. It preserves the existing
+article-level comparison entry and comparison sheet and adds no backend or
+analysis contract.

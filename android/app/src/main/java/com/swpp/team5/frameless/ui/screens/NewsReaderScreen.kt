@@ -2,6 +2,10 @@ package com.swpp.team5.frameless.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -62,6 +67,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -71,6 +77,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -81,6 +88,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -105,6 +113,7 @@ import com.swpp.team5.frameless.ui.viewmodel.ArticleReaderState
 import com.swpp.team5.frameless.ui.viewmodel.ReaderCoachStep
 import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -179,14 +188,21 @@ private fun NewsReaderContent(
     val bodyFocus = comparisonFocus?.takeIf { it.scope == "BODY" }
     val economic = analysis?.economic
     val economicViews = if (analysisEnabled) economic?.views.orEmpty() else emptyList()
-    val titleText = remember(article.title, titleFindings, titleFocus, economicViews) {
-        annotatedReaderText(article.title, titleFindings, titleFocus, economicViews.filter { it.scope == "TITLE" })
-    }
-    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews) {
-        annotatedReaderText(article.body, bodyFindings, bodyFocus, economicViews.filter { it.scope == "BODY" })
-    }
     var selected by remember(article.id) { mutableStateOf<FindingUi?>(null) }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
+    var sourceExplanationExpanded by remember(article.id) { mutableStateOf(false) }
+    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
+        annotatedReaderText(
+            article.title, titleFindings, titleFocus,
+            economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id
+        )
+    }
+    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id) {
+        annotatedReaderText(
+            article.body, bodyFindings, bodyFocus,
+            economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id
+        )
+    }
     var previewHeightPx by remember(article.id) { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val scroll = remember(article.id) { ScrollState(initialScrollOffset) }
@@ -197,11 +213,24 @@ private fun NewsReaderContent(
     var titleRootOffset by remember(article.id) { mutableStateOf(Offset.Zero) }
     var bodyRootOffset by remember(article.id) { mutableStateOf(Offset.Zero) }
     var previewBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var previewAnchorBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var readerViewportBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
+    var readerRootTopPx by remember(article.id) { mutableFloatStateOf(0f) }
+    var userScrollArmed by remember(article.id) { mutableStateOf(false) }
+    var suppressedAutoFindingId by remember(article.id) { mutableStateOf<String?>(null) }
     var guideCodes by remember(article.id) { mutableStateOf<Set<String>?>(null) }
     val coachFinding = titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
-    val openFinding: (FindingUi) -> Unit = {
-        selected = it
+    val markerBounds: (FindingUi) -> Rect? = { finding ->
+        if (finding.scope == "TITLE") markerBoundsInRoot(titleLayout, finding, titleRootOffset)
+        else markerBoundsInRoot(bodyLayout, finding, bodyRootOffset)
+    }
+    val openFinding: (FindingUi) -> Unit = { finding ->
+        selected = finding
         detailOpen = false
+        sourceExplanationExpanded = false
+        previewHeightPx = 0
+        previewAnchorBounds = markerBounds(finding)
+        suppressedAutoFindingId = null
         coach.onFindingOpened()
     }
     // Reader "비교 포인트" entry (specs/features/reader-comparison-summary.md). Article-level like the
@@ -212,6 +241,30 @@ private fun NewsReaderContent(
     val applySelection: (FindingSelection) -> Unit = { next ->
         selected = next.finding
         detailOpen = next.detailOpen
+        sourceExplanationExpanded = false
+        previewHeightPx = 0
+        previewAnchorBounds = next.finding?.let(markerBounds)
+    }
+
+    val dismissPeek: () -> Unit = {
+        selected?.id?.let { suppressedAutoFindingId = it }
+        selected = null
+        sourceExplanationExpanded = false
+        previewAnchorBounds = null
+    }
+    val onReaderUserScroll = rememberUpdatedState {
+        userScrollArmed = true
+        if (!detailOpen) dismissPeek()
+    }
+    val readerScrollConnection = remember(article.id) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) {
+                    onReaderUserScroll.value()
+                }
+                return Offset.Zero
+            }
+        }
     }
 
     LaunchedEffect(coachFinding?.id, comparisonFocus) {
@@ -246,26 +299,75 @@ private fun NewsReaderContent(
         comparisonFocusApplied = true
     }
 
+    LaunchedEffect(
+        article.id,
+        userScrollArmed,
+        analysisEnabled,
+        scroll.isScrollInProgress,
+        scroll.value,
+        bodyLayout,
+        bodyRootOffset,
+        readerViewportBounds,
+        bodyFindings,
+        selected?.id,
+        detailOpen,
+        guideCodes,
+        coach.step,
+        suppressedAutoFindingId
+    ) {
+        if (!userScrollArmed || !analysisEnabled || scroll.isScrollInProgress ||
+            selected != null || detailOpen || guideCodes != null || coach.step != null) return@LaunchedEffect
+        val viewport = readerViewportBounds ?: return@LaunchedEffect
+        val measured = bodyFindings.mapIndexedNotNull { index, finding ->
+            markerBoundsInRoot(bodyLayout, finding, bodyRootOffset)?.let { bounds ->
+                Triple(finding, bounds, PeekMarkerPosition(finding.id, bounds.center.y, index))
+            }
+        }
+        val candidateId = selectScrollSyncedPeekCandidate(
+            measured.map { it.third }, viewport.top, viewport.bottom
+        )
+        if (suppressedAutoFindingId != null && candidateId != suppressedAutoFindingId) {
+            suppressedAutoFindingId = null
+        }
+        if (candidateId == null || candidateId == suppressedAutoFindingId) return@LaunchedEffect
+        val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect
+
+        delay(PeekDwellMillis)
+        if (scroll.isScrollInProgress || selected != null || detailOpen || guideCodes != null ||
+            !analysisEnabled) return@LaunchedEffect
+        selected = candidate.first
+        sourceExplanationExpanded = false
+        previewHeightPx = 0
+        previewAnchorBounds = candidate.second
+    }
+
     LaunchedEffect(analysisEnabled) {
         if (!analysisEnabled) {
             selected = null
             detailOpen = false
+            sourceExplanationExpanded = false
+            previewAnchorBounds = null
+            userScrollArmed = false
+            suppressedAutoFindingId = null
         }
     }
 
     BackHandler(enabled = selected == null && !detailOpen, onBack = onBack)
-    BackHandler(enabled = selected != null && !detailOpen) { selected = null }
+    BackHandler(enabled = selected != null && !detailOpen) { dismissPeek() }
     BackHandler(enabled = coach.step != null && coach.step != ReaderCoachStep.COMPARISON) {
         coach.onFinish()
     }
 
-    Box(Modifier.fillMaxSize().background(Fl.Card)) {
+    Box(
+        Modifier.fillMaxSize().background(Fl.Card)
+            .onGloballyPositioned { readerRootTopPx = it.boundsInRoot().top }
+    ) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("←", fontSize = 24.sp, color = Fl.Ink,
                     modifier = Modifier.clickable {
-                        if (selected != null) selected = null else onBack()
+                        if (selected != null) dismissPeek() else onBack()
                     }
                         .semantics {
                             role = Role.Button
@@ -334,7 +436,11 @@ private fun NewsReaderContent(
                         .padding(horizontal = 18.dp, vertical = 9.dp))
             }
             Column(
-                Modifier.fillMaxSize().verticalScroll(scroll)
+                Modifier.fillMaxSize()
+                    .testTag("article-reader-scroll")
+                    .nestedScroll(readerScrollConnection)
+                    .onGloballyPositioned { readerViewportBounds = it.boundsInRoot() }
+                    .verticalScroll(scroll)
                     .padding(horizontal = 22.dp, vertical = 22.dp)
             ) {
                 if (comparisonFocus != null) {
@@ -372,7 +478,7 @@ private fun NewsReaderContent(
                     lineHeight = 34,
                     fontWeight = FontWeight.Bold,
                     onFinding = openFinding,
-                    onPlainTextTap = { selected = null },
+                    onPlainTextTap = dismissPeek,
                     modifier = Modifier.onGloballyPositioned { titleRootOffset = it.positionInRoot() },
                     onTextLayout = { titleLayout = it }
                 )
@@ -397,7 +503,7 @@ private fun NewsReaderContent(
                     lineHeight = 29,
                     fontWeight = FontWeight.Normal,
                     onFinding = openFinding,
-                    onPlainTextTap = { selected = null },
+                    onPlainTextTap = dismissPeek,
                     modifier = Modifier.onGloballyPositioned {
                         bodyTopPx = it.positionInParent().y
                         bodyRootOffset = it.positionInRoot()
@@ -408,26 +514,58 @@ private fun NewsReaderContent(
                     Spacer(Modifier.height(28.dp))
                     OtherOutletsSection(lens, onOpenArticle = { onOpenRelatedArticle(it, scroll.value) })
                 }
-                val previewSpace = with(density) { previewHeightPx.toDp() } + 24.dp
-                Spacer(Modifier.height(
-                    if (selected != null && !detailOpen) previewSpace.coerceAtLeast(210.dp)
-                    else 36.dp
-                ))
+                Spacer(Modifier.height(36.dp))
             }
         }
 
         selected?.takeUnless { detailOpen }?.let { finding ->
-            FindingPreviewCard(
+            val marginPx = with(density) { 10.dp.toPx() }
+            val estimatedHeightPx = with(density) { 180.dp.toPx() }
+            val targetTop = analysisPeekTop(
+                previewAnchorBounds,
+                readerViewportBounds,
+                (previewHeightPx.takeIf { it > 0 }?.toFloat() ?: estimatedHeightPx),
+                marginPx
+            ).roundToInt()
+            val peekOffset by animateIntOffsetAsState(
+                targetValue = IntOffset(0, targetTop),
+                label = "analysis-peek-position"
+            )
+            ScrollSyncedFindingPeek(
                 finding = finding,
-                onDismiss = { selected = null },
+                explanationExpanded = sourceExplanationExpanded,
+                onExplanationExpanded = { sourceExplanationExpanded = it },
+                onDismiss = dismissPeek,
                 onOpenDetail = {
-                    applySelection(previewDetailSelection(FindingSelection(finding, detailOpen = false)))
+                    if (finding.comparisons.isNotEmpty()) detailOpen = true
                 },
                 onHeightChanged = { previewHeightPx = it },
                 onShowLabelGuide = { guideCodes = finding.categories.toSet() },
-                modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                modifier = Modifier.align(Alignment.TopCenter)
+                    .offset { peekOffset }
+                    .padding(horizontal = 12.dp)
                     .onGloballyPositioned { previewBounds = it.boundsInRoot() }
+            )
+        }
+
+        val focusViewport = readerViewportBounds
+        AnimatedVisibility(
+            visible = analysisEnabled && bodyFindings.isNotEmpty() && userScrollArmed &&
+                selected == null && !detailOpen && guideCodes == null && coach.step == null &&
+                focusViewport != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            val focusY = focusViewport?.let {
+                it.top - readerRootTopPx + it.height * PeekAnchorFraction
+            } ?: 0f
+            Box(
+                Modifier.offset { IntOffset(0, focusY.roundToInt()) }
+                    .padding(end = 8.dp)
+                    .width(30.dp)
+                    .height(2.dp)
+                    .background(Fl.Accent.copy(alpha = 0.34f), RoundedCornerShape(50))
             )
         }
 
@@ -487,6 +625,10 @@ private fun NewsReaderContent(
             onDismiss = {
                 detailOpen = false
                 selected = null
+                sourceExplanationExpanded = false
+                previewAnchorBounds = null
+                userScrollArmed = false
+                suppressedAutoFindingId = finding.id
                 coach.onFinish()
             },
             onOpenArticle = { onOpenComparisonArticle(it, scroll.value) },
@@ -578,9 +720,23 @@ private fun annotatedReaderText(
     text: String,
     findings: List<FindingUi>,
     comparisonFocus: ReaderFocus?,
-    economicViews: List<EconomicViewUi> = emptyList()
+    economicViews: List<EconomicViewUi> = emptyList(),
+    selectedFindingId: String? = null
 ): AnnotatedString = buildAnnotatedString {
     append(annotatedFindings(text, findings))
+    findings.firstOrNull { it.id == selectedFindingId }?.markerRange
+        ?.takeIf { it.isWithin(text) }
+        ?.let { marker ->
+            addStyle(
+                SpanStyle(
+                    background = NewsTargetMarker,
+                    fontWeight = FontWeight.SemiBold,
+                    textDecoration = TextDecoration.Underline
+                ),
+                marker.start,
+                marker.end
+            )
+        }
     economicViews.forEach { view ->
         view.sentenceRange?.takeIf { it.isWithin(text) }?.let {
             addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = Fl.Ink), it.start, it.end)
@@ -614,22 +770,33 @@ private fun List<FindingUi>.nonOverlappingByScope(): List<FindingUi> =
     }
 
 @Composable
-internal fun FindingPreviewCard(
+internal fun ScrollSyncedFindingPeek(
     finding: FindingUi,
+    explanationExpanded: Boolean,
+    onExplanationExpanded: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onOpenDetail: () -> Unit,
     onHeightChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
     onShowLabelGuide: (() -> Unit)? = null
 ) {
-    val hasComparisons = finding.comparisons.isNotEmpty()
-    var explanationExpanded by remember(finding.id) { mutableStateOf(false) }
+    val content = remember(finding) { analysisPeekContent(finding) }
+    val hasComparisons = content.comparisons.isNotEmpty()
     var explanationOverflows by remember(finding.id) { mutableStateOf(false) }
     Column(
         modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(18.dp))
             .background(Fl.Card, RoundedCornerShape(18.dp))
             .border(1.dp, Fl.Line, RoundedCornerShape(18.dp))
-            .then(if (hasComparisons) Modifier.clickable(onClick = onOpenDetail) else Modifier)
+            .then(
+                if (hasComparisons) {
+                    Modifier.clickable(onClickLabel = "비교 상세 보기", role = Role.Button, onClick = onOpenDetail)
+                } else {
+                    Modifier.clickable(
+                        onClickLabel = if (explanationExpanded) "설명 접기" else "설명 더보기",
+                        role = Role.Button
+                    ) { onExplanationExpanded(!explanationExpanded) }
+                }
+            )
             .animateContentSize()
             .onSizeChanged { onHeightChanged(it.height) }
             .padding(start = 17.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
@@ -660,34 +827,65 @@ internal fun FindingPreviewCard(
             }
             if (onShowLabelGuide != null) LabelGuideButton(onShowLabelGuide)
         }
-        Text(finding.explanation, fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2,
-            maxLines = if (explanationExpanded) Int.MAX_VALUE else 4,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = {
-                if (!explanationExpanded) explanationOverflows = it.hasVisualOverflow
-            })
-        if (explanationOverflows || explanationExpanded) {
-            Text(
-                if (explanationExpanded) "설명 접기" else "설명 더보기",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Fl.Accent,
-                modifier = Modifier.clickable { explanationExpanded = !explanationExpanded }
-                    .padding(vertical = 4.dp)
-            )
-        }
         if (hasComparisons) {
+            Caption("다른 보도에서는", color = Fl.Muted)
+            content.comparisons.forEach { row -> PeekComparisonRow(row) }
+            if (content.remainingPublisherCount > 0) {
+                Caption("외 ${content.remainingPublisherCount}곳", color = Fl.Muted)
+            }
             Row(
                 Modifier.fillMaxWidth().clickable(onClick = onOpenDetail)
                     .padding(top = 5.dp, bottom = 3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(Modifier.weight(1f))
-                Text("다른 기사 ${finding.comparisons.size}곳과 비교  ›", fontSize = 13.sp,
+                Text("비교 자세히 보기  ›", fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold, color = Fl.Accent)
+            }
+        } else {
+            Text(
+                finding.explanation,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                color = Fl.Ink2,
+                maxLines = if (explanationExpanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = {
+                    if (!explanationExpanded) explanationOverflows = it.hasVisualOverflow
+                }
+            )
+            if (explanationOverflows || explanationExpanded) {
+                Text(
+                    if (explanationExpanded) "설명 접기" else "설명 더보기",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Fl.Accent,
+                    modifier = Modifier.clickable {
+                        onExplanationExpanded(!explanationExpanded)
+                    }.padding(vertical = 4.dp)
+                )
             }
         }
     }
+}
+
+@Composable
+private fun PeekComparisonRow(row: PeekComparisonExpression) {
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = Fl.Muted, fontSize = 12.sp)) {
+                append(row.publisher)
+            }
+            append("  ")
+            withStyle(SpanStyle(fontFamily = Fl.Serif, fontWeight = FontWeight.SemiBold, color = Fl.Ink)) {
+                append("“${row.marker}”")
+            }
+        },
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 @Composable

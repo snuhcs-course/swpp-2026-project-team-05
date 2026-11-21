@@ -56,6 +56,8 @@ start or consume the coach.
 | 3 / 3 | Inline callout at the top of the comparison sheet: underlined sentence = matching passage; `이 기사 읽기` = read it in the app; `원문 보기` = open the publisher site. | `완료` ends the coach. |
 
 - Outside the spotlight, touches are blocked while a coach mark is visible.
+- Scroll-synced automatic peeks are suppressed while any coach step is active;
+  the tutorial continues to demonstrate the explicit marker-tap path.
 - `건너뛰기`, system Back (steps 1–2), or dismissing the sheet (step 3) end the
   coach and mark it seen.
 - If findings disappear while step 1 is visible, the coach ends.
