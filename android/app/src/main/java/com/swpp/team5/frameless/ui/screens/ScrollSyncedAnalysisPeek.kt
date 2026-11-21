@@ -1,6 +1,5 @@
 package com.swpp.team5.frameless.ui.screens
 
-import androidx.compose.ui.geometry.Rect
 import com.swpp.team5.frameless.data.FindingUi
 import kotlin.math.abs
 
@@ -66,24 +65,5 @@ internal fun analysisPeekContent(finding: FindingUi): AnalysisPeekContent {
         comparisons = publisherRows.take(MaxPeekComparisonPublishers),
         remainingPublisherCount = (publisherRows.size - MaxPeekComparisonPublishers).coerceAtLeast(0)
     )
-}
-
-/**
- * Places a measured card above its marker when possible and below it near the
- * viewport top. The result is relative to the Reader root.
- */
-internal fun analysisPeekTop(
-    markerBounds: Rect?,
-    viewportBounds: Rect?,
-    cardHeightPx: Float,
-    marginPx: Float
-): Float {
-    val viewport = viewportBounds ?: return marginPx
-    val marker = markerBounds ?: return viewport.top + marginPx
-    val minimum = viewport.top + marginPx
-    val maximum = (viewport.bottom - cardHeightPx - marginPx).coerceAtLeast(minimum)
-    val above = marker.top - cardHeightPx - marginPx
-    val preferred = if (above >= minimum) above else marker.bottom + marginPx
-    return preferred.coerceIn(minimum, maximum)
 }
 

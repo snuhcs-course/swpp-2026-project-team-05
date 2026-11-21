@@ -40,7 +40,7 @@ label guide dialog.
   Tip: add a Compose UI test that pages to the third page.
 - [Unit] The label guide lists A–G once, each with a real chip label.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ExpressionLabelGuideTest.guideListsEveryRubricCategoryOnceWithTheChipLabel`
-- [Acceptance] Tapping the spotlighted phrase opens its preview card; `다음`
+- [Acceptance] Tapping the spotlighted phrase selects it in the annotation dock; `다음`
   on step 2 opens the comparison sheet with the 3 / 3 callout.\
   Tip: add a Compose instrumented test in `NewsScreensInstrumentedTest` that passes a `ReaderCoachUi` with a fake step holder.
 - [Acceptance] `로그인하러 가기` on onboarding page 2 opens the login screen and
@@ -67,9 +67,9 @@ label guide dialog.
 - [Acceptance] An article with no findings, or opened from a comparison sheet,
   does not start the coach.\
   Tip: instrumented test asserting `onEligible` is never called for these readers.
-- [Integration] No scroll-synced automatic peek appears while a coach step is
-  active; the spotlighted marker remains the only route into the coached peek.\
-  Tip: cover the coach-active suppression state in the scroll-synced peek
+- [Integration] No scroll-synced automatic dock replacement occurs while a coach
+  step is active; the spotlighted marker remains the coached selection route.\
+  Tip: cover the coach-active suppression state in the scroll-synced dock
   Reader integration test.
 
 ### State transitions

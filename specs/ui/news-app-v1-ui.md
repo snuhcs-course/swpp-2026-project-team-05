@@ -13,7 +13,7 @@ The UI must remain straightforward to implement and maintain in native Android. 
 - [FeedFlow](https://github.com/prof18/feed-flow) for a maintained, Apache-2.0 reader implementation and practical article-list density.
 - [Material 3 adaptive list-detail](https://developer.android.com/develop/adaptive-apps/guides/list-detail) for future phone/tablet layout adaptation.
 
-FrameLESS-specific behavior stays deliberately small: exact in-article markers, a scroll-synced Android finding peek, and an on-demand expanded sheet for publisher comparisons. Particle and Ground News may inform product behavior, but their private implementations are not development dependencies. GPL reader projects may be observed visually but their code must not be copied into this repository.
+FrameLESS-specific behavior stays deliberately small: exact in-article markers, a scroll-synced Android annotation dock, and an on-demand expanded sheet for publisher comparisons. Particle and Ground News may inform product behavior, but their private implementations are not development dependencies. GPL reader projects may be observed visually but their code must not be copied into this repository.
 
 ## 1. Scope and priorities
 
@@ -38,7 +38,7 @@ Visual rules:
 - Do not add generic thumbnails, generated summaries, bias meters, truth scores, or decorative gradients.
 - Keep comparison as a contextual layer inside the Reader rather than turning the feed into a cluster dashboard.
 
-I-series analysis, including I1, is deferred and does not appear in these screens. All analysis shown here is already stored; opening the feed, Reader, preview, or comparison sheet never starts collection or an LLM call.
+I-series analysis, including I1, is deferred and does not appear in these screens. All analysis shown here is already stored; opening the feed, Reader, annotation dock, or comparison sheet never starts collection or an LLM call.
 
 ## 2. Primary flow
 
@@ -51,7 +51,7 @@ Launch
                                                   ↓
                                    Tap an analyzed expression
                                                   ↓
-                         Finding preview → full comparison detail
+                      Annotation dock → full comparison detail
 ```
 
 The feed is the primary discovery destination and Saved is a secondary route.
@@ -316,11 +316,11 @@ Reader behavior:
   title/body findings and keeps the analysis rail in section 6.5 visible.
 - A marker with multiple categories is one tap target.
 - Overlapping markers render as one target and open one finding.
-- On Android, tapping a marker opens the peek in section 6 immediately. After a
-  user scroll, pausing with a BODY marker in the lower-middle focus zone may
-  open the same peek automatically. Web marker taps select the same finding in
+- On Android, tapping a marker selects it in the dock in section 6 immediately.
+  After a user scroll, pausing with a BODY marker in the lower-middle focus zone
+  may replace the dock annotation automatically. Web marker taps select the same finding in
   the persistent analysis rail.
-- Opening and closing the preview or comparison sheet preserves source Reader position.
+- Updating the dock or opening and closing the comparison sheet preserves source Reader position.
 - `원문 보기` opens the canonical source externally.
 
 ### 5.3 Reader analysis states
@@ -340,49 +340,45 @@ READY with zero findings:
 
 Do not describe the article as neutral.
 
-## 6. Finding preview and comparison detail
+## 6. Finding annotation and comparison detail
 
-### 6.1 Android scroll-synced finding peek
+### 6.1 Android scroll-synced annotation dock
 
 ```text
 ┌──────────────────────────────────────┐
-│  표현 분석                         [×] │
-│  “온도차가 있었다”                    │
-│  여러 지역의 반응을 ‘온도차’라는    │
-│  말로 묶어 설명해요.                  │
-│  [평가·감정이 담긴 표현]              │
+│ 평가·감정이 담긴 표현  다른 보도 2곳 › │
+│ “온도차가 있었다”                     │
+│ 여러 지역의 반응을 ‘온도차’로 묶어요. │
 └──────────────────────────────────────┘
 ```
 
-- The peek is a screen-fixed overlay above a lower-middle focus zone. It has no
-  scrim, does not participate in article layout, and never changes article
-  scroll position.
-- Once the reader deliberately scrolls, a 30 dp low-contrast accent tick at the
-  right edge marks the 55% anchor. Hide it while a peek, coach, guide, or detail
-  surface is visible; do not draw a full-width reading line.
-- A direct marker tap shows the peek immediately. Automatic presentation is
+- A 118 dp dock is reserved below the article viewport whenever expression
+  analysis is enabled and at least one finding exists. It never overlays the
+  article or changes height as findings change.
+- The dock always contains one finding. It initially uses the first title
+  finding, otherwise the first body finding, and retains the current annotation
+  through gaps between analyzed sentences.
+- During a real user scroll, a 30 dp low-contrast accent tick at the right edge
+  marks the 55% anchor. Do not draw a full-width reading line.
+- A direct marker tap updates the dock immediately. Automatic selection is
   Android-only and follows the eligibility, 500 ms dwell, and suppression rules
   in [`../features/scroll-synced-analysis-peek.md`](../features/scroll-synced-analysis-peek.md).
-- Automatic presentation applies only to BODY findings after a real user scroll;
-  opening/restoring a Reader, title findings, coach movement, and comparison
-  focus do not trigger it.
-- Starting another scroll hides the peek. Close, Android Back, disabling
-  analysis, or tapping ordinary article text also dismisses it. A dismissed
-  marker cannot reopen automatically until it leaves the focus zone or another
-  finding becomes active.
-- A comparison-backed compact peek shows exact stored expressions from at most
-  two publisher-diverse comparisons and `외 N곳` when more exist. Tapping it
-  opens the existing comparison sheet directly.
-- A source-only peek shows a compact explanation and expands the full stored
-  explanation in place. It has no comparison count, chevron, or detail sheet.
+- Scrolling retains the current content; 500 ms after settling, the nearest
+  eligible BODY finding replaces it. Opening/restoring a Reader, coach movement,
+  and comparison focus do not trigger automatic replacement.
+- A comparison-backed dock shows `다른 보도 N곳 ›`; tapping it opens the
+  existing comparison sheet directly. A source-only dock has no comparison
+  action and never opens an empty sheet.
+- With analysis off or zero displayable findings, do not reserve the dock.
 - The article-level `비교 포인트` entry remains available and unchanged.
 - Show natural-language feature labels rather than raw A–G codes.
 
 ### 6.2 Source-only finding
 
-A source-only finding never opens a second surface. The Reader already supplies
-its source context, so repeating the expression and sentence in a full-height
-sheet would add navigation without adding information.
+A source-only finding remains in the fixed dock and never opens a second
+surface. The Reader already supplies its source context, so repeating the
+expression and sentence in a full-height sheet would add navigation without
+adding information.
 
 ### 6.3 Comparison publisher pages
 
@@ -410,7 +406,7 @@ Comparison behavior:
 
 - When comparisons exist, the expanded sheet begins directly with `같은 내용을
   다른 기사에서는`; it does not repeat the marker, categories, or explanation
-  already shown in the preview.
+  already shown in the annotation dock.
 - Keep an explicit `×` close action in the fixed heading. Do not render gesture
   instructions such as swipe or pull-to-close copy; the pager, handle, and
   controls communicate those interactions directly.
@@ -439,7 +435,7 @@ Comparison behavior:
 
 ### 6.4 Navigation and gesture ownership
 
-- Tapping a comparison-backed peek opens the expanded comparison sheet without
+- Tapping a comparison-backed dock opens the expanded comparison sheet without
   moving the source Reader. There is no additional intermediate surface.
 - Tapping a comparison page's article action closes the sheet and opens that
   target in the ordinary Reader. Back returns to the source Reader rather than
@@ -457,11 +453,11 @@ Comparison behavior:
   `is_feed_visible` is separately enabled.
 - There is no middle sheet anchor and no expand/collapse transition.
 - Back, outside tap, or downward dismissal returns to the same Reader position
-  and clears the peek instead of reopening a surface the reader has already
-  completed. Automatic presentation remains disarmed until another user scroll.
+  and the same persistent annotation. Automatic replacement waits for another
+  eligible user-scroll pause.
 - The fixed-heading close action follows the same dismissal path.
-- Back from the peek closes it before leaving Reader.
-- The peek itself has no swipe or drag gesture. Inside the expanded sheet,
+- Back with only the dock visible leaves Reader normally.
+- The dock itself has no swipe or drag gesture. Inside the expanded sheet,
   vertical gestures scroll the selected article and horizontal gestures page publishers.
 - Downward drag dismisses from the top handle, the fixed comparison heading, or
   the fixed article metadata/evidence area.
@@ -519,14 +515,15 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Login and registration success → prior public route, or all-publisher feed
   when authentication was opened directly.
 - Feed → Reader → back restores feed position and filters.
-- Reader with open detail → back closes both detail and its preview, preserving
-  the article position. Back from a preview alone closes the preview first.
+- Reader with open detail → back closes detail and returns to the same persistent
+  annotation, preserving article position. Back with only the dock visible
+  leaves the Reader normally.
 - Account menu dismiss → same feed state.
 - Confirmed expired session clears authenticated state, keeps public content
   readable as a guest, and explains that personalized features require sign-in.
 - Process recreation restores authentication and the last feed category. Followed
   sources and saved articles reload from the account; restoring an open Reader
-  preview or detail is deferred.
+  detail is deferred and the dock selects its normal initial finding.
 
 ### 8.1 Android offline restoration
 
@@ -548,7 +545,7 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - Comparison-page announcement includes its publisher name and page position.
 - Icons need Korean descriptions unless decorative.
 - Test long publisher names, three-line headlines, long paragraphs, long explanations, and three comparison publishers.
-- No automatic scrolling while the user is reading. Opening a preview never moves the article.
+- No automatic scrolling while the user is reading. Updating the dock never moves the article.
   A comparison page, or a Reader opened directly from that page, may move once
   to its first body evidence when first shown; after that, it preserves the
   reader's own position.
@@ -597,7 +594,7 @@ ReaderStatusNotice
   controls, and news navigation are product components; do not distort legacy
   screens to imitate them.
 - Convert API code-point offsets to Compose UTF-16 indices once in the mapper and verify the expected quote. Invalid markers are omitted safely while the article remains readable.
-- Re-test focus-zone selection, peek dismissal, clean expanded-sheet return,
+- Re-test focus-zone selection, fixed dock height, clean expanded-sheet return,
   long comparison articles, font scaling, and physical-device back behavior.
 
 Suggested extraction boundary:
@@ -624,8 +621,8 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Direct login opens the all-publisher feed; contextual login returns to its origin
 - Feed → Reader → back restores scroll position, category, and scope
 - Saved → Reader → back restores the saved list rather than exiting the app
-- Back from detail clears detail and preview before leaving Reader; back from a
-  preview alone clears it before leaving Reader
+- Back from detail returns to the persistent dock before leaving Reader; with
+  only the dock visible, Back leaves Reader normally
 - Ordinary users never receive URL-analysis or diagnostic navigation
 
 ### Feed
@@ -652,10 +649,10 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - At most three publisher pages
 - Same-publisher evidence stays on one page
 - Attribution and publication time appear
-- Manual marker selection opens the peek immediately; a stable eligible BODY
-  marker opens it after the specified dwell
-- Initial/restored/programmatic positions never auto-open a peek
-- Scroll restart and explicit dismissal clear the peek without moving the article
+- Manual marker selection updates the dock immediately; a stable eligible BODY
+  marker replaces it after the specified dwell
+- Initial/restored/programmatic positions never auto-replace the dock
+- Scroll restart keeps the current dock content without moving the article
 - Detail sheet opens directly at maximum height
 - Horizontal publisher paging and vertical article scrolling remain stable
 
@@ -680,8 +677,8 @@ The UI is complete when:
 - exact title/body markers open the correct article-specific finding;
 - source-only findings end without an empty comparison section;
 - valid compared publishers page horizontally while their articles scroll vertically;
-- the compact peek can reveal analysis during a reading pause without moving the
-  article, interrupting fast scrolling, or requiring dragging;
+- the fixed annotation dock can reveal analysis during a reading pause without
+  covering the article, resizing, interrupting fast scrolling, or requiring dragging;
 - original links, publisher, publication time, and attribution remain visible;
 - ordinary users never encounter URL input or internal diagnostics;
 - required Compose, accessibility, and end-to-end UI tests pass.

@@ -55,21 +55,22 @@ comparison sheet and does not change it.
 - [Unit] The section's strings contain no overview, explanation, standalone A–G
   code, or category label.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ReaderComparisonSummaryTest.sectionTextsNeverContainOverviewExplanationOrCategoryLabels`
-- [Component] With the sheet closed, the Reader shows neither the overview, the
-  explanation, an A–G code, nor a category label.\
+- [Component] With the sheet closed, the comparison-points section itself shows
+  neither overview nor labels. The persistent annotation dock may show the
+  active finding's explanation and natural-language categories once.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonPointsSectionShowsPublisherMarkersOnceWithoutOverviewOrLabels`
 
 ### State transitions
 
 - [Unit] Activating a point yields exactly the selection state the existing
-  preview action yields for the same finding; a source-only preview stays a
-  preview.\
+  annotation-dock action yields for the same finding; a source-only finding
+  stays in the dock.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ReaderComparisonSummaryTest.tappingAPointOpensTheSameDetailStateAsThePreviewAction`
 - [Component] Tapping a point opens the existing sheet for that finding with its
   unchanged heading and overview shown once; closing it returns to the Reader
   with the section intact; `이 기사 읽기` routes the compared article.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonPointOpensTheExistingComparisonDetail`
-- [Component] The existing highlight → preview → sheet flow and its reviewed
+- [Component] The existing highlight → dock → sheet flow and its reviewed
   assertions are unchanged with the section present.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
 - [Unit] Opening a compared article and going Back restores the source article,
@@ -98,7 +99,7 @@ comparison sheet and does not change it.
 | Duplicates | same lines from two findings; same finding id | feature §Selection |
 | Exactness | identifier-like real markers shown as stored | feature §Eligibility |
 | Not rendered | overview, explanation, A–G codes and labels | feature §Presentation |
-| State interaction | point vs. preview routing; close; open compared article | feature §Interaction |
+| State interaction | point vs. dock routing; close; open compared article | feature §Interaction |
 
 ## Human review checkpoint
 

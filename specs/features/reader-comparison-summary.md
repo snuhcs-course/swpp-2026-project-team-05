@@ -6,7 +6,7 @@
 | Owner | Reader feature owner |
 | Clients | Android only |
 | Iteration | 4 |
-| Supplements | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6 (finding preview and comparison sheet) |
+| Supplements | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6 (annotation dock and comparison sheet) |
 | Test specification | [`../testing/reader-comparison-summary.spec.md`](../testing/reader-comparison-summary.spec.md) |
 
 ## Summary
@@ -82,9 +82,9 @@ evidence.
 ### Interaction
 
 Tapping a point (the whole row) opens the **existing** comparison sheet for that
-exact finding, with the same Reader state the preview action
-`다른 기사 N곳과 비교` produces (finding selected, sheet open). The highlight →
-preview → sheet flow and the sheet itself are unchanged.
+exact finding, with the same Reader state the annotation-dock action produces
+(finding selected, sheet open). The highlight → dock → sheet flow and the sheet
+itself are unchanged.
 
 ## Known limitations
 

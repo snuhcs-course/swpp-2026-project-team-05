@@ -51,12 +51,12 @@ start or consume the coach.
 
 | Step | Spotlight | Primary action |
 | --- | --- | --- |
-| 1 / 3 | First finding (title first, otherwise body; the body scrolls it into view). Copy mentions that turning off `표현 분석` hides highlights. | Tapping the spotlight or `다음` opens that finding's preview card. |
-| 2 / 3 | The preview card. Copy points to the `?` button. | `다음` opens the comparison sheet. If the finding has no comparisons the label reads `완료` (2 / 2) and ends the coach. |
+| 1 / 3 | First finding (title first, otherwise body; the body scrolls it into view). Copy mentions that turning off `표현 분석` hides highlights. | Tapping the spotlight or `다음` selects that finding in the annotation dock. |
+| 2 / 3 | The fixed annotation dock. Copy points to the `?` button. | `다음` opens the comparison sheet. If the finding has no comparisons the label reads `완료` (2 / 2) and ends the coach. |
 | 3 / 3 | Inline callout at the top of the comparison sheet: underlined sentence = matching passage; `이 기사 읽기` = read it in the app; `원문 보기` = open the publisher site. | `완료` ends the coach. |
 
 - Outside the spotlight, touches are blocked while a coach mark is visible.
-- Scroll-synced automatic peeks are suppressed while any coach step is active;
+- Scroll-synced automatic dock replacement is suppressed while any coach step is active;
   the tutorial continues to demonstrate the explicit marker-tap path.
 - `건너뛰기`, system Back (steps 1–2), or dismissing the sheet (step 3) end the
   coach and mark it seen.
@@ -64,7 +64,7 @@ start or consume the coach.
 
 ## 4. Label guide (`?` button)
 
-- Every preview card shows a `?` button beside its label chips, during and
+- The annotation dock shows a `?` button beside its natural-language labels, during and
   after the tutorial.
 - It opens a dialog listing the seven expression-difference categories A–G,
   using the same names as the chips, each with one baseline → marked example

@@ -1,6 +1,5 @@
 package com.swpp.team5.frameless.ui.screens
 
-import androidx.compose.ui.geometry.Rect
 import com.swpp.team5.frameless.data.ComparisonArticleUi
 import com.swpp.team5.frameless.data.ComparisonEvidenceUi
 import com.swpp.team5.frameless.data.FindingUi
@@ -73,15 +72,6 @@ class ScrollSyncedAnalysisPeekTest {
     fun sourceOnlyPeekHasNoComparisonRows() {
         assertEquals(emptyList<PeekComparisonExpression>(), analysisPeekContent(finding(emptyList())).comparisons)
         assertEquals(0, analysisPeekContent(finding(emptyList())).remainingPublisherCount)
-    }
-
-    @Test
-    fun cardStaysInsideViewportAndUsesBelowFallbackNearTheTop() {
-        val viewport = Rect(0f, 100f, 400f, 900f)
-
-        assertEquals(372f, analysisPeekTop(Rect(0f, 600f, 100f, 620f), viewport, 220f, 8f))
-        assertEquals(168f, analysisPeekTop(Rect(0f, 140f, 100f, 160f), viewport, 220f, 8f))
-        assertEquals(662f, analysisPeekTop(Rect(0f, 890f, 100f, 900f), viewport, 220f, 8f))
     }
 
     private fun finding(comparisons: List<ComparisonArticleUi>) = FindingUi(

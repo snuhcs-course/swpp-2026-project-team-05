@@ -1,4 +1,4 @@
-# Scroll-synced analysis peek (Android)
+# Scroll-synced analysis annotation (Android)
 
 | Field | Value |
 | --- | --- |
@@ -11,138 +11,82 @@
 
 ## 1. Purpose
 
-Readers should discover stored expression analysis while reading instead of
-repeatedly tapping highlighted phrases to learn whether they contain useful
-comparisons. Android therefore promotes the body finding nearest a stable
-reading position into a small, non-blocking peek after the reader pauses.
-
-The flow is deliberately short:
+Expression analysis should read like a book annotation, not a card that chases
+the sentence or repeatedly covers article text. When an analyzed article has at
+least one displayable finding, Android reserves one fixed annotation dock below
+the Reader and keeps one finding in it while the user reads.
 
 ```text
-read and pause → compact peek → existing comparison sheet → target Reader
+read article → annotation updates after a pause → existing comparison sheet → target Reader
 ```
 
-The peek improves discovery; it does not replace direct marker taps, the
-article-level `비교 포인트` section, or the existing comparison sheet.
+Direct marker taps and the article-level `비교 포인트` section remain alternate
+entries into the same finding and comparison flow.
 
 ## 2. Scope and non-goals
 
-This is an Android Reader presentation and interaction change. It uses the
-existing `FindingUi`, comparison evidence, and Reader navigation state.
+This is an Android presentation change over existing `FindingUi` data. It does
+not change the API, database, analysis pipeline, grounding, finding order, Web,
+comparison sheet, target-article navigation, or saving behavior.
 
-It does not:
+## 3. Fixed annotation dock
 
-- change the API, database, analysis pipeline, finding order, or grounding;
-- generate or paraphrase text on the device;
-- add automatic peeks to Web, whose persistent analysis rail already exposes
-  the selected finding;
-- automatically open title findings;
-- remove or alter the article-level `비교 포인트` section;
-- move the article to make a finding eligible.
+- The dock is 118 dp high and participates in Reader layout below the article
+  viewport. It never overlays article text and its height never changes when the
+  active finding changes.
+- When analysis is enabled and at least one finding is displayable, the dock is
+  always populated. Initial selection is the first title finding, otherwise the
+  first body finding.
+- It shows natural-language labels, the exact source marker, up to two lines of
+  stored explanation, and `다른 보도 N곳 ›` when grounded comparisons exist.
+- Source-only findings show no comparison action and never open an empty sheet.
+- When analysis is disabled or the completed result contains zero displayable
+  findings, no dock is reserved. The existing analysis-state notice explains
+  the zero-finding case.
 
-## 3. Automatic selection
+## 4. Scroll-synced selection
 
-### 3.1 Focus zone
+- The eligible band is 45–65% of the article viewport and its anchor is 55%.
+- Only BODY markers are selected automatically. The eligible marker nearest the
+  anchor wins; reading order breaks an equal-distance tie.
+- User scrolling keeps the current annotation stable. After scrolling stops and
+  the same candidate remains eligible for 500 ms, only dock content changes.
+- Long gaps retain the last active annotation rather than flashing an empty
+  state. Initial layout, restored scroll, coach movement, and comparison-focus
+  movement do not change the annotation automatically.
+- While a real user scroll is in progress, a short low-contrast tick at the
+  right edge marks the 55% anchor. It is decorative and never crosses the text.
 
-- The eligible vertical band is 45–65% of the Reader content viewport, measured
-  below fixed app chrome. Its anchor is 55%.
-- A BODY finding is eligible when the vertical centre of its rendered marker
-  lies inside that band.
-- If several markers are eligible, select the marker centre nearest the anchor.
-  A distance tie resolves to the earlier finding in reading order.
-- At most one finding is active.
+## 5. Interaction and existing flow
 
-### 3.2 Trigger
+- Tapping any analyzed title or body expression selects it immediately in the
+  dock without moving the article.
+- Tapping a comparison-backed dock opens the existing `FindingDetailSheet` for
+  the active finding. Closing the sheet returns to the same Reader and leaves
+  the annotation selected.
+- Existing publisher paging, `이 기사 읽기`, original links, comparison Reader
+  back-stack, article saving, and the top `비교 포인트` entry are unchanged.
+- The dock label-guide button continues to open the existing A–G explanation.
+- Android Back leaves the Reader when only the persistent dock is visible; the
+  dock is not treated as a dismissible modal.
 
-An automatic peek appears only when all of the following are true:
+## 6. Accessibility and layout
 
-- expression analysis is enabled and the finding is displayable;
-- the reader has performed a vertical drag in this article since it opened or
-  regained focus;
-- scrolling has stopped and the same candidate remains eligible for 500 ms;
-- no coach mark, label guide, comparison sheet, or other modal surface is open.
+- The dock's comparison action has a natural-language click label; raw A–G
+  codes and evaluation IDs are never exposed.
+- Marker meaning does not rely on color: the active source marker retains
+  underline and selected styling.
+- Large text truncates within the fixed dock instead of changing its height or
+  covering the article. Complete comparison context remains available in the
+  existing detail sheet.
 
-Initial layout, restored scroll position, coach-controlled movement, and the
-one-time jump to comparison evidence never trigger a peek. A title finding and
-an off-screen finding remain available through direct taps.
+## 7. Acceptance criteria
 
-## 4. Compact peek
-
-- The peek is a screen-fixed overlay immediately above the focus zone. It does
-  not participate in article layout, reserve bottom padding, or move the
-  article when it appears or changes.
-- After the reader first scrolls, a short low-contrast accent tick at the right
-  edge marks the 55% anchor while no peek or modal is open. It is decorative,
-  has no label, and never draws a line across article text.
-- The active marker receives the existing selected styling so the relationship
-  between sentence and peek remains visible without relying on colour alone.
-- It shows ordinary Reader language, never raw A–G codes or evaluation IDs.
-- For a comparison-backed finding, it shows the current marker and up to two
-  publisher-labelled comparison markers exactly as stored. Additional distinct
-  publishers are represented as `외 N곳`.
-- For a source-only finding, it shows the current marker and a compact portion
-  of the stored explanation instead of an empty comparison row.
-- The current marker and each comparison expression stay on one line. A
-  source-only explanation uses at most two lines until expanded; stored analysis
-  is not silently discarded.
-- Directly tapping any title or body marker shows its peek immediately, without
-  waiting for the scroll trigger.
-
-## 5. Interaction and lifecycle
-
-- Starting another deliberate article scroll hides the automatic peek before
-  selecting a new candidate.
-- Tapping ordinary article text, the close action, Android Back, or disabling
-  expression analysis clears the peek.
-- A manually dismissed finding is suppressed until its marker leaves the focus
-  zone or a different finding becomes active. Minor scroll settling must not
-  reopen it in place.
-- Tapping a comparison-backed peek opens the existing full comparison sheet for
-  that finding directly. No new intermediate comparison screen is added.
-- Tapping a source-only peek expands its stored explanation in the same overlay;
-  it never opens an empty comparison sheet.
-- Dismissing the comparison sheet clears the peek. Returning from a comparison
-  target restores the source article's scroll position but requires a new user
-  scroll before another automatic peek may appear.
-- Existing comparison paging, target-article navigation, saving, original links,
-  and source Reader back-stack behavior remain unchanged.
-
-## 6. Accessibility and motion
-
-- The peek is announced as `{marker}, 표현 분석` followed by its visible
-  summary and whether a comparison is available.
-- Its close and expand actions meet the 48 × 48 dp touch-target rule.
-- Large text may increase the card height but must not cover the active marker;
-  the compact card remains bounded and the expanded source-only explanation is
-  scrollable only when required by system font scaling.
-- Appearance and dismissal use a short fade/vertical transition. The card does
-  not chase a marker while the article is moving.
-
-## 7. Implementation boundary
-
-The Reader owns a small presentation state: candidate finding, dwell state,
-active peek, dismissal suppression, and whether a source-only explanation is
-expanded. Candidate selection should be a pure policy function over measured
-marker centres and viewport bounds so timing and boundary behavior can be unit
-tested independently of Compose layout.
-
-The existing `FindingDetailSheet` remains the only comparison-detail surface.
-The existing direct marker annotation, comparison-point entry, and navigation
-callbacks are reused.
-
-## 8. Acceptance criteria
-
-- A normal reading pause can reveal a useful comparison without a marker tap.
-- Opening an article, restoring its position, or returning from another article
-  never produces a surprise peek before the reader scrolls.
-- Fast scrolling does not produce a trail of cards, and only one finding is
-  presented at a time.
-- The focus position is discoverable without adding persistent instructional
-  copy or covering article text.
-- Showing, replacing, expanding, or dismissing the peek never changes article
-  text, layout, or scroll position.
-- A comparison-backed finding reaches the existing detail sheet with one tap
-  from the peek; a source-only finding exposes its complete explanation without
-  an empty detail surface.
-- Direct marker taps and the article-level `비교 포인트` entry continue to work.
-
+- An analyzed Reader with findings always has exactly one 118 dp annotation
+  dock; scrolling and finding changes do not resize it.
+- The annotation remains stable during scrolling and changes only after a
+  qualifying 500 ms pause or a direct marker tap.
+- No floating analysis card follows or obscures article text.
+- One dock tap reaches the existing comparison detail and target-article flow.
+- Zero-finding, analysis-off, direct marker, coach, comparison-point, and Back
+  behavior remain explicit and regression-tested.

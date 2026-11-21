@@ -11,8 +11,8 @@
 
 The Reader presents analysis in ordinary reader language rather than the
 internal vocabulary of the reviewed dataset. Android progressively discloses a
-finding without interrupting reading: a scroll-synced compact peek precedes an
-expanded comparison sheet, while direct marker taps remain available.
+finding without interrupting reading: a fixed scroll-synced annotation dock
+precedes an expanded comparison sheet, while direct marker taps remain available.
 
 ### Non-goals
 
@@ -65,38 +65,38 @@ expanded comparison sheet, while direct marker taps remain available.
   instructional content or move the article text; status notices remain reserved
   for loading, partial, unavailable, failed, and empty-result states.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > analysisToggleAddsMarkersWithoutMovingArticleContent`
-- [Component] Selecting an in-article marker first shows the compact finding
-  preview while the expanded comparison sheet remains closed.\
+- [Component] An analyzed article keeps one fixed-height annotation dock;
+  selecting an in-article marker updates it while the comparison sheet remains
+  closed.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
-- [Component] The preview exposes an explicit natural-language comparison action,
+- [Component] The dock exposes an explicit natural-language comparison action,
   and activating it opens the comparison sheet directly at maximum height.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
 - [Component] The comparison sheet exposes a fixed-heading close action and does
-  not depend on instructional gesture copy; closing it clears both the detail
-  and preview while preserving the Reader.\
+  not depend on instructional gesture copy; closing it returns to the same
+  persistent dock while preserving the Reader.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
 - [Component] The shared comparison overview appears once above the publisher
   pager and remains unchanged while pages move. Publisher pages do not repeat
   that prose, and generic reporter attribution is omitted.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
-- [Component] A source-only finding shows its explanation and labels in the peek,
-  expands the complete explanation in place, and exposes no comparison-detail
-  action or empty surface.\
+- [Component] A source-only finding shows its explanation and labels in the dock
+  and exposes no comparison-detail action or empty surface.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
-- [Component] Every peek exposes all feature labels. A source-only explanation
-  is capped at two lines and offers inline expand/collapse only when it overflows.\
+- [Component] Every dock exposes natural-language feature labels. Its explanation
+  is capped at two lines and the dock remains 118 dp tall for every finding.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
-- [State transition] Closing Android detail clears both detail and its peek,
-  while closing a peek alone keeps the Reader open. Tapping ordinary article
-  text or starting a new article scroll clears the peek; a new eligible finding
-  may appear only after the scroll settles.\
+- [State transition] Starting a new article scroll keeps the current annotation;
+  a new eligible finding may replace it only after the scroll settles. Closing
+  Android detail returns to the same annotation, while Back with only the dock
+  visible leaves the Reader.\
   Tip: add a device-level back-navigation assertion when the instrumentation
   harness owns the activity navigation stack.
 - [Regression] The expanded sheet keeps Material whole-sheet dragging disabled.
   Downward drag on fixed header regions dismisses it; article content dismisses
   only when its own scroll is already at the top, and the close animation starts
   after the gesture is released. Dismissal returns to a clean Reader without
-  restoring the preview.\
+  restoring a transient overlay; the persistent dock remains selected.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`,
   `android/app/src/test/java/com/swpp/team5/frameless/ui/screens/NewsReaderInteractionTest.kt > detailSheetDismissesOnlyAfterDeliberateDownwardDrag`
 - [Component] Multiple Android comparison pages expose synchronized horizontal
