@@ -15,7 +15,7 @@ restyle.
 ### Non-goals
 
 - Existing sheet behaviour already covered by
-  `NewsScreensInstrumentedTest.readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  `NewsScreensInstrumentedTest.readerAnnotationOpensFullComparisonDetail`
   (heading, close, overview once, pager, article action).
 - Pixel-level appearance; check by hand on a 360dp emulator.
 
@@ -43,7 +43,7 @@ restyle.
   Tested by: `com.swpp.team5.frameless.ui.screens.ExpressionPairInstrumentedTest.eachSideReadsAsOneUnitAndTheConnectorAddsNoExtraSpokenText`
 - [Acceptance] Existing sheet behaviour (heading, close, overview once, pager,
   article action) is unchanged.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.readerAnnotationOpensFullComparisonDetail`
 
 ### Errors and boundaries
 

@@ -1,5 +1,6 @@
 package com.swpp.team5.frameless.ui.screens
 
+import android.view.HapticFeedbackConstants
 import com.swpp.team5.frameless.data.ComparisonArticleUi
 import com.swpp.team5.frameless.data.ComparisonEvidenceUi
 import com.swpp.team5.frameless.data.FindingUi
@@ -11,6 +12,19 @@ import org.junit.Test
 
 /** Oracles: specs/testing/scroll-synced-analysis-peek.spec.md. */
 class ScrollSyncedAnalysisPeekTest {
+
+    @Test
+    fun annotationHapticUsesOnlyGentleSupportedConstants() {
+        assertEquals(null, annotationHapticFeedbackConstant(26))
+        assertEquals(
+            HapticFeedbackConstants.TEXT_HANDLE_MOVE,
+            annotationHapticFeedbackConstant(27)
+        )
+        assertEquals(
+            HapticFeedbackConstants.SEGMENT_FREQUENT_TICK,
+            annotationHapticFeedbackConstant(34)
+        )
+    }
     @Test
     fun selectsNearestEligibleBodyFindingIncludingBandBoundaries() {
         val markers = listOf(

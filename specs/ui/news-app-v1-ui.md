@@ -317,9 +317,9 @@ Reader behavior:
 - A marker with multiple categories is one tap target.
 - Overlapping markers render as one target and open one finding.
 - On Android, tapping a marker selects it in the dock in section 6 immediately.
-  After a user scroll, pausing with a BODY marker in the lower-middle focus zone
-  may replace the dock annotation automatically. Web marker taps select the same finding in
-  the persistent analysis rail.
+  During a user scroll, a different BODY marker entering the lower-middle focus
+  zone replaces the dock annotation immediately. Web marker taps select the
+  same finding in the persistent analysis rail.
 - Updating the dock or opening and closing the comparison sheet preserves source Reader position.
 - `원문 보기` opens the canonical source externally.
 
@@ -366,6 +366,9 @@ Do not describe the article as neutral.
 - During user scrolling, the nearest eligible BODY finding replaces the dock
   content immediately. Opening/restoring a Reader, coach movement, and comparison
   focus do not trigger automatic replacement.
+- When a direct finger drag changes the active finding, Android may emit one
+  low-intensity system haptic. Fling inertia, programmatic movement, tutorial
+  movement, and direct marker taps do not emit this feedback.
 - A comparison-backed dock shows `다른 보도 N곳 ›`; tapping it opens the
   existing comparison sheet directly. A source-only dock has no comparison
   action and never opens an empty sheet.
@@ -575,7 +578,7 @@ AnalysisStateBadge
 ArticleHeader
 AnalysisToggle
 ExpressionAnnotatedText
-ScrollSyncedFindingPeek
+AnalysisAnnotationDock
 FindingDetailSheet
 ComparisonArticlePage
 ReaderStatusNotice

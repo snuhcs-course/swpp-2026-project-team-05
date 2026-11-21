@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Implemented with documented gaps |
 | Owner | Reader / onboarding feature owner |
 | Source requirements | [`../features/first-run-tutorial.md`](../features/first-run-tutorial.md) |
-| Last reviewed | 2026-11-16 |
+| Last reviewed | 2026-11-21 |
 
 ## Scope
 
@@ -29,7 +29,7 @@ label guide dialog.
 - [Unit] A fresh install shows onboarding; finishing it persists and a new
   instance does not show it.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.freshInstallShowsIntroAndFinishingItPersists`
-- [Unit] With comparisons, the coach advances TAP_FINDING → PREVIEW_CARD →
+- [Unit] With comparisons, the coach advances TAP_FINDING → ANNOTATION_DOCK →
   COMPARISON and persists only when finished.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.fullReaderCoachWithComparisonsAdvancesThroughThreeStepsAndPersists`
 - [Unit] The feed `?` button shows onboarding again and re-arms the reader
@@ -50,7 +50,7 @@ label guide dialog.
 ### Errors and boundaries
 
 - [Unit] A finding without comparisons ends the coach at step 2.\
-  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.findingWithoutComparisonsEndsCoachAtPreviewCard`
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.findingWithoutComparisonsEndsCoachAtAnnotationDock`
 - [Unit] The coach does not start before onboarding is finished.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.readerCoachWaitsUntilIntroIsFinished`
 - [Unit] Out-of-order events do not skip steps.\
@@ -68,7 +68,8 @@ label guide dialog.
   does not start the coach.\
   Tip: instrumented test asserting `onEligible` is never called for these readers.
 - [Integration] No scroll-synced automatic dock replacement occurs while a coach
-  step is active; the spotlighted marker remains the coached selection route.\
+  step is active, and tutorial movement emits no annotation haptic; the
+  spotlighted marker remains the coached selection route.\
   Tip: cover the coach-active suppression state in the scroll-synced dock
   Reader integration test.
 
@@ -96,7 +97,7 @@ label guide dialog.
 
 ## Human review checkpoint
 
-- [ ] Product intent and non-goals were reviewed (see feature §0).
-- [ ] Assertions come from the specification, not the implementation output.
-- [ ] Missing coverage is recorded as `Tip`, not hidden.
-- [ ] A contract or acceptance change received explicit team confirmation.
+- [x] Product intent and non-goals were reviewed (see feature §0).
+- [x] Assertions come from the specification, not the implementation output.
+- [x] Missing coverage is recorded as `Tip`, not hidden.
+- [x] The implemented annotation-dock transition is reflected in the contract.

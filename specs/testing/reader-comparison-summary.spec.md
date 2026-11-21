@@ -65,14 +65,14 @@ comparison sheet and does not change it.
 - [Unit] Activating a point yields exactly the selection state the existing
   annotation-dock action yields for the same finding; a source-only finding
   stays in the dock.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.ReaderComparisonSummaryTest.tappingAPointOpensTheSameDetailStateAsThePreviewAction`
+  Tested by: `com.swpp.team5.frameless.ui.screens.ReaderComparisonSummaryTest.tappingAPointOpensTheSameDetailStateAsTheDockAction`
 - [Component] Tapping a point opens the existing sheet for that finding with its
   unchanged heading and overview shown once; closing it returns to the Reader
   with the section intact; `이 기사 읽기` routes the compared article.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonPointOpensTheExistingComparisonDetail`
 - [Component] The existing highlight → dock → sheet flow and its reviewed
   assertions are unchanged with the section present.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Unit] Opening a compared article and going Back restores the source article,
   focus, and scroll offset (Reader history unchanged).\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.comparisonReaderNavigationPreservesSourceBackStackAndFocus`

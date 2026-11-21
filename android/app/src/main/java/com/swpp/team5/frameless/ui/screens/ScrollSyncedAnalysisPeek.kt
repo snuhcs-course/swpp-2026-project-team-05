@@ -1,5 +1,6 @@
 package com.swpp.team5.frameless.ui.screens
 
+import android.view.HapticFeedbackConstants
 import com.swpp.team5.frameless.data.FindingUi
 import kotlin.math.abs
 
@@ -7,6 +8,14 @@ internal const val PeekBandStartFraction = 0.45f
 internal const val PeekBandEndFraction = 0.65f
 internal const val PeekAnchorFraction = 0.55f
 internal const val MaxPeekComparisonPublishers = 2
+internal const val AnnotationHapticMinIntervalMillis = 150L
+
+/** Uses only low-intensity, system-governed haptics; API 26 stays silent. */
+internal fun annotationHapticFeedbackConstant(sdkInt: Int): Int? = when {
+    sdkInt >= 34 -> HapticFeedbackConstants.SEGMENT_FREQUENT_TICK
+    sdkInt >= 27 -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
+    else -> null
+}
 
 /** A measured BODY marker in root coordinates, kept independent from Compose state. */
 internal data class PeekMarkerPosition(

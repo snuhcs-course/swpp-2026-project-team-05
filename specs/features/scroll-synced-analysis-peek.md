@@ -52,6 +52,10 @@ comparison sheet, target-article navigation, or saving behavior.
 - During a user scroll, the dock content changes as soon as a different BODY
   marker becomes the nearest eligible marker. There is no dwell timer because
   the fixed dock neither moves nor covers the article.
+- A direct finger drag emits one low-intensity system haptic when the active
+  finding actually changes. It is throttled to at least 150 ms, respects the
+  device haptic setting, and stays silent for fling inertia, initial/restored
+  position, programmatic movement, tutorial movement, and direct marker taps.
 - Long gaps retain the last active annotation rather than flashing an empty
   state. Initial layout, restored scroll, coach movement, and comparison-focus
   movement do not change the annotation automatically.
@@ -89,6 +93,8 @@ comparison sheet, target-article navigation, or saving behavior.
   dock; scrolling and finding changes do not resize it.
 - The annotation follows eligible BODY markers immediately during a user scroll;
   direct marker taps also update it immediately.
+- Haptic feedback occurs only on finding transitions during a direct user drag,
+  never on every scroll frame or during inertial/programmatic movement.
 - No floating analysis card follows or obscures article text.
 - One dock tap reaches the existing comparison detail and target-article flow.
 - Zero-finding, analysis-off, direct marker, coach, comparison-point, and Back

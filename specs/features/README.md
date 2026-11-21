@@ -17,9 +17,9 @@ backend or persistence contract.
 Web and the deliberately bounded Android Room cache. It does not introduce a
 guest server identity, backend migration, or general synchronization system.
 
-`first-run-tutorial.md` proposes Android first-launch onboarding, first-article
-coach marks, and a label-guide dialog. It is a draft awaiting the separate
-product decision that `news-app-features.md` §12 requires for onboarding.
+`first-run-tutorial.md` defines the implemented Android first-launch onboarding,
+first-article coach marks, and label-guide dialog. It remains separate from the
+Following-sources feature and has no Web or server-side tutorial state.
 
 `scroll-synced-analysis-peek.md` defines the Android-only reading aid that
 selects a body finding immediately as the reading position changes. It preserves the existing

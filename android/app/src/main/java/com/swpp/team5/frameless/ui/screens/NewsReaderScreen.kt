@@ -1,5 +1,7 @@
 package com.swpp.team5.frameless.ui.screens
 
+import android.os.Build
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -8,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +65,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -122,7 +127,7 @@ internal data class ReaderCoachUi(
     val step: ReaderCoachStep? = null,
     val onEligible: () -> Unit = {},
     val onFindingOpened: () -> Unit = {},
-    val onPreviewNext: (hasComparisons: Boolean) -> Unit = {},
+    val onAnnotationNext: (hasComparisons: Boolean) -> Unit = {},
     val onFinish: () -> Unit = {}
 )
 
@@ -199,6 +204,7 @@ private fun NewsReaderContent(
         )
     }
     val density = LocalDensity.current
+    val readerView = LocalView.current
     val scroll = remember(article.id) { ScrollState(initialScrollOffset) }
     var bodyLayout by remember(article.id) { mutableStateOf<TextLayoutResult?>(null) }
     var bodyPositionInContent by remember(article.id) { mutableStateOf(Offset.Zero) }
@@ -209,6 +215,8 @@ private fun NewsReaderContent(
     var readerViewportBounds by remember(article.id) { mutableStateOf<Rect?>(null) }
     var readerRootTopPx by remember(article.id) { mutableFloatStateOf(0f) }
     var userScrollArmed by remember(article.id) { mutableStateOf(false) }
+    var directUserDragActive by remember(article.id) { mutableStateOf(false) }
+    var lastAnnotationHapticAt by remember(article.id) { mutableStateOf(0L) }
     var guideCodes by remember(article.id) { mutableStateOf<Set<String>?>(null) }
     val coachFinding = titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
     val openFinding: (FindingUi) -> Unit = { finding ->
@@ -313,6 +321,13 @@ private fun NewsReaderContent(
         )
         if (candidateId == null || candidateId == selected?.id) return@LaunchedEffect
         val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect
+        val now = SystemClock.elapsedRealtime()
+        val hapticConstant = annotationHapticFeedbackConstant(Build.VERSION.SDK_INT)
+        if (directUserDragActive && selected != null && hapticConstant != null &&
+            now - lastAnnotationHapticAt >= AnnotationHapticMinIntervalMillis) {
+            readerView.performHapticFeedback(hapticConstant)
+            lastAnnotationHapticAt = now
+        }
         selected = candidate.first
     }
 
@@ -405,6 +420,24 @@ private fun NewsReaderContent(
             Column(
                 Modifier.weight(1f).fillMaxWidth()
                     .testTag("article-reader-scroll")
+                    .pointerInput(article.id) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            directUserDragActive = false
+                            try {
+                                do {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    if (event.changes.any {
+                                            it.position.y != it.previousPosition.y
+                                        }) {
+                                        directUserDragActive = true
+                                    }
+                                } while (event.changes.any { it.pressed })
+                            } finally {
+                                directUserDragActive = false
+                            }
+                        }
+                    }
                     .nestedScroll(readerScrollConnection)
                     .onGloballyPositioned { readerViewportBounds = it.boundsInRoot() }
                     .verticalScroll(scroll)
@@ -544,7 +577,7 @@ private fun NewsReaderContent(
                     )
                 }
             }
-            ReaderCoachStep.PREVIEW_CARD -> {
+            ReaderCoachStep.ANNOTATION_DOCK -> {
                 val finding = selected
                 if (finding != null && !detailOpen) {
                     val hasComparisons = finding.comparisons.isNotEmpty()
@@ -557,7 +590,7 @@ private fun NewsReaderContent(
                         primaryLabel = if (hasComparisons) "다음" else "완료",
                         onPrimary = {
                             if (hasComparisons) detailOpen = true
-                            coach.onPreviewNext(hasComparisons)
+                            coach.onAnnotationNext(hasComparisons)
                         },
                         secondaryLabel = "건너뛰기",
                         onSecondary = coach.onFinish

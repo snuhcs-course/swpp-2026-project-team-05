@@ -2,18 +2,17 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft — needs team product decision |
+| Status | Implemented |
 | Owner | Reader / onboarding feature owner |
 | Related behavior | [`news-app-features.md`](news-app-features.md) §11.8, §12; [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) |
-| Last reviewed | 2026-11-16 |
+| Last reviewed | 2026-11-21 |
 
-## 0. Decision required
+## 0. Product decision
 
-`news-app-features.md` §11.8 says the Following-sources work must not add an
-onboarding flow, and §12 lists forced onboarding as a non-goal that "requires a
-separate product decision." This document is that separate proposal. It is
-skippable at every step, adds no navigation destination, and does not touch the
-Following scope. The team must confirm it before merge.
+`news-app-features.md` §11.8 kept onboarding out of the Following-sources work,
+and §12 required a separate product decision. The implemented tutorial is that
+separate feature: it is skippable, adds no navigation destination, and does not
+change the Following scope.
 
 ## 1. Purpose
 

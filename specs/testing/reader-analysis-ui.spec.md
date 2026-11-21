@@ -47,7 +47,7 @@ precedes an expanded comparison sheet, while direct marker taps remain available
   Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage comparison navigation > opens a comparison target in Reader context and returns to its source`,
   `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonTargetExplainsTransientContextWithoutClaimingAStandaloneFinding`,
   `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > comparisonTargetWaitsForLayoutBeforeScrollingToFocusedPassage`,
-  `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 
 ### Stored analysis contract
 
@@ -68,24 +68,24 @@ precedes an expanded comparison sheet, while direct marker taps remain available
 - [Component] An analyzed article keeps one fixed-height annotation dock;
   selecting an in-article marker updates it while the comparison sheet remains
   closed.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Component] The dock exposes an explicit natural-language comparison action,
   and activating it opens the comparison sheet directly at maximum height.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Component] The comparison sheet exposes a fixed-heading close action and does
   not depend on instructional gesture copy; closing it returns to the same
   persistent dock while preserving the Reader.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Component] The shared comparison overview appears once above the publisher
   pager and remains unchanged while pages move. Publisher pages do not repeat
   that prose, and generic reporter attribution is omitted.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Component] A source-only finding shows its explanation and labels in the dock
   and exposes no comparison-detail action or empty surface.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingStaysInDockWithoutDetailAction`
 - [Component] Every dock exposes natural-language feature labels. Its explanation
   is capped at two lines and the dock remains 118 dp tall for every finding.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingEndsInPreviewWithoutDetailAction`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > sourceOnlyFindingStaysInDockWithoutDetailAction`
 - [State transition] A direct marker tap immediately selects that finding and
   keeps it through recomposition and detail close. A later user scroll may
   replace it immediately when a different finding enters the eligible band.
@@ -97,16 +97,16 @@ precedes an expanded comparison sheet, while direct marker taps remain available
   only when its own scroll is already at the top, and the close animation starts
   after the gesture is released. Dismissal returns to a clean Reader without
   restoring a transient overlay; the persistent dock remains selected.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`,
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`,
   `android/app/src/test/java/com/swpp/team5/frameless/ui/screens/NewsReaderInteractionTest.kt > detailSheetDismissesOnlyAfterDeliberateDownwardDrag`
 - [Component] Multiple Android comparison pages expose synchronized horizontal
   swipe and a compact floating previous/page/next navigator with disabled
   boundary actions. The navigator does not reserve article height.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Component] Android comparison detail exposes an internal article action;
   selecting it sends the target article and its first exact evidence range to
   Reader navigation rather than opening the publisher URL.\
-  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerPreviewsSelectedFindingBeforeOpeningFullDetail`
+  Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerAnnotationOpensFullComparisonDetail`
 - [Component] Comparison navigation uses publisher names and exposes the active
   publisher as a tab; it does not add a second `n / m` numeric pager.\
   Tested by: `web/src/pages/ArticlePage.test.tsx > ArticlePage analysis rail > separates finding navigation from named comparison sources`

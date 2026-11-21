@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import com.swpp.team5.frameless.data.TutorialStore
 
 /** 기사 화면 코치마크 단계. 순서대로 진행한다. */
-internal enum class ReaderCoachStep { TAP_FINDING, PREVIEW_CARD, COMPARISON }
+internal enum class ReaderCoachStep { TAP_FINDING, ANNOTATION_DOCK, COMPARISON }
 
 /**
  * 첫 실행 온보딩과 첫 기사 코치마크의 진행 상태.
@@ -41,14 +41,14 @@ internal class TutorialViewModel(private val store: TutorialStore) : ViewModel()
         readerStep = ReaderCoachStep.TAP_FINDING
     }
 
-    /** 사용자가 표현을 눌러 분석 카드가 열렸다. */
+    /** 사용자가 표현을 눌러 하단 주석을 선택했다. */
     fun onFindingOpened() {
-        if (readerStep == ReaderCoachStep.TAP_FINDING) readerStep = ReaderCoachStep.PREVIEW_CARD
+        if (readerStep == ReaderCoachStep.TAP_FINDING) readerStep = ReaderCoachStep.ANNOTATION_DOCK
     }
 
-    /** 분석 카드 단계에서 다음으로. 비교 기사가 없으면 여기서 끝난다. */
-    fun onPreviewNext(hasComparisons: Boolean) {
-        if (readerStep != ReaderCoachStep.PREVIEW_CARD) return
+    /** 하단 주석 단계에서 다음으로. 비교 기사가 없으면 여기서 끝난다. */
+    fun onAnnotationNext(hasComparisons: Boolean) {
+        if (readerStep != ReaderCoachStep.ANNOTATION_DOCK) return
         if (hasComparisons) readerStep = ReaderCoachStep.COMPARISON else finishReaderCoach()
     }
 

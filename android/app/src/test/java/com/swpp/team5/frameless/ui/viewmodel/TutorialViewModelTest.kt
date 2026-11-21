@@ -62,8 +62,8 @@ class TutorialViewModelTest {
 
         viewModel.onReaderEligible()
         viewModel.onFindingOpened()
-        assertEquals(ReaderCoachStep.PREVIEW_CARD, viewModel.readerStep)
-        viewModel.onPreviewNext(hasComparisons = true)
+        assertEquals(ReaderCoachStep.ANNOTATION_DOCK, viewModel.readerStep)
+        viewModel.onAnnotationNext(hasComparisons = true)
         assertEquals(ReaderCoachStep.COMPARISON, viewModel.readerStep)
         assertFalse(store.readerCoachSeen)
 
@@ -73,13 +73,13 @@ class TutorialViewModelTest {
     }
 
     @Test
-    fun findingWithoutComparisonsEndsCoachAtPreviewCard() {
+    fun findingWithoutComparisonsEndsCoachAtAnnotationDock() {
         val store = FakeTutorialStore(introSeen = true)
         val viewModel = TutorialViewModel(store)
 
         viewModel.onReaderEligible()
         viewModel.onFindingOpened()
-        viewModel.onPreviewNext(hasComparisons = false)
+        viewModel.onAnnotationNext(hasComparisons = false)
 
         assertNull(viewModel.readerStep)
         assertTrue(store.readerCoachSeen)
@@ -107,11 +107,11 @@ class TutorialViewModelTest {
         val viewModel = TutorialViewModel(FakeTutorialStore(introSeen = true))
 
         viewModel.onFindingOpened()
-        viewModel.onPreviewNext(hasComparisons = true)
+        viewModel.onAnnotationNext(hasComparisons = true)
         assertNull(viewModel.readerStep)
 
         viewModel.onReaderEligible()
-        viewModel.onPreviewNext(hasComparisons = true)
+        viewModel.onAnnotationNext(hasComparisons = true)
         assertEquals(ReaderCoachStep.TAP_FINDING, viewModel.readerStep)
     }
 

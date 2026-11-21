@@ -407,7 +407,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun readerPreviewsSelectedFindingBeforeOpeningFullDetail() {
+    fun readerAnnotationOpensFullComparisonDetail() {
         val body = "빠르게 확장했다"
         val targetBody = "회사는 사업 영역을 넓히고 있다."
         val targetMarker = "넓히고 있다"
@@ -594,7 +594,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun sourceOnlyFindingEndsInPreviewWithoutDetailAction() {
+    fun sourceOnlyFindingStaysInDockWithoutDetailAction() {
         val body = "지역별로 온도차가 있었다."
         val marker = "온도차가 있었다"
         val markerStart = body.indexOf(marker)
