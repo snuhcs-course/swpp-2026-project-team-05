@@ -14,6 +14,8 @@ import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.data.TextRange
+import com.swpp.team5.frameless.telemetry.Telemetry
+import com.swpp.team5.frameless.telemetry.TelemetryEvent
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -673,6 +675,83 @@ class NewsViewModelTest {
         assertFalse(viewModel.link.isOpen)
         assertFalse(viewModel.link.isRunning)
         assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
+    /** specs/features/telemetry.md: fixed event names and codes, never typed or personal text. */
+    private class RecordingTelemetry : Telemetry {
+        val events = mutableListOf<Pair<String, Map<String, Any>>>()
+        override fun record(event: String, params: Map<String, Any>) {
+            events += event to params
+        }
+        fun names() = events.map { it.first }
+        fun allValues() = events.flatMap { it.second.values }.map { it.toString() }
+    }
+
+    @Test
+    fun browsingRecordsCategorySearchAndWhereAnArticleWasOpenedFrom() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("a")), null)
+            pages += ArticlePage(listOf(summary("b")), null)
+            searchPages.getValue(null) += ArticlePage(listOf(summary("s")), null)
+        }
+        val telemetry = RecordingTelemetry()
+        val viewModel = NewsViewModel(repository, telemetry)
+        viewModel.initialize()
+        mainLooper.idle()
+
+        viewModel.selectCategory(NewsCategory.ECONOMY)
+        mainLooper.idle()
+        viewModel.openArticle("b")
+        mainLooper.idle()
+
+        assertTrue(TelemetryEvent.CATEGORY_SELECT to mapOf("category" to "ECONOMY") in telemetry.events)
+        assertTrue(TelemetryEvent.ARTICLE_OPEN to mapOf("source" to "feed") in telemetry.events)
+        val analysis = telemetry.events.single { it.first == TelemetryEvent.ANALYSIS_VIEW }.second
+        assertEquals(0, analysis["findings"])
+        assertFalse(telemetry.allValues().any { it == "b" || it.contains("기사") })
+    }
+
+    @Test
+    fun linkAnalysisRecordsTheOutcomeButNeverTheLink() {
+        val repository = FakeNewsDataSource().apply {
+            linkFailure = NewsApiException("DAILY_LIMIT", "오늘 분석 한도를 모두 썼어요.")
+        }
+        val telemetry = RecordingTelemetry()
+        val viewModel = NewsViewModel(repository, telemetry)
+
+        viewModel.openLinkAnalysis()
+        viewModel.updateLinkInput("ftp://example.com/a")
+        viewModel.submitLinkAnalysis()
+        viewModel.updateLinkInput("https://example.com/news/1")
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+        repository.linkFailure = null
+        viewModel.submitLinkAnalysis()
+        mainLooper.idle()
+
+        val results = telemetry.events.filter { it.first == TelemetryEvent.LINK_ANALYSIS_RESULT }.map { it.second }
+        assertEquals(listOf("invalid", "error", "opened"), results.map { it["result"] })
+        assertEquals("DAILY_LIMIT", results[1]["code"])
+        assertTrue(TelemetryEvent.ARTICLE_OPEN to mapOf("source" to "link") in telemetry.events)
+        assertFalse(telemetry.allValues().any { it.contains("example.com") || it.contains("http") })
+    }
+
+    @Test
+    fun savingAndTheAnalysisToggleRecordOnlyTheirNewState() {
+        val repository = FakeNewsDataSource()
+        val telemetry = RecordingTelemetry()
+        val viewModel = NewsViewModel(repository, telemetry)
+
+        viewModel.toggleSaved("a", currentlySaved = false)
+        mainLooper.idle()
+        viewModel.setAnalysisEnabled(false)
+        viewModel.setAnalysisEnabled(false)
+
+        assertEquals(
+            listOf(TelemetryEvent.SAVE_TOGGLE to mapOf("saved" to true),
+                TelemetryEvent.ANALYSIS_TOGGLE to mapOf("enabled" to false)),
+            telemetry.events
+        )
     }
 
     private inner class FakeNewsDataSource : NewsDataSource {

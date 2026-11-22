@@ -142,7 +142,8 @@ internal fun NewsReaderScreen(
     saveError: String?,
     onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit = { _, _ -> },
     onOpenRelatedArticle: (String, Int) -> Unit = { _, _ -> },
-    coach: ReaderCoachUi = ReaderCoachUi()
+    coach: ReaderCoachUi = ReaderCoachUi(),
+    onComparisonShown: (Int) -> Unit = {}
 ) {
     when {
         state.isArticleLoading -> {
@@ -156,7 +157,7 @@ internal fun NewsReaderScreen(
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
-            state.initialScrollOffset, onOpenComparisonArticle, onOpenRelatedArticle, coach)
+            state.initialScrollOffset, onOpenComparisonArticle, onOpenRelatedArticle, coach, onComparisonShown)
     }
 }
 
@@ -177,7 +178,8 @@ private fun NewsReaderContent(
     initialScrollOffset: Int,
     onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit,
     onOpenRelatedArticle: (String, Int) -> Unit,
-    coach: ReaderCoachUi
+    coach: ReaderCoachUi,
+    onComparisonShown: (Int) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -191,6 +193,10 @@ private fun NewsReaderContent(
     val economicViews = if (analysisEnabled) economic?.views.orEmpty() else emptyList()
     var selected by remember(article.id) { mutableStateOf<FindingUi?>(null) }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
+    // Telemetry (specs/features/telemetry.md): one event each time the comparison sheet opens for a finding.
+    LaunchedEffect(detailOpen, selected?.id) {
+        if (detailOpen) selected?.let { onComparisonShown(it.comparisons.size) }
+    }
     val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
         annotatedReaderText(
             article.title, titleFindings, titleFocus,

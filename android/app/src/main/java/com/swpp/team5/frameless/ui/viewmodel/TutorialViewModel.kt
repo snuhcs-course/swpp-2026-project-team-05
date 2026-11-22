@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.swpp.team5.frameless.data.TutorialStore
+import com.swpp.team5.frameless.telemetry.Telemetry
+import com.swpp.team5.frameless.telemetry.TelemetryEvent
 
 /** 기사 화면 코치마크 단계. 순서대로 진행한다. */
 internal enum class ReaderCoachStep { TAP_FINDING, ANNOTATION_DOCK, COMPARISON }
@@ -17,19 +19,24 @@ internal enum class ReaderCoachStep { TAP_FINDING, ANNOTATION_DOCK, COMPARISON }
  *   분석이 없는 기사에서는 시작하지 않고 다음 기사를 기다린다.
  * - 어느 단계에서든 건너뛰거나 닫으면 완료로 기록한다.
  */
-internal class TutorialViewModel(private val store: TutorialStore) : ViewModel() {
+internal class TutorialViewModel(
+    private val store: TutorialStore,
+    private val telemetry: Telemetry = Telemetry.None
+) : ViewModel() {
     var showIntro by mutableStateOf(!store.introSeen)
         private set
     var readerStep by mutableStateOf<ReaderCoachStep?>(null)
         private set
 
     fun finishIntro() {
+        if (showIntro) telemetry.record(TelemetryEvent.TUTORIAL_INTRO_DONE, emptyMap())
         store.introSeen = true
         showIntro = false
     }
 
     /** 피드의 ? 버튼. 소개 화면을 다시 띄우고, 다음에 표현이 있는 기사를 열면 코치마크도 다시 보여준다. */
     fun replay() {
+        telemetry.record(TelemetryEvent.TUTORIAL_REPLAY, emptyMap())
         readerStep = null
         store.readerCoachSeen = false
         showIntro = true

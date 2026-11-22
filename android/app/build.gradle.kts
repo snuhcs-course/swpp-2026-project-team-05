@@ -13,6 +13,12 @@ jacoco {
     toolVersion = "0.8.13"
 }
 
+// Firebase Analytics (specs/features/telemetry.md) starts only when a local app/google-services.json exists. The file
+// stays out of git, so CI and other builds run without telemetry.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -83,6 +89,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.security:security-crypto:1.1.0")
     implementation("androidx.room:room-runtime:2.8.5")
+    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation("com.google.firebase:firebase-analytics")
     annotationProcessor("androidx.room:room-compiler:2.8.5")
     testImplementation("androidx.room:room-testing:2.8.5")
     testImplementation("androidx.test:core:1.7.0")

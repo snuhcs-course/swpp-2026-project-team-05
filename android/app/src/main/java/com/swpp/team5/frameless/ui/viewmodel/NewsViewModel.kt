@@ -15,6 +15,8 @@ import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.TextRange
+import com.swpp.team5.frameless.telemetry.Telemetry
+import com.swpp.team5.frameless.telemetry.TelemetryEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -140,7 +142,14 @@ internal data class LinkAnalysisState(
     val error: String? = null
 )
 
-internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel() {
+internal class NewsViewModel(
+    private val repository: NewsDataSource,
+    private val telemetry: Telemetry = Telemetry.None
+) : ViewModel() {
+    /** Fixed codes, counts and flags only (specs/features/telemetry.md). */
+    private fun record(event: String, vararg params: Pair<String, Any>) = telemetry.record(event, mapOf(*params))
+    private fun errorCode(failure: Exception) = (failure as? NewsApiException)?.code ?: "UNKNOWN"
+
     var route by mutableStateOf(NewsRoute.FEED)
         private set
     var link by mutableStateOf(LinkAnalysisState())
@@ -262,6 +271,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         if (feed.category == category) return
         feed = feed.copy(category = category)
         repository.saveCategory(category)
+        record(TelemetryEvent.CATEGORY_SELECT, "category" to category.wire)
         reloadForFilters()
     }
 
@@ -386,6 +396,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private fun activateSearch(query: String) {
         if (!feed.isSearchOpen || normalizeSearch(feed.searchInput) != query) return
         feedJob?.cancel()
+        record(TelemetryEvent.SEARCH_SUBMIT)  // the query itself is never recorded
         feed = feed.copy(
             items = emptyList(),
             searchFilter = SearchFilter.ALL,
@@ -461,6 +472,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
+            record(TelemetryEvent.API_ERROR, "where" to "feed", "code" to errorCode(failure))
             handleFeedFailure(failure, category, scope)
         }
     }
@@ -735,10 +747,12 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 } else {
                     saved.items.filterNot { it.id == articleId }
                 })
+                record(TelemetryEvent.SAVE_TOGGLE, "saved" to target)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
+                record(TelemetryEvent.API_ERROR, "where" to "save", "code" to errorCode(failure))
                 saveError = failure.message ?: "저장 상태를 바꾸지 못했어요."
             } finally {
                 savedMutationArticleId = null
@@ -756,45 +770,67 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     /** Closing while the server analyses stops waiting; the analysis already sent still finishes on the server. */
     fun closeLinkAnalysis() {
+        if (link.isRunning) record(TelemetryEvent.LINK_ANALYSIS_RESULT, "result" to "cancelled")
         linkJob?.cancel()
         linkJob = null
         link = LinkAnalysisState()
     }
 
+    /** The pasted link is never recorded: only the outcome, an error code, and the seconds it took. */
     fun submitLinkAnalysis() {
         val url = link.input.trim()
         if (link.isRunning) return
         if (url.isBlank()) {
             link = link.copy(error = "기사 링크를 입력해 주세요.")
+            record(TelemetryEvent.LINK_ANALYSIS_RESULT, "result" to "invalid")
             return
         }
         if (!isHttpLink(url)) {
             link = link.copy(error = "http:// 또는 https://로 시작하는 전체 기사 주소를 입력해 주세요.")
+            record(TelemetryEvent.LINK_ANALYSIS_RESULT, "result" to "invalid")
             return
         }
         link = link.copy(isRunning = true, error = null)
+        val started = System.currentTimeMillis()
+        val seconds = { ((System.currentTimeMillis() - started) / 1000).toInt() }
         linkJob = viewModelScope.launch {
             try {
                 val articleId = repository.analyzeLink(url)
+                record(TelemetryEvent.LINK_ANALYSIS_RESULT, "result" to "opened", "seconds" to seconds())
                 link = LinkAnalysisState()
-                openArticle(articleId)
+                openArticle(articleId, source = "link")
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
+                record(TelemetryEvent.LINK_ANALYSIS_RESULT, "result" to "error", "code" to errorCode(failure),
+                    "seconds" to seconds())
                 link = link.copy(isRunning = false, error = failure.message ?: "기사를 분석하지 못했어요.")
             }
         }
     }
 
-    fun openArticle(articleId: String) {
+    /** `source` says where the reader came from: feed, search, saved, or link. */
+    fun openArticle(articleId: String, source: String = articleSource()) {
         if (route != NewsRoute.READER) {
             readerOrigin = route
             readerHistory.clear()
         }
+        record(TelemetryEvent.ARTICLE_OPEN, "source" to source)
         route = NewsRoute.READER
         loadReader(articleId, null)
     }
+
+    private fun articleSource(): String = when {
+        route == NewsRoute.SAVED -> "saved"
+        route == NewsRoute.READER -> "reader"
+        feed.isSearchOpen -> "search"
+        else -> "feed"
+    }
+
+    fun recordScreen(screen: NewsRoute) = record(TelemetryEvent.SCREEN_VIEW, "screen_name" to screen.name.lowercase())
+
+    fun recordComparisonShown(pages: Int) = record(TelemetryEvent.COMPARISON_OPEN, "pages" to pages)
 
     fun openComparisonArticle(article: ComparisonArticleUi, sourceScrollOffset: Int) {
         if (route != NewsRoute.READER || reader.articleId.isBlank()) {
@@ -804,6 +840,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         readerHistory.addLast(
             ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset)
         )
+        record(TelemetryEvent.ARTICLE_OPEN, "source" to "comparison")
         val evidence = article.evidence.firstOrNull()
         loadReader(
             article.articleId,
@@ -818,6 +855,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             return
         }
         readerHistory.addLast(ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset))
+        record(TelemetryEvent.ARTICLE_OPEN, "source" to "related")
         loadReader(articleId, null)
     }
 
@@ -867,10 +905,17 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                         isOffline = false,
                         analysisError = null
                     )
+                    record(
+                        TelemetryEvent.ANALYSIS_VIEW,
+                        "findings" to analysis.findings.size,
+                        "with_comparison" to analysis.findings.count { it.comparisons.isNotEmpty() },
+                        "economic" to (analysis.economic != null)
+                    )
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
                     if (isAuthFailure(failure)) authExpired = true
+                    record(TelemetryEvent.API_ERROR, "where" to "analysis", "code" to errorCode(failure))
                     reader = reader.copy(
                         isAnalysisLoading = false,
                         analysisError = failure.message ?: "분석 표시를 불러오지 못했어요."
@@ -880,6 +925,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
+                record(TelemetryEvent.API_ERROR, "where" to "article", "code" to errorCode(failure))
                 val retainCache = failure is NewsApiException && failure.code == "NETWORK_ERROR" &&
                     reader.article != null
                 reader = if (retainCache) {
@@ -920,6 +966,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun setAnalysisEnabled(enabled: Boolean) {
+        if (enabled != reader.analysisEnabled) record(TelemetryEvent.ANALYSIS_TOGGLE, "enabled" to enabled)
         reader = reader.copy(analysisEnabled = enabled)
         repository.saveAnalysisEnabled(enabled)
     }
