@@ -27,6 +27,15 @@ val backendBaseUrl = providers.gradleProperty("framelessBackendUrl").orNull
     ?: localProperties.getProperty("framelessBackendUrl")
     ?: "https://frameless-team05-api.vercel.app"
 
+// Release signing for store uploads. The keystore and its passwords stay outside the repository; pass the path of a
+// keystore.properties file (storeFile, storePassword, keyAlias, keyPassword) as -PframelessSigning=<path> or put
+// framelessSigning=<path> in local.properties. Without it, release builds stay unsigned.
+val signingProperties = (providers.gradleProperty("framelessSigning").orNull
+    ?: localProperties.getProperty("framelessSigning"))
+    ?.let { file(it) }
+    ?.takeIf { it.isFile }
+    ?.let { source -> Properties().apply { source.inputStream().use { load(it) } } }
+
 android {
     namespace = "com.swpp.team5.frameless"
     compileSdk {
@@ -37,8 +46,8 @@ android {
         applicationId = "com.swpp.team5.frameless"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 10
+        versionName = "1.0.0"
 
         buildConfigField("String", "BACKEND_BASE_URL", "\"${backendBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
@@ -52,8 +61,22 @@ android {
         }
     }
 
+    signingConfigs {
+        if (signingProperties != null) {
+            create("release") {
+                storeFile = file(signingProperties.getProperty("storeFile"))
+                storePassword = signingProperties.getProperty("storePassword")
+                keyAlias = signingProperties.getProperty("keyAlias")
+                keyPassword = signingProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (signingProperties != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                 enable = false
             }
