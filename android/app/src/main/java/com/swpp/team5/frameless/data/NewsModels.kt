@@ -116,16 +116,20 @@ internal data class ApiEconomicView(
     val scope: String,
     val sentence: ApiSentence
 )
+/** The article's stance toward the event (FAVOR, AGAINST, CONCERN, OPTIMISM, NEUTRAL) and one summary line. */
+internal data class EconomicPositionUi(val stance: String, val summary: String)
 internal data class ApiEconomicOutlet(
     val articleId: String,
     val publisher: PublisherItem,
     val title: String,
-    val views: List<ApiEconomicView>
+    val views: List<ApiEconomicView>,
+    val position: EconomicPositionUi? = null
 )
 internal data class ApiEconomicLens(
     val event: String,
     val views: List<ApiEconomicView>,
-    val others: List<ApiEconomicOutlet>
+    val others: List<ApiEconomicOutlet>,
+    val position: EconomicPositionUi? = null
 )
 internal data class ApiArticleAnalysis(
     val state: StoredAnalysisState,
@@ -188,12 +192,14 @@ internal data class EconomicOutletUi(
     val articleId: String,
     val publisher: PublisherItem,
     val title: String,
-    val views: List<EconomicViewUi>
+    val views: List<EconomicViewUi>,
+    val position: EconomicPositionUi? = null
 )
 internal data class EconomicLensUi(
     val event: String,
     val views: List<EconomicViewUi>,
-    val others: List<EconomicOutletUi>
+    val others: List<EconomicOutletUi>,
+    val position: EconomicPositionUi? = null
 )
 
 internal data class ArticleAnalysisUi(

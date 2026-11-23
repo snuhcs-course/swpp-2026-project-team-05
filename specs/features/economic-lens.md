@@ -61,6 +61,26 @@ sentence offsets are Unicode code points in the stored title or body, and the ph
 importer rejects a lens with no event, no view or more than two, an unknown code, a sentence that does not match its
 offsets, or a phrase that is not in its sentence; the import is atomic.
 
+### Position
+
+A lens may also carry `position`: the article's stance toward the event and one reviewed summary line.
+
+```json
+"position": {"stance": "FAVOR", "summary": "20년간 유예로 제도가 무력화됐다며 유예 없는 부과에 찬성함"}
+```
+
+| stance | meaning | Android |
+| --- | --- | --- |
+| `FAVOR` | supports or urges the decision or policy | 찬성 |
+| `AGAINST` | opposes it, or asks to withdraw, defer or repeal it | 반대 |
+| `CONCERN` | stresses its harms or risks without opposing it; for a market or economic development, its risks | 우려 |
+| `OPTIMISM` | for a market or economic development, its positive effects | 기대 |
+| `NEUTRAL` | reports facts, or quotes others without taking a side | 중립 |
+
+The stance follows target-specific stance detection (SemEval-2016 Task 6: favor / against / none toward a stated
+target); `FAVOR` and `AGAINST` apply to decisions and policies, `OPTIMISM` and `CONCERN` to developments nobody is for
+or against. The summary is at most 120 characters. A lens with a position may have no views.
+
 ## Reader API
 
 `GET /api/v1/articles/{id}/analysis` adds `economic`:
@@ -77,7 +97,8 @@ offsets, or a phrase that is not in its sentence; the import is atomic.
 ```
 
 It is `null` when the article has no lens. `others` are the other visible articles of the cluster (active publishers)
-that carry a lens, newest first. Views whose sentence no longer matches the stored article are left out.
+that carry a lens, newest first. Views whose sentence no longer matches the stored article are left out. The lens and
+each outlet also carry `position` (an object as above, or `null`); an outlet with a position and no views is listed.
 
 ## How a view is labelled
 
@@ -99,7 +120,9 @@ that carry a lens, newest first. Views whose sentence no longer matches the stor
 
 ## Android display
 
-- Reader, under the analysis notice: a "경제 관점" card with the event (사건) and this article's views (이 기사의 시각).
+- Reader, under the analysis notice: a "경제 관점" card with the event (사건) and this article's view (이 기사의 시각):
+  the position's stance label and summary when it has one, otherwise its views.
 - Title and body: with 표현 분석 on, each view sentence is underlined and its phrase is tinted.
-- Below the body: "다른 언론사는 이 사건을 이렇게 봐요", each other outlet with its views; tapping an outlet opens its
-  article (back returns to this one).
+- Below the body: "다른 언론사는 이 사건을 이렇게 봐요", a table of the other outlets, each row the publisher and its
+  stance label with the summary (its views when it has no position); tapping a row opens its article (back returns to
+  this one).

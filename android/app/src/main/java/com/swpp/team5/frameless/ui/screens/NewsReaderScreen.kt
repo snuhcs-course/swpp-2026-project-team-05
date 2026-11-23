@@ -99,6 +99,7 @@ import com.swpp.team5.frameless.data.ArticleAnalysisUi
 import com.swpp.team5.frameless.data.ArticleDetail
 import com.swpp.team5.frameless.data.ComparisonArticleUi
 import com.swpp.team5.frameless.data.EconomicLensUi
+import com.swpp.team5.frameless.data.EconomicPositionUi
 import com.swpp.team5.frameless.data.EconomicViewUi
 import com.swpp.team5.frameless.data.FindingUi
 import com.swpp.team5.frameless.data.StoredAnalysisState
@@ -1200,6 +1201,35 @@ internal fun economicStanceLabel(stance: String, direction: String? = null): Str
     }
 }
 
+/** The article's stance toward the event (specs/features/economic-lens.md, Position). */
+internal fun economicPositionLabel(stance: String): String = when (stance) {
+    "FAVOR" -> "찬성"
+    "AGAINST" -> "반대"
+    "CONCERN" -> "우려"
+    "OPTIMISM" -> "기대"
+    else -> "중립"
+}
+
+@Composable
+private fun EconomicStanceChip(label: String) {
+    Text(
+        label,
+        fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk,
+        modifier = Modifier
+            .border(1.dp, EconomicInk.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+    )
+}
+
+/** Stance label, then the summary line. */
+@Composable
+private fun EconomicPositionLine(position: EconomicPositionUi, fontSize: Int = 14) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        EconomicStanceChip(economicPositionLabel(position.stance))
+        Text(position.summary, fontSize = fontSize.sp, lineHeight = (fontSize + 6).sp, color = Fl.Ink)
+    }
+}
+
 @Composable
 private fun EconomicViewRow(view: EconomicViewUi) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -1229,13 +1259,17 @@ private fun EconomicLensCard(lens: EconomicLensUi) {
         Text(lens.event, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
         Spacer(Modifier.height(8.dp))
         Text("이 기사의 시각", fontSize = 11.sp, color = Fl.Muted)
-        if (lens.views.isEmpty()) {
+        val position = lens.position
+        if (position != null) {
+            Spacer(Modifier.height(4.dp))
+            EconomicPositionLine(position)
+        } else if (lens.views.isEmpty()) {
             Text("이 기사에서는 시각을 읽어내지 못했어요.", fontSize = 13.sp, color = Fl.Muted)
         } else lens.views.forEach { EconomicViewRow(it) }
     }
 }
 
-/** How the other outlets on the same event see it, each in its own words. */
+/** How the other outlets on the same event see it: a table of publisher and stance with its summary line. */
 @Composable
 private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().semantics { contentDescription = "다른 언론사의 시각" }) {
@@ -1246,20 +1280,38 @@ private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) ->
         if (lens.others.isEmpty()) {
             Text("같은 사건을 다룬 다른 기사의 시각이 아직 없어요.", fontSize = 13.sp, color = Fl.Muted,
                 modifier = Modifier.padding(top = 10.dp))
+            return@Column
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.fillMaxWidth().background(EconomicTint, RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Text("언론사", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk,
+                modifier = Modifier.width(OutletColumn))
+            Text("입장 · 한 줄 정리", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EconomicInk)
         }
         lens.others.forEach { outlet ->
-            Column(
-                Modifier.fillMaxWidth().padding(top = 12.dp)
+            Row(
+                Modifier.fillMaxWidth()
                     .clickable { onOpenArticle(outlet.articleId) }
                     .semantics { role = Role.Button; contentDescription = "${outlet.publisher.name} 기사 열기" }
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
             ) {
-                Text("${outlet.publisher.name}  ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                outlet.views.forEach { EconomicViewRow(it) }
+                Text("${outlet.publisher.name} ›", fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold,
+                    color = Fl.Ink, modifier = Modifier.width(OutletColumn).padding(end = 8.dp))
+                Column(Modifier.weight(1f)) {
+                    val position = outlet.position
+                    if (position != null) EconomicPositionLine(position, fontSize = 13)
+                    else outlet.views.forEach { EconomicViewRow(it) }
+                }
             }
-            HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(top = 10.dp))
+            HorizontalDivider(color = Fl.Line)
         }
     }
 }
+
+private val OutletColumn = 92.dp
 
 internal fun categoryLabel(code: String): String = when (code) {
     "A" -> "보도 태도가 드러나는 표현"

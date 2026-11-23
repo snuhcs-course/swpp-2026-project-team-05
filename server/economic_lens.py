@@ -17,8 +17,12 @@ CHANNELS = frozenset({
 STANCES = frozenset({"CONCERN", "OPTIMISM", "LIMITED", "OBSERVED"})
 DIRECTIONS = frozenset({"UP", "DOWN", "SWING"})
 SCOPES = frozenset({"TITLE", "BODY"})
+# The article's stance toward the event (target-specific stance, SemEval-2016 Task 6: favor / against / none), with
+# concern and optimism for events nobody is for or against, and one reviewed summary line.
+POSITION_STANCES = frozenset({"FAVOR", "AGAINST", "CONCERN", "OPTIMISM", "NEUTRAL"})
 MAX_VIEWS = 2
 MAX_EVENT = 200
+MAX_SUMMARY = 120
 
 
 class EconomicLensError(ValueError):
@@ -49,9 +53,10 @@ def validate_context(value, *, title: str, body: str, context: str) -> dict | No
     _check(isinstance(value, dict), context, "economic_context must be an object")
     event = value.get("event")
     _check(isinstance(event, str) and 0 < len(event.strip()) <= MAX_EVENT, context, "event must be a short text")
+    position = _position(value.get("position"), context)
     views = value.get("views")
-    _check(isinstance(views, list) and 0 < len(views) <= MAX_VIEWS, context,
-           f"views must hold one to {MAX_VIEWS} views")
+    _check(isinstance(views, list) and (0 if position else 1) <= len(views) <= MAX_VIEWS, context,
+           f"views must hold one to {MAX_VIEWS} views (none only with a position)")
     out = []
     for n, item in enumerate(views):
         c = f"{context} view {n}"
@@ -68,7 +73,28 @@ def validate_context(value, *, title: str, body: str, context: str) -> dict | No
                "phrase must be words of its sentence")
         out.append({"channels": list(channels), "stance": item["stance"], "direction": direction, "phrase": phrase,
                     "sentence": sentence})
-    return {"event": event.strip(), "views": out}
+    result = {"event": event.strip(), "views": out}
+    if position:
+        result["position"] = position
+    return result
+
+
+def _position(value, context: str) -> dict | None:
+    if value is None:
+        return None
+    _check(isinstance(value, dict), context, "position must be an object")
+    stance, summary = value.get("stance"), value.get("summary")
+    _check(stance in POSITION_STANCES, context, "unknown position stance")
+    _check(isinstance(summary, str) and 0 < len(summary.strip()) <= MAX_SUMMARY, context,
+           "position summary must be a short text")
+    return {"stance": stance, "summary": summary.strip()}
+
+
+def _stored_position(article: Article) -> dict | None:
+    try:
+        return _position((article.economic_context or {}).get("position"), "stored")
+    except EconomicLensError:
+        return None
 
 
 def _view_matches(article: Article, view: dict) -> bool:
@@ -97,8 +123,9 @@ def economic_payload(article: Article, publisher_payload) -> dict | None:
                             publisher__is_active=True, economic_context__isnull=False)
                     .exclude(id=article.id).select_related("publisher").order_by("-published_at", "id"))
         for other in siblings:
-            other_views = _views(other)
-            if other_views:
+            other_views, other_position = _views(other), _stored_position(other)
+            if other_views or other_position:
                 others.append({"article_id": str(other.id), "publisher": publisher_payload(other.publisher),
-                               "title": other.title, "views": other_views})
-    return {"event": context.get("event", ""), "views": views, "others": others}
+                               "title": other.title, "views": other_views, "position": other_position})
+    return {"event": context.get("event", ""), "views": views, "position": _stored_position(article),
+            "others": others}
