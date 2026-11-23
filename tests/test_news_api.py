@@ -1057,6 +1057,17 @@ class EconomicLensApiTests(TestCase):
     def test_article_without_economic_lens_answers_null(self):
         self.assertIsNone(self._economic(self.plain))
 
+    def test_position_is_served_for_the_article_and_an_outlet_with_no_views(self):
+        self.worried.economic_context["position"] = {"stance": "CONCERN", "summary": "집값 자극을 우려함"}
+        self.worried.save()
+        self.plain.economic_context = {"event": "한은, 기준금리 2.50%로 0.25%p 인하", "views": [],
+                                       "position": {"stance": "NEUTRAL", "summary": "환율 마감을 전함"}}
+        self.plain.save()
+        economic = self._economic(self.worried)
+        self.assertEqual(economic["position"], {"stance": "CONCERN", "summary": "집값 자극을 우려함"})
+        self.assertEqual([(o["publisher"]["name"], o["position"]) for o in economic["others"]],
+                         [("한국경제", None), ("뉴시스", {"stance": "NEUTRAL", "summary": "환율 마감을 전함"})])
+
 
 class EventIssueViewApiTests(TestCase):
     """specs/testing/event-issue-view.spec.md: the frame box and the issue view of the reader analysis."""
