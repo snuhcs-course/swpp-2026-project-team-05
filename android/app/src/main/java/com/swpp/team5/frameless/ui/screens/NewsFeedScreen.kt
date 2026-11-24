@@ -37,10 +37,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.Composable
@@ -52,6 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import com.swpp.team5.frameless.R
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -187,7 +185,7 @@ internal fun NewsFeedScreen(
                                 contentDescription = "기사 검색"
                             }
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink,
+                            Icon(painterResource(R.drawable.ic_portal_search), contentDescription = null, tint = Fl.Ink,
                                 modifier = Modifier.size(22.dp))
                         }
                         IconButton(
@@ -208,8 +206,13 @@ internal fun NewsFeedScreen(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(session?.user?.username?.take(1)?.uppercase() ?: "↗",
-                                color = HomeTokens.LavenderInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            if (session != null) {
+                                Text(session.user.username.take(1).uppercase(), color = HomeTokens.LavenderInk,
+                                    fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(painterResource(R.drawable.ic_portal_profile), contentDescription = null,
+                                    tint = HomeTokens.LavenderInk, modifier = Modifier.size(19.dp))
+                            }
                         }
                     }
                 }
@@ -592,7 +595,8 @@ private fun SearchHeader(
         IconButton(onClick = onClose, modifier = Modifier.semantics {
             contentDescription = "검색 닫기"
         }) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Fl.Ink)
+            Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                tint = Fl.Ink, modifier = Modifier.size(23.dp))
         }
         BasicTextField(
             value = value,
@@ -614,7 +618,7 @@ private fun SearchHeader(
                     Modifier.fillMaxSize().padding(horizontal = 13.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = null,
+                    Icon(painterResource(R.drawable.ic_portal_search), contentDescription = null,
                         tint = Fl.Muted, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(9.dp))
                     Box(Modifier.weight(1f)) {
@@ -632,7 +636,8 @@ private fun SearchHeader(
             IconButton(onClick = { onValue("") }, modifier = Modifier.semantics {
                 contentDescription = "검색어 지우기"
             }) {
-                Icon(Icons.Default.Close, contentDescription = null, tint = Fl.Ink2)
+                Icon(painterResource(R.drawable.ic_portal_close), contentDescription = null,
+                    tint = Fl.Ink2, modifier = Modifier.size(21.dp))
             }
         } else {
             Spacer(Modifier.width(48.dp))

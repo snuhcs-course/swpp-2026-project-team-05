@@ -3,6 +3,8 @@ package com.swpp.team5.frameless.data
 import android.content.Context
 
 internal interface NewsDataSource {
+    suspend fun trends(): TrendPage = throw NewsApiException("UNSUPPORTED", "트렌드를 불러오지 못했어요.")
+    suspend fun recordView(articleId: String) = Unit
     suspend fun publishers(): List<PublisherItem>
     suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String>
     suspend fun articles(category: NewsCategory?, scope: FeedScope,
@@ -57,6 +59,18 @@ internal class NewsRepository(
         ?: throw NewsApiException("AUTH_REQUIRED", "로그인이 필요합니다.")
 
     private fun optionalToken(): String? = auth.currentSession()?.token
+
+    override suspend fun trends(): TrendPage = service.trends(optionalToken())
+
+    override suspend fun recordView(articleId: String) {
+        val token = optionalToken()
+        val guestId = if (token == null) synchronized(preferences) {
+            preferences.getString("guest_viewer_id", null) ?: java.util.UUID.randomUUID().toString().also {
+                preferences.edit().putString("guest_viewer_id", it).apply()
+            }
+        } else null
+        service.recordView(token, guestId, articleId)
+    }
 
     override suspend fun publishers(): List<PublisherItem> = service.publishers(optionalToken())
 

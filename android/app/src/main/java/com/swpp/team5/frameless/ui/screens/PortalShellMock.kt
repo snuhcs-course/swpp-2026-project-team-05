@@ -1,6 +1,5 @@
 package com.swpp.team5.frameless.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +16,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +33,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
@@ -43,20 +45,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -143,6 +140,7 @@ private data class BriefingMetric(
 )
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 internal fun PortalHomeScreen(
     stories: List<StorySummary>,
     subscribedPublishers: List<PublisherItem>,
@@ -160,13 +158,16 @@ internal fun PortalHomeScreen(
     isSubscribedLoading: Boolean = false,
     subscribedError: String? = null,
     onRetrySubscriptions: () -> Unit = onRetry,
-    isSignedIn: Boolean = false
+    isSignedIn: Boolean = false,
+    trends: com.swpp.team5.frameless.ui.viewmodel.TrendsState = com.swpp.team5.frameless.ui.viewmodel.TrendsState(),
+    onRetryTrends: () -> Unit = {},
+    isRefreshing: Boolean = false
 ) {
     val articles = stories.map(StorySummary::representativeArticle)
     var trendsExpanded by rememberSaveable { mutableStateOf(false) }
     val trendCount = if (trendsExpanded) 5 else 2
-    val trending = articles.take(trendCount)
-    val latest = stories.drop(trendCount).ifEmpty { stories }.take(7)
+    val trending = trends.page?.items.orEmpty().take(trendCount)
+    val latest = stories.take(7)
     val briefing = listOf(
         BriefingMetric("서울", "8°", "맑음", "최고 12° · 최저 2°", Color(0xFF4E76B7), BriefingIcon.WEATHER),
         BriefingMetric("KOSPI", "2,591.05", "+0.32%", "최근 종가", Color(0xFFB84D51), BriefingIcon.MARKET),
@@ -175,6 +176,8 @@ internal fun PortalHomeScreen(
         BriefingMetric("S&P 500", "5,948.71", "-0.29%", "최근 종가", Color(0xFF5D5A91), BriefingIcon.MARKET)
     )
 
+    PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRetry,
+        modifier = Modifier.fillMaxSize().testTag("home-feed")) {
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().background(PortalPage),
@@ -232,41 +235,57 @@ internal fun PortalHomeScreen(
         item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("실시간 트렌드", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        Modifier.size(15.dp).border(1.dp, Color(0xFFADB1BA), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("i", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF8C919B))
+                    Column {
+                        Text("실시간 트렌드", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                        trends.page?.let { page ->
+                            val time = runCatching {
+                                java.time.OffsetDateTime.parse(page.calculatedAt).atZoneSameInstant(java.time.ZoneId.systemDefault())
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                            }.getOrDefault("")
+                            Text(if (page.isStale) "최근 집계 · $time" else "최근 3시간 · $time 기준",
+                                fontSize = 10.sp, color = Fl.Muted)
+                        }
                     }
                     Spacer(Modifier.weight(1f))
+                    if (trends.page?.items.orEmpty().size > 2) {
                     Row(
-                        Modifier.clickable { trendsExpanded = !trendsExpanded }
+                        Modifier.heightIn(min = 48.dp).clickable { trendsExpanded = !trendsExpanded }
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = if (trendsExpanded) "실시간 트렌드 접기" else "실시간 트렌드 펼치기"
+                                stateDescription = if (trendsExpanded) "펼쳐짐" else "접힘"
+                            }
                             .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(if (trendsExpanded) "접기" else "펼치기", fontSize = 11.sp, color = Fl.Muted)
-                        Text(if (trendsExpanded) " ︿" else " ﹀", fontSize = 12.sp, color = Fl.Muted)
+                        Icon(painterResource(if (trendsExpanded) R.drawable.ic_portal_chevron_up
+                            else R.drawable.ic_portal_chevron_down), contentDescription = null,
+                            tint = Fl.Muted, modifier = Modifier.padding(start = 5.dp).size(14.dp))
+                    }
                     }
                 }
-                if (isLoading && trending.isEmpty()) {
+                if (trends.loading && trending.isEmpty()) {
                     Text(
-                        "새 기사를 불러오고 있어요",
+                        "트렌드를 불러오고 있어요",
                         color = Fl.Muted,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(vertical = 18.dp)
                     )
                 } else if (trending.isEmpty()) {
                     Text(
-                        error ?: "표시할 주요 뉴스가 없어요",
+                        trends.error ?: "표시할 뉴스가 없어요",
                         color = Fl.Muted,
                         fontSize = 13.sp,
-                        modifier = Modifier.clickable(onClick = onRetry).padding(vertical = 18.dp)
+                        modifier = Modifier.padding(vertical = 12.dp)
                     )
+                    if (trends.error != null) Text("다시 시도", color = Fl.Accent, fontSize = 12.sp,
+                        modifier = Modifier.clickable(onClick = onRetryTrends)
+                            .semantics { role = Role.Button; contentDescription = "트렌드 다시 시도" }
+                            .padding(vertical = 10.dp))
                 } else {
-                    trending.forEachIndexed { index, article ->
-                        CompactTrendRow(index + 1, article, index % 2 == 0) { onArticle(article.id) }
+                    trending.forEach { item ->
+                        CompactTrendRow(item) { onArticle(item.story.representativeArticle.id) }
                     }
                 }
             }
@@ -388,6 +407,7 @@ internal fun PortalHomeScreen(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -404,18 +424,21 @@ private fun PortalSectionHeader(title: String, caption: String) {
 
 @Composable
 private fun CompactTrendRow(
-    rank: Int,
-    article: ArticleSummary,
-    rising: Boolean,
+    item: com.swpp.team5.frameless.data.TrendItem,
     onClick: () -> Unit
 ) {
+    val article = item.story.representativeArticle
+    val label = if (item.kind == "LATEST") "최신" else "${item.rank}위"
     Row(
-        Modifier.fillMaxWidth().height(32.dp)
+        Modifier.fillMaxWidth().height(40.dp)
             .clickable(onClick = onClick)
-            .semantics { role = Role.Button; contentDescription = "실시간 트렌드 $rank, ${article.title}" },
+            .semantics { role = Role.Button; contentDescription = "실시간 트렌드 $label, ${article.title}" },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(rank.toString(), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Fl.Ink, modifier = Modifier.width(24.dp))
+        Text(if (item.kind == "LATEST") "최신" else item.rank.toString(),
+            fontSize = if (item.kind == "LATEST") 10.sp else 13.sp,
+            fontWeight = FontWeight.Bold, color = if (item.kind == "LATEST") Fl.Muted else Fl.Ink,
+            modifier = Modifier.width(30.dp))
         Text(
             article.title,
             fontSize = 13.sp,
@@ -425,7 +448,15 @@ private fun CompactTrendRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        Text(if (rising) "▲" else "▼", fontSize = 9.sp, color = if (rising) Color(0xFFE35A45) else Color(0xFF4C83D1))
+        val previous = item.previousRank
+        if (item.movement == "NEW") Text("NEW", color = Fl.Muted, fontSize = 9.sp,
+            modifier = Modifier.padding(start = 8.dp))
+        else if (item.movement in setOf("UP", "DOWN") && previous != null && item.rank != null) {
+            Icon(painterResource(if (item.movement == "UP") R.drawable.ic_portal_chevron_up else R.drawable.ic_portal_chevron_down),
+                contentDescription = if (item.movement == "UP") "순위 상승" else "순위 하락",
+                tint = Fl.Muted, modifier = Modifier.padding(start = 7.dp).size(13.dp))
+            Text(kotlin.math.abs(previous - item.rank).toString(), color = Fl.Muted, fontSize = 10.sp)
+        }
     }
 }
 
@@ -485,41 +516,11 @@ private fun BriefingCard(metric: BriefingMetric) {
 
 @Composable
 private fun BriefingGlyph(icon: BriefingIcon, color: Color) {
-    Canvas(Modifier.size(18.dp)) {
-        val w = size.width
-        val stroke = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round)
-        when (icon) {
-            BriefingIcon.WEATHER -> {
-                drawCircle(color, w * 0.20f, Offset(w * 0.50f, w * 0.50f), style = stroke)
-                repeat(8) { i ->
-                    val a = Math.toRadians((i * 45).toDouble())
-                    val cosine = kotlin.math.cos(a).toFloat()
-                    val sine = kotlin.math.sin(a).toFloat()
-                    drawLine(
-                        color,
-                        Offset(w * 0.5f + cosine * w * 0.31f, w * 0.5f + sine * w * 0.31f),
-                        Offset(w * 0.5f + cosine * w * 0.43f, w * 0.5f + sine * w * 0.43f),
-                        stroke.width,
-                        StrokeCap.Round
-                    )
-                }
-            }
-            BriefingIcon.MARKET -> {
-                val path = Path().apply {
-                    moveTo(w * 0.10f, w * 0.70f)
-                    lineTo(w * 0.35f, w * 0.47f)
-                    lineTo(w * 0.55f, w * 0.58f)
-                    lineTo(w * 0.87f, w * 0.25f)
-                }
-                drawPath(path, color, style = stroke)
-            }
-            BriefingIcon.CURRENCY -> {
-                drawCircle(color, w * 0.42f, Offset(w * 0.50f, w * 0.50f), style = stroke)
-                drawLine(color, Offset(w * 0.27f, w * 0.39f), Offset(w * 0.73f, w * 0.39f), stroke.width)
-                drawLine(color, Offset(w * 0.32f, w * 0.55f), Offset(w * 0.68f, w * 0.55f), stroke.width)
-            }
-        }
-    }
+    Icon(painterResource(when (icon) {
+        BriefingIcon.WEATHER -> R.drawable.ic_portal_sun
+        BriefingIcon.MARKET -> R.drawable.ic_portal_chart_line
+        BriefingIcon.CURRENCY -> R.drawable.ic_portal_exchange
+    }), contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
 }
 
 @Composable
@@ -564,34 +565,8 @@ private fun EmptyPortalSection(message: String) {
 
 @Composable
 private fun SearchGlyph() {
-    val accent = PortalAccent
-    Canvas(Modifier.size(19.dp)) {
-        val stroke = 1.8.dp.toPx()
-        drawCircle(accent, size.width * 0.31f, Offset(size.width * 0.42f, size.height * 0.42f), style = Stroke(stroke))
-        drawLine(
-            accent,
-            Offset(size.width * 0.65f, size.height * 0.65f),
-            Offset(size.width * 0.88f, size.height * 0.88f),
-            stroke,
-            StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun ProfileGlyph(color: Color) {
-    Canvas(Modifier.size(19.dp)) {
-        drawCircle(color, size.width * 0.18f, Offset(size.width * 0.5f, size.height * 0.35f), style = Stroke(1.7.dp.toPx()))
-        drawArc(
-            color,
-            202f,
-            136f,
-            false,
-            Offset(size.width * 0.17f, size.height * 0.50f),
-            Size(size.width * 0.66f, size.height * 0.45f),
-            style = Stroke(1.7.dp.toPx(), cap = StrokeCap.Round)
-        )
-    }
+    Icon(painterResource(R.drawable.ic_portal_search), contentDescription = null,
+        tint = Fl.Ink, modifier = Modifier.size(22.dp))
 }
 
 @Composable

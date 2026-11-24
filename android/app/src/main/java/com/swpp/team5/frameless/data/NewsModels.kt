@@ -97,6 +97,20 @@ internal data class ArticleDetail(
     val contentHash: String = ""
 )
 
+internal data class TrendItem(
+    val kind: String,
+    val rank: Int?,
+    val previousRank: Int?,
+    val movement: String?,
+    val story: StorySummary
+)
+
+internal data class TrendPage(
+    val calculatedAt: String,
+    val isStale: Boolean,
+    val items: List<TrendItem>
+)
+
 /** API offsets are Unicode code points. They are converted before reaching Compose. */
 internal data class ApiSentence(val start: Int, val end: Int, val text: String)
 internal data class ApiMarker(val startInSentence: Int, val endInSentence: Int, val text: String)

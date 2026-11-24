@@ -38,6 +38,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
@@ -59,6 +60,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import com.swpp.team5.frameless.R
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -399,17 +402,16 @@ private fun NewsReaderContent(
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("←", fontSize = 24.sp, color = Fl.Ink,
-                    modifier = Modifier.clickable(onClick = onBack)
-                        .semantics {
-                            role = Role.Button
+                IconButton(onClick = onBack, modifier = Modifier.semantics {
                             contentDescription = if (comparisonFocus != null) {
                                 "이전 기사로 돌아가기"
                             } else {
                                 "기사 목록으로 돌아가기"
                             }
-                        }
-                        .padding(horizontal = 8.dp, vertical = 6.dp))
+                        }) {
+                    Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                        tint = Fl.Ink, modifier = Modifier.size(23.dp))
+                }
                 Text("기사 읽기", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
                     modifier = Modifier.weight(1f))
                 IconButton(
@@ -853,13 +855,12 @@ internal fun AnalysisAnnotationDock(
                         modifier = Modifier.weight(1f)
                     )
                     if (hasComparisons) {
-                        Text(
-                            "다른 보도 ${comparisonCount}곳  ›",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Fl.Accent,
-                            maxLines = 1
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("다른 보도 ${comparisonCount}곳", fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold, color = Fl.Accent, maxLines = 1)
+                            Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                                tint = Fl.Accent, modifier = Modifier.padding(start = 3.dp).size(14.dp))
+                        }
                     }
                 }
                 Text(
@@ -945,7 +946,8 @@ internal fun FindingDetailSheet(
                         onClick = dismissSheet,
                         modifier = Modifier.semantics { contentDescription = "비교 상세 닫기" }
                     ) {
-                        Text("×", fontSize = 23.sp, color = Fl.Muted)
+                        Icon(painterResource(R.drawable.ic_portal_close), contentDescription = null,
+                            tint = Fl.Muted, modifier = Modifier.size(22.dp))
                     }
                 }
                 if (comparisonOverview.isNotBlank()) {
@@ -1015,8 +1017,9 @@ internal fun FindingDetailSheet(
                             }.semantics { contentDescription = "이전 비교 기사" },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("‹", fontSize = 24.sp,
-                                color = if (hasPrevious) HomeTokens.Navy else HomeTokens.Hairline)
+                            Icon(painterResource(R.drawable.ic_portal_chevron_left), contentDescription = null,
+                                tint = if (hasPrevious) HomeTokens.Navy else HomeTokens.Hairline,
+                                modifier = Modifier.size(23.dp))
                         }
                         Caption("${pagerState.currentPage + 1} / ${finding.comparisons.size}")
                         Box(
@@ -1027,8 +1030,9 @@ internal fun FindingDetailSheet(
                             }.semantics { contentDescription = "다음 비교 기사" },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("›", fontSize = 24.sp,
-                                color = if (hasNext) HomeTokens.Navy else HomeTokens.Hairline)
+                            Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                                tint = if (hasNext) HomeTokens.Navy else HomeTokens.Hairline,
+                                modifier = Modifier.size(23.dp))
                         }
                     }
                 }
@@ -1351,8 +1355,12 @@ private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) ->
                     .semantics { role = Role.Button; contentDescription = "${outlet.publisher.name} 기사 열기" }
                     .padding(horizontal = 10.dp, vertical = 10.dp)
             ) {
-                Text("${outlet.publisher.name} ›", fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold,
-                    color = Fl.Ink, modifier = Modifier.width(OutletColumn).padding(end = 8.dp))
+                Row(Modifier.width(OutletColumn).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(outlet.publisher.name, fontSize = 13.sp, lineHeight = 19.sp,
+                        fontWeight = FontWeight.Bold, color = Fl.Ink, modifier = Modifier.weight(1f, fill = false))
+                    Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                        tint = Fl.Muted, modifier = Modifier.size(14.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     val position = outlet.position
                     if (position != null) EconomicPositionLine(position, fontSize = 13)
@@ -1380,8 +1388,11 @@ internal fun categoryLabel(code: String): String = when (code) {
 @Composable
 private fun ReaderLoading(onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Fl.Card)) {
-        Text("←", fontSize = 24.sp, color = Fl.Ink,
-            modifier = Modifier.clickable(onClick = onBack).padding(20.dp))
+        IconButton(onClick = onBack, modifier = Modifier.padding(start = 16.dp, top = 10.dp)
+            .semantics { contentDescription = "기사 목록으로 돌아가기" }) {
+            Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                tint = Fl.Ink, modifier = Modifier.size(23.dp))
+        }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Fl.Accent)
         }

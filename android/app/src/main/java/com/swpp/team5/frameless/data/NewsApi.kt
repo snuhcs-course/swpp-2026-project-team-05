@@ -46,6 +46,8 @@ private fun ArticlePage.asSingletonStories(): StoryPage = StoryPage(
 )
 
 internal interface NewsService {
+    suspend fun trends(token: String?): TrendPage = throw NewsApiException("UNSUPPORTED", "트렌드를 불러오지 못했어요.")
+    suspend fun recordView(token: String?, guestId: String?, articleId: String) = Unit
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession
     suspend fun login(identifier: String, password: String): AppSession
@@ -79,6 +81,9 @@ internal interface NewsService {
 
 internal object NewsApi : NewsService {
     private val client by lazy { NewsApiClient(BuildConfig.BACKEND_BASE_URL) }
+    override suspend fun trends(token: String?) = client.trends(token)
+    override suspend fun recordView(token: String?, guestId: String?, articleId: String) =
+        client.recordView(token, guestId, articleId)
 
     override suspend fun register(email: String, username: String, password: String,
                                   confirmation: String): AppSession =
@@ -116,6 +121,29 @@ internal object NewsApi : NewsService {
 internal class NewsApiClient(baseUrl: String) {
     private val baseUrl = baseUrl.trimEnd('/')
     @Volatile private var groupedStoryRouteAvailable: Boolean? = null
+
+    suspend fun trends(token: String?): TrendPage {
+        val root = request("GET", "/api/v1/trends", token = token)
+        val calculatedAt = root.requireString("calculated_at")
+        if (runCatching { java.time.OffsetDateTime.parse(calculatedAt) }.isFailure || !root.has("items")) {
+            throw NewsApiException("INVALID_RESPONSE", "트렌드를 읽지 못했어요.")
+        }
+        return TrendPage(calculatedAt, root.optBoolean("is_stale"),
+            root.optJSONArray("items").orEmptyObjects().map { row ->
+                val kind = row.requireString("kind")
+                if (kind !in setOf("POPULAR", "LATEST")) throw NewsApiException("INVALID_RESPONSE", "트렌드를 읽지 못했어요.")
+                TrendItem(kind, row.optInt("rank").takeUnless { row.isNull("rank") },
+                    row.optInt("previous_rank").takeUnless { row.isNull("previous_rank") },
+                    row.optString("movement").takeUnless { row.isNull("movement") || it.isBlank() },
+                    storySummary(row.requireObject("story")))
+            })
+    }
+
+    suspend fun recordView(token: String?, guestId: String?, articleId: String) {
+        request("POST", "/api/v1/articles/${encode(articleId)}/view", token = token,
+            body = JSONObject(), allowEmpty = true, readTimeoutMs = 3_000, connectTimeoutMs = 3_000,
+            extraHeaders = guestId?.let { mapOf("X-Guest-Viewer" to it) }.orEmpty())
+    }
 
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession = request(
@@ -267,15 +295,17 @@ internal class NewsApiClient(baseUrl: String) {
 
     private suspend fun request(method: String, path: String, token: String? = null,
                                 body: JSONObject? = null, allowEmpty: Boolean = false,
-                                readTimeoutMs: Int = 25_000): JSONObject =
+                                readTimeoutMs: Int = 25_000, connectTimeoutMs: Int = 10_000,
+                                extraHeaders: Map<String, String> = emptyMap()): JSONObject =
         withContext(Dispatchers.IO) {
             val connection = URL("$baseUrl$path").openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = method
-                connection.connectTimeout = 10_000
+                connection.connectTimeout = connectTimeoutMs
                 connection.readTimeout = readTimeoutMs
                 connection.setRequestProperty("Accept", "application/json")
                 token?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+                extraHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
                 if (body != null) {
                     connection.doOutput = true
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")

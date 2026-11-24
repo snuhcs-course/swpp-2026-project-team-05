@@ -2,7 +2,6 @@ package com.swpp.team5.frameless.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -40,9 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -156,23 +152,8 @@ private fun PortalNewsHeader(onSearch: () -> Unit) {
 
 @Composable
 private fun SearchGlyphSimple() {
-    val ink = Fl.Ink
-    Canvas(Modifier.size(21.dp)) {
-        val stroke = 1.9.dp.toPx()
-        drawCircle(
-            color = ink,
-            radius = size.width * 0.31f,
-            center = Offset(size.width * 0.42f, size.height * 0.42f),
-            style = Stroke(stroke)
-        )
-        drawLine(
-            ink,
-            Offset(size.width * 0.65f, size.height * 0.65f),
-            Offset(size.width * 0.9f, size.height * 0.9f),
-            stroke,
-            StrokeCap.Round
-        )
-    }
+    Icon(painterResource(R.drawable.ic_portal_search), contentDescription = null,
+        tint = Fl.Ink, modifier = Modifier.size(22.dp))
 }
 
 @Composable
@@ -277,12 +258,16 @@ private fun AnalysisGuideCard(onClick: () -> Unit) {
         Box(
             Modifier.size(32.dp).background(Fl.Accent.copy(alpha = 0.14f), CircleShape),
             contentAlignment = Alignment.Center
-        ) { Text("F", color = Fl.Accent, fontFamily = Fl.Serif, fontWeight = FontWeight.Bold) }
+        ) {
+            Icon(painterResource(R.drawable.ic_portal_book_open), contentDescription = null,
+                tint = Fl.Accent, modifier = Modifier.size(19.dp))
+        }
         Column(Modifier.padding(start = 11.dp).weight(1f)) {
             Text("FrameLESS로 기사 읽기", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
             Text("표현을 누르면 다른 언론사의 보도와 비교할 수 있어요", fontSize = 10.5.sp, color = Fl.Muted)
         }
-        Text("›", fontSize = 20.sp, color = Fl.Muted)
+        Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+            tint = Fl.Muted, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -450,7 +435,10 @@ private fun SubscriptionButton(followed: Boolean, onClick: () -> Unit, enabled: 
             contentColor = if (followed) Fl.Muted else Fl.Ink
         )
     ) {
-        Text(if (followed) "구독 중" else "+ 구독", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Icon(painterResource(if (followed) R.drawable.ic_portal_check else R.drawable.ic_portal_plus),
+            contentDescription = null, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(if (followed) "구독 중" else "구독", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

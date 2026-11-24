@@ -22,6 +22,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.swpp.team5.frameless.ui.screens.LoginScreen
+import com.swpp.team5.frameless.ui.components.ReadingPresence
+import com.swpp.team5.frameless.ui.components.HomePresence
 import com.swpp.team5.frameless.ui.screens.ContextualAuthSheet
 import com.swpp.team5.frameless.ui.screens.GuestSavedScreen
 import com.swpp.team5.frameless.ui.screens.NewsFeedScreen
@@ -171,6 +173,9 @@ internal fun FrameLESSApp(
                     }
                 }
                 if (news.route == NewsRoute.READER) {
+                    ReadingPresence(news.reading,
+                        news.reader.article?.id?.takeIf { !news.reader.isOffline && !news.reader.isArticleLoading },
+                        session?.user?.id)
                     NewsReaderScreen(
                         state = news.reader,
                         onBack = news::closeReader,
@@ -277,7 +282,9 @@ internal fun FrameLESSApp(
                 ) { innerPadding ->
                     Box(Modifier.fillMaxSize().padding(innerPadding)) {
                         when (selectedTab) {
-                            PortalTab.HOME -> PortalHomeScreen(
+                            PortalTab.HOME -> {
+                                HomePresence(news::ensureHomeLoaded)
+                                PortalHomeScreen(
                                 stories = news.discovery.homeStories,
                                 subscribedPublishers = news.feed.publishers.filter { it.isFollowed },
                                 isLoading = news.discovery.isHomeLoading,
@@ -301,8 +308,13 @@ internal fun FrameLESSApp(
                                 isSubscribedLoading = news.discovery.isSubscribedLoading,
                                 subscribedError = news.discovery.subscribedError,
                                 onRetrySubscriptions = news::retrySubscribedHome,
-                                isSignedIn = session != null
-                            )
+                                isSignedIn = session != null,
+                                trends = news.trends.state,
+                                onRetryTrends = { news.trends.load(force = true) },
+                                isRefreshing = news.discovery.isHomeRefreshing ||
+                                    (news.trends.state.loading && news.trends.state.page != null)
+                                )
+                            }
                             PortalTab.NEWS -> if (news.feed.isSearchOpen) NewsFeedScreen(
                                 state = news.feed,
                                 session = session,

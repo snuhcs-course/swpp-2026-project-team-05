@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import com.swpp.team5.frameless.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -147,14 +152,19 @@ internal fun OutlinedPill(text: String, onClick: () -> Unit, modifier: Modifier 
 /** 원문 링크. 누르면 브라우저로 연다 */
 @Composable
 internal fun SourceLink(onClick: () -> Unit, label: String = "원문 보기") {
+    Row(Modifier.clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically) {
     Text(
         text = label,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         color = Fl.Accent,
         textDecoration = TextDecoration.Underline,
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 6.dp)
+        modifier = Modifier
     )
+    Icon(painterResource(R.drawable.ic_portal_external_link), contentDescription = null,
+        tint = Fl.Accent, modifier = Modifier.padding(start = 3.dp).size(14.dp))
+    }
 }
 
 /** 두 개 이상 선택지를 고르는 알약 탭 (기사 보기 / 쟁점 비교) */

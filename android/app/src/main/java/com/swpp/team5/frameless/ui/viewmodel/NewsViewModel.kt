@@ -178,6 +178,8 @@ internal data class LinkAnalysisState(
 )
 
 internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel() {
+    val trends = RecentTrends(repository, viewModelScope)
+    val reading = QualifiedReadTracker(viewModelScope, repository::recordView)
     var route by mutableStateOf(NewsRoute.FEED)
         private set
     var link by mutableStateOf(LinkAnalysisState())
@@ -239,6 +241,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun reset() {
+        trends.reset()
+        reading.newVisit()
         feedJob?.cancel()
         searchDebounceJob?.cancel()
         readerJob?.cancel()
@@ -266,6 +270,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun onViewerChanged() {
+        trends.reset()
+        if (homeRequested) trends.load()
         feedJob?.cancel()
         homeJob?.cancel()
         subscribedHomeJob?.cancel()
@@ -305,7 +311,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         initialize()
         when {
             currentRoute == NewsRoute.READER && currentArticleId.isNotBlank() ->
-                loadReader(currentArticleId, currentFocus)
+                loadReader(currentArticleId, currentFocus, isNewVisit = false)
             currentRoute == NewsRoute.SAVED -> route = NewsRoute.FEED
         }
     }
@@ -430,12 +436,16 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun ensureHomeLoaded() {
+        trends.load()
         homeRequested = true
         if (discovery.homeStories.isEmpty() && !discovery.isHomeLoading) loadHome()
         else loadSubscribedHome()
     }
 
-    fun refreshHome() = loadHome(force = true, refreshing = true)
+    fun refreshHome() {
+        trends.load(force = true)
+        loadHome(force = true, refreshing = true)
+    }
 
     private fun loadHome(force: Boolean = false, refreshing: Boolean = false) {
         loadSubscribedHome(force = force)
@@ -1249,8 +1259,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         comparisonFocus: ReaderFocus?,
         initialScrollOffset: Int = 0,
         initialSelectedFindingId: String? = null,
-        snapshot: ArticleReaderState? = null
+        snapshot: ArticleReaderState? = null,
+        isNewVisit: Boolean = true
     ) {
+        if (isNewVisit) reading.newVisit()
         readerJob?.cancel()
         val analysisEnabled = reader.analysisEnabled
         reader = snapshot?.copy(
@@ -1351,9 +1363,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         }
     }
 
-    fun retryReader() = loadReader(reader.articleId, reader.comparisonFocus)
+    fun retryReader() = loadReader(reader.articleId, reader.comparisonFocus, isNewVisit = false)
 
     fun closeReader() {
+        reading.update(null, false, null)
         readerJob?.cancel()
         if (readerHistory.isNotEmpty()) {
             val previous = readerHistory.removeLast()

@@ -34,6 +34,78 @@ import java.util.concurrent.TimeUnit
 @Config(sdk = [35])
 @LooperMode(LooperMode.Mode.PAUSED)
 class NewsViewModelTest {
+    @Test
+    fun qualifyingReadNeedsThreeContinuousForegroundSecondsAndOnlySendsOnce() {
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+        val reads = mutableListOf<String>()
+        val tracker = QualifiedReadTracker(scope) { reads += it }
+        tracker.update("a", true, "guest")
+        mainLooper.idleFor(2, TimeUnit.SECONDS)
+        assertTrue(reads.isEmpty())
+        tracker.update(null, false, "guest")
+        mainLooper.idleFor(5, TimeUnit.SECONDS)
+        assertTrue(reads.isEmpty())
+        tracker.update("a", true, "guest")
+        mainLooper.idleFor(3, TimeUnit.SECONDS)
+        assertEquals(listOf("a"), reads)
+        tracker.update(null, false, "guest")
+        tracker.update("a", true, "account")
+        mainLooper.idleFor(4, TimeUnit.SECONDS)
+        assertEquals(listOf("a"), reads)
+        tracker.newVisit()
+        tracker.update("b", true, "account")
+        mainLooper.idleFor(3, TimeUnit.SECONDS)
+        assertEquals(listOf("a", "b"), reads)
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+    }
+
+    @Test
+    fun readIdentityChangesRestartPendingTimerAndAnalyticsFailureIsSilent() {
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+        var attempts = 0
+        val tracker = QualifiedReadTracker(scope) { attempts++; throw IllegalStateException("offline") }
+        tracker.update("a", true, null)
+        mainLooper.idleFor(2, TimeUnit.SECONDS)
+        tracker.update("a", true, "account")
+        mainLooper.idleFor(2, TimeUnit.SECONDS)
+        assertEquals(0, attempts)
+        mainLooper.idleFor(1, TimeUnit.SECONDS)
+        assertEquals(1, attempts)
+        mainLooper.idleFor(10, TimeUnit.SECONDS)
+        assertEquals(1, attempts)
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+    }
+
+    @Test
+    fun trendsReuseFreshCacheBackOffFailuresAndDiscardExpiredResults() {
+        var now = java.time.Instant.parse("2026-11-25T09:00:00Z")
+        val repository = FakeNewsDataSource().apply {
+            trendResult = com.swpp.team5.frameless.data.TrendPage(now.toString(), false, emptyList())
+        }
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+        val trends = RecentTrends(repository, scope) { now }
+        trends.load()
+        mainLooper.idle()
+        trends.load()
+        mainLooper.idle()
+        assertEquals(1, repository.trendCalls)
+        now = now.plusSeconds(300)
+        repository.trendFailure = IllegalStateException("unavailable")
+        trends.load()
+        mainLooper.idle()
+        assertTrue(trends.state.page!!.isStale)
+        assertFalse(trends.state.loading)
+        trends.load(force = true)
+        mainLooper.idle()
+        assertEquals(2, repository.trendCalls)
+        now = now.plusSeconds(601)
+        trends.load()
+        mainLooper.idle()
+        assertEquals(null, trends.state.page)
+        trends.reset()
+        assertEquals(null, trends.state.error)
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+    }
     private val mainLooper get() = shadowOf(Looper.getMainLooper())
     private val yna = PublisherItem("yna", "연합뉴스", null)
     private val mbc = PublisherItem("mbc", "MBC", null)
@@ -895,6 +967,14 @@ class NewsViewModelTest {
     }
 
     private inner class FakeNewsDataSource : NewsDataSource {
+        var trendResult = com.swpp.team5.frameless.data.TrendPage("2026-11-25T09:00:00Z", false, emptyList())
+        var trendFailure: Exception? = null
+        var trendCalls = 0
+        override suspend fun trends(): com.swpp.team5.frameless.data.TrendPage {
+            trendCalls++
+            trendFailure?.let { throw it }
+            return trendResult
+        }
         var publisherItems = listOf(yna, mbc)
         var publisherFailure: Exception? = null
         var storyHandler: (suspend (FeedScope) -> StoryPage)? = null

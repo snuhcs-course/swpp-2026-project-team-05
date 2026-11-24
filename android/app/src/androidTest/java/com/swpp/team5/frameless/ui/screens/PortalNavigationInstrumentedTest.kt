@@ -19,6 +19,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherArticlePreview
@@ -34,6 +36,72 @@ import org.junit.Test
 
 class PortalNavigationInstrumentedTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun homePullRefreshCallsItsRefreshAction() {
+        var refreshes = 0
+        compose.setContent {
+            FrameLESSTheme {
+                PortalHomeScreen(listOf(story("a", "주요 소식")), emptyList(), false, null, rememberLazyListState(),
+                    onSearch = {}, onArticle = {}, onProfile = {}, onSubscriptions = {}, onRetry = { refreshes++ })
+            }
+        }
+        compose.onNodeWithTag("home-feed").performTouchInput { swipeDown() }
+        compose.runOnIdle { assertEquals(1, refreshes) }
+    }
+
+    @Test
+    fun trendsDistinguishEmptyFailureAndSparseCorpus() {
+        val current = mutableStateOf(com.swpp.team5.frameless.ui.viewmodel.TrendsState(
+            page = com.swpp.team5.frameless.data.TrendPage("2026-11-25T09:00:00Z", false, emptyList())))
+        compose.setContent {
+            FrameLESSTheme {
+                PortalHomeScreen(emptyList(), emptyList(), false, null, rememberLazyListState(),
+                    onSearch = {}, onArticle = {}, onProfile = {}, onSubscriptions = {}, onRetry = {},
+                    trends = current.value)
+            }
+        }
+        compose.onNodeWithText("표시할 뉴스가 없어요").assertIsDisplayed()
+        for (count in 1..5) {
+            compose.runOnIdle {
+                current.value = current.value.copy(page = current.value.page!!.copy(items = (1..count).map {
+                    com.swpp.team5.frameless.data.TrendItem("LATEST", null, null, null,
+                        story("s$it", "최신 기사 $it"))
+                }))
+            }
+            compose.onNodeWithContentDescription("실시간 트렌드 최신, 최신 기사 1").assertIsDisplayed()
+            if (count > 2) compose.onNodeWithContentDescription("실시간 트렌드 펼치기").assertIsDisplayed()
+            else compose.onNodeWithContentDescription("실시간 트렌드 펼치기").assertDoesNotExist()
+        }
+        compose.runOnIdle {
+            current.value = com.swpp.team5.frameless.ui.viewmodel.TrendsState(error = "연결을 확인해 주세요")
+        }
+        compose.onNodeWithText("연결을 확인해 주세요").assertIsDisplayed()
+        compose.onNodeWithContentDescription("트렌드 다시 시도").assertIsDisplayed()
+    }
+
+    @Test
+    fun homeTrendExpansionKeepsHeadlineTargets() {
+        var opened: String? = null
+        val entries = (1..5).map { index ->
+            com.swpp.team5.frameless.data.TrendItem("LATEST", null, null, null,
+                story("t$index", "트렌드 기사 $index").copy(storyKey = "article:t$index"))
+        }
+        compose.setContent {
+            FrameLESSTheme {
+                PortalHomeScreen(emptyList(), emptyList(), false, null, rememberLazyListState(),
+                    onSearch = {}, onArticle = { opened = it }, onProfile = {}, onSubscriptions = {}, onRetry = {},
+                    trends = com.swpp.team5.frameless.ui.viewmodel.TrendsState(
+                        page = com.swpp.team5.frameless.data.TrendPage("2026-11-25T09:00:00Z", false, entries)))
+            }
+        }
+        compose.onAllNodesWithText("트렌드 기사 5").assertCountEquals(0)
+        compose.onNodeWithContentDescription("실시간 트렌드 펼치기").performClick()
+        compose.onNodeWithContentDescription("실시간 트렌드 최신, 트렌드 기사 5").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals("t5", opened) }
+        compose.onNodeWithContentDescription("실시간 트렌드 접기").performClick()
+        compose.onAllNodesWithText("트렌드 기사 5").assertCountEquals(0)
+    }
     private val publisher = PublisherItem("yna", "연합뉴스", null, recentArticles = listOf(
         PublisherArticlePreview("a1", "정부, 새 정책 발표", "2026-11-24T09:00:00+09:00"),
         PublisherArticlePreview("a2", "국회, 예산안 심의", "2026-11-24T08:00:00+09:00")

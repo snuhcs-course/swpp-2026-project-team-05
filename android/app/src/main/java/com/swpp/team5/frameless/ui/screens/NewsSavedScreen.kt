@@ -25,6 +25,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.painterResource
+import com.swpp.team5.frameless.R
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -68,14 +72,12 @@ internal fun NewsSavedScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!rootShell) {
-                Text(
-                    "←", fontSize = 24.sp, color = Fl.Ink,
-                    modifier = Modifier.clickable(onClick = onBack).padding(end = 14.dp)
-                        .semantics {
-                            role = Role.Button
-                            contentDescription = "기사 목록으로 돌아가기"
-                        }
-                )
+                IconButton(onClick = onBack, modifier = Modifier.semantics {
+                    contentDescription = "기사 목록으로 돌아가기"
+                }) {
+                    Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                        tint = Fl.Ink, modifier = Modifier.size(23.dp))
+                }
                 ArticleBookmarkIcon(true, Fl.Accent, Modifier.size(19.dp))
                 Text("저장한 기사", fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))

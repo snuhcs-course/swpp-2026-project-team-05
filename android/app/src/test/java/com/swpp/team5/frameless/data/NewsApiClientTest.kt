@@ -29,7 +29,8 @@ class NewsApiClientTest {
                     exchange.requestMethod,
                     exchange.requestURI.toString(),
                     exchange.requestHeaders.getFirst("Authorization"),
-                    exchange.requestBody.bufferedReader().use { it.readText() }
+                    exchange.requestBody.bufferedReader().use { it.readText() },
+                    exchange.requestHeaders.getFirst("X-Guest-Viewer")
                 )
             }
             val response = responses.remove()
@@ -42,6 +43,29 @@ class NewsApiClientTest {
     @After
     fun stopServer() {
         server.stop(0)
+    }
+
+    @Test
+    fun trendsDecodeNullableRanksAndViewRecordingCarriesOnlyIdentity() = runBlocking {
+        val story = """{"story_key":"article:a1","representative_article":${articleJson()},
+          "publisher_count":1,"publishers":[{"code":"yna","name":"연합뉴스"}],
+          "latest_published_at":"2026-11-25T09:00:00Z"}"""
+        responses += Response(200, """{"calculated_at":"2026-11-25T09:00:00Z","is_stale":false,
+          "items":[{"kind":"LATEST","rank":null,"previous_rank":null,"movement":null,"story":$story}]}""")
+        val page = client.trends(null)
+        assertNull(page.items.single().rank)
+        assertNull(page.items.single().movement)
+        assertEquals("LATEST", page.items.single().kind)
+        assertEquals("/api/v1/trends", requests.last().path)
+        responses += Response(204, "")
+        client.recordView(null, "guest-uuid", "a1")
+        assertEquals("guest-uuid", requests.last().guestViewer)
+        assertEquals("{}", requests.last().body)
+        assertNull(requests.last().authorization)
+        responses += Response(204, "")
+        client.recordView("token", null, "a1")
+        assertEquals("Bearer token", requests.last().authorization)
+        assertNull(requests.last().guestViewer)
     }
 
     @Test
@@ -288,6 +312,7 @@ class NewsApiClientTest {
 
     private data class Response(val status: Int, val body: String)
     private data class CapturedRequest(
-        val method: String, val path: String, val authorization: String?, val body: String
+        val method: String, val path: String, val authorization: String?, val body: String,
+        val guestViewer: String? = null
     )
 }
