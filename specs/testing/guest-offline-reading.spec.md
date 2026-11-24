@@ -5,7 +5,7 @@
 | Status | Implemented with documented coverage gaps |
 | Owner | Guest/offline feature owner |
 | Source requirements | [`../features/guest-offline-reading.md`](../features/guest-offline-reading.md) |
-| Last reviewed | 2026-11-14 |
+| Last reviewed | 2026-11-24 |
 
 ## Scope
 
@@ -107,6 +107,18 @@ authenticated offline Saved reads.
 - [Unit] Cached Reader detail and matching analysis remain readable after a
   network failure.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
+- [State transition] Reader Back restores the previous in-memory article,
+  analysis, scroll offset, and selected finding synchronously; a comparison link
+  to that same previous article pops the snapshot instead of adding a duplicate
+  history entry.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.comparisonReaderNavigationPreservesSourceBackStackAndFocus`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.reverseComparisonLinkRestoresThePreviousSnapshotWithoutDuplicatingHistory`,
+  `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerSnapshotRestoresThePreviouslySelectedFinding`
+- [Unit] A valid cached Reader shown during a pending online refresh is not
+  labeled offline; an actual refresh failure transitions it to the restrained
+  offline state without removing readable content.\
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderDoesNotClaimOfflineWhileItsRefreshIsPending`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.cachedReaderAndAnalysisRemainVisibleWhenRefreshIsOffline`
 - [Unit] Detail-only cache shows the article without inventing an analysis
   result, while a cache miss uses the retryable connection state.\
   Tip: add detail-only and no-cache Reader cases.

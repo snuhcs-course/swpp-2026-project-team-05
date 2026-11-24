@@ -58,6 +58,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -300,6 +301,7 @@ internal fun NewsFeedScreen(
             else -> LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().background(HomeTokens.OffWhite)
+                    .testTag("feed-list")
             ) {
                 // The newest article leads the normal online feed; it is the same stored data, shown larger.
                 val split = splitFeaturedArticle(

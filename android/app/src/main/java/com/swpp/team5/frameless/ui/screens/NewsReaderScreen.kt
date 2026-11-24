@@ -141,8 +141,8 @@ internal fun NewsReaderScreen(
     onToggleSaved: (String, Boolean) -> Unit,
     savedPending: Boolean,
     saveError: String?,
-    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit = { _, _ -> },
-    onOpenRelatedArticle: (String, Int) -> Unit = { _, _ -> },
+    onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit = { _, _, _ -> },
+    onOpenRelatedArticle: (String, Int, String?) -> Unit = { _, _, _ -> },
     coach: ReaderCoachUi = ReaderCoachUi()
 ) {
     when {
@@ -157,7 +157,8 @@ internal fun NewsReaderScreen(
         else -> NewsReaderContent(state.article, state.analysis, state.analysisEnabled,
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
-            state.initialScrollOffset, onOpenComparisonArticle, onOpenRelatedArticle, coach)
+            state.initialScrollOffset, state.initialSelectedFindingId,
+            onOpenComparisonArticle, onOpenRelatedArticle, coach)
     }
 }
 
@@ -176,8 +177,9 @@ private fun NewsReaderContent(
     saveError: String?,
     comparisonFocus: ReaderFocus?,
     initialScrollOffset: Int,
-    onOpenComparisonArticle: (ComparisonArticleUi, Int) -> Unit,
-    onOpenRelatedArticle: (String, Int) -> Unit,
+    initialSelectedFindingId: String?,
+    onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit,
+    onOpenRelatedArticle: (String, Int, String?) -> Unit,
     coach: ReaderCoachUi
 ) {
     val uriHandler = LocalUriHandler.current
@@ -190,7 +192,10 @@ private fun NewsReaderContent(
     val bodyFocus = comparisonFocus?.takeIf { it.scope == "BODY" }
     val economic = analysis?.economic
     val economicViews = if (analysisEnabled) economic?.views.orEmpty() else emptyList()
-    var selected by remember(article.id) { mutableStateOf<FindingUi?>(null) }
+    var selected by remember(article.id, initialSelectedFindingId) { mutableStateOf<FindingUi?>(null) }
+    var initialSelectionApplied by remember(article.id, initialSelectedFindingId) {
+        mutableStateOf(false)
+    }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
     val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
         annotatedReaderText(
@@ -264,9 +269,13 @@ private fun NewsReaderContent(
         val visibleIds = visibleFindings.mapTo(mutableSetOf()) { it.id }
         selected = when {
             !analysisEnabled || visibleFindings.isEmpty() -> null
+            !initialSelectionApplied -> visibleFindings.firstOrNull {
+                it.id == initialSelectedFindingId
+            } ?: titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
             selected?.id !in visibleIds -> titleFindings.firstOrNull() ?: bodyFindings.firstOrNull()
             else -> selected
         }
+        if (analysisEnabled && visibleFindings.isNotEmpty()) initialSelectionApplied = true
     }
 
     LaunchedEffect(coachFinding?.id, comparisonFocus) {
@@ -314,11 +323,27 @@ private fun NewsReaderContent(
             markerBoundsInScrolledBody(
                 bodyLayout, finding, bodyPositionInContent, viewport, scroll.value
             )?.let { bounds ->
-                Triple(finding, bounds, PeekMarkerPosition(finding.id, bounds.center.y, index))
+                Triple(
+                    finding,
+                    bounds,
+                    PeekMarkerPosition(
+                        findingId = finding.id,
+                        centerY = bounds.center.y,
+                        readingOrder = index,
+                        visualLine = bodyLayout?.getLineForOffset(finding.markerRange.start) ?: index
+                    )
+                )
             }
         }
+        val selectionMarkers = spaceSameLinePeekMarkers(
+            measured.map { it.third },
+            stepPx = with(density) { 20.dp.toPx() }
+        )
         val candidateId = selectScrollSyncedPeekCandidate(
-            measured.map { it.third }, viewport.top, viewport.bottom
+            selectionMarkers,
+            viewport.top,
+            viewport.bottom,
+            atScrollEnd = scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 1
         )
         if (candidateId == null || candidateId == selected?.id) return@LaunchedEffect
         val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect
@@ -512,7 +537,10 @@ private fun NewsReaderContent(
                 )
                 economic?.let { lens ->
                     Spacer(Modifier.height(28.dp))
-                    OtherOutletsSection(lens, onOpenArticle = { onOpenRelatedArticle(it, scroll.value) })
+                    OtherOutletsSection(
+                        lens,
+                        onOpenArticle = { onOpenRelatedArticle(it, scroll.value, selected?.id) }
+                    )
                 }
                 Spacer(Modifier.height(36.dp))
             }
@@ -613,7 +641,7 @@ private fun NewsReaderContent(
                 detailOpen = false
                 coach.onFinish()
             },
-            onOpenArticle = { onOpenComparisonArticle(it, scroll.value) },
+            onOpenArticle = { onOpenComparisonArticle(it, scroll.value, finding.id) },
             coachVisible = coach.step == ReaderCoachStep.COMPARISON,
             onCoachDone = coach.onFinish,
             sourcePublisher = article.publisher.name
