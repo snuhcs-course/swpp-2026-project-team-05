@@ -45,10 +45,17 @@ internal data class AnalysisPeekContent(
 internal fun selectScrollSyncedPeekCandidate(
     markers: List<PeekMarkerPosition>,
     viewportTop: Float,
-    viewportBottom: Float
+    viewportBottom: Float,
+    atScrollEnd: Boolean = false
 ): String? {
     val height = viewportBottom - viewportTop
     if (height <= 0f) return null
+    if (atScrollEnd) {
+        return markers.asSequence()
+            .filter { it.centerY in viewportTop..viewportBottom }
+            .maxByOrNull { it.readingOrder }
+            ?.findingId
+    }
     val bandTop = viewportTop + height * PeekBandStartFraction
     val bandBottom = viewportTop + height * PeekBandEndFraction
     val anchor = viewportTop + height * PeekAnchorFraction

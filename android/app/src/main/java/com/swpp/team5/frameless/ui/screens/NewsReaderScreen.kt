@@ -318,7 +318,10 @@ private fun NewsReaderContent(
             }
         }
         val candidateId = selectScrollSyncedPeekCandidate(
-            measured.map { it.third }, viewport.top, viewport.bottom
+            measured.map { it.third },
+            viewport.top,
+            viewport.bottom,
+            atScrollEnd = scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 1
         )
         if (candidateId == null || candidateId == selected?.id) return@LaunchedEffect
         val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect

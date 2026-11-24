@@ -28,6 +28,9 @@ selection, and routing into the existing Android comparison flow.
 - [Unit] Initial/restored layout and programmatic movement do not arm automatic
   selection; a real user drag does.\
   Tip: add a pure Reader-state test if scroll arming moves out of Compose.
+- [Unit] At the physical scroll end, the last visible BODY finding is selected
+  even below the ordinary band; a later off-screen finding is ignored.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.ScrollSyncedAnalysisPeekTest.scrollEndSelectsTheLastVisibleFindingOutsideTheOrdinaryBand`
 - [Timing] An eligible candidate replaces the dock finding in the same Compose
   update; no dwell timer or delayed replacement remains.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll`

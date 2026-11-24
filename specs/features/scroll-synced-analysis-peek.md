@@ -59,6 +59,9 @@ comparison sheet, target-article navigation, or saving behavior.
 - Long gaps retain the last active annotation rather than flashing an empty
   state. Initial layout, restored scroll, coach movement, and comparison-focus
   movement do not change the annotation automatically.
+- At the physical end of the article, the last visible BODY finding wins even
+  when it cannot reach the ordinary band. Off-screen findings are never selected
+  by this boundary rule, and the Reader does not add artificial trailing space.
 - While a real user scroll is in progress, a short low-contrast tick at the
   right edge marks the 55% anchor. It is decorative and never crosses the text.
 

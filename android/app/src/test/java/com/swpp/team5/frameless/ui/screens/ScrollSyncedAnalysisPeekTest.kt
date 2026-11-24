@@ -59,6 +59,21 @@ class ScrollSyncedAnalysisPeekTest {
     }
 
     @Test
+    fun scrollEndSelectsTheLastVisibleFindingOutsideTheOrdinaryBand() {
+        val markers = listOf(
+            PeekMarkerPosition("first", 55f, 0),
+            PeekMarkerPosition("last-visible", 88f, 1),
+            PeekMarkerPosition("offscreen", 108f, 2)
+        )
+
+        assertEquals("first", selectScrollSyncedPeekCandidate(markers, 0f, 100f))
+        assertEquals(
+            "last-visible",
+            selectScrollSyncedPeekCandidate(markers, 0f, 100f, atScrollEnd = true)
+        )
+    }
+
+    @Test
     fun peekContentKeepsTwoPublisherDiverseExactMarkersAndCountsTheRest() {
         val finding = finding(listOf(
             page("a1", "a", "연합뉴스", "확대했다"),
