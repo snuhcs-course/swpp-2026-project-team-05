@@ -54,10 +54,10 @@ settings screen instead of sending readers to the publisher article directory.
    subscription or reading. Arbitrary new publisher codes remain supported.
    Tip: include a missing-logo publisher in the deterministic UI fixture; compare
    light and dark captures on the connected Android device.
-9. Home keeps `주요 뉴스` and `구독한 언론사 뉴스` as independent sections,
-   with ALL and FOLLOWING server requests. Updating subscriptions reloads the
-   personalized section; guests and empty subscription sets issue no FOLLOWING
-   request. Tested by:
+9. Home keeps `주요 뉴스` and `구독한 언론사` as independent sections,
+   with ALL topics and a selected-publisher article request. Updating subscriptions reloads the
+   personalized section; guests and empty subscription sets issue no subscribed-
+   publisher request. Tested by:
    `NewsViewModelTest.homeLoadsPublicAndSubscribedStoriesIndependently`,
    `NewsViewModelTest.homeDoesNotRequestSubscribedStoriesWithoutSubscriptions`.
 10. The public section stays visible when the subscribed request fails, and
@@ -68,6 +68,13 @@ settings screen instead of sending readers to the publisher article directory.
     prevent the ordinary article feed from loading. A successful retry clears
     the directory error. Tested by:
     `NewsViewModelTest.publisherFailureEndsLoadingAndCanBeRetried`.
+12. Home defaults to the first subscription, presents circular logos as a
+    single-select row, and updates the articles below when an outlet is selected.
+    A visited outlet uses its cached first page. Superseded responses cannot
+    overwrite the latest selection. Tested by:
+    `NewsViewModelTest.homePublisherSelectionUsesExactQueriesAndCachedPages`,
+    `NewsViewModelTest.lateHomePublisherResponseCannotReplaceTheSelectedOutlet`,
+    `PortalNavigationInstrumentedTest.homePublisherCirclesChangeTheArticlesBelow`.
 
 ## Edge cases and undefined behavior
 

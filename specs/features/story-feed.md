@@ -24,7 +24,7 @@ analysis, or add a topic-detail screen.
 
 | Surface | Unit | Reason |
 | --- | --- | --- |
-| Home followed-news section | Topic | Avoid repeated coverage while prioritizing followed publishers |
+| Home subscribed-publisher section | Article | Read the chosen subscribed outlet's latest articles |
 | News `뉴스` tab | Topic | Scan mixed Politics, Society, and Economy coverage |
 | News `정치`, `사회`, `경제` tabs | Topic | Apply the same deduplication inside a category |
 | News `언론사` tab | Publisher, then article | Users deliberately browse one outlet |
@@ -163,9 +163,11 @@ pages, and scroll position.
 Home keeps its portal utilities above two independent news sections:
 
 - `주요 뉴스` always requests `scope=ALL`;
-- `구독한 언론사 뉴스` follows directly below it. A signed-in viewer with
-  subscriptions gets a separate `scope=FOLLOWING` request, never a filter over
-  the already-loaded public page;
+- `구독한 언론사` follows directly below it, with a horizontal row of circular
+  publisher logos and short names. Select the first subscribed publisher by
+  default; choosing another changes only the articles directly below the row;
+- query the ordinary article endpoint with the chosen publisher filter. Never
+  filter only the already-loaded public page or fetch every outlet eagerly;
 - guest or empty follow set: retain the second section with a compact invitation
   to manage subscriptions; do not issue an authenticated request;
 - the two sections have independent loading, error, and retry states. A
@@ -173,9 +175,12 @@ Home keeps its portal utilities above two independent news sections:
 - offline: retain the existing locally complete Saved fallback; do not pretend
   it is a live topic feed.
 
-The same topic may appear in both sections with different representatives.
-Android list item keys include the section to preserve valid identity. A viewer
-change cancels personalized requests and clears subscribed stories immediately.
+The current selection survives Reader navigation and Home/News tab switches.
+The chosen publisher's first page is cached in memory for this viewer so returning
+to a recently selected outlet is immediate. Refresh or subscription changes clear
+that cache. Cancelling or finishing an older request must not replace the latest
+selection. Removing the selected subscription selects the first remaining one.
+Viewer changes cancel personalized requests and clear selection and cache.
 
 The publisher directory is publisher-first. Each block shows publisher identity,
 one `구독`/`구독 중` action, and at most three recent article headlines.

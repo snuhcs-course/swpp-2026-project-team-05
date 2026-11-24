@@ -122,16 +122,40 @@ class PortalNavigationInstrumentedTest {
         val subscribed = story("a2", "구독한 언론사의 새 기사")
         compose.setContent {
             FrameLESSTheme {
-                PortalHomeScreen(stories = listOf(public), followedPublisherCount = 1,
+                PortalHomeScreen(stories = listOf(public), subscribedPublishers = listOf(publisher),
                     isLoading = false, error = null, listState = rememberLazyListState(),
                     onSearch = {}, onArticle = { selectedArticle = it }, onProfile = {},
-                    onSubscriptions = {}, onRetry = {}, subscribedStories = listOf(subscribed), isSignedIn = true)
+                    onSubscriptions = {}, onRetry = {}, subscribedArticles = listOf(subscribed.representativeArticle), isSignedIn = true)
             }
         }
         compose.onNodeWithText("주요 뉴스").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("구독한 언론사 뉴스").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("구독한 언론사").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("구독한 언론사의 새 기사").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("a2", selectedArticle) }
+    }
+
+    @Test
+    fun homePublisherCirclesChangeTheArticlesBelow() {
+        var selectedArticle: String? = null
+        val mbc = PublisherItem("mbc", "MBC", null, isFollowed = true)
+        compose.setContent {
+            var selectedCode by remember { mutableStateOf("yna") }
+            FrameLESSTheme {
+                PortalHomeScreen(stories = listOf(story("public", "주요 소식")),
+                    subscribedPublishers = listOf(publisher.copy(isFollowed = true), mbc),
+                    selectedPublisherCode = selectedCode, onSelectPublisher = { selectedCode = it },
+                    isLoading = false, error = null, listState = rememberLazyListState(),
+                    onSearch = {}, onArticle = { selectedArticle = it }, onProfile = {},
+                    onSubscriptions = {}, onRetry = {}, isSignedIn = true,
+                    subscribedArticles = listOf(story(selectedCode,
+                        if (selectedCode == "yna") "연합뉴스의 새 기사" else "MBC의 새 기사").representativeArticle))
+            }
+        }
+        compose.onNodeWithText("연합뉴스의 새 기사").performScrollTo()
+        compose.onNodeWithContentDescription("연합뉴스 구독 뉴스").assertIsSelected()
+        compose.onNodeWithContentDescription("MBC 구독 뉴스").performClick().assertIsSelected()
+        compose.onNodeWithText("MBC의 새 기사").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("mbc", selectedArticle) }
     }
 
     @Composable

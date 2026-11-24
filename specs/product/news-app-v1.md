@@ -212,9 +212,10 @@ existing stable cursors.
 
 Android News navigation is `전체 뉴스 | 언론사 | 정치 | 사회 | 경제`; it has no
 `최신/팔로잉` selector. User-facing copy calls publisher follows `구독`.
-Home shows public `주요 뉴스` first and a separate `구독한 언론사 뉴스` section
-immediately afterward. The two sections request ALL and FOLLOWING respectively;
-subscription coverage is never limited to the already-loaded public page.
+Home shows public `주요 뉴스` first and a separate `구독한 언론사` section
+immediately afterward. Circular publisher logos select one subscribed outlet;
+its articles appear directly below, loaded with the ordinary publisher filter.
+Subscription coverage is never limited to the already-loaded public page.
 Subscription state may select an eligible representative but never changes
 analysis or comparison evidence. The tutorial entry is shown only in the
 all-topics `전체 뉴스` section, with replay also available from MY.

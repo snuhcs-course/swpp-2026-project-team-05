@@ -279,7 +279,7 @@ internal fun FrameLESSApp(
                         when (selectedTab) {
                             PortalTab.HOME -> PortalHomeScreen(
                                 stories = news.discovery.homeStories,
-                                followedPublisherCount = news.feed.publishers.count { it.isFollowed },
+                                subscribedPublishers = news.feed.publishers.filter { it.isFollowed },
                                 isLoading = news.discovery.isHomeLoading,
                                 error = news.discovery.homeError,
                                 listState = homeListState,
@@ -295,7 +295,9 @@ internal fun FrameLESSApp(
                                     profilePage = ProfilePage.SOURCES
                                 },
                                 onRetry = news::refreshHome,
-                                subscribedStories = news.discovery.subscribedStories,
+                                subscribedArticles = news.discovery.subscribedArticles,
+                                selectedPublisherCode = news.discovery.selectedHomePublisherCode,
+                                onSelectPublisher = news::selectHomePublisher,
                                 isSubscribedLoading = news.discovery.isSubscribedLoading,
                                 subscribedError = news.discovery.subscribedError,
                                 onRetrySubscriptions = news::retrySubscribedHome,

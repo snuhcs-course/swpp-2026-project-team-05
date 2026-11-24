@@ -51,7 +51,7 @@ I-series analysis, including I1, is deferred and does not appear in these screen
 
 ```text
 Launch → Home
-  ├─ Home: portal utilities → 주요 뉴스 → 구독한 언론사 뉴스
+  ├─ Home: portal utilities → 주요 뉴스 → 구독한 언론사 (로고 선택 → 기사 목록)
   ├─ News: 전체 뉴스 | 언론사 | 정치 | 사회 | 경제
   ├─ Saved: personal article list or an in-place sign-in state
   └─ MY: account, subscriptions, analysis preference, appearance, tutorial replay
@@ -162,8 +162,13 @@ Root-shell and discovery behavior:
   scroll state. The bottom bar is hidden on Reader, authentication, tutorial,
   and nested settings surfaces.
 - Home uses a compact portal rhythm: one search entry, restrained weather and
-  market utility blocks, `주요 뉴스` (ALL), then `구독한 언론사 뉴스`
-  (FOLLOWING). The latter owns its loading, failure, retry and empty states;
+  market utility blocks, `주요 뉴스` (ALL), then `구독한 언론사`.
+  A horizontal row of circular publisher logos selects the articles below it;
+  names and an outline identify the selected outlet. The first subscription
+  is the default, and switching outlets never opens another page or moves the
+  reader's scroll position. Fetch only the selected publisher's article page,
+  caching visited first pages for this viewer. The section owns loading,
+  failure, retry and empty states;
   its header links to MY subscription management. Guests and readers with no
   subscriptions see an in-place invitation below the public headlines.
   Mock utility values

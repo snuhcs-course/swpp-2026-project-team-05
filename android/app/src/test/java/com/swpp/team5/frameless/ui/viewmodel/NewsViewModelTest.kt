@@ -17,6 +17,8 @@ import com.swpp.team5.frameless.data.StoryPage
 import com.swpp.team5.frameless.data.StorySummary
 import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -75,25 +77,8 @@ class NewsViewModelTest {
         val repository = FakeNewsDataSource().apply {
             publisherItems = listOf(yna.copy(isFollowed = true), mbc)
             pages += ArticlePage(emptyList(), null)
-            storyHandler = { scope -> storyPage(if (scope == FeedScope.ALL) "public" else "subscribed") }
-        }
-        val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
-        mainLooper.idle()
-        viewModel.ensureHomeLoaded()
-        mainLooper.idle()
-
-        assertEquals(setOf(FeedScope.ALL, FeedScope.FOLLOWING), repository.storyScopes.toSet())
-        assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
-        assertEquals("subscribed", viewModel.discovery.subscribedStories.single().representativeArticle.id)
-        assertFalse(viewModel.discovery.isSubscribedLoading)
-    }
-
-    @Test
-    fun homeDoesNotRequestSubscribedStoriesWithoutSubscriptions() {
-        val repository = FakeNewsDataSource().apply {
-            pages += ArticlePage(emptyList(), null)
             storyHandler = { storyPage("public") }
+            publisherHandler = { ArticlePage(listOf(summary("subscribed")), null) }
         }
         val viewModel = NewsViewModel(repository)
         viewModel.initialize()
@@ -102,18 +87,39 @@ class NewsViewModelTest {
         mainLooper.idle()
 
         assertEquals(listOf(FeedScope.ALL), repository.storyScopes)
-        assertTrue(viewModel.discovery.subscribedStories.isEmpty())
+        assertEquals(listOf("yna"), repository.publisherRequests)
+        assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
+        assertEquals("subscribed", viewModel.discovery.subscribedArticles.single().id)
+        assertFalse(viewModel.discovery.isSubscribedLoading)
+    }
+
+    @Test
+    fun homeDoesNotRequestSubscribedStoriesWithoutSubscriptions() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(emptyList(), null)
+            storyHandler = { storyPage("public") }
+            publisherHandler = { ArticlePage(listOf(summary("subscribed")), null) }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.ensureHomeLoaded()
+        mainLooper.idle()
+
+        assertEquals(listOf(FeedScope.ALL), repository.storyScopes)
+        assertTrue(repository.publisherRequests.isEmpty())
+        assertTrue(viewModel.discovery.subscribedArticles.isEmpty())
 
         viewModel.replaceFollowedPublishers(setOf("yna"))
         mainLooper.idle()
 
-        assertTrue(FeedScope.FOLLOWING in repository.storyScopes)
+        assertEquals(listOf("yna"), repository.publisherRequests)
         assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
-        assertTrue(viewModel.discovery.subscribedStories.isNotEmpty())
+        assertTrue(viewModel.discovery.subscribedArticles.isNotEmpty())
 
         viewModel.replaceFollowedPublishers(emptySet())
         mainLooper.idle()
-        assertTrue(viewModel.discovery.subscribedStories.isEmpty())
+        assertTrue(viewModel.discovery.subscribedArticles.isEmpty())
     }
 
     @Test
@@ -121,10 +127,8 @@ class NewsViewModelTest {
         val repository = FakeNewsDataSource().apply {
             publisherItems = listOf(yna.copy(isFollowed = true), mbc)
             pages += ArticlePage(emptyList(), null)
-            storyHandler = { scope ->
-                if (scope == FeedScope.FOLLOWING) throw NewsApiException("NETWORK_ERROR", "연결 오류")
-                storyPage("public")
-            }
+            storyHandler = { storyPage("public") }
+            publisherHandler = { throw NewsApiException("NETWORK_ERROR", "연결 오류") }
         }
         val viewModel = NewsViewModel(repository)
         viewModel.initialize()
@@ -135,6 +139,67 @@ class NewsViewModelTest {
         assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
         assertEquals("연결 오류", viewModel.discovery.subscribedError)
         assertEquals(null, viewModel.discovery.homeError)
+    }
+
+    @Test
+    fun homePublisherSelectionUsesExactQueriesAndCachedPages() {
+        val repository = FakeNewsDataSource().apply {
+            publisherItems = listOf(yna.copy(isFollowed = true), mbc.copy(isFollowed = true))
+            pages += ArticlePage(emptyList(), null)
+            storyHandler = { storyPage("public") }
+            publisherHandler = { code -> ArticlePage(listOf(summary(code)), null) }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.ensureHomeLoaded()
+        mainLooper.idle()
+        assertEquals("yna", viewModel.discovery.selectedHomePublisherCode)
+
+        viewModel.selectHomePublisher("mbc")
+        mainLooper.idle()
+        assertEquals("mbc", viewModel.discovery.subscribedArticles.single().id)
+        viewModel.selectHomePublisher("yna")
+        mainLooper.idle()
+        assertEquals("yna", viewModel.discovery.subscribedArticles.single().id)
+        assertEquals(listOf("yna", "mbc"), repository.publisherRequests)
+
+        viewModel.selectHomePublisher("unknown")
+        viewModel.selectHomePublisher("yna")
+        mainLooper.idle()
+        assertEquals(listOf("yna", "mbc"), repository.publisherRequests)
+
+        viewModel.replaceFollowedPublishers(setOf("mbc"))
+        mainLooper.idle()
+        assertEquals("mbc", viewModel.discovery.selectedHomePublisherCode)
+        assertEquals(listOf("yna", "mbc", "mbc"), repository.publisherRequests)
+    }
+
+    @Test
+    fun lateHomePublisherResponseCannotReplaceTheSelectedOutlet() {
+        val gate = CompletableDeferred<ArticlePage>()
+        val repository = FakeNewsDataSource().apply {
+            publisherItems = listOf(yna.copy(isFollowed = true), mbc.copy(isFollowed = true))
+            pages += ArticlePage(emptyList(), null)
+            storyHandler = { storyPage("public") }
+            publisherHandler = { code ->
+                if (code == "yna") withContext(NonCancellable) { gate.await() }
+                else ArticlePage(listOf(summary(code)), null)
+            }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.ensureHomeLoaded()
+        mainLooper.idle()
+        viewModel.selectHomePublisher("mbc")
+        mainLooper.idle()
+        gate.complete(ArticlePage(listOf(summary("late-yna")), null))
+        mainLooper.idle()
+
+        assertEquals("mbc", viewModel.discovery.selectedHomePublisherCode)
+        assertEquals("mbc", viewModel.discovery.subscribedArticles.single().id)
+        assertFalse(viewModel.discovery.isSubscribedLoading)
     }
 
     private fun storyPage(id: String): StoryPage {
@@ -833,11 +898,18 @@ class NewsViewModelTest {
         var publisherItems = listOf(yna, mbc)
         var publisherFailure: Exception? = null
         var storyHandler: (suspend (FeedScope) -> StoryPage)? = null
+        var publisherHandler: (suspend (String) -> ArticlePage)? = null
+        val publisherRequests = mutableListOf<String>()
         val storyScopes = mutableListOf<FeedScope>()
 
         override suspend fun stories(category: NewsCategory?, scope: FeedScope, cursor: String?): StoryPage {
             storyScopes += scope
             return storyHandler?.invoke(scope) ?: super.stories(category, scope, cursor)
+        }
+
+        override suspend fun publisherArticles(publisherCode: String, cursor: String?): ArticlePage {
+            publisherRequests += publisherCode
+            return publisherHandler?.invoke(publisherCode) ?: super.publisherArticles(publisherCode, cursor)
         }
         var linkResult = "linked"
         var linkFailure: Exception? = null

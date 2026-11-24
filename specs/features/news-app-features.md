@@ -587,8 +587,9 @@ PUT /api/v1/me/followed-publishers
 The replacement body is `{"publisher_codes": [...]}`. It may be empty, is
 idempotent, rejects unknown or unselectable publishers, and commits atomically.
 
-`scope=FOLLOWING` remains a server query capability. Android uses it for the
-Home subscribed-news section rather than exposing a feed-scope selector. Web may retain its
+`scope=FOLLOWING` remains a server query capability. Android Home now selects
+one subscribed publisher through circular logos and uses its exact article
+filter, rather than exposing a feed-scope selector. Web may retain its
 implemented Following control until its own navigation is redesigned.
 
 ### 11.3 Android interaction
@@ -605,8 +606,8 @@ implemented Following control until its own navigation is redesigned.
 - A guest row action opens the shared contextual authentication sheet above the
   directory. Choosing Login or Create account preserves the publisher-directory
   origin; dismissal changes nothing and success does not replay the mutation.
-- Home always shows public `주요 뉴스`, followed by `구독한 언론사 뉴스`.
-  The latter requests FOLLOWING when the account has subscriptions and otherwise
+- Home always shows public `주요 뉴스`, followed by `구독한 언론사`.
+  The latter requests articles for the selected subscribed publisher and otherwise
   shows a compact invitation to subscription management. The two requests and
   their loading/failure states are independent.
 - There is no Android `최신/팔로잉` tab, dropdown, radio sheet, or empty state.

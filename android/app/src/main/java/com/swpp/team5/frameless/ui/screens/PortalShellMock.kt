@@ -42,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -143,7 +144,7 @@ private data class BriefingMetric(
 @Composable
 internal fun PortalHomeScreen(
     stories: List<StorySummary>,
-    followedPublisherCount: Int,
+    subscribedPublishers: List<PublisherItem>,
     isLoading: Boolean,
     error: String?,
     listState: LazyListState,
@@ -152,7 +153,9 @@ internal fun PortalHomeScreen(
     onProfile: () -> Unit,
     onSubscriptions: () -> Unit,
     onRetry: () -> Unit,
-    subscribedStories: List<StorySummary> = emptyList(),
+    subscribedArticles: List<ArticleSummary> = emptyList(),
+    selectedPublisherCode: String? = null,
+    onSelectPublisher: (String) -> Unit = {},
     isSubscribedLoading: Boolean = false,
     subscribedError: String? = null,
     onRetrySubscriptions: () -> Unit = onRetry,
@@ -317,7 +320,7 @@ internal fun PortalHomeScreen(
                 Modifier.fillMaxWidth().padding(start = 18.dp, end = 6.dp, top = 12.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("구독한 언론사 뉴스", fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                Text("구독한 언론사", fontSize = 16.sp, fontWeight = FontWeight.Bold,
                     color = Fl.Ink, modifier = Modifier.weight(1f))
                 androidx.compose.material3.TextButton(onClick = onSubscriptions) {
                     Text("구독 관리", fontSize = 11.5.sp, color = Fl.Muted)
@@ -326,8 +329,44 @@ internal fun PortalHomeScreen(
                 }
             }
         }
+        if (subscribedPublishers.isNotEmpty()) {
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth().selectableGroup()
+                ) {
+                    items(subscribedPublishers, key = PublisherItem::code) { publisher ->
+                        val active = publisher.code == (selectedPublisherCode ?: subscribedPublishers.first().code)
+                        Column(
+                            modifier = Modifier.width(68.dp)
+                                .selectable(selected = active, role = Role.Tab,
+                                    onClick = { onSelectPublisher(publisher.code) })
+                                .semantics { contentDescription = "${publisher.name} 구독 뉴스" }
+                                .padding(vertical = 3.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier.size(62.dp)
+                                    .border(if (active) 2.dp else 1.dp,
+                                        if (active) Fl.Ink else Fl.Line, CircleShape)
+                                    .padding(5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                PublisherLogo(publisher, Modifier.size(52.dp).clip(CircleShape))
+                            }
+                            Text(publisher.name, fontSize = 11.sp,
+                                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                                color = if (active) Fl.Ink else Fl.Muted,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 7.dp))
+                        }
+                    }
+                }
+            }
+        }
         when {
-            followedPublisherCount == 0 -> item {
+            subscribedPublishers.isEmpty() -> item {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 18.dp)) {
                     Text(
                         if (isSignedIn) "자주 읽는 언론사를 구독해 보세요"
@@ -345,21 +384,21 @@ internal fun PortalHomeScreen(
                     }
                 }
             }
-            isSubscribedLoading && subscribedStories.isEmpty() -> item {
+            isSubscribedLoading && subscribedArticles.isEmpty() -> item {
                 Box(Modifier.fillMaxWidth().height(90.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(22.dp), color = Fl.Accent, strokeWidth = 2.dp)
                 }
             }
-            subscribedError != null && subscribedStories.isEmpty() -> item {
+            subscribedError != null && subscribedArticles.isEmpty() -> item {
                 Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
                     Text("구독 뉴스를 불러오지 못했어요", fontSize = 13.sp, color = Fl.Muted)
                     androidx.compose.material3.TextButton(onClick = onRetrySubscriptions) { Text("다시 시도") }
                 }
             }
-            subscribedStories.isEmpty() -> item { EmptyPortalSection("구독한 언론사의 새 기사를 기다리고 있어요") }
-            else -> items(subscribedStories.take(7), key = { "subscribed:${it.storyKey}" }) { story ->
-                LatestNewsRow(story.representativeArticle, story.publisherCount) {
-                    onArticle(story.representativeArticle.id)
+            subscribedArticles.isEmpty() -> item { EmptyPortalSection("구독한 언론사의 새 기사를 기다리고 있어요") }
+            else -> items(subscribedArticles.take(7), key = { "subscribed:${it.id}" }) { article ->
+                LatestNewsRow(article, 1) {
+                    onArticle(article.id)
                 }
             }
         }

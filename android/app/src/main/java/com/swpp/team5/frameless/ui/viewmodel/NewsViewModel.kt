@@ -19,6 +19,7 @@ import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 internal enum class NewsRoute { FEED, SAVED, READER }
@@ -141,7 +142,8 @@ internal data class PortalDiscoveryState(
     val isHomeLoading: Boolean = false,
     val isHomeRefreshing: Boolean = false,
     val homeError: String? = null,
-    val subscribedStories: List<StorySummary> = emptyList(),
+    val subscribedArticles: List<ArticleSummary> = emptyList(),
+    val selectedHomePublisherCode: String? = null,
     val isSubscribedLoading: Boolean = false,
     val subscribedError: String? = null,
     val newsSection: NewsSection = NewsSection.NEWS,
@@ -208,7 +210,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private var savedJob: Job? = null
     private var homeJob: Job? = null
     private var subscribedHomeJob: Job? = null
-    private var subscribedHomeLoaded = false
+    private val homePublisherCache = mutableMapOf<String, List<ArticleSummary>>()
     private var newsStoryJob: Job? = null
     private var publisherJob: Job? = null
     private var homeRequested = false
@@ -243,7 +245,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         savedJob?.cancel()
         homeJob?.cancel()
         subscribedHomeJob?.cancel()
-        subscribedHomeLoaded = false
+        homePublisherCache.clear()
         newsStoryJob?.cancel()
         publisherJob?.cancel()
         feedBeforeSearch = null
@@ -268,7 +270,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         homeJob?.cancel()
         subscribedHomeJob?.cancel()
         newsStoryJob?.cancel()
-        subscribedHomeLoaded = false
+        homePublisherCache.clear()
         val currentRoute = route
         val currentArticleId = reader.articleId
         val currentFocus = reader.comparisonFocus
@@ -287,7 +289,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             homeError = null,
             isHomeLoading = false,
             isHomeRefreshing = false,
-            subscribedStories = emptyList(),
+            subscribedArticles = emptyList(),
+            selectedHomePublisherCode = null,
             isSubscribedLoading = false,
             subscribedError = null,
             newsStories = emptyList(),
@@ -473,28 +476,48 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     fun retrySubscribedHome() = loadSubscribedHome(force = true)
 
+    fun selectHomePublisher(code: String) {
+        if (feed.publishers.none { it.code == code && it.isFollowed }) return
+        if (discovery.selectedHomePublisherCode == code) return
+        discovery = discovery.copy(selectedHomePublisherCode = code,
+            subscribedArticles = emptyList(), isSubscribedLoading = false, subscribedError = null)
+        loadSubscribedHome()
+    }
+
     private fun loadSubscribedHome(force: Boolean = false) {
-        if (feed.publishers.none { it.isFollowed }) {
+        if (force) homePublisherCache.clear()
+        val followed = feed.publishers.filter { it.isFollowed }
+        val selected = followed.firstOrNull { it.code == discovery.selectedHomePublisherCode }
+            ?: followed.firstOrNull()
+        if (selected == null) {
             subscribedHomeJob?.cancel()
-            subscribedHomeLoaded = false
+            homePublisherCache.clear()
             discovery = discovery.copy(
-                subscribedStories = emptyList(), isSubscribedLoading = false, subscribedError = null
+                subscribedArticles = emptyList(), selectedHomePublisherCode = null,
+                isSubscribedLoading = false, subscribedError = null
             )
             return
         }
-        if (!force && (discovery.isSubscribedLoading || subscribedHomeLoaded)) return
+        if (!force && discovery.isSubscribedLoading && discovery.selectedHomePublisherCode == selected.code) return
         subscribedHomeJob?.cancel()
-        discovery = discovery.copy(isSubscribedLoading = true, subscribedError = null)
+        val cached = homePublisherCache[selected.code]
+        discovery = discovery.copy(selectedHomePublisherCode = selected.code,
+            subscribedArticles = cached.orEmpty(), isSubscribedLoading = cached == null, subscribedError = null)
+        if (cached != null) return
         subscribedHomeJob = viewModelScope.launch {
             try {
-                val page = repository.stories(null, FeedScope.FOLLOWING)
-                subscribedHomeLoaded = true
+                val page = repository.publisherArticles(selected.code)
+                ensureActive()
+                if (discovery.selectedHomePublisherCode != selected.code) return@launch
+                homePublisherCache[selected.code] = page.items
                 discovery = discovery.copy(
-                    subscribedStories = page.items, isSubscribedLoading = false, subscribedError = null
+                    subscribedArticles = page.items, isSubscribedLoading = false, subscribedError = null
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
+                ensureActive()
+                if (discovery.selectedHomePublisherCode != selected.code) return@launch
                 if (isAuthFailure(failure)) authExpired = true
                 discovery = discovery.copy(
                     isSubscribedLoading = false,
