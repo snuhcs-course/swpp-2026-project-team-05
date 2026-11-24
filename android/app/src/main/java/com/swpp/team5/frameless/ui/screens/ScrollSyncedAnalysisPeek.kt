@@ -21,8 +21,30 @@ internal fun annotationHapticFeedbackConstant(sdkInt: Int): Int? = when {
 internal data class PeekMarkerPosition(
     val findingId: String,
     val centerY: Float,
-    val readingOrder: Int
+    val readingOrder: Int,
+    val visualLine: Int = readingOrder,
+    val physicalCenterY: Float = centerY
 )
+
+/**
+ * Gives separate findings on one rendered text line small virtual vertical slots.
+ * This affects only selection timing; article layout and marker drawing stay unchanged.
+ */
+internal fun spaceSameLinePeekMarkers(
+    markers: List<PeekMarkerPosition>,
+    stepPx: Float
+): List<PeekMarkerPosition> {
+    if (stepPx <= 0f) return markers
+    return markers.groupBy { it.visualLine }.values.flatMap { lineMarkers ->
+        if (lineMarkers.size == 1) return@flatMap lineMarkers
+        val ordered = lineMarkers.sortedBy { it.readingOrder }
+        val lineCenter = ordered.map { it.physicalCenterY }.average().toFloat()
+        val midpoint = (ordered.lastIndex) / 2f
+        ordered.mapIndexed { index, marker ->
+            marker.copy(centerY = lineCenter + (index - midpoint) * stepPx)
+        }
+    }
+}
 
 /** One exact expression used by another publisher. */
 internal data class PeekComparisonExpression(
@@ -52,7 +74,7 @@ internal fun selectScrollSyncedPeekCandidate(
     if (height <= 0f) return null
     if (atScrollEnd) {
         return markers.asSequence()
-            .filter { it.centerY in viewportTop..viewportBottom }
+            .filter { it.physicalCenterY in viewportTop..viewportBottom }
             .maxByOrNull { it.readingOrder }
             ?.findingId
     }

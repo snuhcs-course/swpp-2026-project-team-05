@@ -52,6 +52,10 @@ comparison sheet, target-article navigation, or saving behavior.
 - During a user scroll, the dock content changes as soon as a different BODY
   marker becomes the nearest eligible marker. There is no dwell timer because
   the fixed dock neither moves nor covers the article.
+- Distinct findings rendered on the same visual text line receive small virtual
+  selection slots in reading order, so a continued scroll advances through them
+  one at a time. The slots never add article spacing or alter marker positions;
+  a direct marker tap still selects that exact finding immediately.
 - A direct finger drag emits one low-intensity system haptic when the active
   finding actually changes. It is throttled to at least 150 ms, respects the
   device haptic setting, and stays silent for fling inertia, initial/restored

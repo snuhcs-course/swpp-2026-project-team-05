@@ -314,11 +314,24 @@ private fun NewsReaderContent(
             markerBoundsInScrolledBody(
                 bodyLayout, finding, bodyPositionInContent, viewport, scroll.value
             )?.let { bounds ->
-                Triple(finding, bounds, PeekMarkerPosition(finding.id, bounds.center.y, index))
+                Triple(
+                    finding,
+                    bounds,
+                    PeekMarkerPosition(
+                        findingId = finding.id,
+                        centerY = bounds.center.y,
+                        readingOrder = index,
+                        visualLine = bodyLayout?.getLineForOffset(finding.markerRange.start) ?: index
+                    )
+                )
             }
         }
-        val candidateId = selectScrollSyncedPeekCandidate(
+        val selectionMarkers = spaceSameLinePeekMarkers(
             measured.map { it.third },
+            stepPx = with(density) { 20.dp.toPx() }
+        )
+        val candidateId = selectScrollSyncedPeekCandidate(
+            selectionMarkers,
             viewport.top,
             viewport.bottom,
             atScrollEnd = scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 1

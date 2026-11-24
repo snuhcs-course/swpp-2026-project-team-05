@@ -74,6 +74,30 @@ class ScrollSyncedAnalysisPeekTest {
     }
 
     @Test
+    fun sameLineFindingsReceiveSequentialVirtualSelectionSlots() {
+        fun positionedAt(centerY: Float) = spaceSameLinePeekMarkers(
+            listOf(
+                PeekMarkerPosition("first", centerY, 0, visualLine = 7),
+                PeekMarkerPosition("second", centerY, 1, visualLine = 7)
+            ),
+            stepPx = 20f
+        )
+
+        assertEquals(
+            "first",
+            selectScrollSyncedPeekCandidate(positionedAt(55f), 0f, 100f)
+        )
+        assertEquals(
+            "second",
+            selectScrollSyncedPeekCandidate(positionedAt(40f), 0f, 100f)
+        )
+        assertEquals(
+            listOf(45f, 65f),
+            positionedAt(55f).sortedBy { it.readingOrder }.map { it.centerY }
+        )
+    }
+
+    @Test
     fun peekContentKeepsTwoPublisherDiverseExactMarkersAndCountsTheRest() {
         val finding = finding(listOf(
             page("a1", "a", "연합뉴스", "확대했다"),
