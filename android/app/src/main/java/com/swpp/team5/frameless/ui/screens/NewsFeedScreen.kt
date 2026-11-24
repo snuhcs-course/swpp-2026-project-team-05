@@ -73,10 +73,8 @@ import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
 import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
 import com.swpp.team5.frameless.ui.theme.Caption
-import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
-import com.swpp.team5.frameless.ui.viewmodel.LinkAnalysisState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
@@ -106,17 +104,11 @@ internal fun NewsFeedScreen(
     onArticle: (String) -> Unit,
     onLogin: () -> Unit,
     onLogout: () -> Unit,
-    link: LinkAnalysisState = LinkAnalysisState(),
-    onLinkOpen: () -> Unit = {},
     onTutorialOpen: () -> Unit = {},
-    onLinkInput: (String) -> Unit = {},
-    onLinkSubmit: () -> Unit = {},
-    onLinkClose: () -> Unit = {}
 ) {
     var showFeedScope by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
     var showAccount by remember { mutableStateOf(false) }
-    var showUrlAnalysisMock by remember { mutableStateOf(false) }
     var savedFeedIndex by remember { mutableIntStateOf(0) }
     var savedFeedOffset by remember { mutableIntStateOf(0) }
     val pullRefreshState = rememberPullToRefreshState()
@@ -126,7 +118,6 @@ internal fun NewsFeedScreen(
     }
 
     LaunchedEffect(state.activeSearchQuery, state.isLoading) {
-        showUrlAnalysisMock = false
         if (state.activeSearchQuery.isNotBlank() && !state.isLoading &&
             state.searchSections.values.any { it.items.isNotEmpty() }) {
             listState.scrollToItem(0)
@@ -164,8 +155,7 @@ internal fun NewsFeedScreen(
                     Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Link analysis and the tutorial replay live in this menu; both callbacks are unchanged.
-                    FeedMenuButton(onLinkOpen = onLinkOpen, onTutorialOpen = onTutorialOpen)
+                    FeedMenuButton(onTutorialOpen = onTutorialOpen)
                     BrandRow()
                     Spacer(Modifier.weight(1f))
                     IconButton(
@@ -260,7 +250,6 @@ internal fun NewsFeedScreen(
                 onRetrySection = onRetrySearch,
                 onLoadMore = onLoadMoreSearch,
                 onArticle = onArticle,
-                onAnalyzeLink = { showUrlAnalysisMock = true },
                 onClearSearch = { onSearchInput("") },
                 onShowAllResults = { onSearchFilter(SearchFilter.ALL) }
             )
@@ -273,7 +262,6 @@ internal fun NewsFeedScreen(
             )
             state.items.isEmpty() && state.activeSearchQuery.isNotBlank() -> SearchNoResults(
                 query = state.activeSearchQuery,
-                onAnalyzeLink = { showUrlAnalysisMock = true },
                 onClearSearch = { onSearchInput("") }
             )
             state.items.isEmpty() -> FeedMessage(
@@ -439,13 +427,6 @@ internal fun NewsFeedScreen(
             }
         }
     }
-    if (link.isOpen) {
-        LinkAnalysisSheet(state = link, onInput = onLinkInput, onSubmit = onLinkSubmit, onDismiss = onLinkClose)
-    }
-
-    if (showUrlAnalysisMock) {
-        UrlAnalysisMockSheet(onDismiss = { showUrlAnalysisMock = false })
-    }
 }
 
 @Composable
@@ -457,7 +438,6 @@ private fun SearchResultsFeed(
     onRetrySection: (SearchFilter) -> Unit,
     onLoadMore: (SearchFilter) -> Unit,
     onArticle: (String) -> Unit,
-    onAnalyzeLink: () -> Unit,
     onClearSearch: () -> Unit,
     onShowAllResults: () -> Unit
 ) {
@@ -567,7 +547,6 @@ private fun SearchResultsFeed(
                 item(key = "global-empty-search") {
                     SearchNoResults(
                         query = query,
-                        onAnalyzeLink = onAnalyzeLink,
                         onClearSearch = onClearSearch
                     )
                 }
@@ -741,7 +720,6 @@ internal fun FeedMessage(title: String, detail: String, action: String, onAction
 @Composable
 private fun SearchNoResults(
     query: String,
-    onAnalyzeLink: () -> Unit,
     onClearSearch: () -> Unit
 ) {
     Column(
@@ -751,21 +729,13 @@ private fun SearchNoResults(
     ) {
         Text("검색 결과가 없어요", fontWeight = FontWeight.SemiBold, color = Fl.Ink)
         Text(
-            "‘$query’와 일치하는 기사를 찾지 못했어요. 찾고 있는 기사의 링크가 있다면 분석 흐름을 미리 확인할 수 있어요.",
+            "‘$query’와 일치하는 기사를 찾지 못했어요. 다른 검색어나 맞춤법을 확인해 보세요.",
             fontSize = 13.sp,
             lineHeight = 20.sp,
             color = Fl.Muted
         )
         Spacer(Modifier.height(4.dp))
-        FilledPill("기사 링크로 분석하기", onAnalyzeLink)
-        Text(
-            "전체 기사 보기",
-            fontSize = 13.sp,
-            color = Fl.Muted,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.clickable(onClick = onClearSearch).padding(8.dp)
-                .semantics { role = Role.Button }
-        )
+        OutlinedPill("검색어 다시 입력", onClearSearch)
     }
 }
 

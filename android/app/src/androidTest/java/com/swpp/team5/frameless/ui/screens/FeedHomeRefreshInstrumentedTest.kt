@@ -29,7 +29,6 @@ class FeedHomeRefreshInstrumentedTest {
     private val title = "‘기준금리 0.25%p 인하’…한은, “물가 경로 점검” [종합]"
     private val session = AppSession(NewsUser("u1", "reader@example.com", "reader", false), "token", "expiry")
 
-    private var linkOpens = 0
     private var tutorialOpens = 0
     private var searchOpens = 0
     private var savedOpens = 0
@@ -50,25 +49,21 @@ class FeedHomeRefreshInstrumentedTest {
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = { searchOpens += 1 }, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = { savedOpens += 1 }, onArticle = { selectedId = it }, onLogin = {}, onLogout = {},
-                onLinkOpen = { linkOpens += 1 }, onTutorialOpen = { tutorialOpens += 1 }
+                onTutorialOpen = { tutorialOpens += 1 }
             )
         }
     }
 
     @Test
-    fun headerMenuOpensLinkAnalysisAndTutorialReplay() {
+    fun headerMenuOffersOnlyTutorialReplay() {
         setFeed()
         compose.onNodeWithContentDescription("기사 링크로 분석하기").assertDoesNotExist()
         compose.onNodeWithContentDescription("튜토리얼 다시 보기").assertDoesNotExist()
 
         compose.onNodeWithContentDescription("메뉴").assertIsDisplayed().performClick()
-        compose.onNodeWithText("기사 링크로 분석하기").assertIsDisplayed().performClick()
-        compose.runOnIdle { assertEquals(1, linkOpens); assertEquals(0, tutorialOpens) }
         compose.onNodeWithText("기사 링크로 분석하기").assertDoesNotExist()
-
-        compose.onNodeWithContentDescription("메뉴").performClick()
         compose.onNodeWithContentDescription("튜토리얼 다시 보기").assertIsDisplayed().performClick()
-        compose.runOnIdle { assertEquals(1, linkOpens); assertEquals(1, tutorialOpens) }
+        compose.runOnIdle { assertEquals(1, tutorialOpens) }
     }
 
     @Test

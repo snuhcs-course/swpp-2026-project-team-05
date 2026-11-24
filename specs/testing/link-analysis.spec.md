@@ -2,16 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Reviewed for merge |
+| Status | Compatibility endpoint; UI retired |
 | Owner | Analysis |
-| Source requirements | `POST /api/v1/link-analyses`; feed screen `+` button; reader screen |
-| Last reviewed | 2026-11-16 |
+| Source requirements | `POST /api/v1/link-analyses`; reader-only stored clusters |
+| Last reviewed | 2026-11-24 |
 
 ## Scope
 
-A reader, signed in or not, pastes an article link from the feed screen's `+` button. The server fetches the article, finds
-up to three same-event articles from other outlets, runs the staged A-G analysis, and stores the result as a
-cluster whose articles are hidden from the feed. The app then opens the source article in the reader.
+A direct compatibility request submits an article link. The server fetches the article, finds up to three same-event
+articles from other outlets, runs the staged A-G analysis, and stores the result as a cluster whose articles are hidden
+from the feed. Ordinary Web and Android navigation does not expose this request.
 
 ### Non-goals
 
@@ -91,9 +91,9 @@ cluster whose articles are hidden from the feed. The app then opens the source a
   its cluster.
 - [Integration] Runtime import preserves an existing publisher's reviewed name, domain, logo and display order.\
   Tested by: `tests.test_link_analysis.StoredClusterTests.test_runtime_import_preserves_existing_publisher_metadata`
-- [Acceptance] The feed `+` button opens the link dialog; a successful analysis closes it and opens the reader; an
-  error stays in the dialog.\
-  Tip: add a Compose UI test for the dialog states.
+- [Acceptance] Feed, search empty states, and the home menu expose no URL-analysis entry.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.headerMenuOffersOnlyTutorialReplay`,
+  `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.zeroResultSearchOffersOnlyARegularSearchRecovery`
 
 ## Undefined behavior
 

@@ -17,10 +17,9 @@ pipeline or view-model change.
 ## 2. App bar
 
 - Left: a menu button (content description `메뉴`), then the FrameLESS mark.
-- The menu holds, in order, `기사 링크로 분석하기` (opens the existing link
-  analysis sheet) and `튜토리얼 다시 보기` (replays the existing tutorial). Each
-  item keeps its old label as its content description. Choosing an item closes
-  the menu, then calls the same callback the app-bar button used to call.
+- The menu holds only `튜토리얼 다시 보기`, which replays the existing
+  tutorial. Choosing it closes the menu before invoking the callback. URL
+  analysis is not ordinary-user navigation.
 - Right, still one tap away: `기사 검색`, `저장한 기사`, `계정 메뉴`.
 - Search mode keeps its existing header unchanged.
 
@@ -122,15 +121,8 @@ No "오늘의 비교 이슈" card, "top story" or "recommended" label, outlet co
 bias scores, rankings, left/right colouring or rubric codes. These need real
 backend data and are out of scope for this phase.
 
-## 7. Conflicts with reviewed specs (to resolve at review)
+## 7. Related specification note
 
-- [`link-analysis.md`](link-analysis.md) §1 and
-  [`../testing/link-analysis.spec.md`](../testing/link-analysis.spec.md) refer to
-  the feed header's `+` button. After this change the entry is the
-  `기사 링크로 분석하기` menu item.
 - [`first-run-tutorial.md`](first-run-tutorial.md) §2 describes a header `?`
   button left of `+`. After this change the replay is the `튜토리얼 다시 보기`
   menu item. (The reader's label-guide `?` button in §4 is unaffected.)
-
-This draft does not amend those documents; a reviewer should update them when
-this spec is accepted.

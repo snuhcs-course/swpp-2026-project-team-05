@@ -58,8 +58,8 @@ internal fun NewsSavedScreen(
     }
 
     Column(
-        Modifier.fillMaxSize().background(Fl.Card)
-            .edgeSwipeBack(onBack = onBack)
+        Modifier.fillMaxSize().edgeSwipeBack(onBack = onBack)
+            .background(Fl.Card)
             .testTag("saved-screen")
     ) {
         Row(

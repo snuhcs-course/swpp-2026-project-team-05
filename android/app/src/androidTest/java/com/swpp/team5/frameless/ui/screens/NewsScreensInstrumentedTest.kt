@@ -240,7 +240,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun zeroResultSearchPreviewsUrlAnalysisWithoutSubmitting() {
+    fun zeroResultSearchOffersOnlyARegularSearchRecovery() {
         val state = NewsFeedState(
             publishers = listOf(publisher),
             isSearchOpen = true,
@@ -261,20 +261,9 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText("기사 링크로 분석하기").performClick()
-        compose.onNodeWithText("계속").performClick()
-        compose.onNodeWithText("http:// 또는 https://로 시작하는 전체 기사 주소를 입력해 주세요.")
-            .assertIsDisplayed()
-        val urlInput = compose.onNodeWithContentDescription("기사 URL 입력")
-        urlInput.performTextInput("https://news.example.com/story")
-        urlInput.assertIsFocused()
-        compose.onNodeWithText("공개된 뉴스 기사 주소를 입력해", substring = true)
-            .performTouchInput { click() }
-        compose.onNodeWithContentDescription("기사 URL 입력").assertIsNotFocused()
-        compose.onNodeWithText("계속").performClick()
-        compose.onNodeWithText("기사 분석 기능을 준비하고 있어요").assertIsDisplayed()
-        compose.onNodeWithText("검색으로 돌아가기").performClick()
         compose.onNodeWithText("검색 결과가 없어요").assertIsDisplayed()
+        compose.onNodeWithText("기사 링크로 분석하기").assertDoesNotExist()
+        compose.onNodeWithText("검색어 다시 입력").assertIsDisplayed()
     }
 
     @Test

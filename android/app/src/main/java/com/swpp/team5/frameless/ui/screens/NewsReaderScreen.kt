@@ -372,8 +372,9 @@ private fun NewsReaderContent(
     }
 
     Box(
-        Modifier.fillMaxSize().background(Fl.Card)
+        Modifier.fillMaxSize()
             .edgeSwipeBack(enabled = !detailOpen && coach.step == null, onBack = onBack)
+            .background(Fl.Card)
             .testTag("reader-screen")
             .onGloballyPositioned { readerRootTopPx = it.boundsInRoot().top }
     ) {

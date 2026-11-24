@@ -182,8 +182,10 @@ authenticated offline Saved reads.
 - [Component] Saved refreshes by pulling down at the top of its list and has no
   duplicate header refresh action. A rightward gesture beginning at the left
   edge returns to the feed, while an equivalent drag beginning in the content
-  area does not navigate.\
+  area does not navigate. The surface tracks an accepted drag and a short or
+  weak drag returns to its origin rather than navigating.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.savedUsesPullRefreshAndEdgeSwipeBack`
+  and `com.swpp.team5.frameless.ui.components.NavigationGesturesTest`
 
 ## Undefined behavior
 

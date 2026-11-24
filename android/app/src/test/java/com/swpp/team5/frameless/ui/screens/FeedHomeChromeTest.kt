@@ -16,9 +16,9 @@ class FeedHomeChromeTest {
     )
 
     @Test
-    fun menuKeepsBothMovedActionsWithTheirExistingLabels() {
+    fun menuKeepsOnlyTutorialReplay() {
         assertEquals(
-            listOf("기사 링크로 분석하기", "튜토리얼 다시 보기"),
+            listOf("튜토리얼 다시 보기"),
             FeedMenuItem.entries.map { it.label }
         )
     }

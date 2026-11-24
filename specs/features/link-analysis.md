@@ -2,31 +2,23 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Reviewed for merge (open to every reader, daily limit outside developer accounts) |
+| Status | Compatibility-only; hidden from ordinary navigation |
 | Owner | Analysis |
-| Related behavior | [`url-analysis-mock.md`](url-analysis-mock.md) §5; test specification [`../testing/link-analysis.spec.md`](../testing/link-analysis.spec.md) |
-| Last reviewed | 2026-11-16 |
+| Related behavior | Retired UI decision in [`url-analysis-mock.md`](url-analysis-mock.md); test specification [`../testing/link-analysis.spec.md`](../testing/link-analysis.spec.md) |
+| Last reviewed | 2026-11-24 |
 
 ## 1. Purpose
 
-A reader who has an article link can see how other outlets worded the same event without waiting for that event
-to appear in the feed. The feed header's `+` button opens the flow for every reader, signed in or not; the result
-opens in the existing reader.
-
-The search empty state keeps the URL analysis mock unchanged; this feature is a separate entry point.
+The legacy endpoint and stored reader-only clusters remain for compatibility and
+deterministic server tests. Web and Android do not expose URL submission in the
+feed, home menu, search empty state, or ordinary Reader navigation.
 
 ## 2. Flow
 
-1. The reader taps `+` (left of search). No sign-in is needed.
-2. A bottom sheet asks for the article link. An empty field or a value that is not an absolute `http(s)` URL with a
-   host stays in the sheet with an inline error and sends no request.
-3. `분석하기` sends `POST /api/v1/link-analyses {"url"}` and the sheet shows a progress state: the server is finding
-   other outlets' articles and comparing their wording, about one to two minutes.
-4. On success the sheet closes and the reader opens the returned article id.
-5. On failure the sheet stays with the server's message and the entered link, so the reader can retry.
-6. A server without this API yet (it answers 404, 405 or a page that is not the API's JSON) shows
-   `링크 분석은 서버 업데이트 후 사용할 수 있어요` instead of a raw HTTP error. The same app works unchanged once
-   the server is deployed.
+There is no ordinary-client flow. Direct internal callers may still send
+`POST /api/v1/link-analyses {"url"}` and receive the compatibility behavior in
+§3–5. Reintroducing a client flow requires a new reviewed UI and lifecycle
+contract.
 
 ## 3. Server
 
@@ -76,8 +68,8 @@ feed-visible reviewed data still requires the normal dataset review and import p
 
 ## 6. Acceptance
 
-- `+` appears left of search for every reader and opens the link sheet.
+- No ordinary Web or Android surface exposes URL submission.
 - A reader who is not on a developer account gets `429 DAILY_LIMIT` after the daily limit; a developer account never
   does.
-- A valid news link ends in the reader with the comparison highlights, and the article does not appear in the feed.
-- Invalid input, errors and cancellation behave as in §2 and §4.
+- A valid direct API request stores a reader-only result that does not appear in the feed.
+- Invalid input and server failures behave as in §3–4.

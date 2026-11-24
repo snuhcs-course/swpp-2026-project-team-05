@@ -28,13 +28,11 @@ art direction (phase 3).
 
 ### Success
 
-- [Unit] The menu offers exactly `기사 링크로 분석하기` then
-  `튜토리얼 다시 보기`.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.menuKeepsBothMovedActionsWithTheirExistingLabels`
-- [Acceptance] Link analysis and tutorial replay are not app-bar buttons; opening
-  `메뉴` and choosing each item calls the existing callback once and closes the
-  menu.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.headerMenuOpensLinkAnalysisAndTutorialReplay`
+- [Unit] The menu offers only `튜토리얼 다시 보기`.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.menuKeepsOnlyTutorialReplay`
+- [Acceptance] Opening `메뉴` exposes no link-analysis action; choosing tutorial
+  replay calls its callback once and closes the menu.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.headerMenuOffersOnlyTutorialReplay`
 - [Acceptance] `기사 검색`, `저장한 기사` and `계정 메뉴` stay directly in the app
   bar and still work.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.appBarKeepsSearchSavedAndAccountDirectlyReachable`
@@ -99,7 +97,7 @@ art direction (phase 3).
   replaced with placeholder text.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.rowMetadataDropsBlankPartsInsteadOfInventingThem`
 - [Acceptance] Existing feed tests (category tabs of equal width, scope sheet,
-  `기사 더 보기`, account sheet, search filters, no-result link analysis) pass
+  `기사 더 보기`, account sheet, search filters, ordinary no-result recovery) pass
   unchanged.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest`
 - [Acceptance] With a blank publisher and time, a row shows no byline line.\

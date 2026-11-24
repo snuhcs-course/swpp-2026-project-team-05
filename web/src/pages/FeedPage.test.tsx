@@ -303,7 +303,7 @@ describe('FeedPage search', () => {
     ))
   })
 
-  it('previews URL analysis only after a zero-result search without sending the URL', async () => {
+  it('shows a plain recovery message after a zero-result search', async () => {
     const user = userEvent.setup()
     renderFeed()
     const search = screen.getByRole('searchbox', { name: 'Search articles' })
@@ -311,25 +311,9 @@ describe('FeedPage search', () => {
     await waitFor(() => expect(api.articles).toHaveBeenCalled())
     expect(screen.queryByRole('button', { name: 'Analyze an article link' })).not.toBeInTheDocument()
     await user.type(search, '없는 기사')
-    const entry = await screen.findByRole('button', { name: 'Analyze an article link' })
-    const searchRequestCount = vi.mocked(api.articles).mock.calls.length
-
-    await user.click(entry)
-    const urlInput = screen.getByRole('textbox', { name: 'Article URL' })
-    await user.type(urlInput, 'not-a-url')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('complete public article URL')
-
-    await user.clear(urlInput)
-    await user.type(urlInput, ' https://news.example.com/story ')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
-
-    const preview = screen.getByText('Article analysis is coming soon.').closest('[role="status"]')
-    expect(preview).toHaveTextContent('not uploaded or saved')
-    expect(api.articles).toHaveBeenCalledTimes(searchRequestCount)
-
-    await user.click(screen.getByRole('button', { name: 'Back to search' }))
-    expect(screen.getByText('No stories found for “없는 기사”.')).toBeInTheDocument()
+    expect(await screen.findByText('No stories found for “없는 기사”.')).toBeInTheDocument()
+    expect(screen.getByText('Try another search term or check the spelling.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Analyze an article link' })).not.toBeInTheDocument()
   })
 
   it('saves source preferences explicitly from the manager', async () => {

@@ -66,7 +66,6 @@ internal object HomeTokens {
 
 /** Actions moved from the app bar into the left menu, in display order. Labels are the existing ones. */
 internal enum class FeedMenuItem(val label: String) {
-    LINK_ANALYSIS("기사 링크로 분석하기"),
     TUTORIAL("튜토리얼 다시 보기")
 }
 
@@ -293,7 +292,6 @@ private fun ConvergingMarksMotif() {
 
 @Composable
 internal fun FeedMenuButton(
-    onLinkOpen: () -> Unit,
     onTutorialOpen: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -329,7 +327,6 @@ internal fun FeedMenuButton(
                     onClick = {
                         expanded = false
                         when (item) {
-                            FeedMenuItem.LINK_ANALYSIS -> onLinkOpen()
                             FeedMenuItem.TUTORIAL -> onTutorialOpen()
                         }
                     },
@@ -347,13 +344,6 @@ private fun FeedMenuGlyph(item: FeedMenuItem) {
         val w = size.width
         val stroke = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         when (item) {
-            FeedMenuItem.LINK_ANALYSIS -> {
-                // Two linked rounded rectangles.
-                drawRoundRect(Fl.Ink2, Offset(w * 0.08f, w * 0.34f), Size(w * 0.5f, w * 0.32f),
-                    CornerRadius(w * 0.16f), style = stroke)
-                drawRoundRect(Fl.Ink2, Offset(w * 0.42f, w * 0.34f), Size(w * 0.5f, w * 0.32f),
-                    CornerRadius(w * 0.16f), style = stroke)
-            }
             FeedMenuItem.TUTORIAL -> {
                 drawCircle(Fl.Ink2, radius = w * 0.42f, style = stroke)
                 val q = Path().apply {

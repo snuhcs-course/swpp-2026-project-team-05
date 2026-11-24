@@ -141,12 +141,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                                     news.logout(current.user.id, auth::logout)
                                 }
                             },
-                            link = news.link,
-                            onLinkOpen = news::openLinkAnalysis,
-                            onTutorialOpen = tutorial::replay,
-                            onLinkInput = news::updateLinkInput,
-                            onLinkSubmit = news::submitLinkAnalysis,
-                            onLinkClose = news::closeLinkAnalysis
+                            onTutorialOpen = tutorial::replay
                         )
                     }
                     NewsRoute.SAVED -> NewsSavedScreen(

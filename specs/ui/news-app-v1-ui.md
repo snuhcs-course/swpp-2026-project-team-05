@@ -169,8 +169,10 @@ Feed behavior:
   not inherit the feed pull gesture.
 - Android Reader, Saved, login, and registration support a rightward swipe that
   starts at the left screen edge as an additional Back affordance. The gesture
-  is disabled while an overlay or comparison sheet owns the interaction, and
-  ordinary horizontal or vertical drags must remain available.
+  is disabled while an overlay or comparison sheet owns the interaction. The
+  current surface follows the finger, returns smoothly after a cancelled drag,
+  and completes its exit before Back runs. Ordinary horizontal or vertical
+  drags must remain available.
 - Pagination failure leaves existing articles visible and shows inline retry.
 - Returning from Reader restores item position, category, and feed scope.
 
@@ -261,8 +263,8 @@ selected in the background and are restored when search closes.
   do not show result-count badges, relevance scores, or layout-changing metadata.
 - An empty category filter shows a restrained category-specific message. An
   inline `전체 검색 결과 보기` action returns to `All` without changing the
-  query. An empty `All` result shows the existing no-results state and
-  URL-analysis preview.
+  query. An empty `All` result shows a concise no-results state, suggests
+  another term or checking the spelling, and never exposes URL analysis.
 - On Android, tapping ordinary content outside a focused search, authentication,
   or URL field dismisses the keyboard without consuming the tapped control's
   action.
