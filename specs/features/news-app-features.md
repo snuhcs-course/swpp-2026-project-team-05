@@ -24,7 +24,7 @@ baseline specifications into a feature backlog.
 | --- | --- | --- |
 | Article search | Implemented | Search every feed-visible article from Android and Web |
 | Saved articles | Implemented | Save or remove an article and browse a personal saved list |
-| Following sources | Implemented | Keep Latest diverse while offering a separate feed from explicitly followed publishers |
+| Following sources | Implemented data contract; Android navigation update pending | Personalize Home without a News scope tab |
 | Reading history | Deferred | Saved articles already cover the primary return-to-reading need |
 | Sharing | Deferred | Native and browser link sharing already cover the immediate need |
 | Likes or reactions | Deferred | Add only after defining what a reaction means for a news product |
@@ -214,8 +214,8 @@ signal and may also become an explicit user-selected filter.
 - Add a search icon beside the account action in the feed header.
 - Tapping it replaces the header controls with a focused search field, clear
   action, and back action.
-- Back exits search and restores the previous category, feed scope, feed items,
-  and scroll context.
+- Back exits search and restores the previous News section, loaded items, and
+  scroll context. Web also restores its existing feed scope while that control remains.
 - An empty field shows no article list and no filter row, only `검색어를 입력하세요`.
   This applies when search opens and when a non-empty field is cleared; it makes no
   request. The ordinary feed returns when search closes.
@@ -225,14 +225,14 @@ signal and may also become an explicit user-selected filter.
 - Start automatic search after at least two normalized characters.
 - Debounce typing by approximately 300 ms.
 - Cancel or ignore an obsolete request when the query changes.
-- Search the complete Politics and Society corpus with one uncategorized request,
-  regardless of the feed category selected before search. A Politics or Society
+- Search the complete Politics, Society, and Economy corpus with one uncategorized request,
+  regardless of the News section selected before search. A category
   request is made only after that search filter is selected. All search requests
   use the complete `ALL` scope rather than followed publishers.
-- Render a dedicated `전체 / 정치 / 사회` filter without count badges. Each
+- Render a dedicated `전체 / 정치 / 사회 / 경제` filter without count badges. Each
   loaded filter owns its items, continuation cursor, error, retry, and load-more state.
 - Reset the active filter to `전체` when the query changes. Closing search restores
-  the category, scope, items, and scroll context from before search.
+  the originating News section, items, and scroll context.
 
 ### 5.3 States
 
@@ -259,7 +259,7 @@ distinct button descriptions, and IME search submits immediately.
   editorial black-and-white visual system.
 - Keep the draft and active search query in local UI state. Typing must not
   rewrite the browser URL; reload starts from the ordinary feed.
-- Preserve the category and feed scope in the URL, but do not use either to
+- Preserve the category and existing Web feed scope in the URL, but do not use either to
   restrict an active search. Search-result links still open the stable
   article route, but v1 does not provide a shareable search-results URL.
 - Debounce typing by approximately 300 ms while allowing Enter to submit
@@ -497,16 +497,21 @@ internal stack trace.
 
 ### 9.7 Android interaction
 
-- Add a saved-articles action beside search in the feed header.
+- Saved is a permanent root destination. A guest may enter it without an
+  authentication redirect; the selected tab shows a dedicated sign-in state
+  with explicit `로그인` and `회원가입` actions.
 - Add an accessible save/remove action only to the Reader header.
+- A guest who taps that Reader action remains in the Reader and receives the
+  shared contextual authentication sheet. Authentication begins only after an
+  explicit action, and success does not replay the save automatically.
 - Internal comparison navigation opens the same Reader and therefore reuses the
   same save/remove action and mutation path.
-- Open saved articles in a separate route and ViewModel state so the ordinary
-  feed retains its category, feed scope, search, rows, and scroll context.
+- Open saved articles in a separate route and ViewModel state so the originating
+  discovery surface retains its section, search, rows, and scroll context.
 - Reader back returns to its recorded origin from loaded, loading, and error
   states; it must not fall through to Android's app-exit behavior.
 - Reuse the compact feed row and current Reader navigation.
-- Apply confirmed save state consistently across feed, Reader, and Saved. Failed
+- Apply confirmed save state consistently across discovery, Reader, and Saved. Failed
   requests are not shown optimistically or queued for later synchronization.
 - When offline, show only locally complete Saved rows whose body and validated
   analysis are available; save/remove stays online-only.
@@ -515,6 +520,7 @@ internal stack trace.
 
 Both clients distinguish:
 
+- a guest Saved sign-in state;
 - loading the initial saved list;
 - a populated list;
 - an empty list with a link back to the feed;
@@ -552,232 +558,73 @@ show the first account's saved state.
 These require separate product decisions and do not add nullable columns or
 placeholder endpoints to saved articles v1.
 
-## 11. Following sources v1
+## 11. Publisher subscriptions
 
-### 11.1 Product goal and FrameLESS invariants
+### 11.1 Product role
 
-A signed-in user can explicitly follow publishers and open a separate
-`Following` feed containing their articles. The ordinary `Latest` feed remains
-the default and continues to mix every eligible publisher by recency.
+A signed-in user explicitly subscribes to publishers. User-facing Android copy
+uses `구독`, `구독 중`, and `구독 관리`; existing database, API, and
+code identifiers containing `follow` remain unchanged. On Android, follow state powers
+the Home news section and representative selection in topic feeds; it is not a
+separate `최신/팔로잉` News tab. The News tabs remain
+`뉴스 | 언론사 | 정치 | 사회 | 경제`.
 
-Following is a convenience for article discovery, not a recommendation signal
-and not an analysis input. It must preserve these FrameLESS invariants:
+Following never changes stored analysis, shared propositions, comparison
+selection, or the set of publishers that may appear as reviewed comparison
+evidence. Search remains global and article-based.
 
-- `Latest` is never narrowed, ranked, or personalized by follows;
-- entering the app or a category starts in `Latest`, not `Following`;
-- article rows remain article-first and identify their publisher without
-  grouping the feed into publisher editions or story-cluster cards;
-- opening any article uses the same Reader and expression-analysis flow;
-- a Reader analysis may compare against every eligible article in its story
-  cluster, including publishers the user does not follow;
-- follow state never changes finding generation, shared propositions,
-  comparison selection, analysis quality, or stored editorial data;
-- search remains global across the complete feed-visible corpus and restores
-  the prior feed scope when closed.
+### 11.2 Persistence and API
 
-Following therefore gives the user control without making FrameLESS reinforce a
-single-source information bubble or hide the cross-outlet evidence that explains
-why a phrase was highlighted.
-
-### 11.2 Feed information architecture
-
-Both clients expose two explicit feed scopes:
-
-| Scope | Meaning | Default |
-| --- | --- | --- |
-| `Latest` | Every eligible feed article, newest first | Yes |
-| `Following` | Eligible articles from explicitly followed publishers, newest first | No |
-
-Politics and Society remain the primary category navigation. Feed scope is
-secondary and does not create a new route hierarchy. Switching category or
-scope resets pagination and list position. Returning from Reader restores the
-previous category, scope, loaded rows, and scroll context.
-
-The existing transient multi-publisher filter is removed from the primary UI so
-that users do not have to distinguish temporary source filters from durable
-follows. The repeatable `publisher` API parameter remains supported for contract
-compatibility and internal use.
-
-One article remains one feed row even when several feed-visible articles share
-a story cluster. V1 does not select a canonical article or render several
-publisher headlines inside one feed card. Cross-outlet detail belongs in the
-Reader analysis.
-
-### 11.3 Followable publisher lifecycle
-
-A publisher is selectable when it is active and has at least one visible,
-feed-visible article. The publisher chooser uses the existing editorial
-`display_order` and then its stable name/code ordering.
-
-If a followed publisher becomes inactive or loses all eligible feed articles,
-it does not appear in the Following feed or active chooser. Existing relationship
-rows may remain until the user next replaces the set or the publisher is hard
-deleted. Re-enabling an unchanged relationship makes it visible again. Hard
-deletion of an account or publisher cascades its follow relationships.
-
-Following zero publishers is valid. It produces a dedicated empty state rather
-than falling back to Latest, because silently changing scope would misrepresent
-the user's selection.
-
-### 11.4 Data model
-
-The database adds one relationship model:
-
-```text
-UserPublisherFollow
-- id: UUID primary key
-- user: UserAccount foreign key, CASCADE
-- publisher: Publisher foreign key, CASCADE
-- followed_at: creation timestamp
-```
-
-PostgreSQL enforces one row per `(user, publisher)`. No rank, weight, category,
-notification flag, recommendation score, or ordering column is added. Publisher
-display order remains editorial metadata on `Publisher`.
-
-### 11.5 API contract
-
-All operations require the existing bearer session and infer the user from it.
-
-The authenticated publisher collection adds user-specific follow state:
+`UserPublisherFollow` remains unique per `(user, publisher)` and has no weight,
+rank, category, notification, or recommendation columns. The existing endpoints
+remain the source of truth:
 
 ```http
 GET /api/v1/publishers
-```
-
-```json
-{
-  "items": [
-    {
-      "code": "yna",
-      "name": "연합뉴스",
-      "logo_url": null,
-      "is_followed": true
-    }
-  ]
-}
-```
-
-The user replaces the selectable follow set atomically:
-
-```http
 PUT /api/v1/me/followed-publishers
-Content-Type: application/json
-
-{"publisher_codes": ["yna", "hani"]}
 ```
 
-The array is required, contains unique publisher codes, and may be empty. The
-server normalizes duplicate inputs, rejects unknown or currently unselectable
-codes with `400 VALIDATION_ERROR`, locks the user preference boundary, and
-performs one transaction. Repeating the same set is idempotent. The response is:
+The replacement body is `{"publisher_codes": [...]}`. It may be empty, is
+idempotent, rejects unknown or unselectable publishers, and commits atomically.
 
-```json
-{"publisher_codes": ["yna", "hani"]}
-```
+`scope=FOLLOWING` remains a server query capability. Android uses it for the
+Home story feed rather than exposing a feed-scope selector. Web may retain its
+implemented Following control until its own navigation is redesigned.
 
-The article collection adds one optional scope:
+### 11.3 Android interaction
 
-```http
-GET /api/v1/articles?category=POLITICS&scope=FOLLOWING&limit=20&cursor=...
-```
+- The `언론사` News tab is the primary publisher directory and subscription
+  surface. Each publisher block exposes identity, one subscription action, and
+  at most three recent headlines.
+- MY exposes a second `구독한 언론사 관리` entry to the same account data.
+- Selecting publisher identity or `더보기` opens that publisher's ordinary
+  article list.
+- A signed-in row action replaces the server set atomically and shows a pending
+  state only on that row. A failure restores the confirmed state and leaves an
+  inline retry message.
+- A guest row action opens the shared contextual authentication sheet above the
+  directory. Choosing Login or Create account preserves the publisher-directory
+  origin; dismissal changes nothing and success does not replay the mutation.
+- Home requests the followed topic feed when the account follows at least one
+  publisher. A guest or empty follow set receives public topics and a quiet
+  path to the publisher directory.
+- There is no Android `최신/팔로잉` tab, dropdown, radio sheet, or empty state.
 
-`scope` is `ALL` or `FOLLOWING` and defaults to `ALL`. `FOLLOWING` intersects
-the ordinary visibility, active-publisher, category, search, and legacy
-repeatable `publisher` filters. An empty follow set returns an empty page with a
-null cursor, not an error.
+### 11.4 Consistency and states
 
-### 11.6 Pagination, consistency, and query boundary
+Follow state is account-specific. Android clears personalized rows on logout or
+account switch and reloads publishers after authentication. Publisher-list
+loading/failure, save progress/failure, and an empty selectable list are
+distinct states. Checkboxes or switches expose publisher names and checked
+state to accessibility services.
 
-A feed cursor is bound to scope and, for `FOLLOWING`, a stable fingerprint of
-the authenticated user's current followed publisher codes. Changing follows
-invalidates an old Following cursor with `INVALID_CURSOR`; the client reloads
-from the first page. This prevents duplicates or gaps when the filter changes
-mid-pagination.
+Changing follows invalidates any old followed-story cursor. The client reloads
+Home from the first page and never splices results from two follow sets.
 
-Publisher listing and Following pages use bounded queries and must not perform
-one follow lookup per publisher or article. PostgreSQL uniqueness is the source
-of truth. Concurrent full-set updates use last committed request wins semantics
-without exposing partial sets.
+### 11.5 Non-goals
 
-Follow state is account-specific. Web query keys include user ID and Android
-clears personalized state on logout. Neither client may render a previous
-user's follows or Following rows after an account switch on the same device.
-
-### 11.7 Web interaction
-
-- Place compact `Latest` and `Following` controls above the existing article
-  list; `Latest` remains visually and behaviorally primary.
-- Keep Politics and Society navigation unchanged.
-- Replace the persistent publisher-checkbox sidebar with a restrained
-  `Manage sources` action that opens a dialog or drawer using the existing
-  publisher list and checkbox vocabulary.
-- Changes remain a local draft until `Save`; `Cancel` discards them.
-- Disable duplicate submission while saving. On failure, retain the prior
-  server set and show an inline retryable error without closing the editor.
-- Article rows keep publisher, publication time, and headline. They do not
-  repeat the selected category or expose analysis lifecycle, follow, save,
-  reaction, comparison, or duplicate open controls.
-- Closing global search restores the previous Latest or Following feed and
-  scroll context.
-
-The layout preserves the existing editorial black-and-white design and remains
-usable at phone and desktop widths without adding a separate settings page.
-
-### 11.8 Android interaction
-
-- Reuse the existing compact source control beside the Politics and Society
-  tabs to expose `Latest` and `Following` through a bottom sheet.
-- The bottom sheet also exposes `Manage followed sources`; editing reuses the
-  current checkbox and explicit apply pattern.
-- Do not add a new bottom navigation destination or onboarding flow.
-- Returning from Reader restores the selected scope, list rows, pagination, and
-  scroll position in loaded, loading, and error states.
-- Server follow state replaces the current device-local publisher selection.
-  Existing local publisher codes are not silently uploaded to an account.
-- The category and analysis-visibility preferences may remain device-local.
-
-### 11.9 User-visible states and accessibility
-
-Both clients distinguish:
-
-- publisher list loading and failure;
-- follow-set save in progress and failure;
-- Following with no followed publishers;
-- Following with followed publishers but no article in the current category;
-- Following initial loading, populated list, pagination, and retry;
-- an old cursor invalidated after the follow set changes.
-
-The two empty states have different actions: `Manage sources` for no follows,
-and `View latest coverage` when the current category has no matching article.
-Scope controls expose selected state to assistive technology; checkboxes use
-publisher names; Save, Cancel, retry, and scope-change actions have distinct
-accessible names.
-
-### 11.10 Verification
-
-Automated verification covers authentication, relationship uniqueness and
-cascades, full-set replacement, validation, user isolation, source lifecycle,
-scope filtering, cursor invalidation, bounded queries, client draft/apply/error
-behavior, account cache isolation, and navigation-state restoration.
-
-Cross-client acceptance sets follows on Web, observes the same Following feed on
-Android, changes the set on Android, and observes the update on Web. It also
-confirms that an unfollowed publisher still appears as comparison evidence in a
-followed article's Reader when the stored analysis requires it.
-
-## 12. Following sources v1 non-goals
-
-- ranking, boosting, or recommending followed publishers inside Latest;
-- using follows as an analysis, clustering, or comparison-selection signal;
-- topic, reporter, series, keyword, or story-cluster follows;
-- publisher-specific home pages or publisher-curated editions;
-- per-category follow sets, custom source order, weights, or favorites tiers;
-- publisher blocks, mutes, notifications, or public follower counts;
-- automatic follows inferred from reading behavior;
-- a canonical article or clustered multi-headline feed card;
-- a separate account-settings page or forced onboarding;
-- offline synchronization or queued preference changes.
-
-These require separate product decisions. Following v1 adds only the explicit
-user-publisher relationship and the alternate discovery scope described above.
+- inferred subscriptions, publisher ranking, weights, or favorite tiers;
+- reporter, keyword, topic, or series follows;
+- publisher blocks, notifications, or public follower counts;
+- using follows as an analysis-quality or political-balance signal;
+- offline follow mutations or a queued synchronization system.

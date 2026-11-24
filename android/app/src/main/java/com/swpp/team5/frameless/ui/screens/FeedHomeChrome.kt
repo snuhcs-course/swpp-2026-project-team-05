@@ -17,8 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,13 +57,13 @@ import com.swpp.team5.frameless.ui.theme.Fl
  * the section header. Nothing here reads or invents data beyond what [ArticleSummary] already carries.
  */
 internal object HomeTokens {
-    val Navy = Color(0xFF1E2638)
-    val OffWhite = Color(0xFFF7F7F4)
-    val Surface = Color(0xFFFFFFFF)
-    val Lavender = Color(0xFFEEEAF7)
-    val LavenderInk = Color(0xFF5B4A93)
-    val Hairline = Color(0xFFE4E2EA)
-    val GuideWash = Color(0xFFF2EFF9)
+    val Navy: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurface
+    val OffWhite: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.background
+    val Surface: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surface
+    val Lavender: Color @Composable @ReadOnlyComposable get() = Fl.TintDiff
+    val LavenderInk: Color @Composable @ReadOnlyComposable get() = Fl.InkDiff
+    val Hairline: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.outline
+    val GuideWash: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surfaceVariant
 }
 
 /** Actions moved from the app bar into the left menu, in display order. Labels are the existing ones. */
@@ -251,11 +253,12 @@ internal fun ReadingGuideRail(onClick: () -> Unit) {
             Spacer(Modifier.width(10.dp))
             ConvergingMarksMotif()
             Spacer(Modifier.width(6.dp))
+            val arrowInk = HomeTokens.Navy
             Canvas(Modifier.size(14.dp).clearAndSetSemantics { }) {
                 val stroke = 1.6.dp.toPx()
-                drawLine(HomeTokens.Navy, Offset(size.width * 0.35f, size.height * 0.2f),
+                drawLine(arrowInk, Offset(size.width * 0.35f, size.height * 0.2f),
                     Offset(size.width * 0.7f, size.height * 0.5f), stroke, StrokeCap.Round)
-                drawLine(HomeTokens.Navy, Offset(size.width * 0.7f, size.height * 0.5f),
+                drawLine(arrowInk, Offset(size.width * 0.7f, size.height * 0.5f),
                     Offset(size.width * 0.35f, size.height * 0.8f), stroke, StrokeCap.Round)
             }
         }
@@ -265,6 +268,9 @@ internal fun ReadingGuideRail(onClick: () -> Unit) {
 /** Two short text-line marks, each with an underline, converging on one shared point. Decorative only. */
 @Composable
 private fun ConvergingMarksMotif() {
+    val ink = HomeTokens.Navy
+    val lavender = HomeTokens.Lavender
+    val lavenderInk = HomeTokens.LavenderInk
     Canvas(Modifier.size(width = 52.dp, height = 36.dp).clearAndSetSemantics { }) {
         val w = size.width
         val h = size.height
@@ -272,21 +278,21 @@ private fun ConvergingMarksMotif() {
         val bar = 3.dp.toPx()
         val meet = Offset(w * 0.86f, h * 0.5f)
         // Upper "text line" with its underline mark.
-        drawLine(HomeTokens.Navy.copy(alpha = 0.22f), Offset(w * 0.04f, h * 0.18f), Offset(w * 0.40f, h * 0.18f),
+        drawLine(ink.copy(alpha = 0.22f), Offset(w * 0.04f, h * 0.18f), Offset(w * 0.40f, h * 0.18f),
             bar, StrokeCap.Round)
-        drawLine(HomeTokens.LavenderInk, Offset(w * 0.04f, h * 0.30f), Offset(w * 0.30f, h * 0.30f),
+        drawLine(lavenderInk, Offset(w * 0.04f, h * 0.30f), Offset(w * 0.30f, h * 0.30f),
             thin, StrokeCap.Round)
         // Lower "text line" with its underline mark.
-        drawLine(HomeTokens.Navy.copy(alpha = 0.22f), Offset(w * 0.04f, h * 0.70f), Offset(w * 0.34f, h * 0.70f),
+        drawLine(ink.copy(alpha = 0.22f), Offset(w * 0.04f, h * 0.70f), Offset(w * 0.34f, h * 0.70f),
             bar, StrokeCap.Round)
-        drawLine(HomeTokens.LavenderInk, Offset(w * 0.04f, h * 0.82f), Offset(w * 0.26f, h * 0.82f),
+        drawLine(lavenderInk, Offset(w * 0.04f, h * 0.82f), Offset(w * 0.26f, h * 0.82f),
             thin, StrokeCap.Round)
         // Both underlines lead to one shared point.
-        drawLine(HomeTokens.LavenderInk.copy(alpha = 0.7f), Offset(w * 0.30f, h * 0.30f), meet, thin, StrokeCap.Round)
-        drawLine(HomeTokens.LavenderInk.copy(alpha = 0.7f), Offset(w * 0.26f, h * 0.82f), meet, thin, StrokeCap.Round)
-        drawCircle(HomeTokens.Lavender, radius = 4.5.dp.toPx(), center = meet)
-        drawCircle(HomeTokens.LavenderInk, radius = 4.5.dp.toPx(), center = meet, style = Stroke(thin))
-        drawCircle(HomeTokens.LavenderInk, radius = 1.6.dp.toPx(), center = meet)
+        drawLine(lavenderInk.copy(alpha = 0.7f), Offset(w * 0.30f, h * 0.30f), meet, thin, StrokeCap.Round)
+        drawLine(lavenderInk.copy(alpha = 0.7f), Offset(w * 0.26f, h * 0.82f), meet, thin, StrokeCap.Round)
+        drawCircle(lavender, radius = 4.5.dp.toPx(), center = meet)
+        drawCircle(lavenderInk, radius = 4.5.dp.toPx(), center = meet, style = Stroke(thin))
+        drawCircle(lavenderInk, radius = 1.6.dp.toPx(), center = meet)
     }
 }
 
@@ -295,6 +301,7 @@ internal fun FeedMenuButton(
     onTutorialOpen: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val menuInk = Fl.Ink
     Box {
         IconButton(
             onClick = { expanded = true },
@@ -304,7 +311,7 @@ internal fun FeedMenuButton(
                 val stroke = 1.8.dp.toPx()
                 listOf(0.25f, 0.5f, 0.75f).forEachIndexed { index, y ->
                     drawLine(
-                        Fl.Ink,
+                        menuInk,
                         Offset(size.width * 0.12f, size.height * y),
                         Offset(size.width * (if (index == 2) 0.62f else 0.88f), size.height * y),
                         strokeWidth = stroke,
@@ -340,19 +347,20 @@ internal fun FeedMenuButton(
 
 @Composable
 private fun FeedMenuGlyph(item: FeedMenuItem) {
+    val iconInk = Fl.Ink2
     Canvas(Modifier.size(18.dp)) {
         val w = size.width
         val stroke = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         when (item) {
             FeedMenuItem.TUTORIAL -> {
-                drawCircle(Fl.Ink2, radius = w * 0.42f, style = stroke)
+                drawCircle(iconInk, radius = w * 0.42f, style = stroke)
                 val q = Path().apply {
                     moveTo(w * 0.36f, w * 0.38f)
                     cubicTo(w * 0.36f, w * 0.22f, w * 0.64f, w * 0.22f, w * 0.64f, w * 0.38f)
                     cubicTo(w * 0.64f, w * 0.5f, w * 0.5f, w * 0.5f, w * 0.5f, w * 0.6f)
                 }
-                drawPath(q, Fl.Ink2, style = stroke)
-                drawCircle(Fl.Ink2, radius = w * 0.05f, center = Offset(w * 0.5f, w * 0.75f))
+                drawPath(q, iconInk, style = stroke)
+                drawCircle(iconInk, radius = w * 0.05f, center = Offset(w * 0.5f, w * 0.75f))
             }
         }
     }

@@ -19,12 +19,19 @@ internal data class PublisherItem(
     val code: String,
     val name: String,
     val logoUrl: String?,
-    val isFollowed: Boolean = false
+    val isFollowed: Boolean = false,
+    val recentArticles: List<PublisherArticlePreview> = emptyList()
+)
+
+internal data class PublisherArticlePreview(
+    val id: String,
+    val title: String,
+    val publishedAt: String
 )
 
 internal enum class FeedScope(val wire: String, val label: String) {
     ALL("ALL", "최신"),
-    FOLLOWING("FOLLOWING", "팔로잉")
+    FOLLOWING("FOLLOWING", "구독")
 }
 
 internal enum class NewsCategory(val wire: String, val label: String) {
@@ -62,6 +69,19 @@ internal data class ArticlePage(
     val items: List<ArticleSummary>,
     val nextCursor: String?,
     val totalCount: Int? = null
+)
+
+internal data class StorySummary(
+    val storyKey: String,
+    val representativeArticle: ArticleSummary,
+    val publisherCount: Int,
+    val publishers: List<PublisherItem>,
+    val latestPublishedAt: String
+)
+
+internal data class StoryPage(
+    val items: List<StorySummary>,
+    val nextCursor: String?
 )
 
 internal data class ArticleDetail(

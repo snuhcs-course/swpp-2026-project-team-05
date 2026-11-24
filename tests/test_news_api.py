@@ -164,6 +164,93 @@ class NewsApiTests(TestCase):
         remove = self.client.delete(f"/api/v1/saved-articles/{self.source.id}")
         self.assertEqual(remove.status_code, 401)
 
+    def test_story_feed_groups_coverage_and_is_stable(self):
+        first = self.client.get("/api/v1/stories")
+        second = self.client.get("/api/v1/stories")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json(), second.json())
+        self.assertEqual(len(first.json()["items"]), 1)
+        story = first.json()["items"][0]
+        self.assertEqual(story["story_key"], f"cluster:{self.cluster.id}")
+        self.assertEqual(story["publisher_count"], 2)
+        self.assertEqual(
+            {publisher["code"] for publisher in story["publishers"]},
+            {"yna", "mbc"},
+        )
+
+    def test_story_feed_prefers_a_followed_publisher(self):
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.mbc)
+        response = self.client.get("/api/v1/stories", **self.auth)
+        self.assertEqual(response.status_code, 200)
+        representative = response.json()["items"][0]["representative_article"]
+        self.assertEqual(representative["publisher"]["code"], "mbc")
+
+    def test_following_story_feed_requires_auth_and_filters_topics(self):
+        self.assertEqual(
+            self.client.get("/api/v1/stories?scope=FOLLOWING").status_code,
+            401,
+        )
+        UserPublisherFollow.objects.create(user=self.user, publisher=self.mbc)
+        response = self.client.get("/api/v1/stories?scope=FOLLOWING", **self.auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["items"]), 1)
+        self.assertEqual(
+            response.json()["items"][0]["representative_article"]["publisher"]["code"],
+            "mbc",
+        )
+
+    def test_story_feed_cursor_is_stable_and_context_bound(self):
+        second_cluster = StoryCluster.objects.create(
+            internal_label="후속 정책",
+            category=NewsCategory.POLITICS,
+            analysis_status=AnalysisStatus.READY,
+        )
+        Article.objects.create(
+            publisher=self.yna,
+            story_cluster=second_cluster,
+            canonical_url="https://example.com/second-cluster",
+            title="후속 정책 기사",
+            body_text="후속 정책 본문",
+            content_hash="1" * 64,
+            category=NewsCategory.POLITICS,
+            published_at=timezone.now() - timedelta(days=1),
+        )
+        first = self.client.get("/api/v1/stories?category=POLITICS&limit=1")
+        self.assertEqual(first.status_code, 200)
+        cursor = first.json()["next_cursor"]
+        self.assertIsNotNone(cursor)
+        second = self.client.get(
+            "/api/v1/stories",
+            {"category": "POLITICS", "limit": 1, "cursor": cursor},
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertNotEqual(
+            first.json()["items"][0]["story_key"],
+            second.json()["items"][0]["story_key"],
+        )
+        invalid = self.client.get(
+            "/api/v1/stories",
+            {"category": "SOCIETY", "limit": 1, "cursor": cursor},
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.json()["error"]["code"], "INVALID_CURSOR")
+
+    def test_story_feed_keeps_unclustered_articles(self):
+        article = Article.objects.create(
+            publisher=self.yna,
+            story_cluster=None,
+            canonical_url="https://example.com/unclustered",
+            title="아직 묶이지 않은 기사",
+            body_text="기사 본문",
+            content_hash="2" * 64,
+            category=NewsCategory.SOCIETY,
+            published_at=timezone.now() + timedelta(minutes=1),
+        )
+        response = self.client.get("/api/v1/stories?category=SOCIETY")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["story_key"], f"article:{article.id}")
+        self.assertEqual(response.json()["items"][0]["publisher_count"], 1)
+
     def test_invalid_supplied_token_is_not_downgraded_to_guest(self):
         for authorization in ("Bearer invalid-token", "Basic malformed"):
             headers = {"HTTP_AUTHORIZATION": authorization}
@@ -952,7 +1039,8 @@ class NewsApiTests(TestCase):
             self.client.get(
                 "/api/v1/articles?category=POLITICS&scope=FOLLOWING", **self.auth
             )
-        with self.assertNumQueries(2):
+        # Auth + publisher directory + one bounded window query for three previews per publisher.
+        with self.assertNumQueries(3):
             self.client.get("/api/v1/publishers", **self.auth)
         with self.assertNumQueries(4):
             self.client.get(f"/api/v1/articles/{self.source.id}/analysis", **self.auth)

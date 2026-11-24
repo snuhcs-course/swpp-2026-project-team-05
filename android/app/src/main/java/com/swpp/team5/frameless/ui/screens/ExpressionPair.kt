@@ -154,12 +154,13 @@ private fun ExpressionSideBlock(role: String, filledTag: Boolean, side: Expressi
             append("”")
         }
     }
-    val context = remember(side) {
+    val contextInk = Fl.Ink2
+    val context = remember(side, contextInk) {
         buildAnnotatedString {
             append(side.context)
             side.phraseInContext?.let { range ->
                 addStyle(
-                    SpanStyle(color = Fl.Ink2, textDecoration = TextDecoration.Underline),
+                    SpanStyle(color = contextInk, textDecoration = TextDecoration.Underline),
                     range.first, range.last + 1
                 )
             }

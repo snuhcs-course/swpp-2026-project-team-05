@@ -7,6 +7,26 @@ internal interface NewsDataSource {
     suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String>
     suspend fun articles(category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, query: String? = null): ArticlePage
+    suspend fun stories(category: NewsCategory?, scope: FeedScope,
+                        cursor: String? = null): StoryPage {
+        val page = articles(category, scope, cursor)
+        return StoryPage(
+            page.items.map { article ->
+                StorySummary(
+                    storyKey = "article:${article.id}",
+                    representativeArticle = article,
+                    publisherCount = 1,
+                    publishers = listOf(article.publisher),
+                    latestPublishedAt = article.publishedAt
+                )
+            },
+            page.nextCursor
+        )
+    }
+    suspend fun publisherArticles(publisherCode: String, cursor: String? = null): ArticlePage =
+        articles(null, FeedScope.ALL, cursor).let { page ->
+            page.copy(items = page.items.filter { it.publisher.code == publisherCode })
+        }
     suspend fun offlineSavedArticles(category: NewsCategory? = null): ArticlePage? = null
     suspend fun article(articleId: String): ArticleDetail
     suspend fun cachedArticle(articleId: String): ArticleDetail? = null
@@ -52,6 +72,17 @@ internal class NewsRepository(
             category, scope, cursor, query = query
         )
     }
+
+    override suspend fun stories(category: NewsCategory?, scope: FeedScope,
+                                 cursor: String?): StoryPage = service.stories(
+        if (scope == FeedScope.FOLLOWING) token() else optionalToken(),
+        category,
+        scope,
+        cursor
+    )
+
+    override suspend fun publisherArticles(publisherCode: String, cursor: String?): ArticlePage =
+        service.publisherArticles(optionalToken(), publisherCode, cursor)
 
     override suspend fun offlineSavedArticles(category: NewsCategory?): ArticlePage? =
         auth.currentSession()?.user?.id?.let { cache.offlineSavedArticles(it, category) }

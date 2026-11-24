@@ -51,3 +51,6 @@ removed or edited.
 `acceptance-v1.spec.md` remains the frozen Iteration 3 plan. Product changes
 that intentionally replace one of its assumptions belong in a new version such
 as `acceptance-v2.spec.md`, preserving the old plan as historical evidence.
+
+`story-feed.spec.md` covers the topic-grouped discovery contract and explicitly
+keeps search, publisher pages, and Saved article-based.

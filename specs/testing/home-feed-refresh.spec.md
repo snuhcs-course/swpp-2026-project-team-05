@@ -2,12 +2,17 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Archived regression record; portal-shell assertions supersede navigation tests |
 | Owner | Android UI owner |
 | Source requirements | [`../features/home-feed-refresh.md`](../features/home-feed-refresh.md) |
 | Last reviewed | 2026-11-24 |
 
 ## Scope
+
+These tests describe the earlier article-feed presentation. Tests for the old
+app-bar menu, equal-width category tabs, and scope sheet must not be used as
+oracles for the current Android root shell. Current behavior is covered by
+[`story-feed.spec.md`](story-feed.spec.md) and the UI specification.
 
 The Android home app bar menu, the directly reachable app-bar actions, the
 lead article cover (phases 2–3), the editorial feed rows and the per-category

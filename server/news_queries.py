@@ -8,7 +8,8 @@ from datetime import datetime
 from uuid import UUID
 
 from django.core import signing
-from django.db.models import BooleanField, Exists, OuterRef, Prefetch, Q, Value
+from django.db.models import BooleanField, Exists, F, Max, OuterRef, Prefetch, Q, Value, Window
+from django.db.models.functions import RowNumber
 from django.utils.dateparse import parse_datetime
 
 from .article_search import apply_article_search, search_excerpt
@@ -29,10 +30,22 @@ from .models import (
 
 
 CURSOR_SALT = "frameless.news-feed.v2"
+STORY_CURSOR_SALT = "frameless.story-feed.v1"
 
 
 class InvalidCursor(ValueError):
     pass
+
+
+def _followed_publisher_codes(user: UserAccount | None) -> list[str]:
+    if user is None:
+        return []
+    return list(
+        UserPublisherFollow.objects
+        .filter(user=user, publisher__is_active=True)
+        .order_by("publisher__code")
+        .values_list("publisher__code", flat=True)
+    )
 
 
 def publisher_payload(publisher: Publisher) -> dict:
@@ -139,10 +152,36 @@ def list_publishers(*, user: UserAccount | None) -> list[dict]:
             .annotate(is_followed=followed)
             .distinct()
             .order_by("display_order", "name_ko", "code"))
+    publisher_rows = list(rows)
+    recent_rows = (
+        Article.objects
+        .filter(
+            publisher_id__in=[row.id for row in publisher_rows],
+            visibility=ArticleVisibility.VISIBLE,
+            is_feed_visible=True,
+        )
+        .annotate(
+            publisher_rank=Window(
+                expression=RowNumber(),
+                partition_by=[F("publisher_id")],
+                order_by=[F("published_at").desc(), F("id").desc()],
+            )
+        )
+        .filter(publisher_rank__lte=3)
+        .order_by("publisher_id", "-published_at", "-id")
+    )
+    recent_by_publisher: dict[UUID, list[dict]] = {}
+    for article in recent_rows:
+        recent_by_publisher.setdefault(article.publisher_id, []).append({
+            "id": str(article.id),
+            "title": article.title,
+            "published_at": article.published_at,
+        })
     payloads = []
-    for row in rows:
+    for row in publisher_rows:
         payload = publisher_payload(row)
         payload["is_followed"] = bool(row.is_followed)
+        payload["recent_articles"] = recent_by_publisher.get(row.id, [])
         payloads.append(payload)
     return payloads
 
@@ -155,11 +194,7 @@ def list_articles(*, user: UserAccount | None, category: str | None,
         if user is not None else Value(False, output_field=BooleanField())
     )
     followed_publisher_codes = (
-        list(UserPublisherFollow.objects
-             .filter(user=user, publisher__is_active=True)
-             .order_by("publisher__code")
-             .values_list("publisher__code", flat=True))
-        if scope == "FOLLOWING" else []
+        _followed_publisher_codes(user) if scope == "FOLLOWING" else []
     )
     queryset = (Article.objects
                 .filter(
@@ -222,6 +257,234 @@ def list_articles(*, user: UserAccount | None, category: str | None,
     if query:
         payload["total_count"] = total_count
     return payload
+
+
+def _story_context(*, user: UserAccount | None, category: str | None,
+                   scope: str, followed_publisher_codes: list[str]) -> str:
+    canonical = json.dumps(
+        {
+            "category": category or "",
+            "scope": scope,
+            "viewer": str(user.id) if user is not None else "anonymous",
+            "follows": followed_publisher_codes,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()[:24]
+
+
+def _encode_story_cursor(*, latest_published_at: datetime, story_key: str,
+                         context: str) -> str:
+    return signing.dumps(
+        {
+            "v": 1,
+            "context": context,
+            "latest_published_at": latest_published_at.isoformat(),
+            "story_key": story_key,
+        },
+        salt=STORY_CURSOR_SALT,
+        compress=True,
+    )
+
+
+def _decode_story_cursor(value: str, *, context: str) -> tuple[datetime, str]:
+    try:
+        payload = signing.loads(
+            value, salt=STORY_CURSOR_SALT, max_age=60 * 60 * 24 * 7,
+        )
+        if payload.get("v") != 1 or payload.get("context") != context:
+            raise ValueError
+        latest = parse_datetime(str(payload["latest_published_at"]))
+        story_key = str(payload["story_key"])
+        if latest is None or latest.tzinfo is None:
+            raise ValueError
+        prefix, raw_id = story_key.split(":", 1)
+        if prefix not in {"cluster", "article"}:
+            raise ValueError
+        UUID(raw_id)
+        return latest, story_key
+    except (signing.BadSignature, KeyError, TypeError, ValueError) as exc:
+        raise InvalidCursor from exc
+
+
+def _representative_article(*, story_key: str, articles: list[Article],
+                            user: UserAccount | None,
+                            followed_publisher_codes: set[str]) -> Article:
+    newest_by_publisher: dict[str, Article] = {}
+    for article in sorted(articles, key=lambda row: (row.published_at, row.id), reverse=True):
+        newest_by_publisher.setdefault(article.publisher.code, article)
+    candidates = list(newest_by_publisher.values())
+    followed_candidates = [
+        article for article in candidates
+        if article.publisher.code in followed_publisher_codes
+    ]
+    if followed_candidates:
+        candidates = followed_candidates
+    viewer_key = str(user.id) if user is not None else "anonymous"
+    return min(
+        candidates,
+        key=lambda article: hashlib.sha256(
+            f"{story_key}:{viewer_key}:{article.publisher.code}".encode()
+        ).hexdigest(),
+    )
+
+
+def list_stories(*, user: UserAccount | None, category: str | None,
+                 cursor: str | None, limit: int, scope: str = "ALL") -> dict:
+    """Return one bounded discovery item per cluster before pagination."""
+    followed_codes = _followed_publisher_codes(user)
+    followed_set = set(followed_codes)
+    context = _story_context(
+        user=user,
+        category=category,
+        scope=scope,
+        followed_publisher_codes=followed_codes,
+    )
+    cursor_latest: datetime | None = None
+    cursor_key: str | None = None
+    if cursor:
+        cursor_latest, cursor_key = _decode_story_cursor(cursor, context=context)
+
+    eligible = Article.objects.filter(
+        visibility=ArticleVisibility.VISIBLE,
+        is_feed_visible=True,
+        publisher__is_active=True,
+    )
+    if category:
+        eligible = eligible.filter(category=category)
+    if scope == "FOLLOWING":
+        eligible = eligible.filter(publisher__code__in=followed_codes)
+
+    clustered = (
+        eligible.filter(story_cluster__isnull=False)
+        .values("story_cluster_id")
+        .annotate(latest_published_at=Max("published_at"))
+    )
+    singletons = eligible.filter(story_cluster__isnull=True)
+
+    if cursor_latest is not None and cursor_key is not None:
+        cursor_prefix, cursor_raw_id = cursor_key.split(":", 1)
+        cursor_uuid = UUID(cursor_raw_id)
+        clustered_after = Q(latest_published_at__lt=cursor_latest)
+        singleton_after = Q(published_at__lt=cursor_latest)
+        if cursor_prefix == "cluster":
+            clustered_after |= Q(
+                latest_published_at=cursor_latest,
+                story_cluster_id__gt=cursor_uuid,
+            )
+        else:
+            singleton_after |= Q(published_at=cursor_latest, id__gt=cursor_uuid)
+            clustered_after |= Q(latest_published_at=cursor_latest)
+        clustered = clustered.filter(clustered_after)
+        singletons = singletons.filter(singleton_after)
+
+    cluster_positions = list(
+        clustered.order_by("-latest_published_at", "story_cluster_id")[:limit + 1]
+    )
+    singleton_positions = list(
+        singletons.values("id", "published_at")
+        .order_by("-published_at", "id")[:limit + 1]
+    )
+    positions = [
+        {
+            "story_key": f"cluster:{row['story_cluster_id']}",
+            "latest_published_at": row["latest_published_at"],
+            "cluster_id": row["story_cluster_id"],
+            "article_id": None,
+        }
+        for row in cluster_positions
+    ] + [
+        {
+            "story_key": f"article:{row['id']}",
+            "latest_published_at": row["published_at"],
+            "cluster_id": None,
+            "article_id": row["id"],
+        }
+        for row in singleton_positions
+    ]
+    positions.sort(key=lambda row: (-row["latest_published_at"].timestamp(), row["story_key"]))
+    visible_positions = positions[:limit]
+    has_more = len(positions) > limit
+
+    cluster_ids = [row["cluster_id"] for row in visible_positions if row["cluster_id"]]
+    singleton_ids = [row["article_id"] for row in visible_positions if row["article_id"]]
+    coverage = Article.objects.filter(
+        Q(story_cluster_id__in=cluster_ids) | Q(id__in=singleton_ids),
+        visibility=ArticleVisibility.VISIBLE,
+        is_feed_visible=True,
+        publisher__is_active=True,
+    )
+    if category:
+        coverage = coverage.filter(category=category)
+    coverage_rows = list(coverage.select_related("publisher", "story_cluster"))
+    articles_by_story: dict[str, list[Article]] = {}
+    for article in coverage_rows:
+        story_key = (
+            f"cluster:{article.story_cluster_id}"
+            if article.story_cluster_id else f"article:{article.id}"
+        )
+        articles_by_story.setdefault(story_key, []).append(article)
+
+    representative_by_story: dict[str, Article] = {}
+    for position in visible_positions:
+        story_key = position["story_key"]
+        candidates = articles_by_story[story_key]
+        if scope == "FOLLOWING":
+            candidates = [
+                article for article in candidates
+                if article.publisher.code in followed_set
+            ]
+        representative_by_story[story_key] = _representative_article(
+            story_key=story_key,
+            articles=candidates,
+            user=user,
+            followed_publisher_codes=followed_set,
+        )
+
+    saved_ids = set()
+    if user is not None:
+        saved_ids = set(
+            SavedArticle.objects.filter(
+                user=user,
+                article_id__in=[article.id for article in representative_by_story.values()],
+            ).values_list("article_id", flat=True)
+        )
+
+    items = []
+    for position in visible_positions:
+        story_key = position["story_key"]
+        articles = articles_by_story[story_key]
+        representative = representative_by_story[story_key]
+        publishers = {
+            article.publisher.code: article.publisher for article in articles
+        }
+        ordered_publishers = sorted(
+            publishers.values(), key=lambda publisher: (
+                publisher.display_order, publisher.name_ko, publisher.code,
+            ),
+        )
+        items.append({
+            "story_key": story_key,
+            "representative_article": article_summary_payload(
+                representative,
+                is_saved=representative.id in saved_ids,
+            ),
+            "publisher_count": len(ordered_publishers),
+            "publishers": [publisher_payload(row) for row in ordered_publishers],
+            "latest_published_at": position["latest_published_at"],
+        })
+
+    next_cursor = None
+    if has_more and visible_positions:
+        last = visible_positions[-1]
+        next_cursor = _encode_story_cursor(
+            latest_published_at=last["latest_published_at"],
+            story_key=last["story_key"],
+            context=context,
+        )
+    return {"items": items, "next_cursor": next_cursor}
 
 
 def get_article(article_id: UUID, *, user: UserAccount | None = None) -> Article | None:

@@ -105,6 +105,7 @@ internal fun NewsFeedScreen(
     onLogin: () -> Unit,
     onLogout: () -> Unit,
     onTutorialOpen: () -> Unit = {},
+    rootShell: Boolean = false,
 ) {
     var showFeedScope by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
@@ -151,46 +152,63 @@ internal fun NewsFeedScreen(
                     onClose = onSearchClose
                 )
             } else {
-                Row(
-                    Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FeedMenuButton(onTutorialOpen = onTutorialOpen)
-                    BrandRow()
-                    Spacer(Modifier.weight(1f))
-                    IconButton(
-                        onClick = {
-                            savedFeedIndex = listState.firstVisibleItemIndex
-                            savedFeedOffset = listState.firstVisibleItemScrollOffset
-                            onSearchOpen()
-                        },
-                        modifier = Modifier.size(44.dp).semantics {
-                            contentDescription = "기사 검색"
-                        }
+                if (rootShell) {
+                    Row(
+                        Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink,
-                            modifier = Modifier.size(22.dp))
+                        Text("뉴스", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            "FRAMELESS",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            color = Fl.Muted
+                        )
                     }
-                    IconButton(
-                        onClick = onSavedOpen,
-                        modifier = Modifier.size(44.dp).semantics {
-                            contentDescription = "저장한 기사"
-                        }
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ArticleBookmarkIcon(true, Fl.Ink, Modifier.size(19.dp))
-                    }
-                    Box(
-                        Modifier.padding(start = 4.dp, end = 14.dp).size(32.dp)
-                            .background(HomeTokens.Lavender, CircleShape)
-                            .clickable { showAccount = true }
-                            .semantics {
-                                role = Role.Button
-                                contentDescription = "계정 메뉴"
+                        FeedMenuButton(onTutorialOpen = onTutorialOpen)
+                        BrandRow()
+                        Spacer(Modifier.weight(1f))
+                        IconButton(
+                            onClick = {
+                                savedFeedIndex = listState.firstVisibleItemIndex
+                                savedFeedOffset = listState.firstVisibleItemScrollOffset
+                                onSearchOpen()
                             },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(session?.user?.username?.take(1)?.uppercase() ?: "↗",
-                            color = HomeTokens.LavenderInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            modifier = Modifier.size(44.dp).semantics {
+                                contentDescription = "기사 검색"
+                            }
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = Fl.Ink,
+                                modifier = Modifier.size(22.dp))
+                        }
+                        IconButton(
+                            onClick = onSavedOpen,
+                            modifier = Modifier.size(44.dp).semantics {
+                                contentDescription = "저장한 기사"
+                            }
+                        ) {
+                            ArticleBookmarkIcon(true, Fl.Ink, Modifier.size(19.dp))
+                        }
+                        Box(
+                            Modifier.padding(start = 4.dp, end = 14.dp).size(32.dp)
+                                .background(HomeTokens.Lavender, CircleShape)
+                                .clickable { showAccount = true }
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "계정 메뉴"
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(session?.user?.username?.take(1)?.uppercase() ?: "↗",
+                                color = HomeTokens.LavenderInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -221,7 +239,7 @@ internal fun NewsFeedScreen(
                     Spacer(Modifier.weight(1f))
                     Text(
                         if (state.scope == FeedScope.ALL) "최신  ⌄"
-                        else "팔로잉 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
+                        else "구독 · ${state.publishers.count { it.isFollowed }}곳  ⌄",
                         color = Fl.Ink2,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
@@ -267,12 +285,12 @@ internal fun NewsFeedScreen(
             state.items.isEmpty() -> FeedMessage(
                 title = if (state.isOffline) "오프라인에서 읽을 저장 기사가 없어요"
                 else if (state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed })
-                    "팔로우한 언론사가 없어요" else "새 기사가 없어요",
+                    "구독한 언론사가 없어요" else "새 기사가 없어요",
                 detail = when {
                     state.isOffline -> "온라인에서 기사를 저장하면 본문과 분석을 이 기기에서 다시 볼 수 있어요."
                     state.scope == FeedScope.FOLLOWING && state.publishers.none { it.isFollowed } ->
-                        "자주 읽는 언론사를 선택해 팔로잉 피드를 만들어 보세요."
-                    state.scope == FeedScope.FOLLOWING -> "이 분야에는 팔로우한 언론사의 새 기사가 없어요."
+                        "자주 읽는 언론사를 선택해 구독 피드를 만들어 보세요."
+                    state.scope == FeedScope.FOLLOWING -> "이 분야에는 구독한 언론사의 새 기사가 없어요."
                     else -> "잠시 후 새로고침해 주세요."
                 },
                 action = when {
@@ -334,7 +352,7 @@ internal fun NewsFeedScreen(
                                 else if (state.isRefreshing) "새 기사를 확인하는 중…"
                                 else if (state.activeSearchQuery.isNotBlank())
                                     "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
-                                else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
+                                else if (state.scope == FeedScope.FOLLOWING) "구독 언론사 · 최신순"
                                 else "전체 언론사 · 최신순"
                         )
                         if (split.rest.isNotEmpty()) FeedRowDivider()
@@ -406,7 +424,7 @@ internal fun NewsFeedScreen(
                 Text(if (session == null) "게스트로 읽는 중" else "계정",
                     fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
                 if (session == null) {
-                    Caption("저장과 팔로잉은 로그인 후 사용할 수 있어요.")
+                    Caption("저장과 구독은 로그인 후 사용할 수 있어요.")
                     HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(vertical = 8.dp))
                     Text("로그인", color = Fl.Accent, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.fillMaxWidth().clickable {
@@ -760,7 +778,7 @@ private fun FeedScopeSheet(
                     onClick = { onScope(FeedScope.ALL) }
                 )
                 FeedScopeOption(
-                    label = "팔로잉",
+                    label = "구독",
                     detail = if (followedCount == 0) "선택한 언론사 없음" else "${followedCount}개 언론사",
                     selected = scope == FeedScope.FOLLOWING,
                     onClick = { onScope(FeedScope.FOLLOWING) }
@@ -799,7 +817,7 @@ private fun PublisherFollowSheet(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable(enabled = !isSaving) { onApply(draft) }.padding(10.dp))
             }
-            Caption("선택한 언론사는 팔로잉 피드에만 반영되며 기사 분석에는 영향을 주지 않아요.")
+            Caption("선택한 언론사는 구독 피드에만 반영되며 기사 분석에는 영향을 주지 않아요.")
             HorizontalDivider(color = Fl.Line)
             publishers.forEach { publisher ->
                 CheckboxRow(publisher.name, publisher.code in draft) {

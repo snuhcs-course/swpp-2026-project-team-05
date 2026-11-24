@@ -147,7 +147,9 @@ internal fun List<ReaderTarget>.nonOverlapping(): List<ReaderTarget> {
 internal fun sourceReaderText(
     reader: ReaderResult,
     targets: List<ReaderTarget>,
-    showExpressions: Boolean = true
+    showExpressions: Boolean = true,
+    danger: Color = Color(0xFFA3271E),
+    differenceInk: Color = Color(0xFF5E3FA0)
 ): AnnotatedString {
     val byStart = if (showExpressions) {
         targets.filter { it.codes.isNotEmpty() }.associateBy { it.span.start }
@@ -165,7 +167,7 @@ internal fun sourceReaderText(
             }
             starsByEnd[offset]?.forEach { star ->
                 pushStringAnnotation("i1_star", star.sourceSentenceId)
-                pushStyle(SpanStyle(color = Fl.Danger, fontWeight = FontWeight.Bold))
+                pushStyle(SpanStyle(color = danger, fontWeight = FontWeight.Bold))
                 // Keep the star with the sentence ending, before any following paragraph break.
                 append("\u2060★")
                 pop()
@@ -173,7 +175,7 @@ internal fun sourceReaderText(
             }
             if (ending?.codes?.isNotEmpty() == true) {
                 pushStringAnnotation("reader_target", ending.key)
-                pushStyle(SpanStyle(color = Fl.InkDiff, fontWeight = FontWeight.Bold))
+                pushStyle(SpanStyle(color = differenceInk, fontWeight = FontWeight.Bold))
                 append(" 〔${ending.codes.joinToString("·")}〕")
                 pop()
                 pop()
@@ -204,8 +206,10 @@ internal fun ReaderScreen(
         if (showExpressions) reader.targets().nonOverlapping() else emptyList()
     }
     val statusNotice = readerStatusNotice(reader, analysisStatus)
-    val body = remember(reader, targets, showExpressions) {
-        sourceReaderText(reader, targets, showExpressions)
+    val danger = Fl.Danger
+    val differenceInk = Fl.InkDiff
+    val body = remember(reader, targets, showExpressions, danger, differenceInk) {
+        sourceReaderText(reader, targets, showExpressions, danger, differenceInk)
     }
     var selected by remember(reader) { mutableStateOf<ReaderTarget?>(null) }
     var selectedStar by remember(reader) { mutableStateOf<ReaderI1Star?>(null) }

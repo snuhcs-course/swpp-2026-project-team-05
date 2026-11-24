@@ -32,9 +32,13 @@ label guide dialog.
 - [Unit] With comparisons, the coach advances TAP_FINDING → ANNOTATION_DOCK →
   COMPARISON and persists only when finished.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.fullReaderCoachWithComparisonsAdvancesThroughThreeStepsAndPersists`
-- [Unit] The feed `?` button shows onboarding again and re-arms the reader
-  coach for the next article with findings.\
+- [Unit] Replaying onboarding re-arms the reader coach for the next article
+  with findings.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.replayShowsIntroAgainAndRearmsTheReaderCoach`
+- [Component] The replay/help action appears in the all-topics `뉴스` section
+  and MY, but not in `언론사`, `정치`, `사회`, or `경제`.\
+  Tip: add semantics-driven Compose coverage after the News section shell is
+  implemented.
 - [Acceptance] Onboarding page 3 lists A–G with the chip label and a one-line
   summary; a signed-in replay hides `로그인하러 가기`.\
   Tip: add a Compose UI test that pages to the third page.

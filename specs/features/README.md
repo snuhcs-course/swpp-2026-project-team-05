@@ -25,3 +25,7 @@ Following-sources feature and has no Web or server-side tutorial state.
 selects a body finding immediately as the reading position changes. It preserves the existing
 article-level comparison entry and comparison sheet and adds no backend or
 analysis contract.
+
+`story-feed.md` defines server-side topic grouping for Android Home and News
+discovery while preserving article-level search, publisher, Saved, and Reader
+flows.

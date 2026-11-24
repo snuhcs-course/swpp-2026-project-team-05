@@ -53,13 +53,14 @@ second news database or a general synchronization engine.
 
 | Capability | Guest | Authenticated |
 | --- | ---: | ---: |
-| Latest feed and category navigation | Yes | Yes |
+| Home and topic/category navigation | Yes | Yes |
 | Global article search | Yes | Yes |
 | Article detail and stored analysis | Yes | Yes |
 | Comparison evidence and original links | Yes | Yes |
-| Following feed | Sign-in prompt | Yes |
-| Publisher follow management | Sign-in prompt | Yes |
-| Saved route and save/remove mutations | Sign-in prompt | Yes |
+| Subscribed Home feed | Public fallback | Yes |
+| Publisher subscription mutation | Contextual auth sheet | Yes |
+| Saved route | In-place sign-in state | Yes |
+| Save/remove mutation | Contextual auth sheet | Yes |
 | Registration, login, and logout | Register or sign in | Logout |
 
 `Guest` is a client state with no bearer token. The backend does not create or
@@ -87,12 +88,14 @@ confirms that an apparently unexpired token is invalid and clears it.
 Logging out clears the bearer token, in-memory personalized state, and that
 user's local Saved relationships. Public article and analysis cache rows remain
 available. If the current route is public, logout keeps the user in that route;
-Following falls back to Latest and Saved returns to the feed.
+Home falls back to public topics and Saved becomes its guest sign-in state.
 
-When a guest selects Saved, Following, source management, or a save control, the
-client presents one shared sign-in explanation. Successful login returns to the
-same public route. It does not automatically replay the protected mutation; the
-user confirms it by selecting the action again.
+When a guest selects the Saved root destination, the client enters Saved and
+renders an in-place sign-in state; tab selection alone never opens Login. When a
+guest selects a subscription or save mutation, the current public route remains
+visible beneath one shared contextual authentication sheet. Login or
+registration begins only from an explicit sheet action. Success returns to the
+origin and does not automatically replay the protected mutation.
 
 ## 4. Public and authenticated API contract
 
@@ -240,7 +243,7 @@ contains an unconfirmed local save or removal.
 The repository is the only layer that coordinates network and Room. UI and
 ViewModels do not call a DAO or `NewsService` directly.
 
-### 6.1 Latest feed
+### 6.1 Home and discovery feeds
 
 1. Request the selected server feed normally; online behavior is unchanged.
 2. On success, display the server page without persisting ordinary feed
@@ -252,9 +255,9 @@ ViewModels do not call a DAO or `NewsService` directly.
 5. If no such rows exist, show the explicit empty offline state rather than
    stale headlines or a false server-empty state. A guest has no offline rows.
 
-### 6.2 Search and Following
+### 6.2 Search and subscribed Home
 
-Search remains server-wide and Following remains account-specific, so neither
+Search remains server-wide and subscribed Home remains account-specific, so neither
 falls back to a partial local query. When offline, the client keeps any already
 visible in-memory rows but explains that refreshing or starting a new request
 requires a connection.
@@ -334,10 +337,10 @@ the mutation contract.
 
 ### 8.1 Guest
 
-- Launch directly into Latest rather than Login.
+- Launch directly into Home rather than Login.
 - Show `로그인` in the account action.
-- Keep Saved, Following, source management, and save controls discoverable; a
-  selection opens the shared sign-in explanation rather than failing silently.
+- Keep Saved, subscription management, and save controls discoverable. Saved
+  shows its own guest state; mutation actions open the shared contextual sheet.
 - Login and registration return to the prior public route.
 
 ### 8.2 Offline Android
@@ -371,9 +374,9 @@ This slice is complete when:
 
 - Android and Web can reach feed, search, Reader, and stored analysis without an
   account;
-- protected controls consistently request sign-in and return to the same public
-  route;
-- authenticated Saved and Following behavior remains account-isolated;
+- Saved renders its guest state without redirecting, while mutation controls
+  request sign-in contextually and return to the same public route;
+- authenticated Saved and subscription behavior remains account-isolated;
 - Android opens locally complete Saved articles and their verified Reader
   analysis during a network failure without showing non-openable feed rows;
 - offline Saved writes are rejected without optimistic or queued state;

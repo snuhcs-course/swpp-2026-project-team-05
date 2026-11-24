@@ -37,6 +37,27 @@ internal interface NewsService {
     suspend fun articles(token: String?, category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, limit: Int = 20,
                          query: String? = null): ArticlePage
+    suspend fun stories(token: String?, category: NewsCategory?, scope: FeedScope,
+                        cursor: String? = null, limit: Int = 20): StoryPage {
+        val page = articles(token, category, scope, cursor, limit)
+        return StoryPage(
+            page.items.map { article ->
+                StorySummary(
+                    storyKey = "article:${article.id}",
+                    representativeArticle = article,
+                    publisherCount = 1,
+                    publishers = listOf(article.publisher),
+                    latestPublishedAt = article.publishedAt
+                )
+            },
+            page.nextCursor
+        )
+    }
+    suspend fun publisherArticles(token: String?, publisherCode: String,
+                                  cursor: String? = null, limit: Int = 20): ArticlePage =
+        articles(token, null, FeedScope.ALL, cursor, limit).let { page ->
+            page.copy(items = page.items.filter { it.publisher.code == publisherCode })
+        }
     suspend fun article(token: String?, articleId: String): ArticleDetail
     suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis
     suspend fun savedArticles(token: String, cursor: String? = null,
@@ -65,6 +86,12 @@ internal object NewsApi : NewsService {
                                   scope: FeedScope, cursor: String?, limit: Int,
                                   query: String?): ArticlePage =
         client.articles(token, category, scope, cursor, limit, query)
+    override suspend fun stories(token: String?, category: NewsCategory?, scope: FeedScope,
+                                 cursor: String?, limit: Int): StoryPage =
+        client.stories(token, category, scope, cursor, limit)
+    override suspend fun publisherArticles(token: String?, publisherCode: String,
+                                           cursor: String?, limit: Int): ArticlePage =
+        client.publisherArticles(token, publisherCode, cursor, limit)
     override suspend fun article(token: String?, articleId: String): ArticleDetail =
         client.article(token, articleId)
     override suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis =
@@ -135,6 +162,41 @@ internal class NewsApiClient(baseUrl: String) {
             items = root.optJSONArray("items").orEmptyObjects().map(::articleSummary),
             nextCursor = root.optString("next_cursor").takeIf { root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank() },
             totalCount = root.optInt("total_count").takeIf { root.has("total_count") && !root.isNull("total_count") }
+        )
+    }
+
+    suspend fun stories(token: String?, category: NewsCategory?,
+                        scope: FeedScope = FeedScope.ALL, cursor: String? = null,
+                        limit: Int = 20): StoryPage {
+        val queryString = buildList {
+            category?.let { add("category=${encode(it.wire)}") }
+            add("scope=${encode(scope.wire)}")
+            add("limit=$limit")
+            cursor?.let { add("cursor=${encode(it)}") }
+        }.joinToString("&")
+        val root = request("GET", "/api/v1/stories?$queryString", token = token)
+        return StoryPage(
+            items = root.optJSONArray("items").orEmptyObjects().map(::storySummary),
+            nextCursor = root.optString("next_cursor").takeIf {
+                root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
+            }
+        )
+    }
+
+    suspend fun publisherArticles(token: String?, publisherCode: String,
+                                  cursor: String? = null, limit: Int = 20): ArticlePage {
+        val queryString = buildList {
+            add("publisher=${encode(publisherCode)}")
+            add("scope=ALL")
+            add("limit=$limit")
+            cursor?.let { add("cursor=${encode(it)}") }
+        }.joinToString("&")
+        val root = request("GET", "/api/v1/articles?$queryString", token = token)
+        return ArticlePage(
+            items = root.optJSONArray("items").orEmptyObjects().map(::articleSummary),
+            nextCursor = root.optString("next_cursor").takeIf {
+                root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
+            }
         )
     }
 
@@ -248,7 +310,14 @@ internal class NewsApiClient(baseUrl: String) {
         code = root.requireString("code"),
         name = root.requireString("name"),
         logoUrl = root.optString("logo_url").takeIf { root.has("logo_url") && !root.isNull("logo_url") && it.isNotBlank() },
-        isFollowed = root.optBoolean("is_followed", false)
+        isFollowed = root.optBoolean("is_followed", false),
+        recentArticles = root.optJSONArray("recent_articles").orEmptyObjects().map { article ->
+            PublisherArticlePreview(
+                id = article.requireString("id"),
+                title = article.requireString("title"),
+                publishedAt = article.requireString("published_at")
+            )
+        }
     )
 
     private fun articleSummary(root: JSONObject) = ArticleSummary(
@@ -265,6 +334,14 @@ internal class NewsApiClient(baseUrl: String) {
         savedAt = root.optString("saved_at").takeIf {
             root.has("saved_at") && !root.isNull("saved_at") && it.isNotBlank()
         }
+    )
+
+    private fun storySummary(root: JSONObject) = StorySummary(
+        storyKey = root.requireString("story_key"),
+        representativeArticle = articleSummary(root.requireObject("representative_article")),
+        publisherCount = root.requireInt("publisher_count"),
+        publishers = root.optJSONArray("publishers").orEmptyObjects().map(::publisher),
+        latestPublishedAt = root.requireString("latest_published_at")
     )
 
     private fun articleDetail(root: JSONObject) = ArticleDetail(

@@ -73,12 +73,14 @@ class NewsApiClientTest {
     @Test
     fun newsEndpointsParseFeedDetailAndGroundedComparison() = runBlocking {
         responses += Response(200, """{"items":[
-          {"code":"yna","name":"연합뉴스","logo_url":"https://img.example/yna.png","is_followed":true},
+          {"code":"yna","name":"연합뉴스","logo_url":"https://img.example/yna.png","is_followed":true,
+           "recent_articles":[{"id":"a1","title":"정책 추진","published_at":"2026-10-31T12:00:00+09:00"}]},
           {"code":"mbc","name":"MBC","logo_url":null}
         ]}""")
         val publishers = client.publishers("token")
         assertEquals(listOf("yna", "mbc"), publishers.map { it.code })
         assertTrue(publishers[0].isFollowed)
+        assertEquals("a1", publishers[0].recentArticles.single().id)
         assertNull(publishers[1].logoUrl)
 
         responses += Response(200, """{"publisher_codes":["yna","mbc"]}""")
@@ -104,6 +106,22 @@ class NewsApiClientTest {
         assertTrue(requests.last().path.contains("scope=FOLLOWING"))
         assertTrue(requests.last().path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
         assertTrue(requests.last().path.contains("cursor=cursor+1"))
+
+        responses += Response(200, """{
+          "items":[{"story_key":"cluster:c1","representative_article":{
+            "id":"a1","publisher":{"code":"yna","name":"연합뉴스"},"title":"정책 추진",
+            "category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
+            "analysis_state":"READY"},"publisher_count":2,
+            "publishers":[{"code":"yna","name":"연합뉴스"},{"code":"mbc","name":"MBC"}],
+            "latest_published_at":"2026-10-31T12:00:00+09:00"}],"next_cursor":"story-next"}
+        """)
+        val stories = client.stories("token", null, FeedScope.ALL, "story cursor", 12)
+        assertEquals("cluster:c1", stories.items.single().storyKey)
+        assertEquals(2, stories.items.single().publisherCount)
+        assertEquals("story-next", stories.nextCursor)
+        assertFalse(requests.last().path.contains("category="))
+        assertTrue(requests.last().path.contains("limit=12"))
+        assertTrue(requests.last().path.contains("cursor=story+cursor"))
 
         responses += Response(200, """{"items":[],"next_cursor":null,"total_count":0}""")
         client.articles("token", null, query = "전체 검색")

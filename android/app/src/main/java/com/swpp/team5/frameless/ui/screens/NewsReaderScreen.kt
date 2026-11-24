@@ -198,16 +198,19 @@ private fun NewsReaderContent(
         mutableStateOf(false)
     }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
-    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
+    val readerInk = Fl.Ink
+    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id, readerInk) {
         annotatedReaderText(
             article.title, titleFindings, titleFocus,
-            economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id
+            economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id,
+            readerInk
         )
     }
-    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id) {
+    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id, readerInk) {
         annotatedReaderText(
             article.body, bodyFindings, bodyFocus,
-            economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id
+            economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id,
+            readerInk
         )
     }
     val density = LocalDensity.current
@@ -735,7 +738,8 @@ private fun annotatedReaderText(
     findings: List<FindingUi>,
     comparisonFocus: ReaderFocus?,
     economicViews: List<EconomicViewUi> = emptyList(),
-    selectedFindingId: String? = null
+    selectedFindingId: String? = null,
+    ink: Color
 ): AnnotatedString = buildAnnotatedString {
     append(annotatedFindings(text, findings))
     findings.firstOrNull { it.id == selectedFindingId }?.markerRange
@@ -753,7 +757,7 @@ private fun annotatedReaderText(
         }
     economicViews.forEach { view ->
         view.sentenceRange?.takeIf { it.isWithin(text) }?.let {
-            addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = Fl.Ink), it.start, it.end)
+            addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = ink), it.start, it.end)
         }
         view.phraseRange?.takeIf { it.isWithin(text) }?.let {
             addStyle(SpanStyle(background = EconomicPhraseMarker, fontWeight = FontWeight.SemiBold), it.start, it.end)

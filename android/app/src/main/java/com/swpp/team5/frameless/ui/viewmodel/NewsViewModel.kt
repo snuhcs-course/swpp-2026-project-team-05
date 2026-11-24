@@ -14,6 +14,7 @@ import com.swpp.team5.frameless.data.NewsApiException
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
+import com.swpp.team5.frameless.data.StorySummary
 import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -21,6 +22,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal enum class NewsRoute { FEED, SAVED, READER }
+
+internal enum class NewsSection(val label: String, val category: NewsCategory?) {
+    NEWS("뉴스", null),
+    PUBLISHERS("언론사", null),
+    POLITICS("정치", NewsCategory.POLITICS),
+    SOCIETY("사회", NewsCategory.SOCIETY),
+    ECONOMY("경제", NewsCategory.ECONOMY)
+}
 
 internal enum class SearchFilter(val category: NewsCategory?, val label: String) {
     ALL(null, "전체"),
@@ -123,6 +132,27 @@ internal data class SavedArticlesState(
     val nextPageError: String? = null
 )
 
+internal data class PortalDiscoveryState(
+    val homeStories: List<StorySummary> = emptyList(),
+    val homeNextCursor: String? = null,
+    val isHomeLoading: Boolean = false,
+    val isHomeRefreshing: Boolean = false,
+    val homeError: String? = null,
+    val newsSection: NewsSection = NewsSection.NEWS,
+    val newsStories: List<StorySummary> = emptyList(),
+    val newsNextCursor: String? = null,
+    val isNewsLoading: Boolean = false,
+    val isNewsRefreshing: Boolean = false,
+    val newsError: String? = null,
+    val isLoadingMore: Boolean = false,
+    val nextPageError: String? = null,
+    val activePublisher: PublisherItem? = null,
+    val publisherArticles: List<ArticleSummary> = emptyList(),
+    val publisherNextCursor: String? = null,
+    val isPublisherLoading: Boolean = false,
+    val publisherError: String? = null
+)
+
 internal fun isHttpLink(value: String): Boolean = try {
     val uri = java.net.URI(value.trim())
     (uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) &&
@@ -155,6 +185,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         private set
     var saved by mutableStateOf(SavedArticlesState())
         private set
+    var discovery by mutableStateOf(PortalDiscoveryState())
+        private set
     var savedMutationArticleId by mutableStateOf<String?>(null)
         private set
     var saveError by mutableStateOf<String?>(null)
@@ -168,6 +200,10 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private var feedBeforeSearch: NewsFeedState? = null
     private var readerJob: Job? = null
     private var savedJob: Job? = null
+    private var homeJob: Job? = null
+    private var newsStoryJob: Job? = null
+    private var publisherJob: Job? = null
+    private var homeRequested = false
     private var readerOrigin = NewsRoute.FEED
     private val readerHistory = ArrayDeque<ReaderDestination>()
 
@@ -179,6 +215,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             try {
                 val publishers = repository.publishers()
                 feed = feed.copy(publishers = publishers)
+                if (homeRequested) loadHome(force = true)
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
             }
@@ -191,6 +228,9 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         searchDebounceJob?.cancel()
         readerJob?.cancel()
         savedJob?.cancel()
+        homeJob?.cancel()
+        newsStoryJob?.cancel()
+        publisherJob?.cancel()
         feedBeforeSearch = null
         initialized = false
         route = NewsRoute.FEED
@@ -199,6 +239,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         )
         reader = ArticleReaderState(analysisEnabled = repository.savedAnalysisEnabled())
         saved = SavedArticlesState()
+        discovery = PortalDiscoveryState()
+        homeRequested = false
         savedMutationArticleId = null
         saveError = null
         readerOrigin = NewsRoute.FEED
@@ -219,6 +261,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         )
         reader = reader.copy(article = reader.article?.copy(isSaved = false))
         saved = SavedArticlesState()
+        discovery = discovery.copy(
+            homeStories = emptyList(),
+            homeNextCursor = null,
+            homeError = null,
+            newsStories = emptyList(),
+            newsNextCursor = null,
+            newsError = null
+        )
         authExpired = false
         initialized = false
         initialize()
@@ -297,8 +347,38 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                     isSavingSources = false,
                     sourceSaveError = null
                 )
+                discovery = discovery.copy(
+                    activePublisher = discovery.activePublisher?.let { publisher ->
+                        publisher.copy(isFollowed = publisher.code in savedCodes)
+                    },
+                    homeStories = discovery.homeStories.map { story ->
+                        story.copy(
+                            representativeArticle = story.representativeArticle.copy(
+                                publisher = story.representativeArticle.publisher.copy(
+                                    isFollowed = story.representativeArticle.publisher.code in savedCodes
+                                )
+                            ),
+                            publishers = story.publishers.map { publisher ->
+                                publisher.copy(isFollowed = publisher.code in savedCodes)
+                            }
+                        )
+                    },
+                    newsStories = discovery.newsStories.map { story ->
+                        story.copy(
+                            representativeArticle = story.representativeArticle.copy(
+                                publisher = story.representativeArticle.publisher.copy(
+                                    isFollowed = story.representativeArticle.publisher.code in savedCodes
+                                )
+                            ),
+                            publishers = story.publishers.map { publisher ->
+                                publisher.copy(isFollowed = publisher.code in savedCodes)
+                            }
+                        )
+                    }
+                )
                 if (feed.isSearchOpen) feedBeforeSearch = null
                 if (feed.scope == FeedScope.FOLLOWING && !feed.isSearchOpen) reloadForFilters()
+                if (homeRequested) loadHome(force = true)
                 onSuccess()
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
@@ -309,6 +389,202 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             }
         }
     }
+
+    fun ensureHomeLoaded() {
+        homeRequested = true
+        if (discovery.homeStories.isEmpty() && !discovery.isHomeLoading) loadHome()
+    }
+
+    fun refreshHome() = loadHome(force = true, refreshing = true)
+
+    private fun loadHome(force: Boolean = false, refreshing: Boolean = false) {
+        if (!force && (discovery.isHomeLoading || discovery.homeStories.isNotEmpty())) return
+        homeJob?.cancel()
+        val scope = if (feed.publishers.any { it.isFollowed }) {
+            FeedScope.FOLLOWING
+        } else FeedScope.ALL
+        discovery = discovery.copy(
+            isHomeLoading = !refreshing && discovery.homeStories.isEmpty(),
+            isHomeRefreshing = refreshing,
+            homeError = null
+        )
+        homeJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(null, scope)
+                discovery = discovery.copy(
+                    homeStories = page.items,
+                    homeNextCursor = page.nextCursor,
+                    isHomeLoading = false,
+                    isHomeRefreshing = false,
+                    homeError = null
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                val offline = if (failure is NewsApiException && failure.code == "NETWORK_ERROR") {
+                    repository.offlineSavedArticles()?.items.orEmpty().map(::singletonStory)
+                } else emptyList()
+                discovery = discovery.copy(
+                    homeStories = offline.ifEmpty { discovery.homeStories },
+                    homeNextCursor = null,
+                    isHomeLoading = false,
+                    isHomeRefreshing = false,
+                    homeError = if (offline.isEmpty()) failure.message ?: "홈 뉴스를 불러오지 못했어요." else null
+                )
+            }
+        }
+    }
+
+    fun selectNewsSection(section: NewsSection) {
+        if (discovery.newsSection == section &&
+            (section == NewsSection.PUBLISHERS || discovery.newsStories.isNotEmpty())) return
+        newsStoryJob?.cancel()
+        discovery = discovery.copy(
+            newsSection = section,
+            newsStories = if (section == NewsSection.PUBLISHERS) discovery.newsStories else emptyList(),
+            newsNextCursor = null,
+            newsError = null,
+            nextPageError = null
+        )
+        if (section != NewsSection.PUBLISHERS) loadNewsStories(section)
+    }
+
+    fun ensureNewsLoaded() {
+        val section = discovery.newsSection
+        if (section != NewsSection.PUBLISHERS && discovery.newsStories.isEmpty() && !discovery.isNewsLoading) {
+            loadNewsStories(section)
+        }
+    }
+
+    fun refreshNews() {
+        if (discovery.newsSection != NewsSection.PUBLISHERS) {
+            loadNewsStories(discovery.newsSection, refreshing = true)
+        }
+    }
+
+    private fun loadNewsStories(section: NewsSection, refreshing: Boolean = false) {
+        newsStoryJob?.cancel()
+        discovery = discovery.copy(
+            isNewsLoading = !refreshing && discovery.newsStories.isEmpty(),
+            isNewsRefreshing = refreshing,
+            newsError = null
+        )
+        newsStoryJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(section.category, FeedScope.ALL)
+                if (discovery.newsSection != section) return@launch
+                discovery = discovery.copy(
+                    newsStories = page.items,
+                    newsNextCursor = page.nextCursor,
+                    isNewsLoading = false,
+                    isNewsRefreshing = false,
+                    newsError = null
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                if (discovery.newsSection != section) return@launch
+                discovery = discovery.copy(
+                    isNewsLoading = false,
+                    isNewsRefreshing = false,
+                    newsError = failure.message ?: "뉴스를 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun loadMoreNews() {
+        val cursor = discovery.newsNextCursor ?: return
+        val section = discovery.newsSection
+        if (section == NewsSection.PUBLISHERS || discovery.isLoadingMore) return
+        discovery = discovery.copy(isLoadingMore = true, nextPageError = null)
+        newsStoryJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(section.category, FeedScope.ALL, cursor)
+                if (discovery.newsSection != section) return@launch
+                discovery = discovery.copy(
+                    newsStories = discovery.newsStories + page.items,
+                    newsNextCursor = page.nextCursor,
+                    isLoadingMore = false
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                discovery = discovery.copy(
+                    isLoadingMore = false,
+                    nextPageError = failure.message ?: "다음 뉴스를 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun openPublisher(publisher: PublisherItem) {
+        publisherJob?.cancel()
+        discovery = discovery.copy(
+            activePublisher = publisher,
+            publisherArticles = emptyList(),
+            publisherNextCursor = null,
+            isPublisherLoading = true,
+            publisherError = null
+        )
+        publisherJob = viewModelScope.launch { loadPublisherPage(publisher, null) }
+    }
+
+    fun closePublisher() {
+        publisherJob?.cancel()
+        discovery = discovery.copy(
+            activePublisher = null,
+            publisherArticles = emptyList(),
+            publisherNextCursor = null,
+            isPublisherLoading = false,
+            publisherError = null
+        )
+    }
+
+    fun retryPublisher() {
+        val publisher = discovery.activePublisher ?: return
+        openPublisher(publisher)
+    }
+
+    fun loadMorePublisher() {
+        val publisher = discovery.activePublisher ?: return
+        val cursor = discovery.publisherNextCursor ?: return
+        if (discovery.isPublisherLoading) return
+        discovery = discovery.copy(isPublisherLoading = true, publisherError = null)
+        publisherJob = viewModelScope.launch { loadPublisherPage(publisher, cursor) }
+    }
+
+    private suspend fun loadPublisherPage(publisher: PublisherItem, cursor: String?) {
+        try {
+            val page = repository.publisherArticles(publisher.code, cursor)
+            if (discovery.activePublisher?.code != publisher.code) return
+            discovery = discovery.copy(
+                publisherArticles = if (cursor == null) page.items else discovery.publisherArticles + page.items,
+                publisherNextCursor = page.nextCursor,
+                isPublisherLoading = false,
+                publisherError = null
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (isAuthFailure(failure)) authExpired = true
+            if (discovery.activePublisher?.code != publisher.code) return
+            discovery = discovery.copy(
+                isPublisherLoading = false,
+                publisherError = failure.message ?: "언론사 기사를 불러오지 못했어요."
+            )
+        }
+    }
+
+    private fun singletonStory(article: ArticleSummary) = StorySummary(
+        storyKey = "article:${article.id}",
+        representativeArticle = article,
+        publisherCount = 1,
+        publishers = listOf(article.publisher),
+        latestPublishedAt = article.publishedAt
+    )
 
     fun openSearch() {
         if (feed.isSearchOpen) return
@@ -727,6 +1003,21 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 reader = reader.copy(article = reader.article?.let { article ->
                     if (article.id == articleId) article.copy(isSaved = target) else article
                 })
+                discovery = discovery.copy(
+                    homeStories = discovery.homeStories.map { story ->
+                        if (story.representativeArticle.id == articleId) {
+                            story.copy(representativeArticle = story.representativeArticle.copy(isSaved = target))
+                        } else story
+                    },
+                    newsStories = discovery.newsStories.map { story ->
+                        if (story.representativeArticle.id == articleId) {
+                            story.copy(representativeArticle = story.representativeArticle.copy(isSaved = target))
+                        } else story
+                    },
+                    publisherArticles = discovery.publisherArticles.map { article ->
+                        if (article.id == articleId) article.copy(isSaved = target) else article
+                    }
+                )
                 saved = saved.copy(items = if (target) {
                     saved.items.map { article ->
                         if (article.id == articleId) article.copy(isSaved = true) else article

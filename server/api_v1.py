@@ -39,6 +39,7 @@ from .news_queries import (
     get_article,
     list_articles,
     list_publishers,
+    list_stories,
 )
 from .saved_articles import (
     InvalidSavedCursor,
@@ -295,6 +296,46 @@ def articles(request):
         )
     except InvalidCursor:
         return _error("INVALID_CURSOR", "기사 목록을 처음부터 다시 불러와 주세요.", 400)
+    return _credential_varying(JsonResponse(
+        payload, json_dumps_params={"ensure_ascii": False},
+    ))
+
+
+@require_GET
+def stories(request):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    category = request.GET.get("category") or None
+    if category and category not in NewsCategory.values:
+        return _error(
+            "VALIDATION_ERROR", "지원하지 않는 기사 분야입니다.", 400,
+            fields={"category": "정치, 사회 또는 경제를 선택해 주세요."},
+        )
+    scope = request.GET.get("scope") or "ALL"
+    if scope not in {"ALL", "FOLLOWING"}:
+        return _error(
+            "VALIDATION_ERROR", "지원하지 않는 피드 범위입니다.", 400,
+            fields={"scope": "ALL 또는 FOLLOWING을 선택해 주세요."},
+        )
+    if scope == "FOLLOWING" and user is None:
+        return _error("AUTH_REQUIRED", "구독한 언론사 뉴스는 로그인 후 볼 수 있어요.", 401)
+    try:
+        limit = int(request.GET.get("limit", "20"))
+    except ValueError:
+        return _error("VALIDATION_ERROR", "limit은 정수여야 합니다.", 400)
+    if not 1 <= limit <= 50:
+        return _error("VALIDATION_ERROR", "limit은 1에서 50 사이여야 합니다.", 400)
+    try:
+        payload = list_stories(
+            user=user,
+            category=category,
+            cursor=request.GET.get("cursor") or None,
+            limit=limit,
+            scope=scope,
+        )
+    except InvalidCursor:
+        return _error("INVALID_CURSOR", "뉴스 목록을 처음부터 다시 불러와 주세요.", 400)
     return _credential_varying(JsonResponse(
         payload, json_dumps_params={"ensure_ascii": False},
     ))

@@ -60,7 +60,7 @@ authenticated offline Saved reads.
 ### Android authentication transitions
 
 - [Unit] A clean install without a session resolves to Guest and initializes
-  the public Latest feed rather than Login.\
+  public Home rather than Login.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.cleanInstallStartsAsGuestWithoutOpeningLogin`,
   `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.initializeLoadsPublishersAndTheCompleteLatestFeed`
 - [Unit] A temporary network failure during session restoration retains an
@@ -76,10 +76,16 @@ authenticated offline Saved reads.
   personalization without leaving the article or replaying the mutation.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.viewerChangeRefreshesPersonalizationWithoutLeavingReader`
 - [State transition] Explicit logout clears personalized ViewModel state and
-  the active user's cached Saved relationships, falls Following back to Latest,
-  and keeps public cache rows.\
+  the active user's cached Saved relationships, falls Home back to public
+  topics, and keeps public cache rows.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.logoutClearsOnlyTheActiveSavedSnapshotAndAlwaysFinishes`,
   `com.swpp.team5.frameless.data.NewsCacheTest.savedSnapshotsAreIsolatedAndClearedPerUser`
+- [Component] Selecting Saved as a guest shows its in-place authentication
+  state and does not open Login until an explicit button is selected.\
+  Tip: add a root-shell Compose test after the guest Saved state is implemented.
+- [Component] A guest subscription or bookmark action keeps its origin visible,
+  sends no protected request, and opens the shared contextual auth sheet.\
+  Tip: add publisher-directory and Reader-origin Compose tests.
 
 ### Android Room and repository
 
@@ -176,7 +182,7 @@ authenticated offline Saved reads.
 - [Component] Cached content uses a restrained offline notice rather than a
   full-screen error, while a cache miss uses a retryable connection error.\
   Tip: test feed and Reader state matrices.
-- [Component] Starting search, Following, or a Saved mutation offline explains
+- [Component] Starting search, subscribed-Home refresh, or a Saved mutation offline explains
   that a connection is required and preserves existing visible content.\
   Tip: add targeted Android UI state tests.
 - [Component] Saved refreshes by pulling down at the top of its list and has no

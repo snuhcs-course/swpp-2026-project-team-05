@@ -111,6 +111,15 @@ save state; clients own interaction and cache synchronization.
 
 ### Android client
 
+- [Component] Selecting the Saved root destination as a guest renders its
+  in-place sign-in state and does not open Login until the user explicitly
+  selects Login or Create account.\
+  Tip: add a FrameLESSApp Compose test covering tab selection, dismissal, and
+  both authentication choices.
+- [Component] A guest Reader bookmark action sends no mutation, keeps the Reader
+  visible, and opens the contextual authentication sheet; successful login
+  returns to the Reader without replaying the save.\
+  Tip: add a Reader-origin authentication navigation test.
 - [Unit] The API client parses save fields and sends list, PUT, and DELETE
   requests with the current bearer token.\
   Tested by: `com.swpp.team5.frameless.data.NewsApiClientTest.newsEndpointsParseFeedDetailAndGroundedComparison`

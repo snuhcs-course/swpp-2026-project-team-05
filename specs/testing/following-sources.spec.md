@@ -2,17 +2,19 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented |
+| Status | Implemented API/Web contract; Android navigation superseded by story-feed spec |
 | Owner | Following sources feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§11–12 |
 | Last reviewed | 2026-11-03 |
 
 ## Scope
 
-Signed-in users explicitly follow publishers, keep the complete non-personalized
-Latest feed as the default, and optionally browse a separate Following feed on
-Web and Android. Follow state changes article discovery only. Reader analysis
-and cross-outlet comparison remain independent of follows.
+Signed-in users explicitly follow publishers. The API retains ALL/FOLLOWING
+scopes and Web retains its implemented scope control. Android presents the same
+relationship as `구독`, uses it in Home, and manages it through the publisher
+directory or MY; it has no Latest/Following control. Follow state changes
+article discovery only. Reader analysis and cross-outlet comparison remain
+independent of follows.
 
 ### Non-goals
 
@@ -29,7 +31,8 @@ and cross-outlet comparison remain independent of follows.
   article.
 - Ordinary article visibility, category, search, pagination, Reader, and saved
   article contracts remain in force.
-- Latest and Following use the same article row and Reader contracts.
+- Article-scope ALL and FOLLOWING responses use the same article row and Reader
+  contracts where those scopes are exposed.
 
 ## Postconditions
 
@@ -115,21 +118,17 @@ and cross-outlet comparison remain independent of follows.
   encode scope, and keep the existing authenticated request boundary.\
   Tested by: `com.swpp.team5.frameless.data.NewsApiClientTest.newsEndpointsParseFeedDetailAndGroundedComparison`,
   `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
-- [Unit] ViewModel starts in Latest, loads Following on explicit selection,
-  resets pagination after a follow change, and preserves each feed state across
-  Reader and global search navigation.\
-  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.initializeLoadsPublishersAndTheCompleteLatestFeed`,
-  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.categoryScopeRefreshAndPaginationPreserveExpectedState`,
-  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.sourcePreferencesAreAccountBackedAndFollowingReloadsAfterSave`,
-  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
+- [Unit] Android reloads Home from the first story page after a subscription
+  change and preserves News/Search/Reader state independently.\
+  Tip: add ViewModel tests with empty, one-publisher, and changed subscription
+  sets after the story endpoint is implemented.
 - [Unit] Server follow state replaces device-local publisher selection without
   uploading legacy local codes; category and analysis visibility remain local.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
-- [Component] The scope bottom sheet exposes Latest and Following as one
-  mutually exclusive, named radio group. The follow editor alone uses named
-  checkboxes for multi-publisher selection and preserves Save, Cancel, retry,
-  and both empty states.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.feedScopeUsesSingleSelectionRadioOptions`
+- [Component] Android exposes no feed-scope sheet. The publisher directory uses
+  `구독` copy, offers one action per publisher, and opens the contextual
+  authentication sheet for a guest without issuing a mutation.\
+  Tip: add Compose tests alongside the story-feed section tests.
 - [Security regression] Logout clears follow and Following-feed state before a
   second account initializes the app.\
   Tip: extend reset tests with two accounts and opposing follow sets.

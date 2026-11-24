@@ -54,11 +54,20 @@ private val OnboardingMarker = Color(0xFFE9E1F5)
  * 끝내기·건너뛰기·로그인 모두 [onFinish] 계열로 끝난다. 로그인한 상태면 로그인 버튼은 숨긴다.
  */
 @Composable
-internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit, showLogin: Boolean = true) {
+internal fun OnboardingScreen(
+    onFinish: () -> Unit,
+    onBack: () -> Unit = onFinish,
+    onLogin: () -> Unit,
+    showLogin: Boolean = true
+) {
     val pager = rememberPagerState(pageCount = { OnboardingPages })
     val scope = rememberCoroutineScope()
-    BackHandler(enabled = pager.currentPage > 0) {
-        scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+    BackHandler {
+        if (pager.currentPage > 0) {
+            scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+        } else {
+            onBack()
+        }
     }
 
     Column(Modifier.fillMaxSize().background(Fl.Card)) {

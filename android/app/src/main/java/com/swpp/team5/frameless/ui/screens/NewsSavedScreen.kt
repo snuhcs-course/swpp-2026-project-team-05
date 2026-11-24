@@ -47,9 +47,10 @@ internal fun NewsSavedScreen(
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onArticle: (String) -> Unit
+    onArticle: (String) -> Unit,
+    rootShell: Boolean = false
 ) {
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = !rootShell, onBack = onBack)
     val pullRefreshState = rememberPullToRefreshState()
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
         if (state.items.isNotEmpty() && listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
@@ -58,7 +59,7 @@ internal fun NewsSavedScreen(
     }
 
     Column(
-        Modifier.fillMaxSize().edgeSwipeBack(onBack = onBack)
+        Modifier.fillMaxSize().edgeSwipeBack(enabled = !rootShell, onBack = onBack)
             .background(Fl.Card)
             .testTag("saved-screen")
     ) {
@@ -66,17 +67,23 @@ internal fun NewsSavedScreen(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "←", fontSize = 24.sp, color = Fl.Ink,
-                modifier = Modifier.clickable(onClick = onBack).padding(end = 14.dp)
-                    .semantics {
-                        role = Role.Button
-                        contentDescription = "기사 목록으로 돌아가기"
-                    }
-            )
-            ArticleBookmarkIcon(true, Fl.Accent, Modifier.size(19.dp))
-            Text("저장한 기사", fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))
+            if (!rootShell) {
+                Text(
+                    "←", fontSize = 24.sp, color = Fl.Ink,
+                    modifier = Modifier.clickable(onClick = onBack).padding(end = 14.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "기사 목록으로 돌아가기"
+                        }
+                )
+                ArticleBookmarkIcon(true, Fl.Accent, Modifier.size(19.dp))
+                Text("저장한 기사", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))
+            } else {
+                Text("저장", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                Spacer(Modifier.weight(1f))
+                Text("최근 저장순", fontSize = 11.sp, color = Fl.Muted)
+            }
         }
         HorizontalDivider(color = Fl.Line)
         when {
