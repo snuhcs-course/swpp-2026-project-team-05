@@ -22,6 +22,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
@@ -41,6 +43,7 @@ import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
+import com.swpp.team5.frameless.ui.viewmodel.SavedArticlesState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -108,6 +111,79 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithTag("feed-list").performScrollToIndex(21)
         compose.onNodeWithText("기사 더 보기").performClick()
         compose.runOnIdle { assertTrue(loadMoreCalls >= 1) }
+    }
+
+    @Test
+    fun normalFeedPullRefreshesWithoutAHeaderButton() {
+        var refreshCalls = 0
+        val state = NewsFeedState(
+            publishers = listOf(publisher),
+            items = listOf(
+                ArticleSummary(
+                    "article-refresh", publisher, "당겨서 갱신할 기사", NewsCategory.POLITICS,
+                    "2026-10-31T12:00:00+09:00", StoredAnalysisState.READY
+                )
+            )
+        )
+        compose.setContent {
+            NewsFeedScreen(
+                state, null, rememberLazyListState(),
+                onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = { refreshCalls += 1 }, onRetry = {}, onLoadMore = {},
+                onLoadMoreSearch = {}, onRetrySearch = {}, onSearchOpen = {},
+                onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {}, onSavedOpen = {},
+                onArticle = {}, onLogin = {}, onLogout = {}
+            )
+        }
+
+        compose.onAllNodesWithText("새로고침").assertCountEquals(0)
+        compose.onNodeWithTag("feed-list").performTouchInput {
+            swipeDown(startY = 80f, endY = height * 0.8f, durationMillis = 500)
+        }
+        compose.runOnIdle { assertEquals(1, refreshCalls) }
+    }
+
+    @Test
+    fun savedUsesPullRefreshAndEdgeSwipeBack() {
+        var refreshCalls = 0
+        var backCalls = 0
+        val item = ArticleSummary(
+            "saved-article", publisher, "저장한 기사", NewsCategory.POLITICS,
+            "2026-10-31T12:00:00+09:00", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsSavedScreen(
+                state = SavedArticlesState(items = listOf(item)),
+                listState = rememberLazyListState(),
+                onBack = { backCalls += 1 },
+                onRefresh = { refreshCalls += 1 },
+                onRetry = {}, onLoadMore = {}, onArticle = {}
+            )
+        }
+
+        compose.onAllNodesWithText("새로고침").assertCountEquals(0)
+        compose.onNodeWithTag("saved-list").performTouchInput {
+            swipeDown(startY = 80f, endY = height * 0.8f, durationMillis = 500)
+        }
+        compose.runOnIdle { assertEquals(1, refreshCalls) }
+
+        compose.onNodeWithTag("saved-screen").performTouchInput {
+            swipe(
+                start = Offset(width * 0.35f, centerY),
+                end = Offset(width * 0.85f, centerY),
+                durationMillis = 350
+            )
+        }
+        compose.runOnIdle { assertEquals(0, backCalls) }
+
+        compose.onNodeWithTag("saved-screen").performTouchInput {
+            swipe(
+                start = Offset(1f, centerY),
+                end = Offset(width * 0.65f, centerY),
+                durationMillis = 350
+            )
+        }
+        compose.runOnIdle { assertEquals(1, backCalls) }
     }
 
     @Test

@@ -17,7 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherItem
@@ -88,11 +88,14 @@ class FeedFeaturedArticleInstrumentedTest {
 
         compose.onAllNodesWithText(leadTitle).assertCountEquals(1)
         // The reading guide sits above the cover, so the list may start below the first screen.
-        compose.onNodeWithText("최신 기사").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("feed-list").performScrollToIndex(1)
+        compose.onNodeWithText("최신 기사").assertIsDisplayed()
         compose.onNode(hasTestTag(FEATURED_ARTICLE_TAG) and hasText("두 번째 기사 제목")).assertDoesNotExist()
-        compose.onNodeWithText("두 번째 기사 제목").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("feed-list").performScrollToIndex(2)
+        compose.onNodeWithText("두 번째 기사 제목").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("row-2", selectedId) }
-        compose.onNodeWithText("세 번째 기사 제목").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("feed-list").performScrollToIndex(3)
+        compose.onNodeWithText("세 번째 기사 제목").assertIsDisplayed()
     }
 
     @Test
@@ -102,7 +105,7 @@ class FeedFeaturedArticleInstrumentedTest {
         compose.onNodeWithTag(FEATURED_ARTICLE_TAG).assertIsDisplayed()
         compose.onAllNodesWithText(leadTitle).assertCountEquals(1)
         compose.onAllNodesWithText("최신 기사").assertCountEquals(0)
-        compose.onNodeWithText("새로고침").assertIsDisplayed()
+        compose.onAllNodesWithText("새로고침").assertCountEquals(0)
     }
 
     @Test
@@ -152,12 +155,12 @@ class FeedFeaturedArticleInstrumentedTest {
     fun rowsShowCategoryKickerTitleAndBylineAsOneTapTarget() {
         render { NewsFeedState(publishers = listOf(yna, hani), items = listOf(lead, second, third)) }
 
+        compose.onNodeWithTag("feed-list").performScrollToIndex(2)
         compose.onNode(hasText("두 번째 기사 제목") and hasText("사회") and hasText("한겨레  ·  ", substring = true))
-            .performScrollTo()
             .assertIsDisplayed()
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+        compose.onNodeWithTag("feed-list").performScrollToIndex(3)
         compose.onNode(hasText("세 번째 기사 제목") and hasText("경제") and hasText("연합뉴스  ·  ", substring = true))
-            .performScrollTo()
             .assertIsDisplayed()
             .performClick()
         compose.runOnIdle { assertEquals("row-3", selectedId) }

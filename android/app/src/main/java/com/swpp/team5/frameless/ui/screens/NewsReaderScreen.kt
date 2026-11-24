@@ -105,6 +105,7 @@ import com.swpp.team5.frameless.data.FindingUi
 import com.swpp.team5.frameless.data.StoredAnalysisState
 import com.swpp.team5.frameless.ui.theme.Caption
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
+import com.swpp.team5.frameless.ui.components.edgeSwipeBack
 import com.swpp.team5.frameless.ui.components.CoachMarkOverlay
 import com.swpp.team5.frameless.ui.components.CoachTooltip
 import com.swpp.team5.frameless.ui.theme.FilledPill
@@ -372,6 +373,8 @@ private fun NewsReaderContent(
 
     Box(
         Modifier.fillMaxSize().background(Fl.Card)
+            .edgeSwipeBack(enabled = !detailOpen && coach.step == null, onBack = onBack)
+            .testTag("reader-screen")
             .onGloballyPositioned { readerRootTopPx = it.boundsInRoot().top }
     ) {
         Column(Modifier.fillMaxSize()) {

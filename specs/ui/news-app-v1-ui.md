@@ -163,7 +163,14 @@ Feed behavior:
 - Politics and Society live in the global header only; do not duplicate the
   same section control in a feed sidebar.
 - Tapping anywhere on an article row opens the Reader.
-- The compact refresh action updates the first page without losing filters; a pull gesture may be added later without changing feed state semantics.
+- On Android, pulling down from the top of the normal feed refreshes the first
+  page without losing category, scope, or scroll semantics. The feed header has
+  no separate refresh action. Search keeps its own submit/retry flow and does
+  not inherit the feed pull gesture.
+- Android Reader, Saved, login, and registration support a rightward swipe that
+  starts at the left screen edge as an additional Back affordance. The gesture
+  is disabled while an overlay or comparison sheet owns the interaction, and
+  ordinary horizontal or vertical drags must remain available.
 - Pagination failure leaves existing articles visible and shows inline retry.
 - Returning from Reader restores item position, category, and feed scope.
 

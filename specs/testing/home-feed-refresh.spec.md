@@ -5,7 +5,7 @@
 | Status | Draft |
 | Owner | Android UI owner |
 | Source requirements | [`../features/home-feed-refresh.md`](../features/home-feed-refresh.md) |
-| Last reviewed | 2026-11-19 |
+| Last reviewed | 2026-11-24 |
 
 ## Scope
 
@@ -73,6 +73,10 @@ art direction (phase 3).
   the lead cover, and tapping it calls the tutorial callback exactly once and
   nothing else.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedReadingGuideInstrumentedTest.guideAppearsAboveTheCoverInTheNormalFeedAndReplaysTheTutorialOnce`
+- [Acceptance] At the top of the normal feed, a downward pull invokes the
+  existing refresh callback once and the feed contains no `새로고침` header
+  action. Search mode does not expose this feed gesture.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.normalFeedPullRefreshesWithoutAHeaderButton`
 
 ### Errors and boundaries
 
@@ -80,7 +84,7 @@ art direction (phase 3).
   untouched and there is no lead.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.featuredSplitLeavesTheListUntouchedWhenDisabledOrEmpty`
 - [Acceptance] With one article, only the lead card shows; there is no
-  `최신 기사` title, and `새로고침` stays available.\
+  `최신 기사` title or separate refresh action.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedFeaturedArticleInstrumentedTest.singleArticleShowsOnlyTheFeaturedCardWithoutAnEmptyLatestSection`
 - [Acceptance] Offline, there is no lead card and every stored article is a row.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedFeaturedArticleInstrumentedTest.offlineFeedHasNoFeaturedCardAndListsEveryArticle`

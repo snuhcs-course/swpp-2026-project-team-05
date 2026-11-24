@@ -407,43 +407,30 @@ internal fun ArticleFeedRow(
 }
 
 /**
- * Section heading over the feed list: serif title, the existing scope/offline caption, and the existing refresh
- * link. With no title (a one-article feed) only the caption row remains.
+ * Section heading over the feed list: serif title and the existing scope/offline caption.
+ * Refresh is owned by the surrounding pull gesture. With no title (a one-article
+ * feed) only the caption row remains.
  */
 @Composable
 internal fun FeedSectionHeader(
     title: String?,
-    caption: String,
-    refreshEnabled: Boolean,
-    onRefresh: () -> Unit
+    caption: String
 ) {
-    val refresh: @Composable () -> Unit = {
-        Text("새로고침", fontSize = 12.5.sp, color = HomeTokens.Navy,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable(enabled = refreshEnabled, onClick = onRefresh)
-                .padding(horizontal = 8.dp, vertical = 8.dp))
-    }
     Column(
         Modifier.fillMaxWidth().background(HomeTokens.OffWhite)
             .padding(start = 20.dp, end = 12.dp, top = if (title != null) 26.dp else 10.dp, bottom = 6.dp)
     ) {
         if (title != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontFamily = Fl.Serif, fontSize = 21.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.3).sp, color = Fl.Ink, modifier = Modifier.weight(1f))
-                refresh()
-            }
+            Text(title, fontFamily = Fl.Serif, fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.3).sp, color = Fl.Ink)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(14.dp).height(2.dp).background(HomeTokens.Navy, RoundedCornerShape(1.dp)))
                 Spacer(Modifier.width(8.dp))
                 Text(caption, color = Fl.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(caption, color = Fl.Muted, fontSize = 12.sp, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                refresh()
-            }
+            Text(caption, color = Fl.Muted, fontSize = 12.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

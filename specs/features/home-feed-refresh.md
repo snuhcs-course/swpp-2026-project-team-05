@@ -97,11 +97,13 @@ navy indicator. The scope control (`최신  ⌄` / `팔로잉 · N곳  ⌄`) is 
 
 ### 5.2 Latest list
 
-- Below the cover, a section header: serif `최신 기사` with the existing
-  `새로고침` link on the same line, then a short navy rule and the existing
+- Below the cover, a section header: serif `최신 기사`, then a short navy rule and the existing
   caption (`전체 언론사 · 최신순`, `팔로잉 언론사 · 최신순`, refreshing caption).
-- With exactly one article, the header keeps only its caption and `새로고침`,
-  and no rows follow.
+- With exactly one article, the header keeps only its caption and no rows follow.
+- Android refreshes the normal feed by pulling down while the list is already
+  at its top. The Material pull indicator is the only refresh affordance; it
+  invokes the existing first-page refresh and ignores further pulls while that
+  refresh is running. Search results retain their own retry controls.
 - Offline, the header reads `이 기기의 기사` with the offline caption, and every
   stored article is listed as a row (no cover).
 - Each article row sits directly on the page surface with no image tile and no

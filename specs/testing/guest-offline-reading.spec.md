@@ -179,6 +179,11 @@ authenticated offline Saved reads.
 - [Component] Starting search, Following, or a Saved mutation offline explains
   that a connection is required and preserves existing visible content.\
   Tip: add targeted Android UI state tests.
+- [Component] Saved refreshes by pulling down at the top of its list and has no
+  duplicate header refresh action. A rightward gesture beginning at the left
+  edge returns to the feed, while an equivalent drag beginning in the content
+  area does not navigate.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.savedUsesPullRefreshAndEdgeSwipeBack`
 
 ## Undefined behavior
 
