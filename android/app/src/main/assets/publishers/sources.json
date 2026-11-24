@@ -1,0 +1,194 @@
+{
+  "yna": {
+    "source": "https://r.yna.co.kr/www/home_n/v03/favicon/favicon_180x180_01.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "news1": {
+    "source": "https://image.news1.kr/system/resource/news1_www/renew/favicon-192.png",
+    "width": 192,
+    "height": 192,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "newsis": {
+    "source": "https://image.newsis.com/n_www/images/ci/2024/favicon.png",
+    "width": 114,
+    "height": 114,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "mbc": {
+    "source": "https://image.imnews.imbc.com/page/include/images/meta_image.png",
+    "width": 640,
+    "height": 360,
+    "note": "Original publisher brand sharing image, preserved without crop."
+  },
+  "sbs": {
+    "source": "https://news.sbs.co.kr/favicon_144x144.png",
+    "width": 144,
+    "height": 144,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "ytn": {
+    "source": "https://www.ytn.co.kr/img/comm/favicon.ico",
+    "width": 32,
+    "height": 32,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "hani": {
+    "source": "https://www.hani.co.kr/images/shortcut-icon.png",
+    "width": 128,
+    "height": 128,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "khan": {
+    "source": "https://img.khan.co.kr/spko/icon/apple-touch-icon-precomposed-web.png",
+    "width": 114,
+    "height": 114,
+    "note": "Original publisher icon; format conversion only when needed for native decoding."
+  },
+  "outlet-47369115f4": {
+    "source": "https://nstatic.jtbc.co.kr/favicon_2023/news/apple-icon-180x180.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-a14c8fc59a": {
+    "source": "https://static.mk.co.kr/favicon_180180.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon, preserved without modification."
+  },
+  "outlet-82eeb45e38": {
+    "source": "https://img.ikbc.co.kr/data/kbc/upload/save/company/kbc16573826355853.png",
+    "width": 32,
+    "height": 32,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-f90967a905": {
+    "source": "https://www.busan.com/nas/wcms/public/pc/images/new/favicon.ico",
+    "width": 16,
+    "height": 16,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-81135273b6": {
+    "source": "https://www.nocutnews.co.kr/favicon.ico",
+    "width": 16,
+    "height": 16,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-a1b9eb7231": {
+    "source": "https://static.fnnews.com/resources/img/icon2020/apple-touch-icon-180.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-1650cc8f9e": {
+    "source": "https://static.yonhapnewstv.co.kr/assets/img/common/apple-touch-icon.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-117f5fa428": {
+    "source": "https://static.sedaily.com/img/favicon-228.png",
+    "width": 228,
+    "height": 228,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-ea7c9bb4f8": {
+    "source": "https://menu.mt.co.kr/common/favicons/favicon-180.ico",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-92d2c0bbd1": {
+    "source": "https://static.munhwa.com/img/favicon/apple-touch-icon-512.png",
+    "width": 512,
+    "height": 512,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-a35f532933": {
+    "source": "https://www.imaeil.com/assets/images/common/favicon.ico",
+    "width": 256,
+    "height": 256,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-338ed021b8": {
+    "source": "https://static.heraldcorp.com/wbazic/biz/www/image/m_touch_icon180.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-3730c581fc": {
+    "source": "https://biz.chosun.com/pf/resources/icons/favicon_chosun.png?d=489",
+    "width": 256,
+    "height": 256,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-76874d5545": {
+    "source": "https://www.hankookilbo.com/favicon_180.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-770ea431aa": {
+    "source": "https://www.pressian.com/pressian.ico",
+    "width": 150,
+    "height": 150,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-c10faa97e9": {
+    "source": "https://3f3bm4nnaefgwrtq8izg16625.edge.naverncp.com/data1/resources/media/favicon.ico",
+    "width": 32,
+    "height": 32,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "chosun": {
+    "source": "https://www.chosun.com/pf/resources/icons/favicon_chosun.png?d=2465",
+    "width": 256,
+    "height": 256,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "joongang": {
+    "source": "https://assets.joongang.co.kr/images/favicon/apple-touch-icon.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-b3be81a2a3": {
+    "source": "https://image.edaily.co.kr/images/favicon/favicon_180x180.png",
+    "width": 180,
+    "height": 180,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "donga": {
+    "source": "https://www.donga.com/favicon.ico",
+    "width": 32,
+    "height": 32,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-3a23117aa0": {
+    "source": "https://www.dailian.co.kr/favicon.ico",
+    "width": 256,
+    "height": 256,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-3bbc99f2e1": {
+    "source": "https://cwstatic.asiae.co.kr/icns/asiae.ico",
+    "width": 16,
+    "height": 16,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-ef6b80b08b": {
+    "source": "https://img.segye.com/static/2019_segye/common/images/segyefavicon_new.ico",
+    "width": 256,
+    "height": 256,
+    "note": "Original publisher icon; format conversion only where needed."
+  },
+  "outlet-dfbf8b6ac1": {
+    "source": "https://static.dt.co.kr/img/favicon_service.ico",
+    "width": 144,
+    "height": 144,
+    "note": "Original publisher icon; format conversion only where needed."
+  }
+}

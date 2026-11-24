@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 internal enum class NewsRoute { FEED, SAVED, READER }
 
 internal enum class NewsSection(val label: String, val category: NewsCategory?) {
-    NEWS("뉴스", null),
+    NEWS("전체 뉴스", null),
     PUBLISHERS("언론사", null),
     POLITICS("정치", NewsCategory.POLITICS),
     SOCIETY("사회", NewsCategory.SOCIETY),
@@ -63,12 +63,15 @@ private fun orderFeedItems(
 
 internal data class NewsFeedState(
     val publishers: List<PublisherItem> = emptyList(),
+    val isLoadingPublishers: Boolean = false,
+    val publisherDirectoryError: String? = null,
     val items: List<ArticleSummary> = emptyList(),
     val category: NewsCategory = NewsCategory.POLITICS,
     val searchFilter: SearchFilter = SearchFilter.ALL,
     val scope: FeedScope = FeedScope.ALL,
     val isSavingSources: Boolean = false,
     val sourceSaveError: String? = null,
+    val sourceMutationPublisherCode: String? = null,
     val isSearchOpen: Boolean = false,
     val searchInput: String = "",
     val activeSearchQuery: String = "",
@@ -138,6 +141,9 @@ internal data class PortalDiscoveryState(
     val isHomeLoading: Boolean = false,
     val isHomeRefreshing: Boolean = false,
     val homeError: String? = null,
+    val subscribedStories: List<StorySummary> = emptyList(),
+    val isSubscribedLoading: Boolean = false,
+    val subscribedError: String? = null,
     val newsSection: NewsSection = NewsSection.NEWS,
     val newsStories: List<StorySummary> = emptyList(),
     val newsNextCursor: String? = null,
@@ -201,6 +207,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private var readerJob: Job? = null
     private var savedJob: Job? = null
     private var homeJob: Job? = null
+    private var subscribedHomeJob: Job? = null
+    private var subscribedHomeLoaded = false
     private var newsStoryJob: Job? = null
     private var publisherJob: Job? = null
     private var homeRequested = false
@@ -210,14 +218,19 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     fun initialize() {
         if (initialized) return
         initialized = true
-        feed = feed.copy(isLoading = true, error = null)
+        feed = feed.copy(isLoading = true, error = null,
+            isLoadingPublishers = true, publisherDirectoryError = null)
         feedJob = viewModelScope.launch {
             try {
                 val publishers = repository.publishers()
-                feed = feed.copy(publishers = publishers)
+                feed = feed.copy(publishers = publishers, isLoadingPublishers = false)
                 if (homeRequested) loadHome(force = true)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
+                feed = feed.copy(isLoadingPublishers = false,
+                    publisherDirectoryError = failure.message ?: "언론사를 불러오지 못했어요.")
             }
             loadFirstPage()
         }
@@ -229,6 +242,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         readerJob?.cancel()
         savedJob?.cancel()
         homeJob?.cancel()
+        subscribedHomeJob?.cancel()
+        subscribedHomeLoaded = false
         newsStoryJob?.cancel()
         publisherJob?.cancel()
         feedBeforeSearch = null
@@ -249,6 +264,11 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun onViewerChanged() {
+        feedJob?.cancel()
+        homeJob?.cancel()
+        subscribedHomeJob?.cancel()
+        newsStoryJob?.cancel()
+        subscribedHomeLoaded = false
         val currentRoute = route
         val currentArticleId = reader.articleId
         val currentFocus = reader.comparisonFocus
@@ -265,9 +285,17 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
             homeStories = emptyList(),
             homeNextCursor = null,
             homeError = null,
+            isHomeLoading = false,
+            isHomeRefreshing = false,
+            subscribedStories = emptyList(),
+            isSubscribedLoading = false,
+            subscribedError = null,
             newsStories = emptyList(),
             newsNextCursor = null,
-            newsError = null
+            newsError = null,
+            isNewsLoading = false,
+            isNewsRefreshing = false,
+            isLoadingMore = false
         )
         authExpired = false
         initialized = false
@@ -336,7 +364,13 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     fun replaceFollowedPublishers(codes: Set<String>, onSuccess: () -> Unit = {}) {
         if (feed.isSavingSources) return
         val valid = codes.intersect(feed.publishers.map { it.code }.toSet())
-        feed = feed.copy(isSavingSources = true, sourceSaveError = null)
+        val previous = feed.publishers.filter { it.isFollowed }.map { it.code }.toSet()
+        val changed = (valid - previous) + (previous - valid)
+        feed = feed.copy(
+            isSavingSources = true,
+            sourceSaveError = null,
+            sourceMutationPublisherCode = changed.singleOrNull()
+        )
         viewModelScope.launch {
             try {
                 val savedCodes = repository.replaceFollowedPublishers(valid)
@@ -345,6 +379,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                         publisher.copy(isFollowed = publisher.code in savedCodes)
                     },
                     isSavingSources = false,
+                    sourceMutationPublisherCode = null,
                     sourceSaveError = null
                 )
                 discovery = discovery.copy(
@@ -384,6 +419,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 if (isAuthFailure(failure)) authExpired = true
                 feed = feed.copy(
                     isSavingSources = false,
+                    sourceMutationPublisherCode = null,
                     sourceSaveError = failure.message ?: "언론사 설정을 저장하지 못했어요."
                 )
             }
@@ -393,16 +429,15 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     fun ensureHomeLoaded() {
         homeRequested = true
         if (discovery.homeStories.isEmpty() && !discovery.isHomeLoading) loadHome()
+        else loadSubscribedHome()
     }
 
     fun refreshHome() = loadHome(force = true, refreshing = true)
 
     private fun loadHome(force: Boolean = false, refreshing: Boolean = false) {
+        loadSubscribedHome(force = force)
         if (!force && (discovery.isHomeLoading || discovery.homeStories.isNotEmpty())) return
         homeJob?.cancel()
-        val scope = if (feed.publishers.any { it.isFollowed }) {
-            FeedScope.FOLLOWING
-        } else FeedScope.ALL
         discovery = discovery.copy(
             isHomeLoading = !refreshing && discovery.homeStories.isEmpty(),
             isHomeRefreshing = refreshing,
@@ -410,7 +445,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         )
         homeJob = viewModelScope.launch {
             try {
-                val page = repository.stories(null, scope)
+                val page = repository.stories(null, FeedScope.ALL)
                 discovery = discovery.copy(
                     homeStories = page.items,
                     homeNextCursor = page.nextCursor,
@@ -431,6 +466,39 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                     isHomeLoading = false,
                     isHomeRefreshing = false,
                     homeError = if (offline.isEmpty()) failure.message ?: "홈 뉴스를 불러오지 못했어요." else null
+                )
+            }
+        }
+    }
+
+    fun retrySubscribedHome() = loadSubscribedHome(force = true)
+
+    private fun loadSubscribedHome(force: Boolean = false) {
+        if (feed.publishers.none { it.isFollowed }) {
+            subscribedHomeJob?.cancel()
+            subscribedHomeLoaded = false
+            discovery = discovery.copy(
+                subscribedStories = emptyList(), isSubscribedLoading = false, subscribedError = null
+            )
+            return
+        }
+        if (!force && (discovery.isSubscribedLoading || subscribedHomeLoaded)) return
+        subscribedHomeJob?.cancel()
+        discovery = discovery.copy(isSubscribedLoading = true, subscribedError = null)
+        subscribedHomeJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(null, FeedScope.FOLLOWING)
+                subscribedHomeLoaded = true
+                discovery = discovery.copy(
+                    subscribedStories = page.items, isSubscribedLoading = false, subscribedError = null
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                discovery = discovery.copy(
+                    isSubscribedLoading = false,
+                    subscribedError = failure.message ?: "구독 뉴스를 불러오지 못했어요."
                 )
             }
         }

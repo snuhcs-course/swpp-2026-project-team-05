@@ -120,8 +120,8 @@ independent of follows.
   `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
 - [Unit] Android reloads Home from the first story page after a subscription
   change and preserves News/Search/Reader state independently.\
-  Tip: add ViewModel tests with empty, one-publisher, and changed subscription
-  sets after the story endpoint is implemented.
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.homeLoadsPublicAndSubscribedStoriesIndependently`,
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.homeDoesNotRequestSubscribedStoriesWithoutSubscriptions`
 - [Unit] Server follow state replaces device-local publisher selection without
   uploading legacy local codes; category and analysis visibility remain local.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`

@@ -32,7 +32,7 @@ analysis, or add a topic-detail screen.
 | Saved | Article | A bookmark points to the exact article the user saved |
 | Reader and comparison navigation | Article | Text, offsets, links, and saved state are article-specific |
 
-The News tab order is `뉴스 | 언론사 | 정치 | 사회 | 경제`. `뉴스` is an
+The News tab order is `전체 뉴스 | 언론사 | 정치 | 사회 | 경제`. `전체 뉴스` is an
 uncategorized topic feed; it is not another name for Politics. `언론사` lists
 active publishers with feed-visible articles, exposes subscription state, and opens a
 publisher-specific article list.
@@ -44,7 +44,7 @@ manage the set from the publisher directory or MY. Web may keep its implemented
 Following control until its navigation is redesigned, but it uses the same
 account set.
 
-The FrameLESS onboarding/tutorial entry appears only in the `뉴스` all-topics
+The FrameLESS onboarding/tutorial entry appears only in the `전체 뉴스` all-topics
 section, plus the explicit replay action in MY. It is not repeated in category
 or publisher sections.
 
@@ -160,14 +160,22 @@ Reader-to-comparison-to-Reader navigation and save state remain unchanged.
 Back restores the originating Home or News tab, selected section, loaded topic
 pages, and scroll position.
 
-Home keeps its portal utilities above the news section:
+Home keeps its portal utilities above two independent news sections:
 
-- signed in with at least one followed publisher: request `scope=FOLLOWING` and
-  label the section as followed news;
-- guest or empty follow set: request `scope=ALL`, show public topics, and offer
-  one quiet path to publisher following;
+- `주요 뉴스` always requests `scope=ALL`;
+- `구독한 언론사 뉴스` follows directly below it. A signed-in viewer with
+  subscriptions gets a separate `scope=FOLLOWING` request, never a filter over
+  the already-loaded public page;
+- guest or empty follow set: retain the second section with a compact invitation
+  to manage subscriptions; do not issue an authenticated request;
+- the two sections have independent loading, error, and retry states. A
+  subscription change invalidates and reloads the subscribed section;
 - offline: retain the existing locally complete Saved fallback; do not pretend
   it is a live topic feed.
+
+The same topic may appear in both sections with different representatives.
+Android list item keys include the section to preserve valid identity. A viewer
+change cancels personalized requests and clears subscribed stories immediately.
 
 The publisher directory is publisher-first. Each block shows publisher identity,
 one `구독`/`구독 중` action, and at most three recent article headlines.

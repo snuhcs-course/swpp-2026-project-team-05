@@ -29,16 +29,16 @@ predictably.
    Tested by: `tests.test_news_api.NewsApiTests.test_story_feed_does_not_change_article_search`
 7. Android parses the story response and encodes nullable category, scope,
    cursor, and limit correctly.  
-   Tested by: `NewsApiClientTest.storyFeedParsesGroupedCoverageAndRequestContext`
-8. News-section selection maps `뉴스` to an uncategorized story request,
+   Tested by: `NewsApiClientTest.newsEndpointsParseFeedDetailAndGroundedComparison`
+8. News-section selection maps `전체 뉴스` to an uncategorized story request,
    category tabs to their category, and `언론사` to the publisher directory.  
    Tip: add `NewsViewModelTest` cases when the section state is implemented.
 9. Tapping a story row opens its representative article and Back restores the
    originating list state.  
    Tip: add Compose navigation coverage when the story row is implemented.
 10. Android has no Latest/Following control; the visible News sections are
-    `뉴스`, `언론사`, `정치`, `사회`, and `경제`, and the tutorial entry appears
-    only in `뉴스`.  
+    `전체 뉴스`, `언론사`, `정치`, `사회`, and `경제`, and the tutorial entry appears
+    only in `전체 뉴스`.
     Tip: add semantics-driven Compose coverage for the section row.
 11. The publisher directory shows publisher identity, subscription state, and
     at most three recent headlines; selecting a publisher opens its exact

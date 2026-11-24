@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -40,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -48,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.swpp.team5.frameless.R
+import com.swpp.team5.frameless.ui.components.PublisherLogo
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.PublisherItem
@@ -76,7 +83,12 @@ internal fun PortalNewsScreen(
     onPublisherBack: () -> Unit,
     onPublisherRetry: () -> Unit,
     onPublisherLoadMore: () -> Unit,
-    onSubscription: (PublisherItem, Boolean) -> Unit
+    onSubscription: (PublisherItem, Boolean) -> Unit,
+    isSavingSubscription: Boolean = false,
+    subscriptionError: String? = null,
+    isLoadingPublishers: Boolean = false,
+    publisherDirectoryError: String? = null,
+    onPublisherDirectoryRetry: () -> Unit = onRetry
 ) {
     state.activePublisher?.let { publisher ->
         PublisherPage(
@@ -89,7 +101,9 @@ internal fun PortalNewsScreen(
             onArticle = onArticle,
             onRetry = onPublisherRetry,
             onLoadMore = onPublisherLoadMore,
-            onSubscription = { onSubscription(publisher, !publisher.isFollowed) }
+            onSubscription = { onSubscription(publisher, !publisher.isFollowed) },
+            isSavingSubscription = isSavingSubscription,
+            subscriptionError = subscriptionError
         )
         return
     }
@@ -101,10 +115,14 @@ internal fun PortalNewsScreen(
         when (state.newsSection) {
             NewsSection.PUBLISHERS -> PublisherDirectory(
                 publishers = publishers,
-                session = session,
                 onPublisher = onPublisher,
                 onArticle = onArticle,
-                onSubscription = onSubscription
+                onSubscription = onSubscription,
+                isSavingSubscription = isSavingSubscription,
+                subscriptionError = subscriptionError,
+                isLoading = isLoadingPublishers,
+                error = publisherDirectoryError,
+                onRetry = onPublisherDirectoryRetry
             )
             else -> StoryFeed(
                 state = state,
@@ -160,16 +178,19 @@ private fun SearchGlyphSimple() {
 @Composable
 private fun NewsSectionTabs(selected: NewsSection, onSection: (NewsSection) -> Unit) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth().background(Fl.Card),
-        contentPadding = PaddingValues(horizontal = 12.dp),
+        modifier = Modifier.fillMaxWidth().background(Fl.Card).selectableGroup(),
+        contentPadding = PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         items(NewsSection.entries, key = NewsSection::name) { section ->
             val active = section == selected
             Column(
-                Modifier.clickable { onSection(section) }.padding(horizontal = 11.dp, vertical = 8.dp)
-                    .semantics { role = Role.Tab; contentDescription = "${section.label} 탭" },
-                horizontalAlignment = Alignment.CenterHorizontally
+                Modifier.height(50.dp)
+                    .selectable(selected = active, role = Role.Tab, onClick = { onSection(section) })
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .semantics { contentDescription = "${section.label} 탭" },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     section.label,
@@ -303,29 +324,29 @@ private fun StoryRow(story: StorySummary, onClick: () -> Unit) {
 @Composable
 private fun PublisherDirectory(
     publishers: List<PublisherItem>,
-    session: AppSession?,
     onPublisher: (PublisherItem) -> Unit,
     onArticle: (String) -> Unit,
-    onSubscription: (PublisherItem, Boolean) -> Unit
+    onSubscription: (PublisherItem, Boolean) -> Unit,
+    isSavingSubscription: Boolean,
+    subscriptionError: String?,
+    isLoading: Boolean,
+    error: String?,
+    onRetry: () -> Unit
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 20.dp)) {
-        item {
-            Column(Modifier.padding(horizontal = 18.dp, vertical = 17.dp)) {
-                Text("언론사별 최신 뉴스", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Fl.Ink)
-                Text(
-                    if (session == null) "관심 있는 언론사를 구독하면 홈에서 먼저 볼 수 있어요"
-                    else "구독한 언론사의 최신 소식은 홈에 우선 표시돼요",
-                    fontSize = 11.5.sp,
-                    color = Fl.Muted,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
+        item { Spacer(Modifier.height(10.dp).background(Fl.Inset).fillMaxWidth()) }
+        subscriptionError?.let { message ->
+            item { Text(message, color = Fl.Danger, fontSize = 12.sp, modifier = Modifier.padding(20.dp)) }
         }
         if (publishers.isEmpty()) {
-            item { PortalEmpty("언론사를 불러오고 있어요", "잠시만 기다려 주세요") }
+            when {
+                isLoading -> item { PortalInlineLoading() }
+                error != null -> item { PortalEmpty("언론사를 불러오지 못했어요", error, "다시 시도", onRetry) }
+                else -> item { PortalEmpty("표시할 언론사가 없어요", "새 기사가 들어오면 이곳에서 볼 수 있어요") }
+            }
         } else {
             items(publishers, key = PublisherItem::code) { publisher ->
-                PublisherBlock(publisher, onPublisher, onArticle, onSubscription)
+                PublisherBlock(publisher, onPublisher, onArticle, onSubscription, isSavingSubscription)
             }
         }
     }
@@ -336,81 +357,101 @@ private fun PublisherBlock(
     publisher: PublisherItem,
     onPublisher: (PublisherItem) -> Unit,
     onArticle: (String) -> Unit,
-    onSubscription: (PublisherItem, Boolean) -> Unit
+    onSubscription: (PublisherItem, Boolean) -> Unit,
+    isSavingSubscription: Boolean
 ) {
     Column(
-        Modifier.fillMaxWidth().background(Fl.Card).padding(horizontal = 18.dp, vertical = 16.dp)
+        Modifier.fillMaxWidth().background(Fl.Card)
+            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .testTag("publisher-block-${publisher.code}")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PublisherMark(publisher)
-            Column(
-                Modifier.padding(start = 11.dp).weight(1f).clickable { onPublisher(publisher) }
-                    .semantics { role = Role.Button; contentDescription = "${publisher.name} 기사 보기" }
+            Row(
+                modifier = Modifier.weight(1f).clickable { onPublisher(publisher) }
+                    .semantics { role = Role.Button; contentDescription = "${publisher.name} 기사 보기" },
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(publisher.name, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Fl.Ink)
-                Text("최신 기사 보기  ›", fontSize = 10.5.sp, color = Fl.Muted, modifier = Modifier.padding(top = 2.dp))
+                PublisherLogo(publisher, Modifier.size(46.dp))
+                Column(Modifier.padding(start = 13.dp).weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            publisher.name,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Fl.Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Icon(
+                            painterResource(R.drawable.ic_portal_chevron_right),
+                            contentDescription = null,
+                            tint = Fl.Muted,
+                            modifier = Modifier.padding(start = 3.dp).size(14.dp)
+                        )
+                    }
+                    publisher.recentArticles.firstOrNull()?.let { latest ->
+                        Text(
+                            feedRelativeTime(latest.publishedAt),
+                            fontSize = 12.sp,
+                            color = Fl.Muted,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
             }
+            Spacer(Modifier.width(12.dp))
             SubscriptionButton(
                 followed = publisher.isFollowed,
-                onClick = { onSubscription(publisher, !publisher.isFollowed) }
+                onClick = { onSubscription(publisher, !publisher.isFollowed) },
+                enabled = !isSavingSubscription
             )
         }
-        if (publisher.recentArticles.isEmpty()) {
+        Spacer(Modifier.height(14.dp))
+        val previews = publisher.recentArticles.take(3)
+        if (previews.isEmpty()) {
             Text(
                 "최근 기사를 준비하고 있어요",
                 fontSize = 12.sp,
                 color = Fl.Muted,
-                modifier = Modifier.padding(top = 15.dp, bottom = 5.dp)
+                modifier = Modifier.padding(top = 5.dp, bottom = 5.dp)
             )
         } else {
-            publisher.recentArticles.take(3).forEachIndexed { index, article ->
-                Row(
-                    Modifier.fillMaxWidth().clickable { onArticle(article.id) }.padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text("${index + 1}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Fl.Accent, modifier = Modifier.width(22.dp))
-                    Text(
-                        article.title,
-                        fontSize = 13.5.sp,
-                        lineHeight = 19.sp,
-                        color = Fl.Ink,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                if (index < publisher.recentArticles.lastIndex.coerceAtMost(2)) {
-                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(start = 22.dp))
-                }
+            previews.forEachIndexed { index, article ->
+                Text(
+                    article.title,
+                    fontSize = 15.5.sp,
+                    lineHeight = 23.sp,
+                    color = Fl.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().clickable { onArticle(article.id) }
+                        .padding(vertical = 12.dp)
+                )
+                if (index < previews.lastIndex) HorizontalDivider(color = Fl.Line.copy(alpha = 0.65f))
             }
         }
     }
-    Spacer(Modifier.fillMaxWidth().height(8.dp).background(Fl.Bg))
+    Spacer(Modifier.fillMaxWidth().height(10.dp).background(Fl.Inset))
 }
 
 @Composable
-private fun PublisherMark(publisher: PublisherItem) {
-    Box(
-        Modifier.size(42.dp).background(Fl.Inset, CircleShape).border(1.dp, Fl.Line, CircleShape),
-        contentAlignment = Alignment.Center
+private fun SubscriptionButton(followed: Boolean, onClick: () -> Unit, enabled: Boolean = true) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.height(38.dp)
+            .semantics { contentDescription = if (followed) "구독 취소" else "구독" },
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(horizontal = 13.dp, vertical = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Fl.Line),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = if (followed) Fl.Inset else androidx.compose.ui.graphics.Color.Transparent,
+            contentColor = if (followed) Fl.Muted else Fl.Ink
+        )
     ) {
-        Text(publisher.name.take(1), color = Fl.Accent, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+        Text(if (followed) "구독 중" else "+ 구독", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
-}
-
-@Composable
-private fun SubscriptionButton(followed: Boolean, onClick: () -> Unit) {
-    val background = if (followed) Fl.Inset else Fl.Ink
-    val foreground = if (followed) Fl.Muted else Fl.Card
-    Text(
-        if (followed) "구독 중" else "+ 구독",
-        fontSize = 11.5.sp,
-        fontWeight = FontWeight.Bold,
-        color = foreground,
-        modifier = Modifier.background(background, RoundedCornerShape(20.dp)).clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .semantics { role = Role.Button; contentDescription = if (followed) "구독 취소" else "구독" }
-    )
 }
 
 @Composable
@@ -424,7 +465,9 @@ private fun PublisherPage(
     onArticle: (String) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onSubscription: () -> Unit
+    onSubscription: () -> Unit,
+    isSavingSubscription: Boolean,
+    subscriptionError: String?
 ) {
     LazyColumn(Modifier.fillMaxSize().background(Fl.Bg)) {
         item {
@@ -432,13 +475,10 @@ private fun PublisherPage(
                 Modifier.fillMaxWidth().background(Fl.Card).padding(horizontal = 10.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "‹",
-                    fontSize = 34.sp,
-                    color = Fl.Ink,
-                    modifier = Modifier.size(42.dp).clickable(onClick = onBack)
-                        .semantics { role = Role.Button; contentDescription = "언론사 목록으로 돌아가기" }
-                )
+                androidx.compose.material3.IconButton(onClick = onBack) {
+                    Icon(painterResource(R.drawable.ic_portal_arrow_back),
+                        contentDescription = "언론사 목록으로 돌아가기", tint = Fl.Ink)
+                }
                 Text("언론사", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
             }
         }
@@ -447,13 +487,16 @@ private fun PublisherPage(
                 Modifier.fillMaxWidth().background(Fl.Card).padding(horizontal = 18.dp, vertical = 19.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                PublisherMark(publisher)
+                PublisherLogo(publisher)
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
                     Text(publisher.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Fl.Ink)
                     Text("이 언론사의 최신 기사", fontSize = 11.sp, color = Fl.Muted)
                 }
-                SubscriptionButton(publisher.isFollowed, onSubscription)
+                SubscriptionButton(publisher.isFollowed, onSubscription, enabled = !isSavingSubscription)
             }
+        }
+        subscriptionError?.let { message ->
+            item { Text(message, color = Fl.Danger, fontSize = 12.sp, modifier = Modifier.padding(18.dp)) }
         }
         when {
             isLoading && articles.isEmpty() -> item { PortalInlineLoading() }

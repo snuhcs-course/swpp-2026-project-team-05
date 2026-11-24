@@ -291,10 +291,15 @@ internal fun FrameLESSApp(
                                 onArticle = news::openArticle,
                                 onProfile = { selectTab(PortalTab.MY) },
                                 onSubscriptions = {
-                                    rootTab = PortalTab.NEWS
-                                    news.selectNewsSection(com.swpp.team5.frameless.ui.viewmodel.NewsSection.PUBLISHERS)
+                                    rootTab = PortalTab.MY
+                                    profilePage = ProfilePage.SOURCES
                                 },
-                                onRetry = news::refreshHome
+                                onRetry = news::refreshHome,
+                                subscribedStories = news.discovery.subscribedStories,
+                                isSubscribedLoading = news.discovery.isSubscribedLoading,
+                                subscribedError = news.discovery.subscribedError,
+                                onRetrySubscriptions = news::retrySubscribedHome,
+                                isSignedIn = session != null
                             )
                             PortalTab.NEWS -> if (news.feed.isSearchOpen) NewsFeedScreen(
                                 state = news.feed,
@@ -335,6 +340,11 @@ internal fun FrameLESSApp(
                                 state = news.discovery,
                                 publishers = news.feed.publishers,
                                 session = session,
+                                isSavingSubscription = news.feed.isSavingSources,
+                                subscriptionError = news.feed.sourceSaveError,
+                                isLoadingPublishers = news.feed.isLoadingPublishers,
+                                publisherDirectoryError = news.feed.publisherDirectoryError,
+                                onPublisherDirectoryRetry = news::retryFeed,
                                 listState = feedListState,
                                 onSection = news::selectNewsSection,
                                 onSearch = {
@@ -393,15 +403,7 @@ internal fun FrameLESSApp(
                                     onLogout = {
                                         session?.let { current -> news.logout(current.user.id, auth::logout) }
                                     },
-                                    onSources = {
-                                        if (session == null) {
-                                            rootTab = PortalTab.NEWS
-                                            profilePage = ProfilePage.OVERVIEW
-                                            news.selectNewsSection(
-                                                com.swpp.team5.frameless.ui.viewmodel.NewsSection.PUBLISHERS
-                                            )
-                                        } else profilePage = ProfilePage.SOURCES
-                                    },
+                                    onSources = { profilePage = ProfilePage.SOURCES },
                                     onAnalysis = { profilePage = ProfilePage.ANALYSIS },
                                     appearanceMode = appearance.mode,
                                     onAppearance = { profilePage = ProfilePage.APPEARANCE }
@@ -411,9 +413,17 @@ internal fun FrameLESSApp(
                                     isSaving = news.feed.isSavingSources,
                                     error = news.feed.sourceSaveError,
                                     onBack = { profilePage = ProfilePage.OVERVIEW },
-                                    onSave = { codes ->
-                                        news.replaceFollowedPublishers(codes) {
-                                            profilePage = ProfilePage.OVERVIEW
+                                    isGuest = session == null,
+                                    pendingPublisherCode = news.feed.sourceMutationPublisherCode,
+                                    onToggle = { publisher, follow ->
+                                        if (session == null) {
+                                            pendingSubscriptionCode = publisher.code
+                                            authPrompt = AuthPrompt.SUBSCRIPTION
+                                        } else {
+                                            val codes = news.feed.publishers.filter { it.isFollowed }
+                                                .map { it.code }.toMutableSet()
+                                            if (follow) codes += publisher.code else codes -= publisher.code
+                                            news.replaceFollowedPublishers(codes)
                                         }
                                     }
                                 )

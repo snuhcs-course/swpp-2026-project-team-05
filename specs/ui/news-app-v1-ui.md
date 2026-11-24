@@ -51,8 +51,8 @@ I-series analysis, including I1, is deferred and does not appear in these screen
 
 ```text
 Launch → Home
-  ├─ Home: portal utilities + topic-grouped subscribed/public news
-  ├─ News: 뉴스 | 언론사 | 정치 | 사회 | 경제
+  ├─ Home: portal utilities → 주요 뉴스 → 구독한 언론사 뉴스
+  ├─ News: 전체 뉴스 | 언론사 | 정치 | 사회 | 경제
   ├─ Saved: personal article list or an in-place sign-in state
   └─ MY: account, subscriptions, analysis preference, appearance, tutorial replay
 
@@ -162,14 +162,18 @@ Root-shell and discovery behavior:
   scroll state. The bottom bar is hidden on Reader, authentication, tutorial,
   and nested settings surfaces.
 - Home uses a compact portal rhythm: one search entry, restrained weather and
-  market utility blocks, and a topic-grouped news section. Mock utility values
+  market utility blocks, `주요 뉴스` (ALL), then `구독한 언론사 뉴스`
+  (FOLLOWING). The latter owns its loading, failure, retry and empty states;
+  its header links to MY subscription management. Guests and readers with no
+  subscriptions see an in-place invitation below the public headlines.
+  Mock utility values
   remain visibly sample data until a provider is separately approved.
-- News uses one text-tab row in this fixed order: `뉴스 | 언론사 | 정치 |
+- News uses one text-tab row in this fixed order: `전체 뉴스 | 언론사 | 정치 |
   사회 | 경제`. There is no second category row and no `최신/팔로잉`
   selector.
-- `뉴스`, `정치`, `사회`, and `경제` use topic rows; `언론사`, search,
+- `전체 뉴스`, `정치`, `사회`, and `경제` use topic rows; `언론사`, search,
   and Saved use article rows.
-- The tutorial entry appears only in the `뉴스` section header. It is not
+- The tutorial entry appears only in the `전체 뉴스` section header. It is not
   repeated in category or publisher sections. MY may retain `튜토리얼 다시
   보기`.
 
@@ -241,9 +245,21 @@ Do not show:
 - User-facing copy is `구독`, `구독 중`, and `구독 관리`. Existing
   internal API/model names containing `follow` remain implementation details.
 - The directory is publisher-first, not a flat checkbox settings form. Each
-  publisher block shows identity, one subscription action, and up to three
-  recent article headlines. Selecting its identity or `더보기` opens the
+  publisher block shows an actual publisher logo, name, latest available
+  publication time, one subscription action, and up to three unnumbered
+  recent article headlines separated by quiet dividers. A stored logo URL
+  takes precedence; bundled genuine publisher assets and a neutral identity
+  placeholder cover unavailable images. No article image is fabricated.
+  Selecting its identity opens the
   publisher's ordinary article page.
+- MY → `구독한 언론사 관리` is a separate `구독 관리` settings screen, never
+  a redirect to this directory, including for guests. It shows only publisher
+  identities and subscription switches. Changes save individually in place;
+  failures keep confirmed state and show an inline error. Guests get the
+  contextual authentication sheet before any mutation. Back returns to MY.
+- Root navigation icons are vector drawable assets with a consistent 24-unit
+  grid and rounded strokes. Selected state changes tint and label emphasis,
+  not icon geometry; every root tab retains an accessible 48 dp touch target.
 - Category chips are optional presentation filters over publisher metadata. If
   the metadata does not exist, omit the chips rather than guessing.
 - A signed-in subscription action updates the server-owned account set and

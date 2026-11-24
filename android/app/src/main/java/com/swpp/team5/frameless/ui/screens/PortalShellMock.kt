@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,6 +27,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -44,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -53,6 +61,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.swpp.team5.frameless.R
+import com.swpp.team5.frameless.ui.components.PublisherLogo
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.AppearanceMode
 import com.swpp.team5.frameless.data.ArticleSummary
@@ -78,102 +88,42 @@ private val PortalSoft: Color @Composable @ReadOnlyComposable get() = MaterialTh
 @Composable
 internal fun PortalBottomBar(selected: PortalTab, onSelect: (PortalTab) -> Unit) {
     Column(Modifier.fillMaxWidth().background(PortalSurface)) {
-        HorizontalDivider(color = PortalLine)
+        HorizontalDivider(color = PortalLine.copy(alpha = 0.65f), thickness = 0.5.dp)
         Row(
-            modifier = Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxWidth().height(68.dp).selectableGroup()
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             PortalTab.entries.forEach { tab ->
                 val active = selected == tab
+                val color = if (active) Fl.Ink else Fl.Muted
                 Column(
-                    modifier = Modifier.weight(1f).clickable { onSelect(tab) }
-                        .padding(top = 5.dp, bottom = 4.dp)
-                        .semantics {
-                        role = Role.Tab
-                        this.selected = active
-                        contentDescription = "${tab.label} 탭"
-                    },
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                        .selectable(selected = active, role = Role.Tab, onClick = { onSelect(tab) })
+                        .semantics { contentDescription = "${tab.label} 탭" },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Box(
-                        modifier = Modifier.size(width = 36.dp, height = 27.dp)
-                            .background(if (active) PortalSoft else Color.Transparent, RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        PortalTabIcon(tab, active)
-                    }
-                    Spacer(Modifier.height(1.dp))
+                    Icon(
+                        painter = painterResource(when (tab) {
+                            PortalTab.HOME -> R.drawable.ic_portal_home
+                            PortalTab.NEWS -> R.drawable.ic_portal_news
+                            PortalTab.SAVED -> R.drawable.ic_portal_bookmark
+                            PortalTab.MY -> R.drawable.ic_portal_profile
+                        }),
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.height(5.dp))
                     Text(
                         tab.label,
-                        fontSize = 10.sp,
-                        lineHeight = 11.sp,
-                        color = if (active) Fl.Ink else Color(0xFF858A95),
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        color = color,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PortalTabIcon(tab: PortalTab, selected: Boolean) {
-    val color = if (selected) PortalAccent else Color(0xFF858A95)
-    Canvas(Modifier.size(20.dp)) {
-        val stroke = Stroke(if (selected) 2.dp.toPx() else 1.7.dp.toPx(), cap = StrokeCap.Round)
-        val w = size.width
-        when (tab) {
-            PortalTab.HOME -> {
-                val roof = Path().apply {
-                    moveTo(w * 0.12f, w * 0.48f)
-                    lineTo(w * 0.5f, w * 0.16f)
-                    lineTo(w * 0.88f, w * 0.48f)
-                }
-                drawPath(roof, color, style = stroke)
-                drawRoundRect(
-                    color,
-                    topLeft = Offset(w * 0.22f, w * 0.43f),
-                    size = Size(w * 0.56f, w * 0.43f),
-                    cornerRadius = CornerRadius(w * 0.08f),
-                    style = stroke
-                )
-                drawLine(color, Offset(w * 0.48f, w * 0.86f), Offset(w * 0.48f, w * 0.65f), stroke.width)
-            }
-            PortalTab.NEWS -> {
-                drawRoundRect(
-                    color,
-                    topLeft = Offset(w * 0.14f, w * 0.12f),
-                    size = Size(w * 0.72f, w * 0.76f),
-                    cornerRadius = CornerRadius(w * 0.08f),
-                    style = stroke
-                )
-                drawLine(color, Offset(w * 0.27f, w * 0.34f), Offset(w * 0.73f, w * 0.34f), stroke.width)
-                drawLine(color, Offset(w * 0.27f, w * 0.52f), Offset(w * 0.73f, w * 0.52f), stroke.width)
-                drawLine(color, Offset(w * 0.27f, w * 0.70f), Offset(w * 0.60f, w * 0.70f), stroke.width)
-            }
-            PortalTab.SAVED -> {
-                val bookmark = Path().apply {
-                    moveTo(w * 0.25f, w * 0.14f)
-                    lineTo(w * 0.75f, w * 0.14f)
-                    lineTo(w * 0.75f, w * 0.88f)
-                    lineTo(w * 0.5f, w * 0.70f)
-                    lineTo(w * 0.25f, w * 0.88f)
-                    close()
-                }
-                drawPath(bookmark, color, style = stroke)
-            }
-            PortalTab.MY -> {
-                drawCircle(color, radius = w * 0.17f, center = Offset(w * 0.5f, w * 0.33f), style = stroke)
-                drawArc(
-                    color,
-                    startAngle = 202f,
-                    sweepAngle = 136f,
-                    useCenter = false,
-                    topLeft = Offset(w * 0.18f, w * 0.48f),
-                    size = Size(w * 0.64f, w * 0.48f),
-                    style = stroke
-                )
             }
         }
     }
@@ -201,7 +151,12 @@ internal fun PortalHomeScreen(
     onArticle: (String) -> Unit,
     onProfile: () -> Unit,
     onSubscriptions: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    subscribedStories: List<StorySummary> = emptyList(),
+    isSubscribedLoading: Boolean = false,
+    subscribedError: String? = null,
+    onRetrySubscriptions: () -> Unit = onRetry,
+    isSignedIn: Boolean = false
 ) {
     val articles = stories.map(StorySummary::representativeArticle)
     var trendsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -329,32 +284,6 @@ internal fun PortalHomeScreen(
             }
         }
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp)
-                    .background(PortalSoft, RoundedCornerShape(13.dp))
-                    .clickable(onClick = onSubscriptions)
-                    .padding(horizontal = 13.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        if (followedPublisherCount > 0) "구독한 언론사 소식" else "자주 읽는 언론사를 구독해 보세요",
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Fl.Ink
-                    )
-                    Text(
-                        if (followedPublisherCount > 0) "${followedPublisherCount}곳의 기사를 홈에 먼저 보여드려요"
-                        else "구독하면 해당 언론사의 최신 기사를 홈에서 볼 수 있어요",
-                        fontSize = 10.5.sp,
-                        color = Fl.Muted,
-                        modifier = Modifier.padding(top = 3.dp)
-                    )
-                }
-                Text("›", fontSize = 22.sp, color = Fl.Muted)
-            }
-        }
-        item {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 contentPadding = PaddingValues(horizontal = 18.dp),
@@ -376,7 +305,59 @@ internal fun PortalHomeScreen(
         if (latest.isEmpty()) {
             item { EmptyPortalSection("표시할 최신 기사가 없어요") }
         } else {
-            items(latest, key = StorySummary::storyKey) { story ->
+            items(latest, key = { "major:${it.storyKey}" }) { story ->
+                LatestNewsRow(story.representativeArticle, story.publisherCount) {
+                    onArticle(story.representativeArticle.id)
+                }
+            }
+        }
+        item {
+            Spacer(Modifier.fillMaxWidth().height(8.dp).background(PortalSoft))
+            Row(
+                Modifier.fillMaxWidth().padding(start = 18.dp, end = 6.dp, top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("구독한 언론사 뉴스", fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    color = Fl.Ink, modifier = Modifier.weight(1f))
+                androidx.compose.material3.TextButton(onClick = onSubscriptions) {
+                    Text("구독 관리", fontSize = 11.5.sp, color = Fl.Muted)
+                    Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                        tint = Fl.Muted, modifier = Modifier.size(15.dp))
+                }
+            }
+        }
+        when {
+            followedPublisherCount == 0 -> item {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 18.dp)) {
+                    Text(
+                        if (isSignedIn) "자주 읽는 언론사를 구독해 보세요"
+                        else "관심 언론사의 소식을 한곳에서",
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Fl.Ink
+                    )
+                    Text(
+                        if (isSignedIn) "구독한 언론사의 최신 기사가 여기에 모여요."
+                        else "로그인하고 언론사를 구독하면 최신 기사를 모아 볼 수 있어요.",
+                        fontSize = 12.sp, lineHeight = 18.sp, color = Fl.Muted,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                    androidx.compose.material3.TextButton(onClick = onSubscriptions) {
+                        Text("언론사 선택하기", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            isSubscribedLoading && subscribedStories.isEmpty() -> item {
+                Box(Modifier.fillMaxWidth().height(90.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.size(22.dp), color = Fl.Accent, strokeWidth = 2.dp)
+                }
+            }
+            subscribedError != null && subscribedStories.isEmpty() -> item {
+                Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+                    Text("구독 뉴스를 불러오지 못했어요", fontSize = 13.sp, color = Fl.Muted)
+                    androidx.compose.material3.TextButton(onClick = onRetrySubscriptions) { Text("다시 시도") }
+                }
+            }
+            subscribedStories.isEmpty() -> item { EmptyPortalSection("구독한 언론사의 새 기사를 기다리고 있어요") }
+            else -> items(subscribedStories.take(7), key = { "subscribed:${it.storyKey}" }) { story ->
                 LatestNewsRow(story.representativeArticle, story.publisherCount) {
                     onArticle(story.representativeArticle.id)
                 }
@@ -752,70 +733,21 @@ internal fun PortalFollowedPublishersScreen(
     isSaving: Boolean,
     error: String?,
     onBack: () -> Unit,
-    onSave: (Set<String>) -> Unit
+    onToggle: (PublisherItem, Boolean) -> Unit,
+    isGuest: Boolean = false,
+    pendingPublisherCode: String? = null
 ) {
-    val initialCodes = publishers.filter(PublisherItem::isFollowed).map(PublisherItem::code).toSet()
-    var selectedCodes by remember(publishers) { mutableStateOf(initialCodes) }
-    val hasChanges = selectedCodes != initialCodes
-
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(PortalPage),
+        modifier = Modifier.fillMaxSize().background(PortalPage).testTag("subscription-management"),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
             ProfileDetailHeader(
-                title = "구독한 언론사",
-                subtitle = "홈에서 먼저 볼 언론사를 선택하세요.",
+                title = "구독 관리",
+                subtitle = if (isGuest) "로그인하면 구독 설정을 저장할 수 있어요."
+                    else "관심 언론사를 구독하거나 해지할 수 있어요.",
                 onBack = onBack
             )
-        }
-        if (publishers.isEmpty()) {
-            item { EmptyPortalSection("언론사 목록을 불러오는 중이에요") }
-        } else {
-            items(publishers, key = PublisherItem::code) { publisher ->
-                val checked = publisher.code in selectedCodes
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .clickable {
-                            selectedCodes = if (checked) selectedCodes - publisher.code else selectedCodes + publisher.code
-                        }
-                        .padding(horizontal = 18.dp, vertical = 12.dp)
-                        .semantics {
-                            role = Role.Checkbox
-                            selected = checked
-                            contentDescription = "${publisher.name} ${if (checked) "구독 중" else "구독 안 함"}"
-                        },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        Modifier.size(38.dp).background(PortalSoft, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            publisher.name.take(1),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PortalAccent
-                        )
-                    }
-                    Text(
-                        publisher.name,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Fl.Ink,
-                        modifier = Modifier.padding(start = 12.dp).weight(1f)
-                    )
-                    Box(
-                        Modifier.size(24.dp)
-                            .background(if (checked) PortalAccent else PortalSurface, CircleShape)
-                            .border(1.dp, if (checked) PortalAccent else Color(0xFFC9CED8), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (checked) Text("✓", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                HorizontalDivider(color = PortalLine, modifier = Modifier.padding(start = 68.dp, end = 18.dp))
-            }
         }
         if (error != null) {
             item {
@@ -823,17 +755,59 @@ internal fun PortalFollowedPublishersScreen(
                     error,
                     color = Fl.Danger,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                        .testTag("subscription-save-error")
                 )
             }
         }
-        item {
-            SettingsPrimaryButton(
-                label = if (isSaving) "저장 중…" else "변경사항 저장",
-                enabled = hasChanges && !isSaving,
-                onClick = { onSave(selectedCodes) },
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 20.dp)
-            )
+        if (publishers.isEmpty()) {
+            item { EmptyPortalSection("표시할 언론사가 없어요") }
+        } else {
+            items(publishers, key = PublisherItem::code) { publisher ->
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .toggleable(
+                            value = publisher.isFollowed,
+                            enabled = !isSaving,
+                            role = Role.Switch,
+                            onValueChange = { onToggle(publisher, it) }
+                        )
+                        .testTag("subscription-toggle-${publisher.code}")
+                        .padding(horizontal = 20.dp, vertical = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    PublisherLogo(publisher, Modifier.size(42.dp))
+                    Column(Modifier.padding(start = 14.dp).weight(1f)) {
+                        Text(publisher.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Fl.Ink)
+                        Text(
+                            if (publisher.isFollowed) "구독 중" else "구독 안 함",
+                            fontSize = 11.5.sp,
+                            color = Fl.Muted,
+                            modifier = Modifier.padding(top = 3.dp)
+                        )
+                    }
+                    if (isSaving && pendingPublisherCode == publisher.code) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(end = 12.dp).size(16.dp),
+                            strokeWidth = 1.5.dp,
+                            color = PortalAccent
+                        )
+                    }
+                    Switch(
+                        checked = publisher.isFollowed,
+                        onCheckedChange = null,
+                        enabled = !isSaving,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = PortalAccent
+                        )
+                    )
+                }
+                HorizontalDivider(
+                    color = PortalLine.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(start = 76.dp, end = 20.dp)
+                )
+            }
         }
     }
 }
@@ -909,12 +883,9 @@ internal fun PortalAnalysisSettingsScreen(
 private fun ProfileDetailHeader(title: String, subtitle: String, onBack: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(40.dp).clickable(onClick = onBack)
-                    .semantics { role = Role.Button; contentDescription = "MY로 돌아가기" },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("‹", fontSize = 32.sp, lineHeight = 32.sp, color = Fl.Ink)
+            androidx.compose.material3.IconButton(onClick = onBack) {
+                Icon(painterResource(R.drawable.ic_portal_arrow_back),
+                    contentDescription = "MY로 돌아가기", tint = Fl.Ink)
             }
             Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
         }
@@ -979,7 +950,8 @@ private fun ProfileAction(
             Text(title, fontSize = 15.sp, color = if (destructive) Fl.Danger else Fl.Ink)
             detail?.let { Text(it, fontSize = 11.sp, color = Fl.Muted, modifier = Modifier.padding(top = 4.dp)) }
         }
-        if (!destructive) Text("›", fontSize = 22.sp, color = Color(0xFF999999))
+        if (!destructive) Icon(painterResource(R.drawable.ic_portal_chevron_right),
+            contentDescription = null, tint = Fl.Muted, modifier = Modifier.size(20.dp))
     }
     HorizontalDivider(color = PortalLine, modifier = Modifier.padding(start = 18.dp))
 }

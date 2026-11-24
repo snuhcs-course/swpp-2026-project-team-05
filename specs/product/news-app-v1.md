@@ -199,7 +199,7 @@ Password change, reset, account deletion, and session listing remain outside thi
 
 ### 4.1 Discovery and article lists
 
-Android Home and the `뉴스`, `정치`, `사회`, and `경제` News sections use the
+Android Home and the `전체 뉴스`, `정치`, `사회`, and `경제` News sections use the
 topic-grouped endpoint defined in
 [`story-feed.md`](../features/story-feed.md). Topics order by their newest
 eligible article and use stable cursor pagination. One topic row shows its
@@ -210,12 +210,14 @@ distinct-publisher count. Tapping it opens the ordinary Reader for that article.
 search result order articles by `(published_at DESC, id DESC)` with their
 existing stable cursors.
 
-Android News navigation is `뉴스 | 언론사 | 정치 | 사회 | 경제`; it has no
+Android News navigation is `전체 뉴스 | 언론사 | 정치 | 사회 | 경제`; it has no
 `최신/팔로잉` selector. User-facing copy calls publisher follows `구독`.
-Home uses account subscriptions for its news section when available.
+Home shows public `주요 뉴스` first and a separate `구독한 언론사 뉴스` section
+immediately afterward. The two sections request ALL and FOLLOWING respectively;
+subscription coverage is never limited to the already-loaded public page.
 Subscription state may select an eligible representative but never changes
 analysis or comparison evidence. The tutorial entry is shown only in the
-all-topics `뉴스` section, with replay also available from MY.
+all-topics `전체 뉴스` section, with replay also available from MY.
 
 The `언론사` section is a publisher directory. Each publisher block shows its
 identity, subscription action, and up to three recent article headlines; the

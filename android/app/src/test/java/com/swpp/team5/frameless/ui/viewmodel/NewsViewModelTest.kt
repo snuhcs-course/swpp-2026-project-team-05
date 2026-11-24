@@ -13,6 +13,8 @@ import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StoredAnalysisState
+import com.swpp.team5.frameless.data.StoryPage
+import com.swpp.team5.frameless.data.StorySummary
 import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
@@ -43,6 +45,103 @@ class NewsViewModelTest {
         id, yna, "기사 $id", "본문 $id", NewsCategory.POLITICS,
         "2026-10-31T12:00:00+09:00", "https://example.com/$id", StoredAnalysisState.READY
     )
+
+    @Test
+    fun publisherFailureEndsLoadingAndCanBeRetried() {
+        val repository = FakeNewsDataSource().apply {
+            publisherFailure = NewsApiException("NETWORK_ERROR", "연결 오류")
+            pages += ArticlePage(listOf(summary("public")), null)
+            pages += ArticlePage(listOf(summary("public")), null)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+
+        assertFalse(viewModel.feed.isLoadingPublishers)
+        assertEquals("연결 오류", viewModel.feed.publisherDirectoryError)
+        assertEquals("public", viewModel.feed.items.single().id)
+
+        repository.publisherFailure = null
+        viewModel.retryFeed()
+        mainLooper.idle()
+
+        assertEquals(listOf(yna, mbc), viewModel.feed.publishers)
+        assertFalse(viewModel.feed.isLoadingPublishers)
+        assertEquals(null, viewModel.feed.publisherDirectoryError)
+    }
+
+    @Test
+    fun homeLoadsPublicAndSubscribedStoriesIndependently() {
+        val repository = FakeNewsDataSource().apply {
+            publisherItems = listOf(yna.copy(isFollowed = true), mbc)
+            pages += ArticlePage(emptyList(), null)
+            storyHandler = { scope -> storyPage(if (scope == FeedScope.ALL) "public" else "subscribed") }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.ensureHomeLoaded()
+        mainLooper.idle()
+
+        assertEquals(setOf(FeedScope.ALL, FeedScope.FOLLOWING), repository.storyScopes.toSet())
+        assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
+        assertEquals("subscribed", viewModel.discovery.subscribedStories.single().representativeArticle.id)
+        assertFalse(viewModel.discovery.isSubscribedLoading)
+    }
+
+    @Test
+    fun homeDoesNotRequestSubscribedStoriesWithoutSubscriptions() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(emptyList(), null)
+            storyHandler = { storyPage("public") }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.ensureHomeLoaded()
+        mainLooper.idle()
+
+        assertEquals(listOf(FeedScope.ALL), repository.storyScopes)
+        assertTrue(viewModel.discovery.subscribedStories.isEmpty())
+
+        viewModel.replaceFollowedPublishers(setOf("yna"))
+        mainLooper.idle()
+
+        assertTrue(FeedScope.FOLLOWING in repository.storyScopes)
+        assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
+        assertTrue(viewModel.discovery.subscribedStories.isNotEmpty())
+
+        viewModel.replaceFollowedPublishers(emptySet())
+        mainLooper.idle()
+        assertTrue(viewModel.discovery.subscribedStories.isEmpty())
+    }
+
+    @Test
+    fun subscribedHomeFailureKeepsPublicStories() {
+        val repository = FakeNewsDataSource().apply {
+            publisherItems = listOf(yna.copy(isFollowed = true), mbc)
+            pages += ArticlePage(emptyList(), null)
+            storyHandler = { scope ->
+                if (scope == FeedScope.FOLLOWING) throw NewsApiException("NETWORK_ERROR", "연결 오류")
+                storyPage("public")
+            }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.ensureHomeLoaded()
+        mainLooper.idle()
+
+        assertEquals("public", viewModel.discovery.homeStories.single().representativeArticle.id)
+        assertEquals("연결 오류", viewModel.discovery.subscribedError)
+        assertEquals(null, viewModel.discovery.homeError)
+    }
+
+    private fun storyPage(id: String): StoryPage {
+        val article = summary(id)
+        return StoryPage(listOf(StorySummary("cluster:$id", article, 1,
+            listOf(article.publisher), article.publishedAt)), null)
+    }
 
     @Test
     fun initializeLoadsPublishersAndTheCompleteLatestFeed() {
@@ -731,6 +830,15 @@ class NewsViewModelTest {
     }
 
     private inner class FakeNewsDataSource : NewsDataSource {
+        var publisherItems = listOf(yna, mbc)
+        var publisherFailure: Exception? = null
+        var storyHandler: (suspend (FeedScope) -> StoryPage)? = null
+        val storyScopes = mutableListOf<FeedScope>()
+
+        override suspend fun stories(category: NewsCategory?, scope: FeedScope, cursor: String?): StoryPage {
+            storyScopes += scope
+            return storyHandler?.invoke(scope) ?: super.stories(category, scope, cursor)
+        }
         var linkResult = "linked"
         var linkFailure: Exception? = null
         var linkGate: CompletableDeferred<String>? = null
@@ -771,7 +879,10 @@ class NewsViewModelTest {
         val clearedSavedUsers = mutableListOf<String>()
         val offlineCategories = mutableListOf<NewsCategory?>()
 
-        override suspend fun publishers() = listOf(yna, mbc)
+        override suspend fun publishers(): List<PublisherItem> {
+            publisherFailure?.let { throw it }
+            return publisherItems
+        }
         override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> {
             followedCodes = publisherCodes
             return publisherCodes

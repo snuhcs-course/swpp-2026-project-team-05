@@ -35,7 +35,7 @@ label guide dialog.
 - [Unit] Replaying onboarding re-arms the reader coach for the next article
   with findings.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.replayShowsIntroAgainAndRearmsTheReaderCoach`
-- [Component] The replay/help action appears in the all-topics `뉴스` section
+- [Component] The replay/help action appears in the all-topics `전체 뉴스` section
   and MY, but not in `언론사`, `정치`, `사회`, or `경제`.\
   Tip: add semantics-driven Compose coverage after the News section shell is
   implemented.

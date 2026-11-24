@@ -26,7 +26,7 @@ was worded differently.
 
 - Shown once per installation, after session restore, before the feed. The
   feed still initializes in the background.
-- One quiet help action in the all-topics `뉴스` section shows it again and
+- One quiet help action in the all-topics `전체 뉴스` section shows it again and
   re-arms the reader coach marks for the next article with findings. It is not
   repeated in `정치`, `사회`, `경제`, or `언론사`. MY also exposes
   `튜토리얼 다시 보기`. On a replay while signed in, `로그인하러 가기` is
