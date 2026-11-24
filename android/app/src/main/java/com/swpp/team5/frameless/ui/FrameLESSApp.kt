@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
@@ -29,6 +30,7 @@ import com.swpp.team5.frameless.ui.screens.NewsSavedScreen
 import com.swpp.team5.frameless.ui.screens.OnboardingScreen
 import com.swpp.team5.frameless.ui.screens.PortalBottomBar
 import com.swpp.team5.frameless.ui.screens.PortalAnalysisSettingsScreen
+import com.swpp.team5.frameless.ui.screens.PortalAppearanceSettingsScreen
 import com.swpp.team5.frameless.ui.screens.PortalFollowedPublishersScreen
 import com.swpp.team5.frameless.ui.screens.PortalHomeScreen
 import com.swpp.team5.frameless.ui.screens.PortalNewsScreen
@@ -40,6 +42,7 @@ import com.swpp.team5.frameless.ui.screens.RegistrationScreen
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.FrameLESSTheme
 import com.swpp.team5.frameless.ui.viewmodel.AuthViewModel
+import com.swpp.team5.frameless.ui.viewmodel.AppearanceViewModel
 import com.swpp.team5.frameless.ui.viewmodel.NewsRoute
 import com.swpp.team5.frameless.ui.viewmodel.NewsViewModel
 import com.swpp.team5.frameless.ui.viewmodel.TutorialViewModel
@@ -60,8 +63,14 @@ private enum class AuthPrompt {
 
 /** Normal product navigation: first-run onboarding → guest or authenticated feed → Reader. */
 @Composable
-internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: TutorialViewModel) {
-    FrameLESSTheme {
+internal fun FrameLESSApp(
+    news: NewsViewModel,
+    auth: AuthViewModel,
+    tutorial: TutorialViewModel,
+    appearance: AppearanceViewModel
+) {
+    val systemDark = isSystemInDarkTheme()
+    FrameLESSTheme(darkTheme = appearance.mode.usesDarkTheme(systemDark)) {
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 if (auth.isRestoring) {
@@ -260,7 +269,11 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = Fl.Card,
-                    bottomBar = { PortalBottomBar(selectedTab, selectTab) }
+                    bottomBar = {
+                        if (selectedTab != PortalTab.MY || profilePage == ProfilePage.OVERVIEW) {
+                            PortalBottomBar(selectedTab, selectTab)
+                        }
+                    }
                 ) { innerPadding ->
                     Box(Modifier.fillMaxSize().padding(innerPadding)) {
                         when (selectedTab) {
@@ -389,7 +402,9 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                                             )
                                         } else profilePage = ProfilePage.SOURCES
                                     },
-                                    onAnalysis = { profilePage = ProfilePage.ANALYSIS }
+                                    onAnalysis = { profilePage = ProfilePage.ANALYSIS },
+                                    appearanceMode = appearance.mode,
+                                    onAppearance = { profilePage = ProfilePage.APPEARANCE }
                                 )
                                 ProfilePage.SOURCES -> PortalFollowedPublishersScreen(
                                     publishers = news.feed.publishers,
@@ -405,6 +420,11 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                                 ProfilePage.ANALYSIS -> PortalAnalysisSettingsScreen(
                                     enabled = news.reader.analysisEnabled,
                                     onEnabled = news::setAnalysisEnabled,
+                                    onBack = { profilePage = ProfilePage.OVERVIEW }
+                                )
+                                ProfilePage.APPEARANCE -> PortalAppearanceSettingsScreen(
+                                    mode = appearance.mode,
+                                    onMode = appearance::select,
                                     onBack = { profilePage = ProfilePage.OVERVIEW }
                                 )
                             }

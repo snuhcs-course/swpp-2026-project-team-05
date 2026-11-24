@@ -137,6 +137,17 @@ The existing `/api/v1/articles` contract remains article-based and gains no
 grouping behavior. Its repeatable `publisher` filter is used for publisher
 pages.
 
+### 5.1 Android deployment compatibility
+
+The Android client may be installed before the grouped-story route reaches the
+production server. When `/api/v1/stories` is absent and returns a non-JSON
+400/404/405 response, Android retries the equivalent `/api/v1/articles`
+request and projects each article as a one-publisher story. This keeps Home and
+News readable without inventing client-side grouping. A structured API error,
+authentication failure, timeout, or other network error is never hidden by the
+fallback. Once `/stories` is deployed, the grouped response is used without an
+app update.
+
 ## 6. Android presentation and navigation
 
 A topic row shows the representative headline, representative publisher,

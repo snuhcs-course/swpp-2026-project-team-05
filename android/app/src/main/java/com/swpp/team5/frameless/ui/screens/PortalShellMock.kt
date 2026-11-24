@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.data.AppSession
+import com.swpp.team5.frameless.data.AppearanceMode
 import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StorySummary
@@ -66,7 +67,7 @@ internal enum class PortalTab(val label: String) {
     MY("MY")
 }
 
-internal enum class ProfilePage { OVERVIEW, SOURCES, ANALYSIS }
+internal enum class ProfilePage { OVERVIEW, SOURCES, ANALYSIS, APPEARANCE }
 
 private val PortalAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 private val PortalPage: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.background
@@ -598,7 +599,9 @@ internal fun PortalProfileScreen(
     onTutorial: () -> Unit,
     onLogout: () -> Unit,
     onSources: () -> Unit,
-    onAnalysis: () -> Unit
+    onAnalysis: () -> Unit,
+    appearanceMode: AppearanceMode,
+    onAppearance: () -> Unit
 ) {
     LazyColumn(Modifier.fillMaxSize().background(PortalPage)) {
         item {
@@ -665,12 +668,81 @@ internal fun PortalProfileScreen(
             )
         }
         item { ProfileSectionLabel("앱") }
+        item {
+            ProfileAction(
+                "화면 설정",
+                when (appearanceMode) {
+                    AppearanceMode.SYSTEM -> "기기 설정 사용"
+                    AppearanceMode.LIGHT -> "라이트 모드"
+                    AppearanceMode.DARK -> "다크 모드"
+                },
+                onAppearance
+            )
+        }
         item { ProfileAction("튜토리얼 다시 보기", "FrameLESS 읽는 법", onTutorial) }
         item { ProfileStaticRow("오프라인 저장 공간", "상세 관리 준비 중") }
         if (session != null) {
             item { ProfileAction("로그아웃", null, onLogout, destructive = true) }
         }
         item { Spacer(Modifier.height(30.dp)) }
+    }
+}
+
+@Composable
+internal fun PortalAppearanceSettingsScreen(
+    mode: AppearanceMode,
+    onMode: (AppearanceMode) -> Unit,
+    onBack: () -> Unit
+) {
+    val options = listOf(
+        AppearanceMode.SYSTEM to ("기기 설정 사용" to "휴대폰의 라이트·다크 모드 설정을 따라요."),
+        AppearanceMode.LIGHT to ("라이트 모드" to "항상 밝은 화면으로 표시해요."),
+        AppearanceMode.DARK to ("다크 모드" to "항상 차분한 어두운 화면으로 표시해요.")
+    )
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(PortalPage),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        item {
+            ProfileDetailHeader(
+                title = "화면 설정",
+                subtitle = "읽기 환경에 맞는 화면 모드를 선택하세요.",
+                onBack = onBack
+            )
+        }
+        items(options, key = { it.first.name }) { (option, copy) ->
+            val selected = mode == option
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { onMode(option) }
+                    .padding(horizontal = 18.dp, vertical = 15.dp)
+                    .semantics {
+                        role = Role.RadioButton
+                        this.selected = selected
+                        contentDescription = "${copy.first}, ${if (selected) "선택됨" else "선택 안 됨"}"
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(copy.first, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+                    Text(
+                        copy.second,
+                        fontSize = 11.5.sp,
+                        lineHeight = 17.sp,
+                        color = Fl.Muted,
+                        modifier = Modifier.padding(top = 4.dp, end = 16.dp)
+                    )
+                }
+                Box(
+                    Modifier.size(22.dp)
+                        .border(1.5.dp, if (selected) PortalAccent else Fl.Muted, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selected) Box(Modifier.size(12.dp).background(PortalAccent, CircleShape))
+                }
+            }
+            HorizontalDivider(color = PortalLine, modifier = Modifier.padding(start = 18.dp))
+        }
     }
 }
 

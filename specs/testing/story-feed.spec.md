@@ -58,6 +58,13 @@ predictably.
     not repeat the product logo.  
     Tip: cover both UI modes with semantics and screenshot checks when the
     screenshot harness is available.
+15. When an older production deployment returns a non-JSON 400/404/405 for the
+    grouped-story route, Android retries the article feed and exposes each
+    article as a singleton story; it does not mask structured API failures.
+    Tested by: `NewsApiClientTest.storyFeedFallsBackToArticlesDuringServerRollout`
+16. Appearance defaults to the device setting, explicit Light/Dark selections
+    override it, and the selection is stored locally.
+    Tested by: `AppearanceViewModelTest`
 
 ## Boundaries
 

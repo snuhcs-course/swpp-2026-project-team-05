@@ -37,7 +37,9 @@ Visual rules:
 - Use dividers and typography for grouping; reserve pills for real actions or compact analysis labels.
 - Do not add generic thumbnails, generated summaries, bias meters, truth scores, or decorative gradients.
 - Keep comparison as a contextual layer inside the Reader rather than turning the feed into a cluster dashboard.
-- Follow the device light/dark setting. Dark mode uses a charcoal page
+- Default to the device light/dark setting. MY → 화면 설정 also offers explicit
+  `기기 설정 사용 | 라이트 모드 | 다크 모드` choices, stored locally and
+  available to guests. Dark mode uses a charcoal page
   (`#202124`) with slightly lighter inset surfaces rather than pure black; text,
   dividers, markers, fields, sheets, and loading states must all remain legible.
 - Home shows the FrameLESS mark once in its header. The search control contains
@@ -52,7 +54,7 @@ Launch → Home
   ├─ Home: portal utilities + topic-grouped subscribed/public news
   ├─ News: 뉴스 | 언론사 | 정치 | 사회 | 경제
   ├─ Saved: personal article list or an in-place sign-in state
-  └─ MY: account, subscriptions, analysis preference, tutorial replay
+  └─ MY: account, subscriptions, analysis preference, appearance, tutorial replay
 
 Topic row or article row → Article Reader
   → tap an analyzed expression
@@ -546,6 +548,7 @@ right rail. Its two navigation levels must use different controls:
 │──────────────────────────────────────│
 │  구독한 언론사 관리                  │
 │  기본 분석 표시                       │
+│  화면 설정 · 기기/라이트/다크          │
 │  튜토리얼 다시 보기                    │
 │  로그아웃                              │
 └──────────────────────────────────────┘
@@ -556,6 +559,9 @@ right rail. Its two navigation levels must use different controls:
   subscription state is removed from the active UI.
 - Android remembers the last analysis-toggle value locally; Web has no separate
   toggle or default setting in the implemented baseline.
+- Appearance is device-local and account-independent. The initial value is
+  `기기 설정 사용`; changing it updates the whole app immediately and survives
+  process restart without a backend request.
 
 The existing legacy URL-analysis capability is not linked from this v1 UI. A developer screen may be specified later without changing the feed or Reader routes.
 

@@ -224,6 +224,28 @@ class NewsApiClientTest {
         assertEquals("같은 사건 기사가 없어요.", apiError.message)
     }
 
+    @Test
+    fun storyFeedFallsBackToArticlesDuringServerRollout() = runBlocking {
+        responses += Response(400, "<html>DisallowedHost</html>")
+        responses += Response(200, """{"items":[{
+          "id":"a1","publisher":{"code":"yna","name":"연합뉴스"},"title":"정책 추진",
+          "category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
+          "analysis_state":"READY"}],"next_cursor":null}""")
+
+        val page = client.stories("token", NewsCategory.POLITICS, FeedScope.ALL)
+
+        assertEquals("article:a1", page.items.single().storyKey)
+        assertEquals(1, page.items.single().publisherCount)
+        assertTrue(requests[0].path.startsWith("/api/v1/stories?"))
+        assertTrue(requests[1].path.startsWith("/api/v1/articles?"))
+
+        responses += Response(200, """{"items":[],"next_cursor":null}""")
+        client.stories("token", NewsCategory.SOCIETY, FeedScope.ALL)
+
+        assertEquals(3, requests.size)
+        assertTrue(requests[2].path.startsWith("/api/v1/articles?"))
+    }
+
     private fun respond(exchange: HttpExchange, response: Response) {
         val bytes = response.body.toByteArray(Charsets.UTF_8)
         if (response.status == 204) {

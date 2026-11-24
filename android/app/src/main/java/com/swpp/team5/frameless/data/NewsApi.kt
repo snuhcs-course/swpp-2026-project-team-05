@@ -26,6 +26,25 @@ internal fun linkAnalysisError(error: NewsApiException): NewsApiException {
     return if (missingApi) NewsApiException("LINK_ANALYSIS_NOT_DEPLOYED", LINK_ANALYSIS_NOT_DEPLOYED_MESSAGE) else error
 }
 
+/** Keep discovery usable while an older server deployment does not expose the grouped story endpoint yet. */
+internal fun storyFeedApiUnavailable(error: NewsApiException): Boolean =
+    error.code in setOf("HTTP_404", "HTTP_405") ||
+        (error.code == "INVALID_RESPONSE" &&
+            listOf("HTTP 400", "HTTP 404", "HTTP 405").any { it in error.message })
+
+private fun ArticlePage.asSingletonStories(): StoryPage = StoryPage(
+    items = items.map { article ->
+        StorySummary(
+            storyKey = "article:${article.id}",
+            representativeArticle = article,
+            publisherCount = 1,
+            publishers = listOf(article.publisher),
+            latestPublishedAt = article.publishedAt
+        )
+    },
+    nextCursor = nextCursor
+)
+
 internal interface NewsService {
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession
@@ -40,18 +59,7 @@ internal interface NewsService {
     suspend fun stories(token: String?, category: NewsCategory?, scope: FeedScope,
                         cursor: String? = null, limit: Int = 20): StoryPage {
         val page = articles(token, category, scope, cursor, limit)
-        return StoryPage(
-            page.items.map { article ->
-                StorySummary(
-                    storyKey = "article:${article.id}",
-                    representativeArticle = article,
-                    publisherCount = 1,
-                    publishers = listOf(article.publisher),
-                    latestPublishedAt = article.publishedAt
-                )
-            },
-            page.nextCursor
-        )
+        return page.asSingletonStories()
     }
     suspend fun publisherArticles(token: String?, publisherCode: String,
                                   cursor: String? = null, limit: Int = 20): ArticlePage =
@@ -107,6 +115,7 @@ internal object NewsApi : NewsService {
 
 internal class NewsApiClient(baseUrl: String) {
     private val baseUrl = baseUrl.trimEnd('/')
+    @Volatile private var groupedStoryRouteAvailable: Boolean? = null
 
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession = request(
@@ -168,19 +177,29 @@ internal class NewsApiClient(baseUrl: String) {
     suspend fun stories(token: String?, category: NewsCategory?,
                         scope: FeedScope = FeedScope.ALL, cursor: String? = null,
                         limit: Int = 20): StoryPage {
-        val queryString = buildList {
-            category?.let { add("category=${encode(it.wire)}") }
-            add("scope=${encode(scope.wire)}")
-            add("limit=$limit")
-            cursor?.let { add("cursor=${encode(it)}") }
-        }.joinToString("&")
-        val root = request("GET", "/api/v1/stories?$queryString", token = token)
-        return StoryPage(
-            items = root.optJSONArray("items").orEmptyObjects().map(::storySummary),
-            nextCursor = root.optString("next_cursor").takeIf {
-                root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
-            }
-        )
+        if (groupedStoryRouteAvailable == false) {
+            return articles(token, category, scope, cursor, limit).asSingletonStories()
+        }
+        return try {
+            val queryString = buildList {
+                category?.let { add("category=${encode(it.wire)}") }
+                add("scope=${encode(scope.wire)}")
+                add("limit=$limit")
+                cursor?.let { add("cursor=${encode(it)}") }
+            }.joinToString("&")
+            val root = request("GET", "/api/v1/stories?$queryString", token = token)
+            groupedStoryRouteAvailable = true
+            StoryPage(
+                items = root.optJSONArray("items").orEmptyObjects().map(::storySummary),
+                nextCursor = root.optString("next_cursor").takeIf {
+                    root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
+                }
+            )
+        } catch (error: NewsApiException) {
+            if (!storyFeedApiUnavailable(error)) throw error
+            groupedStoryRouteAvailable = false
+            articles(token, category, scope, cursor, limit).asSingletonStories()
+        }
     }
 
     suspend fun publisherArticles(token: String?, publisherCode: String,
