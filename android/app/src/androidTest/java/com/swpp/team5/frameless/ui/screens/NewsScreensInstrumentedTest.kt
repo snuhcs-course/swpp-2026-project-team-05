@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipeUp
@@ -103,7 +104,9 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText("기사 더 보기").performScrollTo().performClick()
+        // LazyColumn only composes nearby rows, so reveal the pagination row by index first.
+        compose.onNodeWithTag("feed-list").performScrollToIndex(21)
+        compose.onNodeWithText("기사 더 보기").performClick()
         compose.runOnIdle { assertTrue(loadMoreCalls >= 1) }
     }
 
@@ -480,7 +483,7 @@ class NewsScreensInstrumentedTest {
                 state = remember { state },
                 onBack = {}, onRetry = {}, onAnalysisEnabled = {},
                 onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
-                onOpenComparisonArticle = { article, _ -> openedComparison = article }
+                onOpenComparisonArticle = { article, _, _ -> openedComparison = article }
             )
         }
 
@@ -646,6 +649,34 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("“$marker”").assertIsDisplayed()
     }
 
+    @Test
+    fun readerSnapshotRestoresThePreviouslySelectedFinding() {
+        val body = "첫 표현을 사용했다. 이어서 둘째 표현을 사용했다."
+        val first = summaryFinding("first", body, "첫 표현", emptyList())
+        val second = summaryFinding("second", body, "둘째 표현", emptyList())
+        val article = summaryArticle("restored-reader", body)
+
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", listOf(first, second)
+                    ),
+                    analysisEnabled = true,
+                    initialSelectedFindingId = second.id
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.onNodeWithTag("analysis-annotation-dock").assertIsDisplayed()
+        compose.onNodeWithText("“둘째 표현”").assertIsDisplayed()
+        compose.onAllNodesWithText("“첫 표현”").assertCountEquals(0)
+    }
+
     private fun summaryComparison(
         id: String,
         publisherName: String,
@@ -716,7 +747,7 @@ class NewsScreensInstrumentedTest {
                 ),
                 onBack = {}, onRetry = {}, onAnalysisEnabled = {},
                 onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
-                onOpenComparisonArticle = { page, _ -> onOpenComparison(page) }
+                onOpenComparisonArticle = { page, _, _ -> onOpenComparison(page) }
             )
         }
     }
@@ -779,7 +810,8 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithContentDescription("비교 상세 닫기").assertIsDisplayed()
         compose.onAllNodesWithText(finding.comparisonOverview).assertCountEquals(1)
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
-        compose.onAllNodesWithText(finding.explanation).assertCountEquals(0)
+        // The fixed annotation dock remains visible behind the detail sheet by design.
+        compose.onAllNodesWithText(finding.explanation).assertCountEquals(1)
 
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)

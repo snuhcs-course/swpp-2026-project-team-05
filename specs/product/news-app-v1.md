@@ -284,7 +284,10 @@ Each comparison page also links to the compared article's ordinary Reader. The
 target is the existing `Article` identified by `article_id`, not a copied or
 temporary comparison record. Reader navigation carries the exact stored target
 marker as transient context, scrolls it into view, and keeps the original source
-link available as a secondary action. Back returns to the source article.
+link available as a secondary action. Back synchronously restores the source
+article's loaded content, scroll offset, and selected finding. A reverse link to
+that immediately previous article performs the same restoration instead of
+creating a duplicate `A → B → A` Reader history entry.
 
 A comparison-support article may have no findings of its own because the
 reviewed dataset is source-centered. In that case the transient comparison
