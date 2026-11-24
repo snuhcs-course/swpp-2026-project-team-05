@@ -124,6 +124,20 @@ private val NewsMarker = Color(0xFFE9E1F5)
 private val NewsTargetMarker = Color(0xFFE5D0F2)
 private val ComparisonContextMarker = Color(0xFFE8E2F0)
 
+private data class ReaderHighlightColors(
+    val finding: Color,
+    val selected: Color,
+    val context: Color,
+    val economic: Color
+)
+
+@Composable
+private fun readerHighlightColors(): ReaderHighlightColors = if (Fl.IsDark) {
+    ReaderHighlightColors(Fl.TintDiff, Color(0xFF634874), Color(0xFF37303F), Fl.TintSame)
+} else {
+    ReaderHighlightColors(NewsMarker, NewsTargetMarker, ComparisonContextMarker, EconomicPhraseMarker)
+}
+
 /** 첫 기사 코치마크 연결. 기본값은 코치마크 없이 동작한다. */
 internal data class ReaderCoachUi(
     val step: ReaderCoachStep? = null,
@@ -199,18 +213,19 @@ private fun NewsReaderContent(
     }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
     val readerInk = Fl.Ink
-    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id, readerInk) {
+    val highlightColors = readerHighlightColors()
+    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id, readerInk, highlightColors) {
         annotatedReaderText(
             article.title, titleFindings, titleFocus,
             economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id,
-            readerInk
+            readerInk, highlightColors
         )
     }
-    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id, readerInk) {
+    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id, readerInk, highlightColors) {
         annotatedReaderText(
             article.body, bodyFindings, bodyFocus,
             economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id,
-            readerInk
+            readerInk, highlightColors
         )
     }
     val density = LocalDensity.current
@@ -718,13 +733,13 @@ private fun FindingText(
     )
 }
 
-internal fun annotatedFindings(text: String, findings: List<FindingUi>): AnnotatedString = buildAnnotatedString {
+internal fun annotatedFindings(text: String, findings: List<FindingUi>, markerColor: Color = NewsMarker): AnnotatedString = buildAnnotatedString {
     append(text)
     findings.forEach { finding ->
         if (finding.markerRange.isWithin(text)) {
             addStringAnnotation("finding", finding.id, finding.markerRange.start, finding.markerRange.end)
             addStyle(
-                SpanStyle(background = NewsMarker, textDecoration = TextDecoration.Underline,
+                SpanStyle(background = markerColor, textDecoration = TextDecoration.Underline,
                     fontWeight = FontWeight.SemiBold),
                 finding.markerRange.start,
                 finding.markerRange.end
@@ -739,15 +754,16 @@ private fun annotatedReaderText(
     comparisonFocus: ReaderFocus?,
     economicViews: List<EconomicViewUi> = emptyList(),
     selectedFindingId: String? = null,
-    ink: Color
+    ink: Color,
+    colors: ReaderHighlightColors
 ): AnnotatedString = buildAnnotatedString {
-    append(annotatedFindings(text, findings))
+    append(annotatedFindings(text, findings, colors.finding))
     findings.firstOrNull { it.id == selectedFindingId }?.markerRange
         ?.takeIf { it.isWithin(text) }
         ?.let { marker ->
             addStyle(
                 SpanStyle(
-                    background = NewsTargetMarker,
+                    background = colors.selected,
                     fontWeight = FontWeight.SemiBold,
                     textDecoration = TextDecoration.Underline
                 ),
@@ -760,13 +776,13 @@ private fun annotatedReaderText(
             addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = ink), it.start, it.end)
         }
         view.phraseRange?.takeIf { it.isWithin(text) }?.let {
-            addStyle(SpanStyle(background = EconomicPhraseMarker, fontWeight = FontWeight.SemiBold), it.start, it.end)
+            addStyle(SpanStyle(background = colors.economic, fontWeight = FontWeight.SemiBold), it.start, it.end)
         }
     }
     comparisonFocus?.markerRange?.takeIf { it.isWithin(text) }?.let { marker ->
         addStyle(
             SpanStyle(
-                background = ComparisonContextMarker,
+                background = colors.context,
                 fontWeight = FontWeight.SemiBold,
                 textDecoration = TextDecoration.Underline
             ),
@@ -1098,8 +1114,9 @@ private fun NewsComparisonPage(
     val scroll = rememberScrollState()
     val bodyEvidence = page.evidence.filter { it.scope == "BODY" }
     val titleEvidence = page.evidence.filter { it.scope == "TITLE" }
-    val body = remember(page) { annotatedTarget(page.body, bodyEvidence) }
-    val title = remember(page) { annotatedTarget(page.title, titleEvidence) }
+    val highlightColors = readerHighlightColors()
+    val body = remember(page, highlightColors) { annotatedTarget(page.body, bodyEvidence, highlightColors) }
+    val title = remember(page, highlightColors) { annotatedTarget(page.title, titleEvidence, highlightColors) }
     var layout by remember(page.articleId) { mutableStateOf<TextLayoutResult?>(null) }
     var viewportHeight by remember(page.articleId) { mutableIntStateOf(0) }
     var visibleHeight by remember(page.articleId) { mutableIntStateOf(0) }
@@ -1172,16 +1189,16 @@ private fun NewsComparisonPage(
     }
 }
 
-private fun annotatedTarget(text: String, evidence: List<com.swpp.team5.frameless.data.ComparisonEvidenceUi>) =
+private fun annotatedTarget(text: String, evidence: List<com.swpp.team5.frameless.data.ComparisonEvidenceUi>, colors: ReaderHighlightColors) =
     buildAnnotatedString {
         append(text)
         evidence.forEach { row ->
             if (row.sentenceRange.isWithin(text)) {
-                addStyle(SpanStyle(background = NewsMarker, textDecoration = TextDecoration.Underline),
+                addStyle(SpanStyle(background = colors.finding, textDecoration = TextDecoration.Underline),
                     row.sentenceRange.start, row.sentenceRange.end)
             }
             if (row.markerRange.isWithin(text)) {
-                addStyle(SpanStyle(background = NewsTargetMarker, fontWeight = FontWeight.Bold),
+                addStyle(SpanStyle(background = colors.selected, fontWeight = FontWeight.Bold),
                     row.markerRange.start, row.markerRange.end)
             }
         }
@@ -1221,8 +1238,8 @@ private fun CoachTermRow(term: String, meaning: String) {
     }
 }
 
-private val EconomicInk = Color(0xFF0F5F58)
-private val EconomicTint = Color(0xFFE7F3F1)
+private val EconomicInk: Color @Composable get() = Fl.InkSame
+private val EconomicTint: Color @Composable get() = Fl.TintSame.copy(alpha = 0.5f)
 private val EconomicPhraseMarker = Color(0xFFD5ECE8)
 /** How a view sees the event: its evaluation, or the move it reports when it evaluates nothing. */
 internal fun economicStanceLabel(stance: String, direction: String? = null): String = when (stance) {

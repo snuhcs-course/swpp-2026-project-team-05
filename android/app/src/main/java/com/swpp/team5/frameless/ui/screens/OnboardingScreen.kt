@@ -44,9 +44,9 @@ import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.PillShape
 import kotlinx.coroutines.launch
+import com.swpp.team5.frameless.ui.components.BrandRow
 
 private const val OnboardingPages = 3
-private val OnboardingMarker = Color(0xFFE9E1F5)
 
 /**
  * 첫 실행 온보딩 3장. 피드의 ? 버튼으로 언제든 다시 볼 수 있다.
@@ -75,8 +75,7 @@ internal fun OnboardingScreen(
             Modifier.fillMaxWidth().padding(start = 22.dp, end = 12.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("FrameLESS", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
-                modifier = Modifier.weight(1f))
+            BrandRow(modifier = Modifier.weight(1f), compact = true)
             Text(
                 "건너뛰기",
                 fontSize = 14.sp,
@@ -136,6 +135,7 @@ private fun PerspectivePage() {
 
 @Composable
 private fun ExampleCard(caption: String, before: String, marked: String, after: String) {
+    val marker = Fl.TintDiff
     Column(
         Modifier.fillMaxWidth()
             .background(Fl.Bg, RoundedCornerShape(16.dp))
@@ -146,7 +146,7 @@ private fun ExampleCard(caption: String, before: String, marked: String, after: 
         Text(
             buildAnnotatedString {
                 append(before)
-                withStyle(SpanStyle(background = OnboardingMarker, fontWeight = FontWeight.SemiBold,
+                withStyle(SpanStyle(background = marker, fontWeight = FontWeight.SemiBold,
                     textDecoration = TextDecoration.Underline)) { append(marked) }
                 append(after)
             },

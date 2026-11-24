@@ -1,5 +1,7 @@
 package com.swpp.team5.frameless.ui.screens
 
+import com.swpp.team5.frameless.ui.components.BrandRow
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

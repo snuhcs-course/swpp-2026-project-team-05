@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,10 +96,10 @@ internal fun contextWindow(sentence: String, phrase: String, lead: Int = 18): Pa
 }
 
 private object PairTokens {
-    val Card = Color(0xFFFCFBF8)
-    val CardBorder = Color(0xFFD9D4E8)
-    val PhraseMark = Color(0xFFE6DFF5)
-    val Rule = Color(0xFFDCD7E8)
+    val Card: Color @Composable @ReadOnlyComposable get() = Fl.Inset
+    val CardBorder: Color @Composable @ReadOnlyComposable get() = Fl.Line
+    val PhraseMark: Color @Composable @ReadOnlyComposable get() = Fl.TintDiff
+    val Rule: Color @Composable @ReadOnlyComposable get() = Fl.Line
 }
 
 /**
@@ -134,7 +135,7 @@ private fun SideTag(text: String, filled: Boolean) {
         text,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
-        color = if (filled) Color.White else HomeTokens.Navy,
+        color = if (filled) Fl.Card else HomeTokens.Navy,
         maxLines = 1,
         modifier = Modifier
             .background(if (filled) HomeTokens.Navy else Color.Transparent, shape)
@@ -145,10 +146,11 @@ private fun SideTag(text: String, filled: Boolean) {
 
 @Composable
 private fun ExpressionSideBlock(role: String, filledTag: Boolean, side: ExpressionSide) {
-    val phrase = remember(side) {
+    val phraseMarker = PairTokens.PhraseMark
+    val phrase = remember(side, phraseMarker) {
         buildAnnotatedString {
             append("“")
-            pushStyle(SpanStyle(background = PairTokens.PhraseMark))
+            pushStyle(SpanStyle(background = phraseMarker))
             append(side.phrase)
             pop()
             append("”")

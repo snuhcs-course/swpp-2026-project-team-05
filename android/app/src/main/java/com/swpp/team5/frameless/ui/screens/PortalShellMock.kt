@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.R
 import com.swpp.team5.frameless.ui.components.PublisherLogo
+import com.swpp.team5.frameless.ui.components.BrandRow
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.AppearanceMode
 import com.swpp.team5.frameless.data.ArticleSummary
@@ -185,32 +186,16 @@ internal fun PortalHomeScreen(
                     .padding(start = 18.dp, end = 18.dp, top = 9.dp, bottom = 11.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(25.dp).background(
-                            Brush.linearGradient(listOf(Color(0xFF7194E4), Color(0xFF9B79CC), Color(0xFFD77DA7))),
-                            RoundedCornerShape(8.dp)
-                        ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("F", color = Color.White, fontFamily = Fl.Serif, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "FrameLESS",
-                        fontFamily = Fl.Serif,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Fl.Ink,
-                        letterSpacing = (-0.3).sp
-                    )
+                    BrandRow(compact = true)
                     Spacer(Modifier.weight(1f))
                     Box(
-                        Modifier.size(30.dp)
+                        Modifier.size(48.dp)
                             .clickable(onClick = onProfile)
                             .semantics { role = Role.Button; contentDescription = "내 정보 열기" },
                         contentAlignment = Alignment.Center
                     ) {
-                        ProfileGlyph(Fl.Ink)
+                        Icon(painterResource(R.drawable.ic_portal_profile),
+                            contentDescription = null, tint = Fl.Ink, modifier = Modifier.size(22.dp))
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -544,7 +529,6 @@ private fun LatestNewsRow(article: ArticleSummary, publisherCount: Int, onClick:
             .clickable(onClick = onClick)
             .padding(vertical = 13.dp)
     ) {
-        val palette = categoryPalette(article.category)
         Text(
             article.title,
             fontSize = 14.5.sp,
@@ -555,7 +539,7 @@ private fun LatestNewsRow(article: ArticleSummary, publisherCount: Int, onClick:
             overflow = TextOverflow.Ellipsis
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-            Text(article.category.label, fontSize = 10.sp, color = palette.ink, fontWeight = FontWeight.Bold)
+            Text(article.category.label, fontSize = 10.sp, color = Fl.Muted, fontWeight = FontWeight.Bold)
             Text(" · ${article.publisher.name} · ${feedRelativeTime(article.publishedAt)}", fontSize = 10.sp, color = Fl.Muted)
             if (publisherCount > 1) {
                 Text(" · ${publisherCount}개 언론사", fontSize = 10.sp, color = Fl.Accent, fontWeight = FontWeight.Bold)
@@ -837,7 +821,7 @@ internal fun PortalFollowedPublishersScreen(
                         onCheckedChange = null,
                         enabled = !isSaving,
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
+                            checkedThumbColor = Fl.OnAccent,
                             checkedTrackColor = PortalAccent
                         )
                     )
@@ -889,11 +873,11 @@ internal fun PortalAnalysisSettingsScreen(
                     checked = enabled,
                     onCheckedChange = onEnabled,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
+                        checkedThumbColor = Fl.OnAccent,
                         checkedTrackColor = PortalAccent,
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFD6DAE2),
-                        uncheckedBorderColor = Color(0xFFD6DAE2)
+                        uncheckedThumbColor = Fl.Muted,
+                        uncheckedTrackColor = PortalSoft,
+                        uncheckedBorderColor = PortalLine
                     )
                 )
             }

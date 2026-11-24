@@ -382,7 +382,7 @@ internal fun ArticleFeedRow(
             .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        CategoryKicker(article.category, palette.ink, 11.5.sp)
+        CategoryKicker(article.category, Fl.Muted, 11.5.sp)
         Text(
             article.title,
             maxLines = 3,

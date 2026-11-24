@@ -19,6 +19,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -28,10 +29,12 @@ import androidx.compose.ui.unit.sp
 /**
  * FrameLESS 화면 스타일. 기존 ui.theme(Color.kt, Theme.kt)와 이름이 겹치지 않게 Fl 아래에 둔다.
  *
- * 방향: 연한 회청색 바탕 위 둥근 흰 카드, 네이비 알약 버튼, 명조 본문 + 문장 배경 하이라이트.
+ * 방향: 중립적인 밝은 화면/차콜 화면, 일관된 액션과 카드, 명조 본문 + 의미 있는 문장 하이라이트.
  * 하이라이트 색은 정당 상징색(빨강·파랑)과 겹치지 않게 청록(같은 내용)과 라일락(다른 해석/표현)만 쓴다.
  */
 internal object Fl {
+    val IsDark: Boolean @Composable @ReadOnlyComposable get() =
+        MaterialTheme.colorScheme.background.luminance() < 0.5f
     val Bg: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.background
     val Card: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surface
     val Inset: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surfaceVariant
@@ -46,14 +49,14 @@ internal object Fl {
     val TintNone: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surfaceVariant
     /** 같은 내용 */
     val TintSame: Color @Composable @ReadOnlyComposable get() =
-        if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF274744) else Color(0xFFD1E7E5)
+        if (IsDark) Color(0xFF274744) else Color(0xFFD1E7E5)
     val InkSame: Color @Composable @ReadOnlyComposable get() =
-        if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF9EDAD5) else Color(0xFF0F6A67)
+        if (IsDark) Color(0xFF9EDAD5) else Color(0xFF0F6A67)
     /** 다른 해석/표현 */
     val TintDiff: Color @Composable @ReadOnlyComposable get() =
-        if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF403653) else Color(0xFFE4DDF2)
+        if (IsDark) Color(0xFF403653) else Color(0xFFE4DDF2)
     val InkDiff: Color @Composable @ReadOnlyComposable get() =
-        if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFD2B9FF) else Color(0xFF5E3FA0)
+        if (IsDark) Color(0xFFD2B9FF) else Color(0xFF5E3FA0)
 
     val Danger: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.error
 

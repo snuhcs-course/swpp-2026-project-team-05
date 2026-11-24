@@ -33,6 +33,16 @@ Priorities:
 
 Visual rules:
 
+- Android ordinary UI actions use a neutral palette throughout: charcoal/white in light
+  mode and off-white/charcoal in dark mode. Authentication, navigation, settings,
+  dialogs, fields, and loading states use the same semantic theme colors. Color
+  remains available for actual analysis meaning, publisher artwork, market data,
+  and the shared FrameLESS brand mark.
+- Home, authentication, search, and onboarding reuse one FrameLESS wordmark and
+  mark. Comparison cards have neutral theme surfaces, never fixed cream fills.
+- App-selected appearance controls analysis colors as well as chrome; fields,
+  switch thumbs, badges and marked text retain readable contrast under either
+  explicit appearance mode, regardless of the device's current mode.
 - Keep the feed compact enough to scan several headlines without turning articles into oversized cards.
 - Use dividers and typography for grouping; reserve pills for real actions or compact analysis labels.
 - Do not add generic thumbnails, generated summaries, bias meters, truth scores, or decorative gradients.
@@ -112,6 +122,10 @@ even when the physical dialog or sheet differs.
 
 Functional requirements:
 
+- Authentication uses the shared brand header, one clearly dominant neutral
+  submit button, restrained secondary links, consistent field/button corners,
+  and touch targets of at least 48 dp. Submission shows progress and disables
+  duplicate form edits/submits without clearing values or server errors.
 - Password IME action submits login.
 - Validation appears beside the relevant field.
 - Server errors do not clear entered values.
