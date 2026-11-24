@@ -24,6 +24,13 @@ meaning and follow the app appearance override.
    comparison cards use neutral surfaces and settings switches retain a visible
    thumb in both modes. Tip: inspect these surfaces on the connected phone;
    preserve keyboard, validation and back-navigation regression coverage.
+5. UI affordances use the shared vector assets, preserve their accessible
+   names and state, and do not introduce inert info badges or invented trend
+   movement. Home trend expansion still reveals five actual headline targets
+   and collapse restores two. Tested by:
+   `PortalNavigationInstrumentedTest.homeTrendExpansionKeepsHeadlineTargets`.
+   Tip: inspect Home, search, Saved, Reader and comparison navigation on the
+   connected phone in both appearances; icon geometry is a visual check.
 
 ## Scope
 

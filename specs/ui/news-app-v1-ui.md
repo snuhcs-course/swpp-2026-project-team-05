@@ -33,6 +33,14 @@ Priorities:
 
 Visual rules:
 
+- Android UI icons use the shared Lucide SVG/vector family: one 24-unit grid,
+  rounded strokes, theme-aware tint, and consistent optical sizes. Search,
+  save, back/close, expansion, source links and comparison navigation use
+  drawable assets instead of text arrows or individually drawn Canvas glyphs.
+  Keep operable controls accessible and preserve their existing destinations.
+- The Home trend heading has no decorative `i` badge without an information
+  action. Trend movement arrows require actual movement data; the preview feed
+  does not invent them. Expand/collapse remains an explicit labeled action.
 - Android ordinary UI actions use a neutral palette throughout: charcoal/white in light
   mode and off-white/charcoal in dark mode. Authentication, navigation, settings,
   dialogs, fields, and loading states use the same semantic theme colors. Color
@@ -84,6 +92,9 @@ Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not
 
 A clean client opens Home without creating a server identity. Home, News,
 publisher browsing, search, Reader, and stored analysis remain available.
+The trends collector's local anonymous analytics key is scoped in
+[Recent-read trends](../features/realtime-trends.md); it is not a guest account
+or a prerequisite for these public reads.
 Subscription and save mutations require authentication, but entering the Saved
 root tab itself never opens authentication.
 
@@ -187,6 +198,17 @@ Root-shell and discovery behavior:
   subscriptions see an in-place invitation below the public headlines.
   Mock utility values
   remain visibly sample data until a provider is separately approved.
+- Live `실시간 트렌드` behavior is defined in
+  [Recent-read trends](../features/realtime-trends.md). It is independent of
+  `주요 뉴스`: recent-three-hour readership, at most five distinct topics,
+  first two collapsed, and an expand control only when more than two entries
+  exist. Show actual calculation time, stable tie ordering, real rank movement,
+  and distinct loading/empty/failure states. Sparse popularity is supplemented
+  with distinct latest topics labeled `최신`, without ranks. Any latest fill,
+  incomplete previous popularity list, first calculation, or old baseline hides
+  all movement indicators. Fewer than five eligible topics show only the actual
+  number; an empty corpus shows the empty state. Home pull-to-refresh updates
+  the feed and requests trends independently, respecting server refresh/backoff.
 - News uses one text-tab row in this fixed order: `전체 뉴스 | 언론사 | 정치 |
   사회 | 경제`. There is no second category row and no `최신/팔로잉`
   selector.

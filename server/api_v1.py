@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import threading
 from hashlib import sha256
 from uuid import uuid4
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import RequestDataTooBig, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
@@ -48,6 +49,7 @@ from .saved_articles import (
     save_article,
 )
 from .publisher_follows import InvalidPublisherCodes, replace_followed_publishers
+from .trends import TrendsUnavailable, cleanup_views, record_view, trend_payload, viewer_key
 
 
 MAX_BODY_BYTES = 8192
@@ -339,6 +341,62 @@ def stories(request):
     return _credential_varying(JsonResponse(
         payload, json_dumps_params={"ensure_ascii": False},
     ))
+
+
+@require_GET
+def trends(request):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    if request.GET:
+        return _error("VALIDATION_ERROR", "트렌드는 별도 필터 없이 조회합니다.", 400)
+    try:
+        payload = trend_payload(user=user)
+    except (DatabaseError, TrendsUnavailable):
+        response = _error("TRENDS_UNAVAILABLE", "트렌드를 불러오지 못했어요.", 503)
+        response["Retry-After"] = "60"
+    else:
+        response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    response["Cache-Control"] = "private, no-store"
+    return _credential_varying(response)
+
+
+@csrf_exempt
+@require_POST
+def article_view(request, article_id):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    body, error = _body(request)
+    if error:
+        return error
+    if body:
+        return _error("VALIDATION_ERROR", "조회 기록에는 추가 데이터가 필요하지 않습니다.", 400)
+    try:
+        key = viewer_key(user=user, guest_id=request.headers.get("X-Guest-Viewer", ""))
+    except ValueError:
+        return _error("VALIDATION_ERROR", "올바른 비로그인 식별값이 필요합니다.", 400)
+    try:
+        found = record_view(article_id=article_id, key=key)
+    except IntegrityError:
+        found = False
+    except DatabaseError:
+        return _error("VIEW_UNAVAILABLE", "조회 기록을 저장하지 못했어요.", 503)
+    if not found:
+        return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
+    return HttpResponse(status=204, headers={"Cache-Control": "no-store"})
+
+
+@require_GET
+def trends_cleanup(request):
+    secret = os.environ.get("CRON_SECRET", "")
+    if not secret or not secrets.compare_digest(request.headers.get("Authorization", ""), f"Bearer {secret}"):
+        return _error("FORBIDDEN", "허용되지 않은 요청입니다.", 403)
+    try:
+        result = cleanup_views()
+    except DatabaseError:
+        return _error("CLEANUP_UNAVAILABLE", "조회 기록 정리를 완료하지 못했습니다.", 503)
+    return JsonResponse(result, headers={"Cache-Control": "no-store"}, status=202 if result["remaining"] else 200)
 
 
 @require_GET

@@ -68,6 +68,12 @@ persist a guest identity. Public data returned to a guest always uses
 `is_saved=false` and `is_followed=false` so the existing response shapes remain
 stable.
 
+Separate extension: [Recent-read trends](realtime-trends.md) adds a local
+random guest UUID and short-lived derived read-count keys solely for analytics.
+This is an explicit extension of the no-installation-ID boundary above,
+not a guest account or an identifier required by public read APIs.
+It does not change guest Saved/Following permissions or add identity merging.
+
 ## 3. Authentication state and transitions
 
 Clients expose three top-level authentication states:

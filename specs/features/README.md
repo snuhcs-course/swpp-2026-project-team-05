@@ -29,3 +29,8 @@ analysis contract.
 `story-feed.md` defines server-side topic grouping for Android Home and News
 discovery while preserving article-level search, publisher, Saved, and Reader
 flows.
+
+`realtime-trends.md` defines Home's recent-read top-five topics: one
+last-read row per viewer/article, a shared rank snapshot, and daily expiry
+cleanup. Sparse popularity is supplemented with clearly labeled latest topics;
+ordinary feed ordering is unchanged.

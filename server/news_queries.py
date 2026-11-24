@@ -408,6 +408,37 @@ def list_stories(*, user: UserAccount | None, category: str | None,
     visible_positions = positions[:limit]
     has_more = len(positions) > limit
 
+    items = _hydrate_story_positions(
+        visible_positions, user=user, category=category, scope=scope, followed_set=followed_set,
+    )
+    next_cursor = None
+    if has_more and visible_positions:
+        last = visible_positions[-1]
+        next_cursor = _encode_story_cursor(
+            latest_published_at=last["latest_published_at"],
+            story_key=last["story_key"], context=context,
+        )
+    return {"items": items, "next_cursor": next_cursor}
+
+
+def hydrate_story_keys(story_keys: list[str], *, user: UserAccount | None) -> list[dict]:
+    """Hydrate only the bounded keys selected by a discovery projection."""
+    positions = []
+    for key in story_keys:
+        kind, raw_id = key.split(":", 1)
+        positions.append({
+            "story_key": key,
+            "cluster_id": UUID(raw_id) if kind == "cluster" else None,
+            "article_id": UUID(raw_id) if kind == "article" else None,
+        })
+    return _hydrate_story_positions(
+        positions, user=user, followed_set=set(_followed_publisher_codes(user)),
+    )
+
+
+def _hydrate_story_positions(visible_positions: list[dict], *, user: UserAccount | None,
+                             category: str | None = None, scope: str = "ALL",
+                             followed_set: set[str]) -> list[dict]:
     cluster_ids = [row["cluster_id"] for row in visible_positions if row["cluster_id"]]
     singleton_ids = [row["article_id"] for row in visible_positions if row["article_id"]]
     coverage = Article.objects.filter(
@@ -418,7 +449,9 @@ def list_stories(*, user: UserAccount | None, category: str | None,
     )
     if category:
         coverage = coverage.filter(category=category)
-    coverage_rows = list(coverage.select_related("publisher", "story_cluster"))
+    coverage_rows = list(coverage.select_related("publisher", "story_cluster").defer(
+        "body_text", "economic_context", "frame_context", "story_cluster__issue_table",
+    ))
     articles_by_story: dict[str, list[Article]] = {}
     for article in coverage_rows:
         story_key = (
@@ -430,12 +463,14 @@ def list_stories(*, user: UserAccount | None, category: str | None,
     representative_by_story: dict[str, Article] = {}
     for position in visible_positions:
         story_key = position["story_key"]
-        candidates = articles_by_story[story_key]
+        candidates = articles_by_story.get(story_key, [])
         if scope == "FOLLOWING":
             candidates = [
                 article for article in candidates
                 if article.publisher.code in followed_set
             ]
+        if not candidates:
+            continue
         representative_by_story[story_key] = _representative_article(
             story_key=story_key,
             articles=candidates,
@@ -455,6 +490,8 @@ def list_stories(*, user: UserAccount | None, category: str | None,
     items = []
     for position in visible_positions:
         story_key = position["story_key"]
+        if story_key not in representative_by_story:
+            continue
         articles = articles_by_story[story_key]
         representative = representative_by_story[story_key]
         publishers = {
@@ -473,18 +510,10 @@ def list_stories(*, user: UserAccount | None, category: str | None,
             ),
             "publisher_count": len(ordered_publishers),
             "publishers": [publisher_payload(row) for row in ordered_publishers],
-            "latest_published_at": position["latest_published_at"],
+            "latest_published_at": max(article.published_at for article in articles),
         })
 
-    next_cursor = None
-    if has_more and visible_positions:
-        last = visible_positions[-1]
-        next_cursor = _encode_story_cursor(
-            latest_published_at=last["latest_published_at"],
-            story_key=last["story_key"],
-            context=context,
-        )
-    return {"items": items, "next_cursor": next_cursor}
+    return items
 
 
 def get_article(article_id: UUID, *, user: UserAccount | None = None) -> Article | None:

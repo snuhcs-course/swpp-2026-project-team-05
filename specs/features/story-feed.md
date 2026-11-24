@@ -198,7 +198,9 @@ authentication does not automatically replay the subscription.
 
 - automatic clustering or analysis generation;
 - a topic landing page, topic follow, or topic notification;
-- popularity, engagement, recommendation, or political-balance ranking;
+- popularity ordering inside ordinary story feeds (the separate Home
+  section is specified in [Recent-read trends](realtime-trends.md));
+- engagement recommendation or political-balance ranking;
 - client-side title similarity or page-local deduplication;
 - live weather or market-data integration;
 - changing Web navigation in the initial Android slice.
