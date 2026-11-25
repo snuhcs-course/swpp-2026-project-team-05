@@ -21,6 +21,11 @@ retains a bounded read cache for explicitly Saved content.
 The server remains the source of truth. Room is a client read cache, not a
 second news database or a general synchronization engine.
 
+Planned security extension: [`account-security.md`](account-security.md) is a
+draft, not a change already applied to this specification. Its browser cookie
+stage must explicitly revise Web restoration/logout behavior and credential
+transport while preserving Android's bearer and offline-reading contracts.
+
 ## 1. Goals and boundaries
 
 ### 1.1 Goals

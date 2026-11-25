@@ -200,6 +200,12 @@ state. Followed story reads, followed-source mutation, Saved list, Saved mutatio
 
 Password change, reset, account deletion, and session listing remain outside this vertical slice. They must be added before an external public release.
 
+Planned extension: [`../features/account-security.md`](../features/account-security.md)
+is a **draft**, covering shared attempt limits, response/storage protection and
+browser cookie transport. It does not mark those protections implemented or
+replace the current bearer contract. Apply its reviewed stage-specific product,
+UI and guest-contract updates together with the implementation.
+
 ## 4. User experience contract
 
 ### 4.1 Discovery and article lists
