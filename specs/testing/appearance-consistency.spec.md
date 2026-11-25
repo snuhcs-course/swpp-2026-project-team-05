@@ -36,6 +36,8 @@ meaning and follow the app appearance override.
    `PortalNavigationInstrumentedTest.rootTabsExposeSelectionAndKeepTheirActions`.
    Tip: inspect the 60dp bar and curated publisher logos at actual
    phone density; verify sharp edges and full, uncropped brand artwork.
+   Smaller publisher artwork preserves a publisher action at least 48dp high.
+   Tested by: `PortalNavigationInstrumentedTest.publisherIdentityAndHeadlinesKeepTheirDestinations`.
 7. Home omits ranking-window/calculation-time captions. Article list bylines
    retain publisher/category without publication times; Reader source dates
    remain available. Tested by:

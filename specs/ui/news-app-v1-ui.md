@@ -87,9 +87,12 @@ settings screens.
 The Android bottom navigation bar is 60dp tall, excluding the OS navigation inset, with 22dp
 icons, a 3dp icon-to-label gap, and 11sp labels. Each tab's whole cell remains
 selectable, at least 48dp high. Curated publisher logos use sharp original brand
-assets sized for their largest 52dp display at high-density phone resolution;
+assets sized for their largest 44dp display at high-density phone resolution;
 do not enlarge 16/32px favicons to fill those slots. Keep source URLs and native
 asset dimensions in `android/app/src/main/assets/publishers/sources.json`.
+Publisher artwork uses 44dp inside Home's 54dp subscription ring, 40dp in the
+directory, 38dp in publisher headers, and 36dp in subscription management.
+Keep publisher actions at least 48dp high as artwork becomes more compact.
 
 Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not ordinary-user navigation.
 

@@ -196,7 +196,7 @@ class PortalNavigationInstrumentedTest {
             }
         }
         compose.onNodeWithTag("publisher-logo-yna", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithContentDescription("연합뉴스 기사 보기").performClick()
+        compose.onNodeWithContentDescription("연합뉴스 기사 보기").assertHeightIsAtLeast(48.dp).performClick()
         compose.onNodeWithText("국회, 예산안 심의").performClick()
         compose.runOnIdle {
             assertEquals("yna", selectedPublisher)

@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 
 /** Brand artwork is not tinted or cropped; the name next to it supplies its accessible label. */
 @Composable
-internal fun PublisherLogo(publisher: PublisherItem, modifier: Modifier = Modifier.size(44.dp)) {
+internal fun PublisherLogo(publisher: PublisherItem, modifier: Modifier = Modifier.size(38.dp)) {
     val context = LocalContext.current.applicationContext
     val bitmap by produceState<Bitmap?>(null, publisher.code, publisher.logoUrl) {
         value = withContext(Dispatchers.IO) { PublisherLogoImages.bundled(context, publisher.code) }

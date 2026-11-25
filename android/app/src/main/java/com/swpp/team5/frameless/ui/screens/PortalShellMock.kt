@@ -314,13 +314,13 @@ internal fun PortalHomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box(
-                                modifier = Modifier.size(62.dp)
+                                modifier = Modifier.size(54.dp)
                                     .border(if (active) 2.dp else 1.dp,
                                         if (active) Fl.Ink else Fl.Line, CircleShape)
                                     .padding(5.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                PublisherLogo(publisher, Modifier.size(52.dp).clip(CircleShape))
+                                PublisherLogo(publisher, Modifier.size(44.dp).clip(CircleShape))
                             }
                             Text(publisher.name, fontSize = 11.sp,
                                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
@@ -695,7 +695,7 @@ internal fun PortalFollowedPublishersScreen(
                         .padding(horizontal = 20.dp, vertical = 15.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    PublisherLogo(publisher, Modifier.size(42.dp))
+                    PublisherLogo(publisher, Modifier.size(36.dp))
                     Column(Modifier.padding(start = 14.dp).weight(1f)) {
                         Text(publisher.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Fl.Ink)
                         Text(

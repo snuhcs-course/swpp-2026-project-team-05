@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -351,11 +352,11 @@ private fun PublisherBlock(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
-                modifier = Modifier.weight(1f).clickable { onPublisher(publisher) }
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).clickable { onPublisher(publisher) }
                     .semantics { role = Role.Button; contentDescription = "${publisher.name} 기사 보기" },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                PublisherLogo(publisher, Modifier.size(46.dp))
+                PublisherLogo(publisher, Modifier.size(40.dp))
                 Column(Modifier.padding(start = 13.dp).weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

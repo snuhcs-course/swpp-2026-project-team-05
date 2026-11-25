@@ -24,17 +24,17 @@ internal fun BrandRow(modifier: Modifier = Modifier, compact: Boolean = false) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(if (compact) 26.dp else 30.dp)
+            Modifier.size(if (compact) 23.dp else 27.dp)
                 .background(Brush.linearGradient(listOf(Color(0xFF7194E4),
                     Color(0xFF9B79CC), Color(0xFFD77DA7))), RoundedCornerShape(9.dp))
                 .clearAndSetSemantics { },
             contentAlignment = Alignment.Center
         ) {
             Text("F", color = Color.White, fontFamily = Fl.Serif,
-                fontSize = if (compact) 15.sp else 18.sp, fontWeight = FontWeight.Bold)
+                fontSize = if (compact) 14.sp else 16.sp, fontWeight = FontWeight.Bold)
         }
         Text("FrameLESS", color = Fl.Ink, fontFamily = Fl.Serif,
-            fontSize = if (compact) 19.sp else 22.sp,
+            fontSize = if (compact) 18.sp else 20.sp,
             fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
     }
 }
