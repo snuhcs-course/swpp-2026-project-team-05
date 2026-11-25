@@ -233,6 +233,10 @@ private fun StoryFeed(
             }
         ) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                state.newsError?.let { message ->
+                    item { Text(message, color = Fl.Muted, fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)) }
+                }
                 if (onTutorial != null) {
                     item { AnalysisGuideCard(onTutorial) }
                 }

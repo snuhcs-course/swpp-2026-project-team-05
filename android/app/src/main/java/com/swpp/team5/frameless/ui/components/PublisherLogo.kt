@@ -38,7 +38,7 @@ internal fun PublisherLogo(publisher: PublisherItem, modifier: Modifier = Modifi
     val context = LocalContext.current.applicationContext
     val bitmap by produceState<Bitmap?>(null, publisher.code, publisher.logoUrl) {
         value = withContext(Dispatchers.IO) { PublisherLogoImages.bundled(context, publisher.code) }
-        publisher.logoUrl?.let { url ->
+        publisher.logoUrl?.takeIf { value == null }?.let { url ->
             val remote = withContext(Dispatchers.IO) { PublisherLogoImages.remote(url) }
             if (remote != null) value = remote
         }
@@ -77,7 +77,14 @@ private object PublisherLogoImages {
         val key = "asset:$code"
         cache.get(key)?.let { return it }
         return runCatching {
-            context.assets.open("publishers/$code.png").use(BitmapFactory::decodeStream)
+            val path = "publishers/$code.png"
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }
+            val options = BitmapFactory.Options()
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (options.inSampleSize.coerceAtLeast(1) * 2) >= 192) {
+                options.inSampleSize = options.inSampleSize.coerceAtLeast(1) * 2
+            }
+            context.assets.open(path).use { BitmapFactory.decodeStream(it, null, options) }
         }.getOrNull()?.also { cache.put(key, it) }
     }
 

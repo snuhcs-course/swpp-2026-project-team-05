@@ -92,6 +92,22 @@ class UserAccount(models.Model):
         ]
 
 
+class AuthThrottleBucket(models.Model):
+    """Short-lived admission counters; raw IPs and identifiers are never stored."""
+
+    id = models.BigAutoField(primary_key=True)
+    scope = models.CharField(max_length=24)
+    key_hash = models.CharField(max_length=64)
+    count = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        db_table = "frameless_auth_throttle"
+        constraints = [
+            models.UniqueConstraint(fields=["scope", "key_hash"], name="frameless_auth_bucket_key"),
+        ]
+
+
 class AuthSession(models.Model):
     """Only a SHA-256 digest of a bearer token is kept in PostgreSQL."""
 

@@ -55,6 +55,20 @@ class NewsCacheTest {
     fun tearDown() = database.close()
 
     @Test
+    fun confirmedDeletionRemovesDetailAnalysisAndTheActiveSavedRelation() = runBlocking {
+        cache.storeArticle(detail)
+        cache.storeAnalysis(detail, validAnalysis(detail))
+        cache.setSaved("user-a", detail.id, true)
+        cache.setSaved("user-b", detail.id, true)
+        cache.removeArticle(detail.id, "user-a")
+        assertNull(cache.article(detail.id))
+        assertNull(cache.analysis(detail))
+        assertFalse(cache.isSaved("user-a", detail.id))
+        assertTrue(cache.isSaved("user-b", detail.id))
+        assertNull(cache.offlineSavedArticles("user-b"))
+    }
+
+    @Test
     fun savedSummaryRefreshPreservesPreviouslyCachedDetail() = runBlocking {
         cache.storeArticle(detail)
         cache.storeSavedPage(
@@ -88,6 +102,11 @@ class NewsCacheTest {
         )
 
         assertEquals("reviewed-v1", cache.analysis(detail)?.version)
+        assertEquals(detail.body, cache.freshArticle(detail.id, 300_000)?.body)
+        assertEquals("reviewed-v1", cache.freshAnalysis(detail, 300_000)?.version)
+        assertNull(cache.freshArticle(detail.id, 0))
+        assertNull(cache.freshAnalysis(detail, 0))
+        assertEquals("reviewed-v1", cache.analysis(detail)?.version) // Expiry is not deletion.
         assertNull(cache.analysis(detail.copy(contentHash = "different-hash")))
     }
 

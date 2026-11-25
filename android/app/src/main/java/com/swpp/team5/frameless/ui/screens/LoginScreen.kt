@@ -59,7 +59,8 @@ internal fun LoginScreen(
     onPassword: (String) -> Unit,
     onLogin: () -> Unit,
     onRegister: () -> Unit,
-    onDismiss: () -> Unit = {}
+    onDismiss: () -> Unit = {},
+    coolingDown: Boolean = false
 ) {
     AuthFrame(onBack = onDismiss) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -90,7 +91,7 @@ internal fun LoginScreen(
         if (error != null) Text(error, color = Fl.Danger, fontSize = 13.sp,
             modifier = Modifier.padding(top = 10.dp))
         Spacer(Modifier.height(20.dp))
-        AuthPrimaryButton(if (loading) "로그인 중…" else "로그인", loading, onLogin)
+        AuthPrimaryButton(if (loading) "로그인 중…" else "로그인", loading, onLogin, coolingDown)
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically) {
@@ -121,7 +122,8 @@ internal fun RegistrationScreen(
     onPassword: (String) -> Unit,
     onConfirmation: (String) -> Unit,
     onBack: () -> Unit,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    coolingDown: Boolean = false
 ) {
     AuthFrame(onBack = onBack) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -173,7 +175,7 @@ internal fun RegistrationScreen(
         if (error != null && fieldErrors.isEmpty()) Text(error, color = Fl.Danger, fontSize = 13.sp,
             modifier = Modifier.padding(top = 10.dp))
         Spacer(Modifier.height(20.dp))
-        AuthPrimaryButton(if (loading) "계정 만드는 중…" else "계정 만들기", loading, onSubmit)
+        AuthPrimaryButton(if (loading) "계정 만드는 중…" else "계정 만들기", loading, onSubmit, coolingDown)
     }
 }
 
@@ -232,10 +234,10 @@ private fun authFieldColors() = OutlinedTextFieldDefaults.colors(
 )
 
 @Composable
-private fun AuthPrimaryButton(label: String, loading: Boolean, onClick: () -> Unit) {
+private fun AuthPrimaryButton(label: String, loading: Boolean, onClick: () -> Unit, coolingDown: Boolean = false) {
     Button(
         onClick = onClick,
-        enabled = !loading,
+        enabled = !loading && !coolingDown,
         modifier = Modifier.fillMaxWidth().height(52.dp).testTag("auth-primary-action"),
         shape = RoundedCornerShape(13.dp),
         colors = ButtonDefaults.buttonColors(

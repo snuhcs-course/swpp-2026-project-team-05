@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { Button } from '../components/ui/Button'
@@ -17,6 +17,29 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const activeRequest = useRef(false)
+  const [cooldowns, setCooldowns] = useState({ login: 0, register: 0 })
+  const coolingDown = cooldowns[mode] !== 0
+
+  useEffect(() => {
+    const expire = () => setCooldowns((current) => {
+      const now = Date.now()
+      const next = { login: current.login > now ? current.login : 0,
+        register: current.register > now ? current.register : 0 }
+      return next.login === current.login && next.register === current.register ? current : next
+    })
+    const pending = Object.values(cooldowns).filter(Boolean)
+    const timer = pending.length ? window.setTimeout(expire,
+      Math.min(3_600_000, Math.max(0, Math.min(...pending) - Date.now()))) : undefined
+    window.addEventListener('focus', expire)
+    return () => { window.clearTimeout(timer); window.removeEventListener('focus', expire) }
+  }, [cooldowns])
+
+  function changeMode(next: 'login' | 'register') {
+    if (activeRequest.current) return
+    setMode(next)
+    setError('')
+  }
 
   const requestedPath = (
     location.state
@@ -31,6 +54,8 @@ export function LoginPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (activeRequest.current || cooldowns[mode] > Date.now()) return
+    activeRequest.current = true
     setError('')
     setSubmitting(true)
     try {
@@ -38,8 +63,14 @@ export function LoginPage() {
       else await register(email, username, password)
       navigate(requestedPath, { replace: true })
     } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 429) {
+        const seconds = Math.min(3600, Math.max(1, caught.retryAfterSeconds ?? 60))
+        const until = Date.now() + seconds * 1000
+        setCooldowns((current) => ({ ...current, [mode]: until }))
+      }
       setError(caught instanceof ApiError ? caught.message : 'Something went wrong. Please try again.')
     } finally {
+      activeRequest.current = false
       setSubmitting(false)
     }
   }
@@ -68,8 +99,8 @@ export function LoginPage() {
             </h2>
           </div>
           <div className="mb-7 grid grid-cols-2 border-b border-zinc-300 text-sm font-bold">
-            <button className={mode === 'login' ? 'border-b-2 border-black py-3 text-black' : 'py-3 text-zinc-400'} onClick={() => setMode('login')}>Sign in</button>
-            <button className={mode === 'register' ? 'border-b-2 border-black py-3 text-black' : 'py-3 text-zinc-400'} onClick={() => setMode('register')}>Create account</button>
+            <button disabled={submitting} className={mode === 'login' ? 'border-b-2 border-black py-3 text-black' : 'py-3 text-zinc-400'} onClick={() => changeMode('login')}>Sign in</button>
+            <button disabled={submitting} className={mode === 'register' ? 'border-b-2 border-black py-3 text-black' : 'py-3 text-zinc-400'} onClick={() => changeMode('register')}>Create account</button>
           </div>
           <form className="space-y-4" onSubmit={submit}>
             {mode === 'login' ? (
@@ -81,8 +112,8 @@ export function LoginPage() {
               </>
             )}
             <label className="form-label">Password<Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required /></label>
-            {error && <p className="border-l-2 border-red-600 pl-3 text-sm text-red-700" role="alert">{error}</p>}
-            <Button className="mt-2 w-full" type="submit" disabled={submitting}>
+            {(error || coolingDown) && <p className="border-l-2 border-red-600 pl-3 text-sm text-red-700" role="alert">{coolingDown ? 'Too many attempts. Please try again shortly.' : error}</p>}
+            <Button className="mt-2 w-full" type="submit" disabled={submitting || coolingDown}>
               {submitting ? 'Checking…' : mode === 'login' ? 'Sign in' : 'Create account'} <ArrowRight size={17} />
             </Button>
           </form>

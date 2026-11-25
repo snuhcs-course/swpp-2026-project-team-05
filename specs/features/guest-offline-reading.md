@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented |
-| Version | 1.2 |
-| Date | 2026-11-24 |
+| Version | 1.3 |
+| Date | 2026-11-25 |
 | Clients | Android and Web guest access; Android offline cache |
 | API | Existing Django JSON API with optional authentication on public reads |
 | Server database | Existing Supabase PostgreSQL schema; no new server tables |
@@ -20,6 +20,14 @@ retains a bounded read cache for explicitly Saved content.
 
 The server remains the source of truth. Room is a client read cache, not a
 second news database or a general synchronization engine.
+
+[`account-security.md`](account-security.md) Stage 1 protects credential APIs
+without changing optional bearer authentication on public reads. Android excludes
+auth preferences from backup/transfer and recovers unreadable credentials to
+Guest while preserving public Room content. Its browser cookie stage remains
+draft and must explicitly revise Web restoration/logout behavior and credential
+transport while preserving Android's bearer and offline-reading contracts.
+Guest access is an API policy; clients do not use Supabase's `anon` database role.
 
 ## 1. Goals and boundaries
 
@@ -257,7 +265,10 @@ ViewModels do not call a DAO or `NewsService` directly.
 
 ### 6.1 Home and discovery feeds
 
-1. Request the selected server feed normally; online behavior is unchanged.
+1. Read the selected server feed through the bounded recent-response cache in
+   [News loading and cache reuse](news-loading-cache.md). A fresh online page is
+   reused; an expired page is revalidated. A device known to be offline must not
+   reuse ordinary discovery rows as an offline feed.
 2. On success, display the server page without persisting ordinary feed
    summaries in Room.
 3. On a network failure, query only the active user's Saved relationships whose
@@ -278,7 +289,10 @@ requires a connection.
 
 1. Read cached article detail and matching cached analysis.
 2. Show valid cached content immediately.
-3. Request article detail and analysis from the server when possible.
+3. Reuse fresh viewer-bound detail and content-matched completed analysis;
+   otherwise request them from the server when possible. Explicit refresh bypasses
+   freshness. Public Room detail alone does not establish a newly restored
+   account's server Saved flag, so that account needs an initial detail read.
 4. Validate and persist each successful response; do not replace valid cached
    data with malformed or failed responses.
 5. If only the article is cached, keep it readable and show analysis as

@@ -61,10 +61,10 @@ jobs:
         run: python manage.py check
       - name: Check the coverage gate
         run: python -m unittest discover -s ci -p 'test_*.py'
-      - name: Test PostgreSQL trends, reactions, and demo activity
+      - name: Test PostgreSQL concurrency and demo activity
         env:
           DJANGO_SETTINGS_MODULE: tests.postgres_settings
-        run: python manage.py test tests.test_trends tests.test_trends_postgres tests.test_reactions tests.test_reactions_postgres tests.test_demo_activity --verbosity 1
+        run: python manage.py test tests.test_trends tests.test_trends_postgres tests.test_reactions tests.test_reactions_postgres tests.test_demo_activity tests.test_auth_security_postgres --verbosity 1
       - name: Run tests with coverage
         run: python -m coverage run --branch --source=server manage.py test --verbosity 1
       - name: Report coverage

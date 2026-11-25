@@ -1,8 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, articleQueryString } from './api'
+import { ApiError, api, articleQueryString, boundedRetryAfter } from './api'
 
 beforeEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('authentication retry metadata', () => {
+  it('bounds missing, malformed, negative and extreme delays', () => {
+    for (const [value, expected] of [[null, 60], ['bad', 60], ['-1', 1], ['0', 1], ['3601', 3600], ['9999999999999999999999', 60]] as const) {
+      expect(boundedRetryAfter(value)).toBe(expected)
+    }
+  })
+  it('reads Retry-After even when a gateway sends a non-JSON 429', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('<html>limited</html>', {
+      status: 429, headers: { 'Retry-After': '12' },
+    }))
+    const failure = await api.login('reader', 'private-password').catch((error) => error)
+    expect(failure).toBeInstanceOf(ApiError)
+    expect(failure.code).toBe('RATE_LIMITED')
+    expect(failure.retryAfterSeconds).toBe(12)
+  })
 })
 
 describe('articleQueryString', () => {

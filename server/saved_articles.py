@@ -57,6 +57,8 @@ def list_saved_articles(
                     article__publisher__is_active=True,
                 )
                 .select_related("article__publisher", "article__story_cluster")
+                .defer("article__body_text", "article__economic_context",
+                       "article__frame_context", "article__story_cluster__issue_table")
                 .order_by("-saved_at", "-id"))
     if cursor:
         saved_at, row_id = decode_cursor(cursor)

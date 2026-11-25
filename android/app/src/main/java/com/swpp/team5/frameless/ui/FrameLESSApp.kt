@@ -75,6 +75,7 @@ internal fun FrameLESSApp(
 ) {
     val systemDark = isSystemInDarkTheme()
     FrameLESSTheme(darkTheme = appearance.mode.usesDarkTheme(systemDark)) {
+        HomePresence(auth::refreshCooldowns)
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 if (auth.isRestoring) {
@@ -136,6 +137,7 @@ internal fun FrameLESSApp(
                             password = auth.registrationPassword,
                             confirmation = auth.registrationConfirmation,
                             loading = auth.isLoading,
+                            coolingDown = auth.registrationCoolingDown,
                             error = auth.error,
                             fieldErrors = auth.fieldErrors,
                             onEmail = { auth.registrationEmail = it },
@@ -152,6 +154,7 @@ internal fun FrameLESSApp(
                             password = auth.password,
                             loading = auth.isLoading,
                             error = auth.error,
+                            coolingDown = auth.loginCoolingDown,
                             onIdentifier = { auth.identifier = it },
                             onPassword = { auth.password = it },
                             onLogin = auth::login,
@@ -163,6 +166,9 @@ internal fun FrameLESSApp(
                 }
 
                 val feedListState = rememberLazyListState()
+                val newsListStates = com.swpp.team5.frameless.ui.viewmodel.NewsSection.entries.associateWith {
+                    androidx.compose.runtime.key(it) { rememberLazyListState() }
+                }
                 val homeListState = rememberLazyListState()
                 val savedListState = rememberLazyListState()
                 LaunchedEffect(news.authExpired) {
@@ -300,6 +306,7 @@ internal fun FrameLESSApp(
                                 subscribedPublishers = news.feed.publishers.filter { it.isFollowed },
                                 isLoading = news.discovery.isHomeLoading,
                                 error = news.discovery.homeError,
+                                isOffline = news.discovery.isHomeOffline,
                                 listState = homeListState,
                                 onSearch = {
                                     searchReturnTab = PortalTab.HOME
@@ -371,7 +378,7 @@ internal fun FrameLESSApp(
                                 isLoadingPublishers = news.feed.isLoadingPublishers,
                                 publisherDirectoryError = news.feed.publisherDirectoryError,
                                 onPublisherDirectoryRetry = news::retryFeed,
-                                listState = feedListState,
+                                listState = newsListStates.getValue(news.discovery.newsSection),
                                 onSection = news::selectNewsSection,
                                 onSearch = {
                                     searchReturnTab = PortalTab.NEWS

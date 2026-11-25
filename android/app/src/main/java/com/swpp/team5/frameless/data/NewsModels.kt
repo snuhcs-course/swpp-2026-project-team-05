@@ -247,5 +247,6 @@ internal data class ArticleAnalysisUi(
 internal class NewsApiException(
     val code: String,
     override val message: String,
-    val fields: Map<String, String> = emptyMap()
+    val fields: Map<String, String> = emptyMap(),
+    val retryAfterSeconds: Long? = null
 ) : IllegalStateException(message)

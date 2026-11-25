@@ -27,7 +27,7 @@ export function useSavedArticle() {
   const userId = session?.user.id ?? 'guest'
   const relevant = (query: { queryKey: readonly unknown[] }) => (
     query.queryKey[1] === userId
-    && ['articles', 'article', 'saved-articles'].includes(String(query.queryKey[0]))
+    && ['articles', 'article-search', 'article', 'saved-articles'].includes(String(query.queryKey[0]))
   )
 
   return useMutation({

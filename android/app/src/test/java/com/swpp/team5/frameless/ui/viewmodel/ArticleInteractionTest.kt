@@ -137,12 +137,12 @@ class ArticleInteractionTest {
             writes += articleId to kind; return write(articleId, kind)
         }
         override suspend fun homeHighlights(): HomeHighlights { homeReads++; return highlights() }
-        override suspend fun publishers() = emptyList<PublisherItem>()
+        override suspend fun publishers(refresh: Boolean) = emptyList<PublisherItem>()
         override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>) = publisherCodes
-        override suspend fun articles(category: NewsCategory?, scope: FeedScope, cursor: String?, query: String?) = error("unused")
-        override suspend fun article(articleId: String): ArticleDetail = error("unused")
-        override suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi = error("unused")
-        override suspend fun savedArticles(cursor: String?): ArticlePage = error("unused")
+        override suspend fun articles(category: NewsCategory?, scope: FeedScope, cursor: String?, query: String?, refresh: Boolean) = error("unused")
+        override suspend fun article(articleId: String, refresh: Boolean): ArticleDetail = error("unused")
+        override suspend fun analysis(article: ArticleDetail, refresh: Boolean): ArticleAnalysisUi = error("unused")
+        override suspend fun savedArticles(cursor: String?, refresh: Boolean): ArticlePage = error("unused")
         override suspend fun setArticleSaved(articleId: String, saved: Boolean) = Unit
         override fun savedCategory() = NewsCategory.POLITICS
         override fun savedAnalysisEnabled() = true

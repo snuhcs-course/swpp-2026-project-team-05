@@ -17,19 +17,28 @@ export class ApiError extends Error {
   status: number
   code?: string
   fields: Record<string, string>
+  retryAfterSeconds?: number
 
   constructor(
     message: string,
     status: number,
     code?: string,
     fields: Record<string, string> = {},
+    retryAfterSeconds?: number,
   ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.fields = fields
+    this.retryAfterSeconds = retryAfterSeconds
   }
+}
+
+export function boundedRetryAfter(value: string | null): number {
+  const raw = value?.trim() ?? ''
+  const seconds = /^[+-]?\d+$/.test(raw) ? Number(raw) : NaN
+  return Math.min(3600, Math.max(1, Number.isSafeInteger(seconds) ? seconds : 60))
 }
 
 export interface ArticleQuery {
@@ -74,12 +83,15 @@ async function request<T>(
       VALIDATION_ERROR: 'Please review the details and try again.',
       NOT_FOUND: 'The requested item could not be found.',
       INVALID_CURSOR: 'The feed has changed. Please refresh and try again.',
+      RATE_LIMITED: 'Too many attempts. Please try again shortly.',
+      AUTH_UNAVAILABLE: 'Account services are temporarily unavailable. Please try again.',
     }
     throw new ApiError(
-      (errorCode && englishMessage[errorCode]) ?? 'We could not complete the request.',
+      (response.status === 429 ? englishMessage.RATE_LIMITED : errorCode && englishMessage[errorCode]) ?? 'We could not complete the request.',
       response.status,
-      errorCode,
+      response.status === 429 ? 'RATE_LIMITED' : errorCode,
       body.error?.fields,
+      response.status === 429 ? boundedRetryAfter(response.headers.get('Retry-After')) : undefined,
     )
   }
   if (response.status === 204) return undefined as T

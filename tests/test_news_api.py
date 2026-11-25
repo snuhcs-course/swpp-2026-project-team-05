@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError, transaction
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -27,6 +29,31 @@ from server.models import (
 
 
 class NewsApiTests(TestCase):
+    def test_summary_projections_skip_large_fields_without_extra_queries(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get("/api/v1/articles")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(len(response.json()["items"]), 2)
+        for query in queries:
+            self.assertNotIn('"body_text"', query["sql"])
+            self.assertNotIn('"economic_context"', query["sql"])
+            self.assertNotIn('"frame_context"', query["sql"])
+            self.assertNotIn('"issue_table"', query["sql"])
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get("/api/v1/publishers")
+        self.assertEqual(len(queries), 2)
+        self.assertTrue(response.json()["items"][0]["recent_articles"])
+        self.assertTrue(all('"body_text"' not in query["sql"] for query in queries))
+        SavedArticle.objects.create(user=self.user, article=self.source)
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get("/api/v1/saved-articles", **self.auth)
+        self.assertEqual(len(queries), 2)
+        self.assertEqual(response.json()["items"][0]["id"], str(self.source.id))
+        self.assertTrue(all('"body_text"' not in query["sql"] for query in queries))
+        search = self.client.get("/api/v1/articles", {"q": "전격"}).json()
+        self.assertIn("전격", search["items"][0]["search_excerpt"])
+
     def setUp(self):
         self.client = Client()
         self.user = UserAccount.objects.create(

@@ -161,6 +161,12 @@ Functional requirements:
 - Password IME action submits login.
 - Validation appears beside the relevant field.
 - Server errors do not clear entered values.
+- Login and registration show an inline retry message on 429 and disable only
+  submission for the bounded Retry-After wait (default 60 seconds, range 1–3,600).
+  Each form keeps its own wait, entered values and return route. Guest navigation
+  remains available; neither 429 nor 503 signs out an existing session. There is
+  no automatic credential retry or countdown overlay. See
+  [account security](../features/account-security.md) for server/storage rules.
 - Guest entry keeps an explicit `로그인 없이 둘러보기`/`Continue without
   signing in` action in addition to platform Back navigation.
 - Successful login returns to the public route that requested authentication,

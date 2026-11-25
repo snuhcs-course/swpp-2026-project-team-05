@@ -178,9 +178,11 @@ Home keeps its portal utilities above two independent news sections:
   it is a live topic feed.
 
 The current selection survives Reader navigation and Home/News tab switches.
-The chosen publisher's first page is cached in memory for this viewer so returning
-to a recently selected outlet is immediate. Refresh or subscription changes clear
-that cache. Cancelling or finishing an older request must not replace the latest
+The chosen publisher's first page follows the bounded repository freshness policy in
+[News loading and cache reuse](news-loading-cache.md), so returning
+to a recently selected outlet is immediate. Refresh revalidates the selected
+outlet; subscription changes invalidate personalized feed results. Cancelling or
+finishing an older request must not replace the latest
 selection. Removing the selected subscription selects the first remaining one.
 Viewer changes cancel personalized requests and clear selection and cache.
 

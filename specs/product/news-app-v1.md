@@ -200,6 +200,13 @@ state. Followed story reads, followed-source mutation, Saved list, Saved mutatio
 
 Password change, reset, account deletion, and session listing remain outside this vertical slice. They must be added before an external public release.
 
+[`../features/account-security.md`](../features/account-security.md) Stage 1 adds
+shared login/registration attempt limits, typed/bounded credentials, no-store
+authentication responses and Android secure-storage/backup recovery. It keeps
+the current bearer contract and requires its security migrations before
+backend rollout. Browser cookie/CSRF transport is still a Stage 2 draft;
+email verification/recovery remains separate follow-up work.
+
 ## 4. User experience contract
 
 ### 4.1 Discovery and article lists

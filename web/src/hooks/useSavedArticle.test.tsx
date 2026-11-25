@@ -56,10 +56,16 @@ describe('useSavedArticle', () => {
       article_id: 'article-1', is_saved: true, saved_at: '2026-11-02T17:00:00+09:00',
     }) }))
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const searchKey = ['article-search', 'user-1', 'ALL', '기사']
+    const otherViewerKey = ['article-search', 'user-2', 'ALL', '기사']
+    client.setQueryData(searchKey, { pages: [page], pageParams: [undefined] })
+    client.setQueryData(otherViewerKey, { pages: [page], pageParams: [undefined] })
     renderHookHarness(client)
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(savedState(client)).toBe(true))
+    expect(client.getQueryData<{ pages: ArticlePage[] }>(searchKey)?.pages[0].items[0].is_saved).toBe(true)
+    expect(client.getQueryData<{ pages: ArticlePage[] }>(otherViewerKey)?.pages[0].items[0].is_saved).toBe(false)
     resolve()
   })
 

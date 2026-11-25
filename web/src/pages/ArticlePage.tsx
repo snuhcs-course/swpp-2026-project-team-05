@@ -358,11 +358,14 @@ export function ArticlePage() {
   const viewerId = session?.user.id ?? 'guest'
   const articleQuery = useQuery({ queryKey: ['article', viewerId, id], queryFn: () => api.article(token, id), enabled: Boolean(id) })
   const analysisQuery = useQuery({ queryKey: ['analysis', id], queryFn: () => api.analysis(token, id), enabled: Boolean(id) })
-  const findings = analysisQuery.data?.findings ?? []
-  const economic = analysisQuery.data?.economic ?? null
+  const analysis = articleQuery.data?.content_hash
+    && analysisQuery.data?.source_content_hash === articleQuery.data.content_hash
+    ? analysisQuery.data : undefined
+  const findings = analysis?.findings ?? []
+  const economic = analysis?.economic ?? null
   // The issue view at the bottom shows for every category; an economy article keeps the economic lens at the top
   // instead of the frame box.
-  const frame = analysisQuery.data?.frame ?? null
+  const frame = analysis?.frame ?? null
   const frameHeader = economic ? null : frame
   const titleEconomic = useMemo(() => [...economicRanges(economic, 'TITLE'), ...frameRanges(frameHeader, 'TITLE')], [economic, frameHeader])
   const bodyEconomic = useMemo(() => [...economicRanges(economic, 'BODY'), ...frameRanges(frameHeader, 'BODY')], [economic, frameHeader])
@@ -449,6 +452,7 @@ export function ArticlePage() {
                 </div>
                 {analysisQuery.isLoading && <div className="flex items-center gap-2 py-8 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={16} /> Loading the analysis…</div>}
                 {analysisQuery.isError && <p className="py-6 text-sm text-red-700">The analysis could not be loaded.</p>}
+                {analysisQuery.data && !analysis && <p className="py-6 text-sm text-zinc-500">Analysis for this version is unavailable.</p>}
                 {selectedFinding ? (
                   <>
                     <div className="mb-5 flex items-center justify-between border-b border-zinc-300 pb-4">
@@ -474,7 +478,7 @@ export function ArticlePage() {
                     </div>
                     <FindingPanel key={selectedFinding.id} finding={selectedFinding} />
                   </>
-                ) : !analysisQuery.isLoading && (
+                ) : !analysisQuery.isLoading && !analysisQuery.isError && (!analysisQuery.data || analysis) && (
                   <div className="border-y border-zinc-300 py-8">
                     <p className="font-serif text-xl font-bold">
                       {focus ? 'No standalone findings for this article.' : 'No findings are available yet.'}
