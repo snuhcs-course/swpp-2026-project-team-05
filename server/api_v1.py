@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import threading
 from hashlib import sha256
 from uuid import uuid4
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import RequestDataTooBig, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
@@ -31,7 +32,8 @@ from .analysis.staged import llm as staged_llm
 from .analysis.staged.link import LinkAnalysisError, analyze_link
 from .analysis.v2.article_fetch import validate_article_url
 from .article_search import MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, normalize_search_query
-from .models import AnalysisRecord, Article, AuthSession, NewsCategory, Publisher, UserAccount
+from .models import AnalysisRecord, Article, AuthSession, NewsCategory, Publisher, ReactionKind, UserAccount
+from .reactions import highlights_payload, reaction_payload, set_reaction
 from .news_queries import (
     InvalidCursor,
     article_analysis_payload,
@@ -39,6 +41,7 @@ from .news_queries import (
     get_article,
     list_articles,
     list_publishers,
+    list_stories,
 )
 from .saved_articles import (
     InvalidSavedCursor,
@@ -47,6 +50,7 @@ from .saved_articles import (
     save_article,
 )
 from .publisher_follows import InvalidPublisherCodes, replace_followed_publishers
+from .trends import TrendsUnavailable, cleanup_views, record_view, trend_payload, viewer_key
 
 
 MAX_BODY_BYTES = 8192
@@ -298,6 +302,146 @@ def articles(request):
     return _credential_varying(JsonResponse(
         payload, json_dumps_params={"ensure_ascii": False},
     ))
+
+
+@require_GET
+def stories(request):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    category = request.GET.get("category") or None
+    if category and category not in NewsCategory.values:
+        return _error(
+            "VALIDATION_ERROR", "지원하지 않는 기사 분야입니다.", 400,
+            fields={"category": "정치, 사회 또는 경제를 선택해 주세요."},
+        )
+    scope = request.GET.get("scope") or "ALL"
+    if scope not in {"ALL", "FOLLOWING"}:
+        return _error(
+            "VALIDATION_ERROR", "지원하지 않는 피드 범위입니다.", 400,
+            fields={"scope": "ALL 또는 FOLLOWING을 선택해 주세요."},
+        )
+    if scope == "FOLLOWING" and user is None:
+        return _error("AUTH_REQUIRED", "구독한 언론사 뉴스는 로그인 후 볼 수 있어요.", 401)
+    try:
+        limit = int(request.GET.get("limit", "20"))
+    except ValueError:
+        return _error("VALIDATION_ERROR", "limit은 정수여야 합니다.", 400)
+    if not 1 <= limit <= 50:
+        return _error("VALIDATION_ERROR", "limit은 1에서 50 사이여야 합니다.", 400)
+    try:
+        payload = list_stories(
+            user=user,
+            category=category,
+            cursor=request.GET.get("cursor") or None,
+            limit=limit,
+            scope=scope,
+        )
+    except InvalidCursor:
+        return _error("INVALID_CURSOR", "뉴스 목록을 처음부터 다시 불러와 주세요.", 400)
+    return _credential_varying(JsonResponse(
+        payload, json_dumps_params={"ensure_ascii": False},
+    ))
+
+
+@require_GET
+def trends(request):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    if request.GET:
+        return _error("VALIDATION_ERROR", "트렌드는 별도 필터 없이 조회합니다.", 400)
+    try:
+        payload = trend_payload(user=user)
+    except (DatabaseError, TrendsUnavailable):
+        response = _error("TRENDS_UNAVAILABLE", "트렌드를 불러오지 못했어요.", 503)
+        response["Retry-After"] = "60"
+    else:
+        response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    response["Cache-Control"] = "private, no-store"
+    return _credential_varying(response)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def article_reactions(request, article_id):
+    user, error = _optional_auth(request) if request.method == "GET" else _auth(request)
+    if error:
+        return error
+    kind = None
+    if request.method == "PUT":
+        body, error = _body(request)
+        if error:
+            return error
+        if set(body) != {"reaction"} or body["reaction"] not in ReactionKind.values:
+            return _error("VALIDATION_ERROR", "올바른 반응을 선택해 주세요.", 400)
+        kind = body["reaction"]
+    try:
+        payload = (reaction_payload(article_id=article_id, user=user) if request.method == "GET"
+                   else set_reaction(article_id=article_id, user=user, kind=kind))
+    except IntegrityError:
+        return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
+    except DatabaseError:
+        return _error("REACTIONS_UNAVAILABLE", "반응을 저장하거나 불러오지 못했어요.", 503)
+    if payload is None:
+        return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
+    response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    response["Cache-Control"] = "private, no-store"
+    return _credential_varying(response)
+
+
+@require_GET
+def home_highlights(request):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    if request.GET:
+        return _error("VALIDATION_ERROR", "홈 소식은 별도 필터 없이 조회합니다.", 400)
+    try:
+        payload = highlights_payload(user=user)
+    except DatabaseError:
+        return _error("HIGHLIGHTS_UNAVAILABLE", "홈 소식을 불러오지 못했어요.", 503)
+    response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    response["Cache-Control"] = "private, no-store"
+    return _credential_varying(response)
+
+
+@csrf_exempt
+@require_POST
+def article_view(request, article_id):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    body, error = _body(request)
+    if error:
+        return error
+    if body:
+        return _error("VALIDATION_ERROR", "조회 기록에는 추가 데이터가 필요하지 않습니다.", 400)
+    try:
+        key = viewer_key(user=user, guest_id=request.headers.get("X-Guest-Viewer", ""))
+    except ValueError:
+        return _error("VALIDATION_ERROR", "올바른 비로그인 식별값이 필요합니다.", 400)
+    try:
+        found = record_view(article_id=article_id, key=key)
+    except IntegrityError:
+        found = False
+    except DatabaseError:
+        return _error("VIEW_UNAVAILABLE", "조회 기록을 저장하지 못했어요.", 503)
+    if not found:
+        return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
+    return HttpResponse(status=204, headers={"Cache-Control": "no-store"})
+
+
+@require_GET
+def trends_cleanup(request):
+    secret = os.environ.get("CRON_SECRET", "")
+    if not secret or not secrets.compare_digest(request.headers.get("Authorization", ""), f"Bearer {secret}"):
+        return _error("FORBIDDEN", "허용되지 않은 요청입니다.", 403)
+    try:
+        result = cleanup_views()
+    except DatabaseError:
+        return _error("CLEANUP_UNAVAILABLE", "조회 기록 정리를 완료하지 못했습니다.", 503)
+    return JsonResponse(result, headers={"Cache-Control": "no-store"}, status=202 if result["remaining"] else 200)
 
 
 @require_GET

@@ -149,12 +149,13 @@ internal fun OutletList(articles: List<ArticleRef>, dot: Color) {
 /** 점선 상자: 비어 있는 상태 (예: 뚜렷한 차이를 찾지 못했어요.) */
 @Composable
 internal fun EmptyState(text: String) {
+    val line = Fl.Line
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .drawBehind {
                 drawRoundRect(
-                    color = Fl.Line,
+                    color = line,
                     cornerRadius = CornerRadius(10.dp.toPx()),
                     style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
                 )

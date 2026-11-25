@@ -26,9 +26,11 @@ was worded differently.
 
 - Shown once per installation, after session restore, before the feed. The
   feed still initializes in the background.
-- The feed header's `?` button (left of `+`) shows it again at any time and
-  re-arms the reader coach marks for the next article with findings. On a
-  replay while signed in, `로그인하러 가기` is hidden.
+- One quiet help action in the all-topics `전체 뉴스` section shows it again and
+  re-arms the reader coach marks for the next article with findings. It is not
+  repeated in `정치`, `사회`, `경제`, or `언론사`. MY also exposes
+  `튜토리얼 다시 보기`. On a replay while signed in, `로그인하러 가기` is
+  hidden.
 - Three pages in a horizontal pager:
   1. *같은 사건, 다른 표현* — two example sentences with the differing phrase
      highlighted, and the stance sentence above.

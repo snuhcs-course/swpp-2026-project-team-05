@@ -26,7 +26,31 @@ internal fun linkAnalysisError(error: NewsApiException): NewsApiException {
     return if (missingApi) NewsApiException("LINK_ANALYSIS_NOT_DEPLOYED", LINK_ANALYSIS_NOT_DEPLOYED_MESSAGE) else error
 }
 
+/** Keep discovery usable while an older server deployment does not expose the grouped story endpoint yet. */
+internal fun storyFeedApiUnavailable(error: NewsApiException): Boolean =
+    error.code in setOf("HTTP_404", "HTTP_405") ||
+        (error.code == "INVALID_RESPONSE" &&
+            listOf("HTTP 400", "HTTP 404", "HTTP 405").any { it in error.message })
+
+private fun ArticlePage.asSingletonStories(): StoryPage = StoryPage(
+    items = items.map { article ->
+        StorySummary(
+            storyKey = "article:${article.id}",
+            representativeArticle = article,
+            publisherCount = 1,
+            publishers = listOf(article.publisher),
+            latestPublishedAt = article.publishedAt
+        )
+    },
+    nextCursor = nextCursor
+)
+
 internal interface NewsService {
+    suspend fun reactions(token: String?, articleId: String): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 불러오지 못했어요.")
+    suspend fun setReaction(token: String, articleId: String, kind: ReactionKind?): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 저장하지 못했어요.")
+    suspend fun homeHighlights(token: String?): HomeHighlights = throw NewsApiException("UNSUPPORTED", "홈 소식을 불러오지 못했어요.")
+    suspend fun trends(token: String?): TrendPage = throw NewsApiException("UNSUPPORTED", "트렌드를 불러오지 못했어요.")
+    suspend fun recordView(token: String?, guestId: String?, articleId: String) = Unit
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession
     suspend fun login(identifier: String, password: String): AppSession
@@ -37,6 +61,16 @@ internal interface NewsService {
     suspend fun articles(token: String?, category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, limit: Int = 20,
                          query: String? = null): ArticlePage
+    suspend fun stories(token: String?, category: NewsCategory?, scope: FeedScope,
+                        cursor: String? = null, limit: Int = 20): StoryPage {
+        val page = articles(token, category, scope, cursor, limit)
+        return page.asSingletonStories()
+    }
+    suspend fun publisherArticles(token: String?, publisherCode: String,
+                                  cursor: String? = null, limit: Int = 20): ArticlePage =
+        articles(token, null, FeedScope.ALL, cursor, limit).let { page ->
+            page.copy(items = page.items.filter { it.publisher.code == publisherCode })
+        }
     suspend fun article(token: String?, articleId: String): ArticleDetail
     suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis
     suspend fun savedArticles(token: String, cursor: String? = null,
@@ -50,6 +84,12 @@ internal interface NewsService {
 
 internal object NewsApi : NewsService {
     private val client by lazy { NewsApiClient(BuildConfig.BACKEND_BASE_URL) }
+    override suspend fun reactions(token: String?, articleId: String) = client.reactions(token, articleId)
+    override suspend fun setReaction(token: String, articleId: String, kind: ReactionKind?) = client.setReaction(token, articleId, kind)
+    override suspend fun homeHighlights(token: String?) = client.homeHighlights(token)
+    override suspend fun trends(token: String?) = client.trends(token)
+    override suspend fun recordView(token: String?, guestId: String?, articleId: String) =
+        client.recordView(token, guestId, articleId)
 
     override suspend fun register(email: String, username: String, password: String,
                                   confirmation: String): AppSession =
@@ -65,6 +105,12 @@ internal object NewsApi : NewsService {
                                   scope: FeedScope, cursor: String?, limit: Int,
                                   query: String?): ArticlePage =
         client.articles(token, category, scope, cursor, limit, query)
+    override suspend fun stories(token: String?, category: NewsCategory?, scope: FeedScope,
+                                 cursor: String?, limit: Int): StoryPage =
+        client.stories(token, category, scope, cursor, limit)
+    override suspend fun publisherArticles(token: String?, publisherCode: String,
+                                           cursor: String?, limit: Int): ArticlePage =
+        client.publisherArticles(token, publisherCode, cursor, limit)
     override suspend fun article(token: String?, articleId: String): ArticleDetail =
         client.article(token, articleId)
     override suspend fun analysis(token: String?, articleId: String): ApiArticleAnalysis =
@@ -80,6 +126,72 @@ internal object NewsApi : NewsService {
 
 internal class NewsApiClient(baseUrl: String) {
     private val baseUrl = baseUrl.trimEnd('/')
+    @Volatile private var groupedStoryRouteAvailable: Boolean? = null
+
+    suspend fun reactions(token: String?, articleId: String): ArticleReactions =
+        reactionPayload(request("GET", "/api/v1/articles/${encode(articleId)}/reactions", token = token), articleId)
+
+    suspend fun setReaction(token: String, articleId: String, kind: ReactionKind?): ArticleReactions =
+        reactionPayload(request(if (kind == null) "DELETE" else "PUT",
+            "/api/v1/articles/${encode(articleId)}/reactions", token = token,
+            body = kind?.let { JSONObject().put("reaction", it.name) }), articleId)
+
+    private fun reactionPayload(root: JSONObject, articleId: String): ArticleReactions {
+        val counts = root.requireObject("counts")
+        val selected = if (root.has("my_reaction") && root.isNull("my_reaction")) null
+            else ReactionKind.entries.firstOrNull { it.name == root.requireString("my_reaction") }
+                ?: throw NewsApiException("INVALID_RESPONSE", "반응을 읽지 못했어요.")
+        if (root.requireString("article_id") != articleId) throw NewsApiException("INVALID_RESPONSE", "반응을 읽지 못했어요.")
+        val values = ReactionKind.entries.associateWith { kind ->
+            val raw = counts.opt(kind.name)
+            if (raw !is Number || raw.toLong() < 0 || raw.toDouble() != raw.toLong().toDouble())
+                throw NewsApiException("INVALID_RESPONSE", "반응을 읽지 못했어요.")
+            raw.toLong()
+        }
+        return ArticleReactions(articleId, values, selected)
+    }
+
+    suspend fun homeHighlights(token: String?): HomeHighlights {
+        val root = request("GET", "/api/v1/home-highlights", token = token)
+        fun timestamp(value: String): String {
+            if (runCatching { java.time.OffsetDateTime.parse(value) }.isFailure)
+                throw NewsApiException("INVALID_RESPONSE", "홈 소식을 읽지 못했어요.")
+            return value
+        }
+        if (!root.has("breaking") || !root.has("issue")) throw NewsApiException("INVALID_RESPONSE", "홈 소식을 읽지 못했어요.")
+        val breaking = if (root.isNull("breaking")) null else root.requireObject("breaking").let {
+            BreakingHeadline(articleSummary(it.requireObject("article")), timestamp(it.requireString("expires_at")))
+        }
+        val issue = if (root.isNull("issue")) null else root.requireObject("issue").let {
+            val count = it.optLong("reaction_user_count", 0)
+            if (count < 1) throw NewsApiException("INVALID_RESPONSE", "홈 소식을 읽지 못했어요.")
+            IssueHeadline(storySummary(it.requireObject("story")), count)
+        }
+        return HomeHighlights(timestamp(root.requireString("generated_at")), breaking, issue)
+    }
+
+    suspend fun trends(token: String?): TrendPage {
+        val root = request("GET", "/api/v1/trends", token = token)
+        val calculatedAt = root.requireString("calculated_at")
+        if (runCatching { java.time.OffsetDateTime.parse(calculatedAt) }.isFailure || !root.has("items")) {
+            throw NewsApiException("INVALID_RESPONSE", "트렌드를 읽지 못했어요.")
+        }
+        return TrendPage(calculatedAt, root.optBoolean("is_stale"),
+            root.optJSONArray("items").orEmptyObjects().map { row ->
+                val kind = row.requireString("kind")
+                if (kind !in setOf("POPULAR", "LATEST")) throw NewsApiException("INVALID_RESPONSE", "트렌드를 읽지 못했어요.")
+                TrendItem(kind, row.optInt("rank").takeUnless { row.isNull("rank") },
+                    row.optInt("previous_rank").takeUnless { row.isNull("previous_rank") },
+                    row.optString("movement").takeUnless { row.isNull("movement") || it.isBlank() },
+                    storySummary(row.requireObject("story")))
+            })
+    }
+
+    suspend fun recordView(token: String?, guestId: String?, articleId: String) {
+        request("POST", "/api/v1/articles/${encode(articleId)}/view", token = token,
+            body = JSONObject(), allowEmpty = true, readTimeoutMs = 3_000, connectTimeoutMs = 3_000,
+            extraHeaders = guestId?.let { mapOf("X-Guest-Viewer" to it) }.orEmpty())
+    }
 
     suspend fun register(email: String, username: String, password: String,
                          confirmation: String): AppSession = request(
@@ -138,6 +250,51 @@ internal class NewsApiClient(baseUrl: String) {
         )
     }
 
+    suspend fun stories(token: String?, category: NewsCategory?,
+                        scope: FeedScope = FeedScope.ALL, cursor: String? = null,
+                        limit: Int = 20): StoryPage {
+        if (groupedStoryRouteAvailable == false) {
+            return articles(token, category, scope, cursor, limit).asSingletonStories()
+        }
+        return try {
+            val queryString = buildList {
+                category?.let { add("category=${encode(it.wire)}") }
+                add("scope=${encode(scope.wire)}")
+                add("limit=$limit")
+                cursor?.let { add("cursor=${encode(it)}") }
+            }.joinToString("&")
+            val root = request("GET", "/api/v1/stories?$queryString", token = token)
+            groupedStoryRouteAvailable = true
+            StoryPage(
+                items = root.optJSONArray("items").orEmptyObjects().map(::storySummary),
+                nextCursor = root.optString("next_cursor").takeIf {
+                    root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
+                }
+            )
+        } catch (error: NewsApiException) {
+            if (!storyFeedApiUnavailable(error)) throw error
+            groupedStoryRouteAvailable = false
+            articles(token, category, scope, cursor, limit).asSingletonStories()
+        }
+    }
+
+    suspend fun publisherArticles(token: String?, publisherCode: String,
+                                  cursor: String? = null, limit: Int = 20): ArticlePage {
+        val queryString = buildList {
+            add("publisher=${encode(publisherCode)}")
+            add("scope=ALL")
+            add("limit=$limit")
+            cursor?.let { add("cursor=${encode(it)}") }
+        }.joinToString("&")
+        val root = request("GET", "/api/v1/articles?$queryString", token = token)
+        return ArticlePage(
+            items = root.optJSONArray("items").orEmptyObjects().map(::articleSummary),
+            nextCursor = root.optString("next_cursor").takeIf {
+                root.has("next_cursor") && !root.isNull("next_cursor") && it.isNotBlank()
+            }
+        )
+    }
+
     suspend fun article(token: String?, articleId: String): ArticleDetail =
         request("GET", "/api/v1/articles/${encode(articleId)}", token = token).let(::articleDetail)
 
@@ -186,15 +343,17 @@ internal class NewsApiClient(baseUrl: String) {
 
     private suspend fun request(method: String, path: String, token: String? = null,
                                 body: JSONObject? = null, allowEmpty: Boolean = false,
-                                readTimeoutMs: Int = 25_000): JSONObject =
+                                readTimeoutMs: Int = 25_000, connectTimeoutMs: Int = 10_000,
+                                extraHeaders: Map<String, String> = emptyMap()): JSONObject =
         withContext(Dispatchers.IO) {
             val connection = URL("$baseUrl$path").openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = method
-                connection.connectTimeout = 10_000
+                connection.connectTimeout = connectTimeoutMs
                 connection.readTimeout = readTimeoutMs
                 connection.setRequestProperty("Accept", "application/json")
                 token?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+                extraHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
                 if (body != null) {
                     connection.doOutput = true
                     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -248,7 +407,14 @@ internal class NewsApiClient(baseUrl: String) {
         code = root.requireString("code"),
         name = root.requireString("name"),
         logoUrl = root.optString("logo_url").takeIf { root.has("logo_url") && !root.isNull("logo_url") && it.isNotBlank() },
-        isFollowed = root.optBoolean("is_followed", false)
+        isFollowed = root.optBoolean("is_followed", false),
+        recentArticles = root.optJSONArray("recent_articles").orEmptyObjects().map { article ->
+            PublisherArticlePreview(
+                id = article.requireString("id"),
+                title = article.requireString("title"),
+                publishedAt = article.requireString("published_at")
+            )
+        }
     )
 
     private fun articleSummary(root: JSONObject) = ArticleSummary(
@@ -265,6 +431,14 @@ internal class NewsApiClient(baseUrl: String) {
         savedAt = root.optString("saved_at").takeIf {
             root.has("saved_at") && !root.isNull("saved_at") && it.isNotBlank()
         }
+    )
+
+    private fun storySummary(root: JSONObject) = StorySummary(
+        storyKey = root.requireString("story_key"),
+        representativeArticle = articleSummary(root.requireObject("representative_article")),
+        publisherCount = root.requireInt("publisher_count"),
+        publishers = root.optJSONArray("publishers").orEmptyObjects().map(::publisher),
+        latestPublishedAt = root.requireString("latest_published_at")
     )
 
     private fun articleDetail(root: JSONObject) = ArticleDetail(

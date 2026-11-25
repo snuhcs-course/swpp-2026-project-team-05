@@ -38,6 +38,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
@@ -59,6 +60,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import com.swpp.team5.frameless.R
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -124,6 +127,20 @@ private val NewsMarker = Color(0xFFE9E1F5)
 private val NewsTargetMarker = Color(0xFFE5D0F2)
 private val ComparisonContextMarker = Color(0xFFE8E2F0)
 
+private data class ReaderHighlightColors(
+    val finding: Color,
+    val selected: Color,
+    val context: Color,
+    val economic: Color
+)
+
+@Composable
+private fun readerHighlightColors(): ReaderHighlightColors = if (Fl.IsDark) {
+    ReaderHighlightColors(Fl.TintDiff, Color(0xFF634874), Color(0xFF37303F), Fl.TintSame)
+} else {
+    ReaderHighlightColors(NewsMarker, NewsTargetMarker, ComparisonContextMarker, EconomicPhraseMarker)
+}
+
 /** 첫 기사 코치마크 연결. 기본값은 코치마크 없이 동작한다. */
 internal data class ReaderCoachUi(
     val step: ReaderCoachStep? = null,
@@ -145,6 +162,9 @@ internal fun NewsReaderScreen(
     onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit = { _, _, _ -> },
     onOpenRelatedArticle: (String, Int, String?) -> Unit = { _, _, _ -> },
     coach: ReaderCoachUi = ReaderCoachUi(),
+    reactionState: com.swpp.team5.frameless.ui.viewmodel.ArticleReactionState? = null,
+    onReaction: (com.swpp.team5.frameless.data.ReactionKind) -> Unit = {},
+    onReactionRetry: () -> Unit = {},
     onComparisonShown: (Int) -> Unit = {}
 ) {
     when {
@@ -160,7 +180,7 @@ internal fun NewsReaderScreen(
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
             state.initialScrollOffset, state.initialSelectedFindingId,
-            onOpenComparisonArticle, onOpenRelatedArticle, coach, onComparisonShown)
+            onOpenComparisonArticle, onOpenRelatedArticle, coach, reactionState, onReaction, onReactionRetry, onComparisonShown)
     }
 }
 
@@ -183,6 +203,9 @@ private fun NewsReaderContent(
     onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit,
     onOpenRelatedArticle: (String, Int, String?) -> Unit,
     coach: ReaderCoachUi,
+    reactionState: com.swpp.team5.frameless.ui.viewmodel.ArticleReactionState?,
+    onReaction: (com.swpp.team5.frameless.data.ReactionKind) -> Unit,
+    onReactionRetry: () -> Unit,
     onComparisonShown: (Int) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
@@ -204,16 +227,20 @@ private fun NewsReaderContent(
     LaunchedEffect(detailOpen, selected?.id) {
         if (detailOpen) selected?.let { onComparisonShown(it.comparisons.size) }
     }
-    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
+    val readerInk = Fl.Ink
+    val highlightColors = readerHighlightColors()
+    val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id, readerInk, highlightColors) {
         annotatedReaderText(
             article.title, titleFindings, titleFocus,
-            economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id
+            economicViews.filter { it.scope == "TITLE" }, selected?.takeIf { it.scope == "TITLE" }?.id,
+            readerInk, highlightColors
         )
     }
-    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id) {
+    val bodyText = remember(article.body, bodyFindings, bodyFocus, economicViews, selected?.id, readerInk, highlightColors) {
         annotatedReaderText(
             article.body, bodyFindings, bodyFocus,
-            economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id
+            economicViews.filter { it.scope == "BODY" }, selected?.takeIf { it.scope == "BODY" }?.id,
+            readerInk, highlightColors
         )
     }
     val density = LocalDensity.current
@@ -387,17 +414,16 @@ private fun NewsReaderContent(
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("←", fontSize = 24.sp, color = Fl.Ink,
-                    modifier = Modifier.clickable(onClick = onBack)
-                        .semantics {
-                            role = Role.Button
+                IconButton(onClick = onBack, modifier = Modifier.semantics {
                             contentDescription = if (comparisonFocus != null) {
                                 "이전 기사로 돌아가기"
                             } else {
                                 "기사 목록으로 돌아가기"
                             }
-                        }
-                        .padding(horizontal = 8.dp, vertical = 6.dp))
+                        }) {
+                    Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                        tint = Fl.Ink, modifier = Modifier.size(23.dp))
+                }
                 Text("기사 읽기", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
                     modifier = Modifier.weight(1f))
                 IconButton(
@@ -545,6 +571,10 @@ private fun NewsReaderContent(
                     },
                     onTextLayout = { bodyLayout = it }
                 )
+                if (!isOffline && reactionState != null) {
+                    ArticleReactionSection(reactionState, onReaction, onReactionRetry,
+                        modifier = Modifier.padding(top = 28.dp))
+                }
                 economic?.let { lens ->
                     Spacer(Modifier.height(28.dp))
                     OtherOutletsSection(
@@ -721,13 +751,13 @@ private fun FindingText(
     )
 }
 
-internal fun annotatedFindings(text: String, findings: List<FindingUi>): AnnotatedString = buildAnnotatedString {
+internal fun annotatedFindings(text: String, findings: List<FindingUi>, markerColor: Color = NewsMarker): AnnotatedString = buildAnnotatedString {
     append(text)
     findings.forEach { finding ->
         if (finding.markerRange.isWithin(text)) {
             addStringAnnotation("finding", finding.id, finding.markerRange.start, finding.markerRange.end)
             addStyle(
-                SpanStyle(background = NewsMarker, textDecoration = TextDecoration.Underline,
+                SpanStyle(background = markerColor, textDecoration = TextDecoration.Underline,
                     fontWeight = FontWeight.SemiBold),
                 finding.markerRange.start,
                 finding.markerRange.end
@@ -741,15 +771,17 @@ private fun annotatedReaderText(
     findings: List<FindingUi>,
     comparisonFocus: ReaderFocus?,
     economicViews: List<EconomicViewUi> = emptyList(),
-    selectedFindingId: String? = null
+    selectedFindingId: String? = null,
+    ink: Color,
+    colors: ReaderHighlightColors
 ): AnnotatedString = buildAnnotatedString {
-    append(annotatedFindings(text, findings))
+    append(annotatedFindings(text, findings, colors.finding))
     findings.firstOrNull { it.id == selectedFindingId }?.markerRange
         ?.takeIf { it.isWithin(text) }
         ?.let { marker ->
             addStyle(
                 SpanStyle(
-                    background = NewsTargetMarker,
+                    background = colors.selected,
                     fontWeight = FontWeight.SemiBold,
                     textDecoration = TextDecoration.Underline
                 ),
@@ -759,16 +791,16 @@ private fun annotatedReaderText(
         }
     economicViews.forEach { view ->
         view.sentenceRange?.takeIf { it.isWithin(text) }?.let {
-            addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = Fl.Ink), it.start, it.end)
+            addStyle(SpanStyle(textDecoration = TextDecoration.Underline, color = ink), it.start, it.end)
         }
         view.phraseRange?.takeIf { it.isWithin(text) }?.let {
-            addStyle(SpanStyle(background = EconomicPhraseMarker, fontWeight = FontWeight.SemiBold), it.start, it.end)
+            addStyle(SpanStyle(background = colors.economic, fontWeight = FontWeight.SemiBold), it.start, it.end)
         }
     }
     comparisonFocus?.markerRange?.takeIf { it.isWithin(text) }?.let { marker ->
         addStyle(
             SpanStyle(
-                background = ComparisonContextMarker,
+                background = colors.context,
                 fontWeight = FontWeight.SemiBold,
                 textDecoration = TextDecoration.Underline
             ),
@@ -839,13 +871,12 @@ internal fun AnalysisAnnotationDock(
                         modifier = Modifier.weight(1f)
                     )
                     if (hasComparisons) {
-                        Text(
-                            "다른 보도 ${comparisonCount}곳  ›",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Fl.Accent,
-                            maxLines = 1
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("다른 보도 ${comparisonCount}곳", fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold, color = Fl.Accent, maxLines = 1)
+                            Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                                tint = Fl.Accent, modifier = Modifier.padding(start = 3.dp).size(14.dp))
+                        }
                     }
                 }
                 Text(
@@ -931,7 +962,8 @@ internal fun FindingDetailSheet(
                         onClick = dismissSheet,
                         modifier = Modifier.semantics { contentDescription = "비교 상세 닫기" }
                     ) {
-                        Text("×", fontSize = 23.sp, color = Fl.Muted)
+                        Icon(painterResource(R.drawable.ic_portal_close), contentDescription = null,
+                            tint = Fl.Muted, modifier = Modifier.size(22.dp))
                     }
                 }
                 if (comparisonOverview.isNotBlank()) {
@@ -1001,8 +1033,9 @@ internal fun FindingDetailSheet(
                             }.semantics { contentDescription = "이전 비교 기사" },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("‹", fontSize = 24.sp,
-                                color = if (hasPrevious) HomeTokens.Navy else HomeTokens.Hairline)
+                            Icon(painterResource(R.drawable.ic_portal_chevron_left), contentDescription = null,
+                                tint = if (hasPrevious) HomeTokens.Navy else HomeTokens.Hairline,
+                                modifier = Modifier.size(23.dp))
                         }
                         Caption("${pagerState.currentPage + 1} / ${finding.comparisons.size}")
                         Box(
@@ -1013,8 +1046,9 @@ internal fun FindingDetailSheet(
                             }.semantics { contentDescription = "다음 비교 기사" },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("›", fontSize = 24.sp,
-                                color = if (hasNext) HomeTokens.Navy else HomeTokens.Hairline)
+                            Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                                tint = if (hasNext) HomeTokens.Navy else HomeTokens.Hairline,
+                                modifier = Modifier.size(23.dp))
                         }
                     }
                 }
@@ -1100,8 +1134,9 @@ private fun NewsComparisonPage(
     val scroll = rememberScrollState()
     val bodyEvidence = page.evidence.filter { it.scope == "BODY" }
     val titleEvidence = page.evidence.filter { it.scope == "TITLE" }
-    val body = remember(page) { annotatedTarget(page.body, bodyEvidence) }
-    val title = remember(page) { annotatedTarget(page.title, titleEvidence) }
+    val highlightColors = readerHighlightColors()
+    val body = remember(page, highlightColors) { annotatedTarget(page.body, bodyEvidence, highlightColors) }
+    val title = remember(page, highlightColors) { annotatedTarget(page.title, titleEvidence, highlightColors) }
     var layout by remember(page.articleId) { mutableStateOf<TextLayoutResult?>(null) }
     var viewportHeight by remember(page.articleId) { mutableIntStateOf(0) }
     var visibleHeight by remember(page.articleId) { mutableIntStateOf(0) }
@@ -1174,16 +1209,16 @@ private fun NewsComparisonPage(
     }
 }
 
-private fun annotatedTarget(text: String, evidence: List<com.swpp.team5.frameless.data.ComparisonEvidenceUi>) =
+private fun annotatedTarget(text: String, evidence: List<com.swpp.team5.frameless.data.ComparisonEvidenceUi>, colors: ReaderHighlightColors) =
     buildAnnotatedString {
         append(text)
         evidence.forEach { row ->
             if (row.sentenceRange.isWithin(text)) {
-                addStyle(SpanStyle(background = NewsMarker, textDecoration = TextDecoration.Underline),
+                addStyle(SpanStyle(background = colors.finding, textDecoration = TextDecoration.Underline),
                     row.sentenceRange.start, row.sentenceRange.end)
             }
             if (row.markerRange.isWithin(text)) {
-                addStyle(SpanStyle(background = NewsTargetMarker, fontWeight = FontWeight.Bold),
+                addStyle(SpanStyle(background = colors.selected, fontWeight = FontWeight.Bold),
                     row.markerRange.start, row.markerRange.end)
             }
         }
@@ -1223,8 +1258,8 @@ private fun CoachTermRow(term: String, meaning: String) {
     }
 }
 
-private val EconomicInk = Color(0xFF0F5F58)
-private val EconomicTint = Color(0xFFE7F3F1)
+private val EconomicInk: Color @Composable get() = Fl.InkSame
+private val EconomicTint: Color @Composable get() = Fl.TintSame.copy(alpha = 0.5f)
 private val EconomicPhraseMarker = Color(0xFFD5ECE8)
 /** How a view sees the event: its evaluation, or the move it reports when it evaluates nothing. */
 internal fun economicStanceLabel(stance: String, direction: String? = null): String = when (stance) {
@@ -1336,8 +1371,12 @@ private fun OtherOutletsSection(lens: EconomicLensUi, onOpenArticle: (String) ->
                     .semantics { role = Role.Button; contentDescription = "${outlet.publisher.name} 기사 열기" }
                     .padding(horizontal = 10.dp, vertical = 10.dp)
             ) {
-                Text("${outlet.publisher.name} ›", fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold,
-                    color = Fl.Ink, modifier = Modifier.width(OutletColumn).padding(end = 8.dp))
+                Row(Modifier.width(OutletColumn).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(outlet.publisher.name, fontSize = 13.sp, lineHeight = 19.sp,
+                        fontWeight = FontWeight.Bold, color = Fl.Ink, modifier = Modifier.weight(1f, fill = false))
+                    Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                        tint = Fl.Muted, modifier = Modifier.size(14.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     val position = outlet.position
                     if (position != null) EconomicPositionLine(position, fontSize = 13)
@@ -1365,8 +1404,11 @@ internal fun categoryLabel(code: String): String = when (code) {
 @Composable
 private fun ReaderLoading(onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Fl.Card)) {
-        Text("←", fontSize = 24.sp, color = Fl.Ink,
-            modifier = Modifier.clickable(onClick = onBack).padding(20.dp))
+        IconButton(onClick = onBack, modifier = Modifier.padding(start = 16.dp, top = 10.dp)
+            .semantics { contentDescription = "기사 목록으로 돌아가기" }) {
+            Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                tint = Fl.Ink, modifier = Modifier.size(23.dp))
+        }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Fl.Accent)
         }

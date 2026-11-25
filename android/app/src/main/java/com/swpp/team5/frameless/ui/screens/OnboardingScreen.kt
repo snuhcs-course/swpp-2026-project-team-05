@@ -44,9 +44,9 @@ import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.theme.PillShape
 import kotlinx.coroutines.launch
+import com.swpp.team5.frameless.ui.components.BrandRow
 
 private const val OnboardingPages = 3
-private val OnboardingMarker = Color(0xFFE9E1F5)
 
 /**
  * 첫 실행 온보딩 3장. 피드의 ? 버튼으로 언제든 다시 볼 수 있다.
@@ -54,11 +54,20 @@ private val OnboardingMarker = Color(0xFFE9E1F5)
  * 끝내기·건너뛰기·로그인 모두 [onFinish] 계열로 끝난다. 로그인한 상태면 로그인 버튼은 숨긴다.
  */
 @Composable
-internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit, showLogin: Boolean = true) {
+internal fun OnboardingScreen(
+    onFinish: () -> Unit,
+    onBack: () -> Unit = onFinish,
+    onLogin: () -> Unit,
+    showLogin: Boolean = true
+) {
     val pager = rememberPagerState(pageCount = { OnboardingPages })
     val scope = rememberCoroutineScope()
-    BackHandler(enabled = pager.currentPage > 0) {
-        scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+    BackHandler {
+        if (pager.currentPage > 0) {
+            scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+        } else {
+            onBack()
+        }
     }
 
     Column(Modifier.fillMaxSize().background(Fl.Card)) {
@@ -66,8 +75,7 @@ internal fun OnboardingScreen(onFinish: () -> Unit, onLogin: () -> Unit, showLog
             Modifier.fillMaxWidth().padding(start = 22.dp, end = 12.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("FrameLESS", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Fl.Ink,
-                modifier = Modifier.weight(1f))
+            BrandRow(modifier = Modifier.weight(1f), compact = true)
             Text(
                 "건너뛰기",
                 fontSize = 14.sp,
@@ -127,6 +135,7 @@ private fun PerspectivePage() {
 
 @Composable
 private fun ExampleCard(caption: String, before: String, marked: String, after: String) {
+    val marker = Fl.TintDiff
     Column(
         Modifier.fillMaxWidth()
             .background(Fl.Bg, RoundedCornerShape(16.dp))
@@ -137,7 +146,7 @@ private fun ExampleCard(caption: String, before: String, marked: String, after: 
         Text(
             buildAnnotatedString {
                 append(before)
-                withStyle(SpanStyle(background = OnboardingMarker, fontWeight = FontWeight.SemiBold,
+                withStyle(SpanStyle(background = marker, fontWeight = FontWeight.SemiBold,
                     textDecoration = TextDecoration.Underline)) { append(marked) }
                 append(after)
             },

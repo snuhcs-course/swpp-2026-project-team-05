@@ -29,7 +29,8 @@ class NewsApiClientTest {
                     exchange.requestMethod,
                     exchange.requestURI.toString(),
                     exchange.requestHeaders.getFirst("Authorization"),
-                    exchange.requestBody.bufferedReader().use { it.readText() }
+                    exchange.requestBody.bufferedReader().use { it.readText() },
+                    exchange.requestHeaders.getFirst("X-Guest-Viewer")
                 )
             }
             val response = responses.remove()
@@ -42,6 +43,52 @@ class NewsApiClientTest {
     @After
     fun stopServer() {
         server.stop(0)
+    }
+
+    @Test
+    fun reactionsAndHighlightsUseTheirOwnResourcesAndValidateResponses() = runBlocking {
+        val empty = """{"article_id":"a1","counts":{"RECOMMEND":0,"LIKE":0,"MOVED":0,"ANGRY":0,"SAD":0},"my_reaction":null}"""
+        responses += Response(200, empty)
+        assertNull(client.reactions(null, "a1").selected)
+        responses += Response(200, empty.replace("\"LIKE\":0", "\"LIKE\":1").replace("\"my_reaction\":null", "\"my_reaction\":\"LIKE\""))
+        assertEquals(ReactionKind.LIKE, client.setReaction("token", "a1", ReactionKind.LIKE).selected)
+        responses += Response(200, empty)
+        assertEquals(0L, client.setReaction("token", "a1", null).counts.getValue(ReactionKind.LIKE))
+        assertEquals(listOf("GET", "PUT", "DELETE"), requests.map { it.method })
+        assertEquals("{\"reaction\":\"LIKE\"}", requests[1].body)
+        assertEquals("Bearer token", requests[1].authorization)
+        assertNull(requests[0].authorization)
+        responses += Response(200, """{"generated_at":"2026-11-25T00:00:00Z","breaking":{"article":${articleJson()},"expires_at":"2026-11-25T01:00:00Z"},"issue":null}""")
+        val highlights = client.homeHighlights(null)
+        assertEquals("a1", highlights.breaking!!.article.id)
+        assertNull(highlights.issue)
+        for (bad in listOf(empty.replace("\"LIKE\":0", "\"LIKE\":-1"), empty.replace("\"ANGRY\":0,", ""), empty.replace("\"a1\"", "\"a2\""))) {
+            responses += Response(200, bad)
+            assertThrows(NewsApiException::class.java) { runBlocking { client.reactions(null, "a1") } }
+        }
+    }
+
+    @Test
+    fun trendsDecodeNullableRanksAndViewRecordingCarriesOnlyIdentity() = runBlocking {
+        val story = """{"story_key":"article:a1","representative_article":${articleJson()},
+          "publisher_count":1,"publishers":[{"code":"yna","name":"연합뉴스"}],
+          "latest_published_at":"2026-11-25T09:00:00Z"}"""
+        responses += Response(200, """{"calculated_at":"2026-11-25T09:00:00Z","is_stale":false,
+          "items":[{"kind":"LATEST","rank":null,"previous_rank":null,"movement":null,"story":$story}]}""")
+        val page = client.trends(null)
+        assertNull(page.items.single().rank)
+        assertNull(page.items.single().movement)
+        assertEquals("LATEST", page.items.single().kind)
+        assertEquals("/api/v1/trends", requests.last().path)
+        responses += Response(204, "")
+        client.recordView(null, "guest-uuid", "a1")
+        assertEquals("guest-uuid", requests.last().guestViewer)
+        assertEquals("{}", requests.last().body)
+        assertNull(requests.last().authorization)
+        responses += Response(204, "")
+        client.recordView("token", null, "a1")
+        assertEquals("Bearer token", requests.last().authorization)
+        assertNull(requests.last().guestViewer)
     }
 
     @Test
@@ -73,12 +120,14 @@ class NewsApiClientTest {
     @Test
     fun newsEndpointsParseFeedDetailAndGroundedComparison() = runBlocking {
         responses += Response(200, """{"items":[
-          {"code":"yna","name":"연합뉴스","logo_url":"https://img.example/yna.png","is_followed":true},
+          {"code":"yna","name":"연합뉴스","logo_url":"https://img.example/yna.png","is_followed":true,
+           "recent_articles":[{"id":"a1","title":"정책 추진","published_at":"2026-10-31T12:00:00+09:00"}]},
           {"code":"mbc","name":"MBC","logo_url":null}
         ]}""")
         val publishers = client.publishers("token")
         assertEquals(listOf("yna", "mbc"), publishers.map { it.code })
         assertTrue(publishers[0].isFollowed)
+        assertEquals("a1", publishers[0].recentArticles.single().id)
         assertNull(publishers[1].logoUrl)
 
         responses += Response(200, """{"publisher_codes":["yna","mbc"]}""")
@@ -104,6 +153,22 @@ class NewsApiClientTest {
         assertTrue(requests.last().path.contains("scope=FOLLOWING"))
         assertTrue(requests.last().path.contains("q=%EC%A0%95%EC%B1%85+%EC%B6%94%EC%A7%84"))
         assertTrue(requests.last().path.contains("cursor=cursor+1"))
+
+        responses += Response(200, """{
+          "items":[{"story_key":"cluster:c1","representative_article":{
+            "id":"a1","publisher":{"code":"yna","name":"연합뉴스"},"title":"정책 추진",
+            "category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
+            "analysis_state":"READY"},"publisher_count":2,
+            "publishers":[{"code":"yna","name":"연합뉴스"},{"code":"mbc","name":"MBC"}],
+            "latest_published_at":"2026-10-31T12:00:00+09:00"}],"next_cursor":"story-next"}
+        """)
+        val stories = client.stories("token", null, FeedScope.ALL, "story cursor", 12)
+        assertEquals("cluster:c1", stories.items.single().storyKey)
+        assertEquals(2, stories.items.single().publisherCount)
+        assertEquals("story-next", stories.nextCursor)
+        assertFalse(requests.last().path.contains("category="))
+        assertTrue(requests.last().path.contains("limit=12"))
+        assertTrue(requests.last().path.contains("cursor=story+cursor"))
 
         responses += Response(200, """{"items":[],"next_cursor":null,"total_count":0}""")
         client.articles("token", null, query = "전체 검색")
@@ -206,6 +271,28 @@ class NewsApiClientTest {
         assertEquals("같은 사건 기사가 없어요.", apiError.message)
     }
 
+    @Test
+    fun storyFeedFallsBackToArticlesDuringServerRollout() = runBlocking {
+        responses += Response(400, "<html>DisallowedHost</html>")
+        responses += Response(200, """{"items":[{
+          "id":"a1","publisher":{"code":"yna","name":"연합뉴스"},"title":"정책 추진",
+          "category":"POLITICS","published_at":"2026-10-31T12:00:00+09:00",
+          "analysis_state":"READY"}],"next_cursor":null}""")
+
+        val page = client.stories("token", NewsCategory.POLITICS, FeedScope.ALL)
+
+        assertEquals("article:a1", page.items.single().storyKey)
+        assertEquals(1, page.items.single().publisherCount)
+        assertTrue(requests[0].path.startsWith("/api/v1/stories?"))
+        assertTrue(requests[1].path.startsWith("/api/v1/articles?"))
+
+        responses += Response(200, """{"items":[],"next_cursor":null}""")
+        client.stories("token", NewsCategory.SOCIETY, FeedScope.ALL)
+
+        assertEquals(3, requests.size)
+        assertTrue(requests[2].path.startsWith("/api/v1/articles?"))
+    }
+
     private fun respond(exchange: HttpExchange, response: Response) {
         val bytes = response.body.toByteArray(Charsets.UTF_8)
         if (response.status == 204) {
@@ -248,6 +335,7 @@ class NewsApiClientTest {
 
     private data class Response(val status: Int, val body: String)
     private data class CapturedRequest(
-        val method: String, val path: String, val authorization: String?, val body: String
+        val method: String, val path: String, val authorization: String?, val body: String,
+        val guestViewer: String? = null
     )
 }

@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented v1.10 baseline |
-| Version | 1.10 |
-| Date | 2026-11-16 |
+| Status | Implemented baseline; feature-specific verification gaps remain explicit |
+| Version | 1.12 |
+| Date | 2026-11-25 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -12,22 +12,25 @@
 
 ## 1. Product contract
 
-FrameLESS v1 is an article-first news application. A user browses articles from
-supported publishers, reads one article in full, and inspects
+Android uses topic-level discovery and article-level reading; Web retains
+article-level category feeds over the same stored news API. An Android user scans
+news topics without repeated same-event rows, opens one real publisher article
+in full, and inspects
 stored FrameLESS annotations. Android lets the user turn article markers on or
 off; Web keeps the reviewed markers and analysis rail visible beside the
 article. The annotations are prepared before the read request and stored in
-PostgreSQL. Other publishers appear only when a reviewed comparison exists for
-the selected expression.
+PostgreSQL. Expression comparisons use only reviewed stored evidence. The
+economic and event-issue views additionally expose other stored coverage under
+their own feature contracts.
 
 The ordinary user does not submit a URL and never waits for an LLM call. The main flow is:
 
 ```text
 Open as a guest, or restore an existing session
         ↓
-Browse politics or society articles
+Browse Home or News topics across politics, society, and economy
         ↓
-Choose Latest or Following, or search all Politics and Society feed articles
+Choose a representative article, browse one publisher, or search individual articles
         ↓
 Read one stored article in full
         ↓
@@ -38,7 +41,8 @@ Tap a highlighted expression
 Read its explanation and optional cross-publisher evidence
 ```
 
-Internal story clusters organize related articles, but v1 does not expose a topic dashboard, cluster cards, raw A–G labels, bias scores, or truth scores.
+Stored story clusters organize discovery rows, but v1 does not expose internal
+cluster IDs, a topic dashboard, raw A–G labels, bias scores, or truth scores.
 
 `ExpressionFinding` means one reviewed, displayable result: an exact source sentence, one exact marker, one or more A–G feature categories, a user-facing explanation, and optional comparisons with sentences from other articles.
 
@@ -48,14 +52,18 @@ and followed-source behavior are specified in
 [`news-app-features.md`](../features/news-app-features.md). Guest access and
 Android offline reading behavior are specified in
 [`guest-offline-reading.md`](../features/guest-offline-reading.md).
+The Android reaction and Home highlight extension is specified in
+[`article-reactions-and-home-highlights.md`](../features/article-reactions-and-home-highlights.md).
+It extends the shared API without adding a Web reaction interface.
 
 ### 1.1 Required v1 functionality
 
 - Guest access to feed, search, article detail, and stored analysis
 - Registration, login, persistent session, and logout for personalized features
 - Ordinary user and developer-account distinction
-- Politics and society feed
-- Latest and Following scopes with account-synchronized followed sources
+- Topic-grouped mixed and category discovery on Android; category article feeds on Web
+- Publisher directory and publisher-specific article lists
+- Account-synchronized followed sources used by Android Home
 - Server-side article search across the feed-visible corpus
 - Account-synchronized saved articles
 - Category navigation
@@ -87,7 +95,7 @@ The following designs remain valid future work, but they are not required to shi
 - I-series analysis, including I1
 - Personalized ranking, recommendations, and notifications
 - Email verification, password reset, account deletion, and session management UI
-- Offline search, offline Following, offline Saved writes, and Web offline storage
+- Offline search, offline followed-story refresh, offline Saved writes, and Web offline storage
 - iOS client
 
 The existing legacy URL-analysis endpoint may remain for compatibility, but it
@@ -105,10 +113,10 @@ It must not complicate the v1 read APIs or client UI.
 
 ### 2.1 Publishers
 
-Publisher rows come from the database; neither client hard-codes publisher
-branches. The reviewed dataset currently exposes 30 feed articles and keeps its
-comparison-support articles discoverable only through analysis evidence. Adding an
-outlet must not require a client release.
+Publisher rows and feed membership come from the database; neither client
+hard-codes the number of articles or publishers. Comparison-support articles
+remain readable through analysis evidence without becoming ordinary feed rows.
+Adding an outlet must not require a client release.
 
 `Publisher.code` is the only stable API identifier. Use `yna` consistently; do not introduce a second `yonhap` code.
 
@@ -184,9 +192,9 @@ Authenticated requests use:
 Authorization: Bearer <session-token>
 ```
 
-Latest feed, search, article detail, and stored analysis accept a missing bearer
+Public story feeds, search, article detail, and stored analysis accept a missing bearer
 session as a guest read. A valid session adds account-specific save and follow
-state. Following, followed-source mutation, Saved list, Saved mutation, and
+state. Followed story reads, followed-source mutation, Saved list, Saved mutation, and
 `auth/me` require a valid session. A supplied invalid token returns
 `AUTH_REQUIRED` rather than silently becoming a guest request.
 
@@ -194,33 +202,44 @@ Password change, reset, account deletion, and session listing remain outside thi
 
 ## 4. User experience contract
 
-### 4.1 Feed
+### 4.1 Discovery and article lists
 
-The feed is sorted by `(published_at DESC, id DESC)` and supports:
+Android Home and the `전체 뉴스`, `정치`, `사회`, and `경제` News sections use the
+topic-grouped endpoint defined in
+[`story-feed.md`](../features/story-feed.md). Topics order by their newest
+eligible article and use stable cursor pagination. One topic row shows its
+representative article's publisher and headline plus a quiet distinct-publisher
+count. Android list rows omit publication/relative time; publication timestamps
+remain in the API, ordering and full Reader. Tapping a topic opens the ordinary
+Reader for that article.
 
-- politics/society selection;
-- Latest and account-specific Following scopes;
-- global server-side search;
-- pull-to-refresh;
-- cursor pagination;
-- restoration of scroll position, category, and scope after returning from the Reader.
+`언론사`, search, and Saved remain article-level surfaces. A publisher page and
+search result order articles by `(published_at DESC, id DESC)` with their
+existing stable cursors.
 
-Each row shows:
+Android News navigation is `전체 뉴스 | 언론사 | 정치 | 사회 | 경제`; it has no
+`최신/팔로잉` selector. User-facing copy calls publisher follows `구독`.
+Home shows public `주요 뉴스` first and a separate `구독한 언론사` section
+immediately afterward. Rounded-square publisher logos select one subscribed outlet;
+its articles appear directly below, loaded with the ordinary publisher filter.
+Subscription coverage is never limited to the already-loaded public page.
+Subscription state may select an eligible representative but never changes
+analysis or comparison evidence. The tutorial entry is shown only in the
+all-topics `전체 뉴스` section, with replay also available from MY.
 
-- publisher;
-- publication time;
-- headline.
+The `언론사` section is a publisher directory. Each publisher block shows its
+identity, subscription action, and up to three recent article headlines; the
+publisher opens an article-level list. A guest subscription action keeps the
+directory visible and opens a contextual Login/Create-account sheet above it.
 
-The selected category is already present in feed navigation and is not repeated
-per row. Analysis lifecycle is contextual Reader information rather than feed
-metadata, so normal article rows do not show analysis badges.
+Saved is an Android root destination. Selecting it as a guest shows an in-place
+sign-in state rather than navigating immediately to Login. Reader bookmark and
+publisher subscription actions use the same contextual authentication sheet;
+only an explicit Login or Create-account choice starts authentication.
 
-Do not show generated summaries, thumbnails, cluster information, A–G codes, finding counts, rankings, or bias labels.
-
-The last category is stored locally on each client. Android also stores its
-Reader analysis-toggle value locally. Saved articles and followed publishers
-are account-specific server data. Following never changes analysis or
-comparison evidence.
+Analysis lifecycle remains Reader information. Discovery rows do not show raw
+analysis badges, internal cluster identifiers, generated summaries, A–G codes,
+finding counts, rankings, or bias/truth labels.
 
 ### 4.2 Reader
 
@@ -296,19 +315,24 @@ article has no displayable findings. Navigation must not synthesize a finding.
 
 When comparisons do not exist, omit the comparison section entirely. Do not render an empty comparison container or claim that other articles lack the content.
 
-On Android, tapping a marker first opens a non-modal, fixed-size preview over the
-Reader. The preview shows the selected marker, a concise explanation, a feature
-label set, and—only when comparisons exist—an explicit detail action. Every preview
-shows all feature labels and up to four explanation lines; overflow expands and
-collapses in place so no analysis copy is lost. A source-only finding does not
-open a second surface. A comparison-backed preview's action opens a comparison sheet
-directly at maximum height. There is no middle anchor or height transition;
+On Android, enabled analysis with at least one displayable finding reserves one
+118dp annotation dock below the article viewport. It shows the selected marker,
+natural-language feature labels, up to two explanation lines, and a comparison
+action only when grounded comparisons exist. It does not cover article text.
+The dock is populated initially and follows eligible body findings immediately
+during user scrolling; tapping a marker selects it directly until the next
+qualifying user scroll. The selection and haptic rules are defined in
+[`scroll-synced-analysis-peek.md`](../features/scroll-synced-analysis-peek.md).
+A source-only finding never opens an empty second surface. A comparison-backed
+dock opens the comparison sheet directly at maximum height. There is no middle anchor or height transition;
 vertical gestures scroll the selected target article and horizontal gestures
 move between publisher pages. A compact floating previous/page/next pill mirrors
 the pager when multiple publishers exist without reserving article height.
 
 For a comparison-backed finding, the expanded sheet starts at the comparison
-section and does not repeat the source marker or labels from the preview. A
+section and does not repeat the dock's labels or explanation. A paired card on
+each publisher page shows the exact current and compared expressions together,
+as specified in [`reader-expression-pair.md`](../features/reader-expression-pair.md). A
 single proposition-level comparison overview stays above the publisher pager;
 publisher pages contain evidence rather than repeating prose explanations. Its
 fixed heading provides an explicit close action without gesture instruction
@@ -316,9 +340,10 @@ copy. Specific attributed speakers may be labeled on the page they belong to;
 the generic `기자 표현` label is omitted. Fixed header regions accept downward dismissal; the article body does
 so only when already scrolled to its top. The sheet animates closed after release.
 Material's own whole-sheet drag remains disabled to prevent competing gesture owners.
-Closing that sheet also clears the selected preview, returning to the unobstructed
-Reader. While only the preview is open, tapping ordinary article text closes it,
-tapping another marker replaces it, and scrolling the article keeps it visible.
+Closing the sheet preserves the selected dock and source Reader position.
+Ordinary text taps do not dismiss the persistent dock; another marker tap or
+qualifying user scroll may replace its finding. Back with only the dock visible
+leaves Reader normally.
 
 ## 5. Database contract
 
@@ -327,12 +352,23 @@ proposition-level overview in `server.0010_shared_proposition_overview`. Do not
 add speculative job, audit, embedding, release-history, or candidate tables for
 this implementation.
 
+The implemented feature-owned extensions are `ArticleView` and the singleton
+`TrendState` in migration `0014`, and `ArticleReaction` in `0015`. Their retention,
+identity, constraints and aggregation rules live in
+[`realtime-trends.md`](../features/realtime-trends.md) and
+[`article-reactions-and-home-highlights.md`](../features/article-reactions-and-home-highlights.md).
+Article reactions reference an account and article; short-lived view keys are
+opaque identifiers rather than another account relationship.
+
 ### 5.1 Relationship overview
 
 ```text
 UserAccount ── N AuthSession
            ├── N SavedArticle ── 1 Article
-           └── N UserPublisherFollow ── 1 Publisher
+           ├── N UserPublisherFollow ── 1 Publisher
+           └── N ArticleReaction ── 1 Article
+
+ArticleView ── 1 Article        TrendState (one shared ranking row)
 
 Publisher ── N Article ── N ExpressionFinding
                     │              │
@@ -352,8 +388,9 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 `StoryCluster`
 
 - internal UUID and label;
-- politics/society category;
+- politics/society/economy category;
 - materialized analysis state, version, input hash, and analyzed time.
+- optional reviewed `issue_table`, specified in `event-issue-view.md`.
 
 `Article`
 
@@ -361,6 +398,7 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 - unique canonical URL;
 - exact title/body and SHA-256 content hash;
 - category, publication time, visibility, timestamps.
+- optional `economic_context` and `frame_context`, governed by their feature specifications.
 - `is_feed_visible` controls feed/search discovery only; any visible article
   from an active publisher remains addressable by Reader and may be saved.
 
@@ -608,7 +646,20 @@ The server groups comparisons by publisher and returns at most three pages using
 
 ## 7. Reviewed data import
 
-The Git-tracked gold directory contains 30 reviewed source cases with URLs,
+The ordinary import command accepts a normalized reviewed news dataset:
+
+```bash
+python manage.py import_news_dataset /path/to/reviewed-news.json --dry-run
+python manage.py import_news_dataset /path/to/reviewed-news.json
+```
+
+It validates stored article text, hashes, offsets, cluster revisions, and the
+economic/event contexts. Article fetching is optional via `--fetch-articles`;
+raw model output must first be converted to the import schema. The number of
+discoverable articles is determined by imported membership flags, not a fixed
+30-case limit.
+
+The legacy gold adapter uses the original 30 reviewed source cases with URLs,
 related articles, A–G findings, and comparison alignments, but not complete
 article bodies:
 
@@ -616,7 +667,7 @@ article bodies:
 server/fixtures/gold_v5/*.json
 ```
 
-The importer:
+The legacy gold importer:
 
 - fetches article bodies before opening a database transaction;
 - validates every exact sentence and marker;
@@ -633,7 +684,7 @@ cache, and URL-analysis history, but cascading foreign keys clear saved-article
 and followed-publisher relationships. Do not use it as an ordinary incremental
 content refresh.
 
-Commands:
+Legacy gold-adapter examples:
 
 ```bash
 python manage.py import_gold_dataset \
@@ -645,7 +696,7 @@ python manage.py import_gold_dataset \
   --replace-news
 ```
 
-The current reviewed dataset contains 30 clusters and exercises source-only
+The original 30-case evaluation fixture exercises source-only
 findings, one-to-many comparison evidence, multiple categories on one marker,
 and completed analyses with no forced comparisons.
 
@@ -706,7 +757,7 @@ Keep these flows separate:
   analysis are not reachable by ordinary users;
 - legacy URL analysis may remain as an isolated developer-only capability, but it must not shape feed navigation or Reader state.
 
-The feed, Following source manager, saved list, registration, account menu, and
+The Home/News surfaces, publisher manager, saved list, registration, MY settings, and
 news navigation are product surfaces. The existing legacy `ComparisonScreen` is
 not reused wholesale; only focused cards, text annotation helpers, and provenance
 components that match the new contract may be extracted.
@@ -728,7 +779,8 @@ regression tests with long target articles and font scaling.
   every personalized endpoint;
 - invalid supplied credentials return `AUTH_REQUIRED` rather than guest data;
 - article and analysis responses carry matching content hashes;
-- feed category/publisher filters and stable cursor pagination;
+- story grouping, representative stability, category filters, and story cursor pagination;
+- article-level publisher/search filters and stable article cursor pagination;
 - hidden article behavior;
 - article detail returns exact stored body;
 - analysis source offsets map to the selected article;
@@ -749,7 +801,7 @@ regression tests with long target articles and font scaling.
 - session restoration, offline retention of an unexpired stored session, and
   confirmed expiry transition to guest;
 - Saved-only Room fallback, account-isolated relationships, and hash-safe analysis reuse;
-- category and feed-scope navigation;
+- Home/News/Saved/MY root navigation and News section navigation;
 - initial, refresh, empty, pagination, and retry feed states;
 - Reader works independently of analysis;
 - analysis toggle preserves text and scroll position;
@@ -764,12 +816,12 @@ regression tests with long target articles and font scaling.
 
 ### 10.3 End to end
 
-1. Guest launch → Latest feed → search → open article → source-only finding.
+1. Guest launch → public Home topic feed → search → open article → source-only finding.
 2. Open the 제주 finding → compare `보복살해범` with `피의자` from two publishers.
 3. Turn analysis off/on on Android without moving the Reader position; on Web,
    verify that the persistent analysis rail selects the same stored finding.
-4. Sign in for Saved/Following, restart the app, and restore the authenticated
-   feed and local category.
+4. Sign in for Saved/publisher follows, restart the app, and restore the
+   authenticated Home feed and local News section.
 5. Reopen locally complete Saved articles and verified analysis offline on Android.
 6. Confirm a guest or ordinary user cannot access hidden or developer-only behavior.
 
@@ -779,8 +831,8 @@ v1 is complete when:
 
 - a guest can read public news and analysis, while a new user can register, log
   in for personalized features, remain signed in, and log out;
-- configured politics and society articles appear in a chronological feed;
-- category, Latest/Following scope, and pagination are stable;
+- configured politics, society, and economy coverage appears once per topic in discovery feeds;
+- News sections, representative selection, and topic pagination are stable;
 - search, saved articles, and followed sources behave consistently on Android and Web;
 - Android can reopen bounded, locally complete Saved article and analysis data
   without showing non-openable rows or adding an offline write queue;

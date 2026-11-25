@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Implemented with documented gaps; formal intent review not recorded |
 | Owner | Reader feature owner |
 | Source requirements | [`../features/reader-comparison-summary.md`](../features/reader-comparison-summary.md); [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6 |
 | Last reviewed | — (awaiting intent review) |
@@ -81,7 +81,7 @@ comparison sheet and does not change it.
   point and asserts the section count and body position are unchanged.
 - [Acceptance] When analysis arrives after the article, content below the
   section may shift by its height (feature §Known limitations).\
-  Tip: record an emulator walkthrough of Back from a compared article and note
+  Tip: record a physical-device walkthrough of Back from a compared article and note
   whether the restored passage stays in view.
 
 ## Undefined behavior

@@ -25,3 +25,24 @@ Following-sources feature and has no Web or server-side tutorial state.
 selects a body finding immediately as the reading position changes. It preserves the existing
 article-level comparison entry and comparison sheet and adds no backend or
 analysis contract.
+
+`story-feed.md` defines server-side topic grouping for Android Home and News
+discovery while preserving article-level search, publisher, Saved, and Reader
+flows.
+
+`realtime-trends.md` defines Home's recent-read top-five topics: one
+last-read row per viewer/article, a shared rank snapshot, and daily expiry
+cleanup. Sparse popularity is supplemented with clearly labeled latest topics;
+ordinary feed ordering is unchanged.
+
+`article-reactions-and-home-highlights.md` defines five account-backed article
+reactions, topic-level recent-24-hour Issue selection, and explicitly tagged
+two-hour Breaking headlines. It replaces the Home labels' temporary placement,
+keeps readership trends separate, and adds one reaction
+table rather than stored counters or a second ranking subsystem.
+
+`reader-comparison-summary.md` defines the article-level comparison entry;
+`reader-expression-pair.md` defines the paired markers inside comparison pages.
+`economic-lens.md` and `event-issue-view.md` own the reviewed analysis-context
+contracts. `telemetry.md` records Firebase's conditional setup, event vocabulary,
+and current portal coverage limits.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for review |
+| Status | Implemented; formal intent review not recorded |
 | Owner | Analysis |
 | Clients | Web |
 | Test specification | `specs/testing/event-issue-view.spec.md` |

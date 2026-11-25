@@ -3,10 +3,35 @@ package com.swpp.team5.frameless.data
 import android.content.Context
 
 internal interface NewsDataSource {
+    suspend fun reactions(articleId: String): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 불러오지 못했어요.")
+    suspend fun setReaction(articleId: String, kind: ReactionKind?): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 저장하지 못했어요.")
+    suspend fun homeHighlights(): HomeHighlights = throw NewsApiException("UNSUPPORTED", "홈 소식을 불러오지 못했어요.")
+    suspend fun trends(): TrendPage = throw NewsApiException("UNSUPPORTED", "트렌드를 불러오지 못했어요.")
+    suspend fun recordView(articleId: String) = Unit
     suspend fun publishers(): List<PublisherItem>
     suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String>
     suspend fun articles(category: NewsCategory?, scope: FeedScope,
                          cursor: String? = null, query: String? = null): ArticlePage
+    suspend fun stories(category: NewsCategory?, scope: FeedScope,
+                        cursor: String? = null): StoryPage {
+        val page = articles(category, scope, cursor)
+        return StoryPage(
+            page.items.map { article ->
+                StorySummary(
+                    storyKey = "article:${article.id}",
+                    representativeArticle = article,
+                    publisherCount = 1,
+                    publishers = listOf(article.publisher),
+                    latestPublishedAt = article.publishedAt
+                )
+            },
+            page.nextCursor
+        )
+    }
+    suspend fun publisherArticles(publisherCode: String, cursor: String? = null): ArticlePage =
+        articles(null, FeedScope.ALL, cursor).let { page ->
+            page.copy(items = page.items.filter { it.publisher.code == publisherCode })
+        }
     suspend fun offlineSavedArticles(category: NewsCategory? = null): ArticlePage? = null
     suspend fun article(articleId: String): ArticleDetail
     suspend fun cachedArticle(articleId: String): ArticleDetail? = null
@@ -38,6 +63,22 @@ internal class NewsRepository(
 
     private fun optionalToken(): String? = auth.currentSession()?.token
 
+    override suspend fun reactions(articleId: String) = service.reactions(optionalToken(), articleId)
+    override suspend fun setReaction(articleId: String, kind: ReactionKind?) = service.setReaction(token(), articleId, kind)
+    override suspend fun homeHighlights() = service.homeHighlights(optionalToken())
+
+    override suspend fun trends(): TrendPage = service.trends(optionalToken())
+
+    override suspend fun recordView(articleId: String) {
+        val token = optionalToken()
+        val guestId = if (token == null) synchronized(preferences) {
+            preferences.getString("guest_viewer_id", null) ?: java.util.UUID.randomUUID().toString().also {
+                preferences.edit().putString("guest_viewer_id", it).apply()
+            }
+        } else null
+        service.recordView(token, guestId, articleId)
+    }
+
     override suspend fun publishers(): List<PublisherItem> = service.publishers(optionalToken())
 
     override suspend fun analyzeLink(url: String): String = service.analyzeLink(optionalToken(), url)
@@ -52,6 +93,17 @@ internal class NewsRepository(
             category, scope, cursor, query = query
         )
     }
+
+    override suspend fun stories(category: NewsCategory?, scope: FeedScope,
+                                 cursor: String?): StoryPage = service.stories(
+        if (scope == FeedScope.FOLLOWING) token() else optionalToken(),
+        category,
+        scope,
+        cursor
+    )
+
+    override suspend fun publisherArticles(publisherCode: String, cursor: String?): ArticlePage =
+        service.publisherArticles(optionalToken(), publisherCode, cursor)
 
     override suspend fun offlineSavedArticles(category: NewsCategory?): ArticlePage? =
         auth.currentSession()?.user?.id?.let { cache.offlineSavedArticles(it, category) }

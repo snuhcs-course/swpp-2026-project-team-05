@@ -1,6 +1,6 @@
 # FrameLESS specifications
 
-This directory contains forward-looking product contracts. Current operating
+This directory contains product contracts and behavioral test oracles. Current operating
 guides and measured results live in `docs/`; historical notes, pilots, and
 presentations live under `docs/archive/`.
 
@@ -26,8 +26,9 @@ product / UI / feature specification
       CI and documentation evidence
 ```
 
-Product behavior belongs under `specs/`; implementation history and results do
-not. New substantial features should receive their own file under `features/`
+Product behavior belongs under `specs/`; consolidated implementation history and
+results belong in `docs/`. Test specifications retain exact executable references,
+coverage gaps, and brief dated verification notes. New substantial features should receive their own file under `features/`
 rather than extending an unrelated contract. The existing news feature document
 contains the three tightly related, already-implemented discovery slices and may
 be split when one of them evolves independently.

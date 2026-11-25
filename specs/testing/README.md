@@ -51,3 +51,18 @@ removed or edited.
 `acceptance-v1.spec.md` remains the frozen Iteration 3 plan. Product changes
 that intentionally replace one of its assumptions belong in a new version such
 as `acceptance-v2.spec.md`, preserving the old plan as historical evidence.
+
+`story-feed.spec.md` covers the topic-grouped discovery contract and explicitly
+keeps search, publisher pages, and Saved article-based.
+
+`realtime-trends.spec.md` records the readership-window, deduplication,
+sparse-result, tie/movement, concurrency, retention, and Android lifecycle
+oracles, exact automated test identifiers, and remaining verification gaps.
+
+`article-reactions-and-home-highlights.spec.md` covers article reaction
+ownership/counts, topic-level Issue selection, Breaking eligibility/expiry,
+client isolation, and performance/deployment checks. Exact test identifiers and
+verification evidence are recorded alongside remaining `Tip` coverage gaps.
+
+`demo-activity.spec.md` covers the explicitly requested, repeatable shared-dataset
+demo seed and its ordinary-account isolation, cleanup, and rollback boundaries.

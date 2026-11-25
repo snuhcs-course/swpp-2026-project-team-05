@@ -1,6 +1,10 @@
 # FrameLESS News App v1 UI and Wireframe Specification
 
-Status: Implemented baseline including guest, offline reading, and comparison-to-Reader navigation
+Status: Android portal shell and Reader baseline implemented
+
+The current Home weather and market cards use fixed demo data. Their vector
+artwork and market-direction styling are implemented; external data providers
+are not connected in this slice.
 
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
@@ -29,35 +33,73 @@ Priorities:
 3. Users can inspect exact title or body markers; Android additionally lets
    users turn marker styling on or off.
 4. A finding explains the selected expression and shows other publishers only when valid comparison evidence exists.
-5. Login, feed, Reader, comparison, and settings have complete loading, empty, error, and retry behavior.
+5. Home, News, Saved, MY, authentication, Reader, comparison, and settings have complete loading, empty, error, and retry behavior.
 
 Visual rules:
 
+- Android UI icons use the shared Lucide SVG/vector family: one 24-unit grid,
+  rounded strokes, theme-aware tint, and consistent optical sizes. Search,
+  save, back/close, expansion, source links and comparison navigation use
+  drawable assets instead of text arrows or individually drawn Canvas glyphs.
+  Keep operable controls accessible and preserve their existing destinations.
+- The Home trend heading has no decorative `i` badge without an information
+  action. Trend movement arrows require actual movement data; the preview feed
+  does not invent them. Expand/collapse remains an explicit labeled action.
+- Android ordinary UI actions use a neutral palette throughout: charcoal/white in light
+  mode and off-white/charcoal in dark mode. Authentication, navigation, settings,
+  dialogs, fields, and loading states use the same semantic theme colors. Color
+  remains available for actual analysis meaning, publisher artwork, market data,
+  and the shared FrameLESS brand mark.
+- Home, authentication, search, and onboarding reuse one FrameLESS wordmark and
+  mark. Comparison cards have neutral theme surfaces, never fixed cream fills.
+- App-selected appearance controls analysis colors as well as chrome; fields,
+  switch thumbs, badges and marked text retain readable contrast under either
+  explicit appearance mode, regardless of the device's current mode.
 - Keep the feed compact enough to scan several headlines without turning articles into oversized cards.
 - Use dividers and typography for grouping; reserve pills for real actions or compact analysis labels.
 - Do not add generic thumbnails, generated summaries, bias meters, truth scores, or decorative gradients.
 - Keep comparison as a contextual layer inside the Reader rather than turning the feed into a cluster dashboard.
+- Default to the device light/dark setting. MY → 화면 설정 also offers explicit
+  `기기 설정 사용 | 라이트 모드 | 다크 모드` choices, stored locally and
+  available to guests. Dark mode uses a charcoal page
+  (`#202124`) with slightly lighter inset surfaces rather than pure black; text,
+  dividers, markers, fields, sheets, and loading states must all remain legible.
+- Home shows the FrameLESS mark once in its header. The search control contains
+  search copy and a search affordance, not a second copy of the product mark.
 
 I-series analysis, including I1, is deferred and does not appear in these screens. All analysis shown here is already stored; opening the feed, Reader, annotation dock, or comparison sheet never starts collection or an LLM call.
 
 ## 2. Primary flow
 
 ```text
-Launch
-  ├─ no valid session → Guest news feed
-  └─ valid session → Authenticated news feed ↔ Saved articles
-                                                  ↓
-                                            Article Reader
-                                                  ↓
-                                   Tap an analyzed expression
-                                                  ↓
-                      Annotation dock → full comparison detail
+Launch → Home
+  ├─ Home: portal utilities → 주요 뉴스 → 구독한 언론사 (로고 선택 → 기사 목록)
+  ├─ News: 전체 뉴스 | 언론사 | 정치 | 사회 | 경제
+  ├─ Saved: personal article list or an in-place sign-in state
+  └─ MY: account, subscriptions, analysis preference, appearance, tutorial replay
+
+Topic row or article row → Article Reader
+  → tap an analyzed expression
+  → annotation dock → full comparison detail
 ```
 
-The feed is the primary discovery destination and Saved is a secondary route.
-Search is a feed mode rather than a separate destination. A small account action
-shows Login for a guest or account identity and logout for an authenticated user
-without a permanent bottom navigation bar.
+Android uses one permanent four-item root navigation bar: `홈 | 뉴스 | 저장 |
+MY`. Search is a mode entered from Home or News, not a fifth root destination.
+The bottom bar stays hidden in Reader, authentication, tutorial, and nested
+settings screens.
+
+The Android bottom navigation bar is 60dp tall, excluding the OS navigation inset, with 22dp
+icons, a 3dp icon-to-label gap, and 11sp labels. Each tab's whole cell remains
+selectable, at least 48dp high. Curated publisher logos use sharp original brand
+assets sized for their largest 44dp display at high-density phone resolution;
+do not enlarge 16/32px favicons to fill those slots. Keep source URLs and native
+asset dimensions in `android/app/src/main/assets/publishers/sources.json`.
+Publisher artwork uses 44dp inside Home's 54dp slot, 40dp in the directory,
+38dp in publisher headers, and 36dp in subscription management. Home reuses the
+same rounded-square white logo tile as subscription management, without a second
+outer border. Selected Home publishers use the existing bold name and selected
+semantics rather than an extra frame around the logo.
+Keep publisher actions at least 48dp high as artwork becomes more compact.
 
 Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not ordinary-user navigation.
 
@@ -65,14 +107,31 @@ Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not
 
 ### 3.0 Guest entry and protected actions
 
-A clean client opens the Latest feed without creating a server identity. Feed,
-search, Reader, and stored analysis remain available. Saved, Following, source
-management, and save/remove controls stay discoverable but open one shared
-sign-in explanation when selected.
+A clean client opens Home without creating a server identity. Home, News,
+publisher browsing, search, Reader, and stored analysis remain available.
+The trends collector's local anonymous analytics key is scoped in
+[Recent-read trends](../features/realtime-trends.md); it is not a guest account
+or a prerequisite for these public reads.
+Subscription and save mutations require authentication, but entering the Saved
+root tab itself never opens authentication.
 
-Successful authentication returns to the same public route and does not replay
-the protected mutation automatically. Android and Web use the same capability
-boundary even when the physical dialog or sheet differs.
+The guest Saved tab renders its own calm sign-in-required state with both
+`Login` and `Create account` actions. It remains selected until the user chooses
+one. A guest who taps `구독` or a Reader bookmark stays on the current surface
+and sees the same contextual authentication sheet above it. The sheet explains
+the capability and offers `로그인`, `회원가입`, and dismissal;
+authentication begins only after an explicit choice.
+
+Successful authentication returns to Saved or to the public surface that
+requested it. Android may complete the single publisher subscription that
+opened authentication after the publisher list has reloaded; dismissal or
+authentication cancellation clears that pending intent. A pending bookmark is
+not replayed automatically. Android and Web use the same capability boundary
+even when the physical dialog or sheet differs.
+
+An Android Reader reaction tap uses this same contextual authentication flow
+and is not replayed after login. The Reader module and Home selection rules are in
+[Article reactions and Home highlights](../features/article-reactions-and-home-highlights.md).
 
 ### 3.1 Login
 
@@ -95,13 +154,17 @@ boundary even when the physical dialog or sheet differs.
 
 Functional requirements:
 
+- Authentication uses the shared brand header, one clearly dominant neutral
+  submit button, restrained secondary links, consistent field/button corners,
+  and touch targets of at least 48 dp. Submission shows progress and disables
+  duplicate form edits/submits without clearing values or server errors.
 - Password IME action submits login.
 - Validation appears beside the relevant field.
 - Server errors do not clear entered values.
 - Guest entry keeps an explicit `로그인 없이 둘러보기`/`Continue without
   signing in` action in addition to platform Back navigation.
 - Successful login returns to the public route that requested authentication,
-  or to the all-publisher feed when Login was opened directly.
+  or to Home when Login was opened directly.
 
 ### 3.2 Registration
 
@@ -121,50 +184,87 @@ Functional requirements:
 
 - Registration creates an authenticated session.
 - Duplicate email/username and password validation are field-specific.
-- Success routes directly to the all-publisher feed.
+- Success returns to the route that requested authentication, or Home when
+  registration was opened directly.
 
-## 4. News feed
+## 4. Home and News discovery
 
-### 4.1 Android main wireframe
+### 4.1 Android root shell
 
 ```text
 ┌──────────────────────────────────────┐
-│  FrameLESS          [검색][저장][계정] │
-│  정치   사회              최신 기사 ⌄ │
+│  FrameLESS                       [검색] │
 │──────────────────────────────────────│
-│  연합뉴스 · 12분 전                    │
-│  기사 제목은 최대 두 줄로 표시        │
-│──────────────────────────────────────│
-│  MBC · 35분 전                       │
-│  다음 기사 제목                       │
-│──────────────────────────────────────│
-│  ...                                 │
+│  selected root content               │
 │                                      │
+│──────────────────────────────────────│
+│   홈        뉴스        저장       MY   │
 └──────────────────────────────────────┘
 ```
 
-Feed behavior:
+Root-shell and discovery behavior:
+
+- Root navigation is `홈 | 뉴스 | 저장 | MY`. Each destination owns its
+  scroll state. The bottom bar is hidden on Reader, authentication, tutorial,
+  and nested settings surfaces.
+- Home uses a compact portal rhythm: one search entry, restrained weather and
+  market utility blocks, `주요 뉴스` (ALL), then `구독한 언론사`.
+  A horizontal row of rounded-square publisher logos selects the articles below it;
+  names and an outline identify the selected outlet. The first subscription
+  is the default, and switching outlets never opens another page or moves the
+  reader's scroll position. Fetch only the selected publisher's article page,
+  caching visited first pages for this viewer. The section owns loading,
+  failure, retry and empty states;
+  its header links to MY subscription management. Guests and readers with no
+  subscriptions see an in-place invitation below the public headlines.
+  Weather/market values remain presentation fixtures until a provider is
+  connected. Weather condition selects the matching clear/cloudy/rain/snow
+  SVG and label. Every market/currency card derives direction from its numeric
+  change: red plus an upward SVG triangle for positive, blue plus a downward
+  triangle for negative, and neutral with no triangle for zero. Do not attach
+  arbitrary colors to individual symbols or show provider/as-of boilerplate.
+- Live `실시간 트렌드` behavior is defined in
+  [Recent-read trends](../features/realtime-trends.md). It is independent of
+  `주요 뉴스`: recent-three-hour readership, at most five distinct topics,
+  first two collapsed, and an expand control only when more than two entries
+  exist. Keep stable tie ordering, real rank movement,
+  and distinct loading/empty/failure states. Sparse popularity is supplemented
+  with distinct latest topics labeled `최신`, without ranks. Any latest fill,
+  incomplete previous popularity list, first calculation, or old baseline hides
+  all movement indicators. Fewer than five eligible topics show only the actual
+  number; an empty corpus shows the empty state. Home pull-to-refresh updates
+  the feed and requests trends independently, respecting server refresh/backoff.
+  The three-hour window and calculation timestamps are internal cache/ranking
+  metadata, not visible Home captions.
+- `속보` and `이슈` rows follow
+  [Article reactions and Home highlights](../features/article-reactions-and-home-highlights.md):
+  one unexpired publisher-tagged Breaking article and one recent-reaction topic,
+  omitting rows with no qualifying item. These replace temporary labels on
+  ordinary Home articles; they do not change trends ranks.
+- News uses one text-tab row in this fixed order: `전체 뉴스 | 언론사 | 정치 |
+  사회 | 경제`. There is no second category row and no `최신/팔로잉`
+  selector.
+- `전체 뉴스`, `정치`, `사회`, and `경제` use topic rows; `언론사`, search,
+  and Saved use article rows.
+- The tutorial entry appears only in the `전체 뉴스` section header. It is not
+  repeated in category or publisher sections. MY may retain `튜토리얼 다시
+  보기`.
 
 - Sort by publication time descending with stable cursor pagination.
-- During the evaluation build, Web and Android may quietly move the six reviewed
-  example stories already present in a loaded Latest page to the front. This is
-  client-only, adds no label or separate section, and does not change API or
-  cursor ordering.
-- Category control switches between politics and society.
-- On Android, Latest/Following opens the scope sheet and source management opens
-  the bottom sheet in section 4.3.
-- The Android scope sheet presents Latest and Following as one mutually
-  exclusive radio group. Checkboxes are reserved for selecting multiple
-  publishers in source management.
+- The earlier article-feed evaluation rule moves six reviewed examples already
+  present in a loaded Latest page to the front. It remains in Web's article feed
+  and Android's legacy feed helper; current Android Home/News story lists use
+  the server's topic ordering. No extra page is fetched to find an example.
+- Group repeated coverage before pagination according to
+  [`../features/story-feed.md`](../features/story-feed.md).
 - On Web, search is part of the feed content, Latest/Following is an inline
   segmented control, Saved is global navigation, and source management opens a
-  dialog. These controls preserve the same feed state and API contracts as
-  Android; they are not required to share the same physical placement.
-- Politics and Society live in the global header only; do not duplicate the
-  same section control in a feed sidebar.
-- Tapping anywhere on an article row opens the Reader.
+  dialog. This existing Web navigation may remain while Android uses the portal
+  shell; both clients share account subscription data and article contracts.
+- Tapping a topic row opens its representative article in the Reader. Tapping
+  an article row opens that exact article.
 - On Android, pulling down from the top of the normal feed refreshes the first
-  page without losing category, scope, or scroll semantics. The feed header has
+  page without losing root or section semantics. The feed header has
   no separate refresh action. Search keeps its own submit/retry flow and does
   not inherit the feed pull gesture.
 - Android Reader, Saved, login, and registration support a rightward swipe that
@@ -174,75 +274,110 @@ Feed behavior:
   and completes its exit before Back runs. Ordinary horizontal or vertical
   drags must remain available.
 - Pagination failure leaves existing articles visible and shows inline retry.
-- Returning from Reader restores item position, category, and feed scope.
+- Returning from Reader restores root tab, News section, loaded pages, and item
+  position.
 
-### 4.2 Article row content
+### 4.2 Topic and article row content
 
-Required:
+Topic-row required content:
 
-- publisher;
-- publication time;
-- headline, normally capped at two lines for scanability.
+- representative publisher;
+- representative headline, normally capped at two lines for scanability;
+- quiet distinct-source metadata such as `외 3개 언론사` when applicable.
 
-The selected politics/society category is already visible in the feed
-navigation and is not repeated on every row. Analysis status belongs to the
-Reader where its consequence can be explained; the feed does not expose
-`READY`, `PARTIAL`, processing, or failure badges.
+Publisher pages, search, and Saved reuse the compact article row without source
+count metadata. The selected section is not repeated on every row.
+Publication/relative timestamps are omitted from Android Home, News, publisher,
+search and Saved list rows. Preserve them in the API and for chronological
+ordering, and retain original publication details inside Reader/comparisons.
+Duplicate captions such as `최신 기사` beside `주요 뉴스` and `최근 저장순` on
+Saved are omitted; actual offline/loading/error states remain visible.
+Analysis status belongs to the Reader where its consequence can be explained;
+discovery does not expose `READY`, `PARTIAL`, processing, or failure badges.
 
 Do not show:
 
 - thumbnails or generated summaries;
 - raw A-G categories;
 - finding or comparison counts;
-- cluster information;
+- internal cluster identifiers;
 - publisher ranking, bias, or truth labels.
 - duplicate open/view actions when the headline or entire row already opens the
   article.
 
-### 4.3 Followed-source management
+### 4.3 Publisher directory and subscriptions
 
 ```text
 ┌──────────────────────────────────────┐
-│  ─────                               │
-│  팔로우할 언론사              [저장]  │
+│  언론사                        [검색] │
+│  [전체] [종합·시사] [전문]               │
 │                                      │
-│  [ ] 연합뉴스  [✓] MBC  [✓] SBS       │
-│  [ ] 뉴스1     [ ] KBS  [ ] YTN       │
-│  ...                                 │
+│  연합뉴스                  [ + 구독 ] │
+│  최신 기사 제목 1                     │
+│  최신 기사 제목 2                     │
+│  최신 기사 제목 3                     │
 └──────────────────────────────────────┘
 ```
 
-- Changes remain a local draft until `저장`; dismissing restores the server set.
-- Saving atomically replaces the authenticated account's followed publishers.
-- Following may be empty and never changes Latest, search, or Reader comparisons.
-- Android uses a bottom sheet and Web uses a dialog while preserving the same contract.
+- User-facing copy is `구독`, `구독 중`, and `구독 관리`. Existing
+  internal API/model names containing `follow` remain implementation details.
+- The directory is publisher-first, not a flat checkbox settings form. Each
+  publisher block shows an actual publisher logo, name,
+  one subscription action, and up to three unnumbered
+  recent article headlines separated by quiet dividers. A stored logo URL
+  takes precedence; bundled genuine publisher assets and a neutral identity
+  placeholder cover unavailable images. No article image is fabricated.
+  Selecting its identity opens the
+  publisher's ordinary article page.
+- MY → `구독한 언론사 관리` is a separate `구독 관리` settings screen, never
+  a redirect to this directory, including for guests. It shows only publisher
+  identities and subscription switches. Changes save individually in place;
+  failures keep confirmed state and show an inline error. Guests get the
+  contextual authentication sheet before any mutation. Back returns to MY.
+- Root navigation icons are vector drawable assets with a consistent 24-unit
+  grid and rounded strokes. Selected state changes tint and label emphasis,
+  not icon geometry; every root tab retains an accessible 48 dp touch target.
+- Category chips are optional presentation filters over publisher metadata. If
+  the metadata does not exist, omit the chips rather than guessing.
+- A signed-in subscription action updates the server-owned account set and
+  shows pending state only on that publisher row. Its button or switch alone
+  is disabled; other publishers keep their appearance and remain actionable.
+  Progress replaces the existing button icon without changing button width.
+  A failed update shows its error under the affected publisher, including in
+  MY management, and never under another publisher's detail header.
+- A guest subscription action opens the contextual authentication sheet above
+  the directory. Login or registration preserves this origin; dismissal
+  changes nothing.
+- Subscriptions may be empty and never change global search, article text, or
+  Reader comparison evidence.
 
-### 4.4 Feed states
+### 4.4 Discovery states
 
 | State | Behavior |
 | --- | --- |
 | First loading | Article-row skeletons |
 | Refreshing | Keep current rows and show refresh progress |
-| Empty Following | Distinguish no followed sources from no matching article in the category |
+| No subscriptions on Home | Show public topics and one quiet subscription path |
+| Empty publisher directory | Explain that no publishers are currently available |
 | Next-page failure | Inline retry after the last loaded row |
 
-Feed rows do not expose analysis lifecycle badges. A readable article remains a
+Rows do not expose analysis lifecycle badges. A readable article remains a
 normal news item regardless of analysis availability; the Reader owns loading,
 partial, empty, and failure explanations.
 
 ### 4.5 Global search results
 
-Search is global across the two supported categories even when the user entered
-it from one category or from Following. The pre-search category and scope remain
-selected in the background and are restored when search closes.
+Search is global across all supported categories regardless of the section that
+opened it. The pre-search root tab and News section remain in the background and
+are restored when search closes.
 
 ```text
 ┌──────────────────────────────────────┐
 │  [뒤로] [ 검색어________________ × ] │
 │──────────────────────────────────────│
-│  [전체]   [정치]   [사회]             │
+│  [전체]   [정치]   [사회]   [경제]      │
 │──────────────────────────────────────│
-│  연합뉴스 · 12분 전                    │
+│  연합뉴스                             │
 │  정치 분야 검색 결과                  │
 │  …검색어가 있는 본문 일부…             │
 │  [기사 더 보기]                       │
@@ -250,28 +385,29 @@ selected in the background and are restored when search closes.
 ```
 
 - With an empty field the screen shows only `검색어를 입력하세요`: no article list
-  and no filter row. The filter row appears once the query has two characters.
-- Ordinary feed navigation remains unchanged. Search adds a separate compact
-  `All / Politics / Society` filter row so section navigation and result
+  and no filter row. The filter row appears from the first non-blank character.
+- Ordinary discovery navigation remains unchanged. Search adds a separate
+  compact `All / Politics / Society / Economy` filter row so section navigation and result
   filtering are not conflated.
 - Render filters as restrained text tabs with one selected underline. Do not use
   filled pills, outlined buttons, or result-count badges for this navigation.
 - `All` is selected for every new normalized query and issues one corpus-wide
-  request. Politics or Society is requested only after the user selects that
-  filter; completed filter pages may be reused when switching back.
+  request. A category request begins only after the user selects that filter;
+  completed filter pages may be reused when switching back.
 - The active filter owns its cursor, load-more, loading, and retry state. Filters
   do not show result-count badges, relevance scores, or layout-changing metadata.
 - An empty category filter shows a restrained category-specific message. An
   inline `전체 검색 결과 보기` action returns to `All` without changing the
   query. An empty `All` result shows a concise no-results state, suggests
-  another term or checking the spelling, and never exposes URL analysis.
+  another term or checking the spelling, and never exposes URL analysis or a
+  redundant re-enter button. Keep the query editable in the existing search field.
 - On Android, tapping ordinary content outside a focused search, authentication,
   or URL field dismisses the keyboard without consuming the tapped control's
   action.
 - The existing compact article row and optional plain-text excerpt are reused.
   Do not add result cards, relevance scores, analysis badges, or thumbnails.
 - A new normalized query resets the active filter to `All`. Search never rewrites the Web URL
-  and never applies the pre-search Following filter.
+  and never applies a subscription filter.
 
 ## 5. Article Reader
 
@@ -417,8 +553,11 @@ adding information.
 Comparison behavior:
 
 - When comparisons exist, the expanded sheet begins directly with `같은 내용을
-  다른 기사에서는`; it does not repeat the marker, categories, or explanation
-  already shown in the annotation dock.
+  다른 기사에서는`. It does not repeat the dock's categories or explanation.
+  Each publisher page includes the paired expression card defined in
+  [`reader-expression-pair.md`](../features/reader-expression-pair.md): the
+  current and compared markers appear together for direct comparison. Paging
+  changes the compared side while retaining the current article's side.
 - Keep an explicit `×` close action in the fixed heading. Do not render gesture
   instructions such as swipe or pull-to-close copy; the pager, handle, and
   controls communicate those interactions directly.
@@ -498,43 +637,52 @@ right rail. Its two navigation levels must use different controls:
   to the source Reader. Refreshing the target URL keeps the article available
   but may clear the transient comparison marker.
 
-## 7. Account menu
+## 7. MY and account settings
 
-### 7.1 Account menu
+### 7.1 MY overview
 
 ```text
 ┌──────────────────────────────────────┐
-│  계정                                │
+│  MY                                  │
 │                                      │
-│  사용자 이름                         │
-│  이메일                              │
+│  사용자 이름 / 로그인                        │
 │──────────────────────────────────────│
-│  로그아웃                            │
+│  구독한 언론사 관리                  │
+│  기본 분석 표시                       │
+│  화면 설정 · 기기/라이트/다크          │
+│  튜토리얼 다시 보기                    │
+│  로그아웃                              │
 └──────────────────────────────────────┘
 ```
 
 - Logout clears the local token and personalized state, then continues in the
-  public guest feed or Reader. Following falls back to Latest and Saved returns
-  to the feed.
+  public Home or current public Reader. Saved becomes its guest sign-in state;
+  subscription state is removed from the active UI.
 - Android remembers the last analysis-toggle value locally; Web has no separate
   toggle or default setting in the implemented baseline.
+- Appearance is device-local and account-independent. The initial value is
+  `기기 설정 사용`; changing it updates the whole app immediately and survives
+  process restart without a backend request.
+- MY lists implemented settings only. Do not show the former `오프라인 저장 공간`
+  / `상세 관리 준비 중` placeholder; Saved's existing offline cache remains automatic.
 
 The existing legacy URL-analysis capability is not linked from this v1 UI. A developer screen may be specified later without changing the feed or Reader routes.
 
 ## 8. Navigation and state restoration
 
-- Clean launch without a valid session → guest Latest feed.
-- Login and registration success → prior public route, or all-publisher feed
-  when authentication was opened directly.
-- Feed → Reader → back restores feed position and filters.
+- Clean launch without a valid session → guest Home.
+- Login and registration success → prior route, or Home when authentication
+  was opened directly.
+- Home/News/Publisher/Search/Saved → Reader → back restores the exact
+  origin, section, pages, and scroll position.
 - Reader with open detail → back closes detail and returns to the same persistent
   annotation, preserving article position. Back with only the dock visible
   leaves the Reader normally.
-- Account menu dismiss → same feed state.
+- Contextual authentication sheet dismiss → unchanged underlying surface.
 - Confirmed expired session clears authenticated state, keeps public content
   readable as a guest, and explains that personalized features require sign-in.
-- Process recreation restores authentication and the last feed category. Followed
-  sources and saved articles reload from the account; restoring an open Reader
+- Process recreation restores authentication and root/News-section state.
+  Subscriptions and saved articles reload from the account; restoring an open Reader
   detail is deferred and the dock selects its normal initial finding.
 
 ### 8.1 Android offline restoration
@@ -545,7 +693,7 @@ The existing legacy URL-analysis capability is not linked from this v1 UI. A dev
 - A locally verified Saved snapshot is visible only for the active unexpired
   account session; guest and other-account states cannot read it.
 - Summary-only Saved rows are omitted offline so every visible row opens.
-- Offline search, Following, follow changes, and save/remove mutations require a
+- Offline search, subscription changes, and save/remove mutations require a
   connection and never create optimistic queued state.
 
 ## 9. Accessibility and content edge cases
@@ -569,8 +717,12 @@ Screen routes:
 ```text
 LoginRoute
 RegistrationRoute
+HomeRoute
 NewsFeedRoute
+PublisherDirectoryRoute
+PublisherArticlesRoute
 SavedArticlesRoute
+MyRoute
 ArticleReaderRoute
 ```
 
@@ -578,12 +730,14 @@ Reusable UI:
 
 ```text
 ArticleFeedRow
-CategorySelector
-FeedScopeSheet
-ManageFollowedSourcesSheet
+StoryFeedRow
+RootBottomBar
+NewsSectionTabs
+PublisherDirectory
+SubscriptionButton
+ContextualAuthSheet
 SavedArticlesList
-AccountMenuSheet
-AnalysisStateBadge
+GuestSavedState
 ArticleHeader
 AnalysisToggle
 ExpressionAnnotatedText
@@ -602,7 +756,7 @@ ReaderStatusNotice
 - Reuse the existing Reader's full-text annotation, tap targeting, exact evidence highlighting, and Reader-position preservation after extracting them from the legacy `ReaderResult` contract.
 - Do not pass legacy `AnalysisResult`/`ReaderResult` or database models into the news routes. Convert versioned API DTOs to immutable UI models at the repository boundary.
 - Keep URL import, live-analysis loading, analysis history, and the old comparison screen outside ordinary navigation. They may remain developer-only and isolated.
-- Feed, registration, followed-source management, saved articles, account
+- Home, News, registration, subscription management, saved articles, account
   controls, and news navigation are product components; do not distort legacy
   screens to imitate them.
 - Convert API code-point offsets to Compose UTF-16 indices once in the mapper and verify the expected quote. Invalid markers are omitted safely while the article remains readable.
@@ -624,26 +778,31 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 
 ### Authentication and navigation
 
-- Guest launch opens Latest without redirecting to Login
+- Guest launch opens Home without redirecting to Login
 - Guest feed, search, Reader, and stored analysis remain available
-- Protected controls request sign-in and return to the prior public route
+- Guest Saved opens an in-place login-required state; it does not redirect
+- Guest subscription and bookmark controls open the contextual auth sheet and
+  return to the prior public surface after an explicit auth choice
 - Login and registration validation
 - Login error preserves entered values
 - Confirmed expired session becomes Guest without discarding public Reader content
-- Direct login opens the all-publisher feed; contextual login returns to its origin
-- Feed → Reader → back restores scroll position, category, and scope
+- Direct login opens Home; contextual login returns to its origin
+- Discovery → Reader → back restores root, section, and scroll position
 - Saved → Reader → back restores the saved list rather than exiting the app
 - Back from detail returns to the persistent dock before leaving Reader; with
   only the dock visible, Back leaves Reader normally
 - Ordinary users never receive URL-analysis or diagnostic navigation
 
-### Feed
+### Discovery
 
-- Politics/society switching
-- Latest/Following switching and distinct empty states
-- Followed-source draft, save, cancel, and failure behavior
+- Home/News/Saved/MY root switching and restoration
+- News/언론사/정치/사회/경제 section switching
+- Topic grouping and stable representative behavior
+- Publisher directory, subscription success, failure, guest auth sheet, and
+  publisher-article navigation
+- Tutorial entry appears only in the News all-topics section and MY replay
 - Search and saved-article entry actions
-- Global search with All/Politics/Society filters and active-filter pagination
+- Global search with All/Politics/Society/Economy filters and active-filter pagination
 - Initial loading, refresh, pagination, empty, and retry states
 - Cached, refreshing, offline-with-cache, and offline-without-cache states on Android
 - Article row with a long headline and no redundant category, analysis, or open
@@ -673,13 +832,17 @@ The UI is complete when:
 
 - guests can browse, search, read, and inspect stored analysis on Android and
   Web without registration;
-- users can register or log in for Saved and Following and return to their prior
+- users can register or log in for Saved and subscriptions and return to their prior
   public route;
-- users can switch politics/society and Latest/Following without losing state;
-- users can search all feed-visible articles across Politics and Society, narrow
+- users can switch root destinations and News sections without losing state;
+- topic discovery shows repeated coverage once while publisher, search, and
+  Saved surfaces keep exact articles;
+- users can search all feed-visible articles across Politics, Society, and Economy, narrow
   results with category filters, paginate the active result set, and return to
   the prior feed;
 - users can save an article and return from its Reader to the saved list;
+- tapping Saved as a guest never causes an immediate redirect, and subscription
+  or bookmark authentication begins only from an explicit contextual action;
 - authenticated Android users can inspect locally complete Saved articles and
   reopen their verified analyses offline without queuing writes;
 - every visible article is readable regardless of analysis status;

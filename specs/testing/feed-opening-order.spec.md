@@ -2,14 +2,18 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented; intent reviewed for the evaluation build |
+| Status | Historical evaluation rule; active on Web, superseded by topic ordering in the Android portal |
 | Owner | Feed feature owner |
 | Source requirements | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §4.1 |
 | Last reviewed | 2026-11-03 |
 
 ## Scope
 
-During evaluation, Web and Android quietly move six reviewed examples already
+This records the earlier article-feed evaluation behavior. Current Android
+Home/News uses the topic ordering in `story-feed.spec.md`; the Android test below
+still exercises the retained legacy helper. Web continues to use this rule.
+
+During that evaluation, Web and Android quietly move six reviewed examples already
 present in the loaded Latest page before the other rows. The backend, database,
 search, Following feed, and cursor order remain unchanged.
 

@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Implemented with documented gaps |
 | Owner | Android UI owner |
 | Source requirements | [`../features/reader-expression-pair.md`](../features/reader-expression-pair.md) |
-| Last reviewed | 2026-11-19 |
+| Last reviewed | 2026-11-25 |
 
 ## Scope
 
@@ -17,7 +17,7 @@ restyle.
 - Existing sheet behaviour already covered by
   `NewsScreensInstrumentedTest.readerAnnotationOpensFullComparisonDetail`
   (heading, close, overview once, pager, article action).
-- Pixel-level appearance; check by hand on a 360dp emulator.
+- Pixel-level appearance; inspect on a physical 360dp phone.
 
 ## Preconditions
 
@@ -63,7 +63,7 @@ restyle.
   `표현 비교` is absent while `이 기사 읽기` is present.
 - [Manual] At 360dp width and 1.3× font scale, both sides stay readable with
   equal weight, enough of the compared article remains visible below the band, and dragging the panel down dismisses the sheet like the header.\
-  Tip: emulator pass; add screenshot tests if the project adopts them.
+  Tip: add a physical-device pass for enlarged text and long publisher names.
 
 - [Acceptance] Each context preview is a single line with end ellipsis.\
   Tip: render a long sentence and assert the context Text's layout has

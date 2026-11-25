@@ -2,12 +2,23 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Archived visual baseline; navigation superseded |
 | Owner | Android UI owner |
 | Related behavior | [`news-app-features.md`](news-app-features.md), [`link-analysis.md`](link-analysis.md), [`first-run-tutorial.md`](first-run-tutorial.md) |
 | Last reviewed | 2026-11-19 |
 
 ## 1. Purpose
+
+This document records the pre-portal Android feed styling and its regression
+tests. The current Home/News information architecture, topic rows, subscription
+copy, and tutorial placement are defined by
+[`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) and
+[`story-feed.md`](story-feed.md). Sections 2, 4, 5.0, and scope-specific copy
+below are not current Android product requirements.
+
+The shared list byline also changed on 2026-11-25: Android rows now retain only
+publisher/category and omit dates. Historical `publisher · time` copy below is
+superseded by the current UI specification; Reader publication details remain.
 
 Give the Android home feed a clearer, calmer news-app hierarchy (navy, off-white
 and soft lavender; serif headlines) without changing what the feed shows or

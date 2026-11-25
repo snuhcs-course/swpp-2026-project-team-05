@@ -263,7 +263,9 @@ class NewsScreensInstrumentedTest {
 
         compose.onNodeWithText("검색 결과가 없어요").assertIsDisplayed()
         compose.onNodeWithText("기사 링크로 분석하기").assertDoesNotExist()
-        compose.onNodeWithText("검색어 다시 입력").assertIsDisplayed()
+        compose.onNodeWithText("검색어 다시 입력").assertDoesNotExist()
+        compose.onNodeWithContentDescription("기사 검색어").assertIsDisplayed()
+        compose.onNodeWithContentDescription("검색어 지우기").assertIsDisplayed()
     }
 
     @Test

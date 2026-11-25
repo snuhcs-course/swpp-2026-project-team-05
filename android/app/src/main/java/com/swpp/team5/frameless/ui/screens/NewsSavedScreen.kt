@@ -25,6 +25,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.painterResource
+import com.swpp.team5.frameless.R
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -47,9 +51,10 @@ internal fun NewsSavedScreen(
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onArticle: (String) -> Unit
+    onArticle: (String) -> Unit,
+    rootShell: Boolean = false
 ) {
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = !rootShell, onBack = onBack)
     val pullRefreshState = rememberPullToRefreshState()
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
         if (state.items.isNotEmpty() && listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
@@ -58,7 +63,7 @@ internal fun NewsSavedScreen(
     }
 
     Column(
-        Modifier.fillMaxSize().edgeSwipeBack(onBack = onBack)
+        Modifier.fillMaxSize().edgeSwipeBack(enabled = !rootShell, onBack = onBack)
             .background(Fl.Card)
             .testTag("saved-screen")
     ) {
@@ -66,17 +71,19 @@ internal fun NewsSavedScreen(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "←", fontSize = 24.sp, color = Fl.Ink,
-                modifier = Modifier.clickable(onClick = onBack).padding(end = 14.dp)
-                    .semantics {
-                        role = Role.Button
-                        contentDescription = "기사 목록으로 돌아가기"
-                    }
-            )
-            ArticleBookmarkIcon(true, Fl.Accent, Modifier.size(19.dp))
-            Text("저장한 기사", fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))
+            if (!rootShell) {
+                IconButton(onClick = onBack, modifier = Modifier.semantics {
+                    contentDescription = "기사 목록으로 돌아가기"
+                }) {
+                    Icon(painterResource(R.drawable.ic_portal_arrow_back), contentDescription = null,
+                        tint = Fl.Ink, modifier = Modifier.size(23.dp))
+                }
+                ArticleBookmarkIcon(true, Fl.Accent, Modifier.size(19.dp))
+                Text("저장한 기사", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))
+            } else {
+                Text("저장", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
+            }
         }
         HorizontalDivider(color = Fl.Line)
         when {
@@ -111,7 +118,7 @@ internal fun NewsSavedScreen(
                     state = listState,
                     modifier = Modifier.fillMaxSize().testTag("saved-list")
                 ) {
-                    item {
+                    if (state.isOffline || state.isRefreshing) item {
                         Row(
                             Modifier.fillMaxWidth().background(Fl.Inset)
                                 .padding(horizontal = 18.dp, vertical = 9.dp),
@@ -119,8 +126,7 @@ internal fun NewsSavedScreen(
                         ) {
                             Text(
                                 if (state.isOffline) "저장된 목록 · 오프라인"
-                                else if (state.isRefreshing) "저장 목록을 갱신하는 중…"
-                                else "최근 저장순",
+                                else "저장 목록을 갱신하는 중…",
                                 color = Fl.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium
                             )
                         }

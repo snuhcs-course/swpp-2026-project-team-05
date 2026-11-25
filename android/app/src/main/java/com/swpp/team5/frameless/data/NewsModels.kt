@@ -19,12 +19,19 @@ internal data class PublisherItem(
     val code: String,
     val name: String,
     val logoUrl: String?,
-    val isFollowed: Boolean = false
+    val isFollowed: Boolean = false,
+    val recentArticles: List<PublisherArticlePreview> = emptyList()
+)
+
+internal data class PublisherArticlePreview(
+    val id: String,
+    val title: String,
+    val publishedAt: String
 )
 
 internal enum class FeedScope(val wire: String, val label: String) {
     ALL("ALL", "최신"),
-    FOLLOWING("FOLLOWING", "팔로잉")
+    FOLLOWING("FOLLOWING", "구독")
 }
 
 internal enum class NewsCategory(val wire: String, val label: String) {
@@ -64,6 +71,19 @@ internal data class ArticlePage(
     val totalCount: Int? = null
 )
 
+internal data class StorySummary(
+    val storyKey: String,
+    val representativeArticle: ArticleSummary,
+    val publisherCount: Int,
+    val publishers: List<PublisherItem>,
+    val latestPublishedAt: String
+)
+
+internal data class StoryPage(
+    val items: List<StorySummary>,
+    val nextCursor: String?
+)
+
 internal data class ArticleDetail(
     val id: String,
     val publisher: PublisherItem,
@@ -75,6 +95,20 @@ internal data class ArticleDetail(
     val analysisState: StoredAnalysisState,
     val isSaved: Boolean = false,
     val contentHash: String = ""
+)
+
+internal data class TrendItem(
+    val kind: String,
+    val rank: Int?,
+    val previousRank: Int?,
+    val movement: String?,
+    val story: StorySummary
+)
+
+internal data class TrendPage(
+    val calculatedAt: String,
+    val isStale: Boolean,
+    val items: List<TrendItem>
 )
 
 /** API offsets are Unicode code points. They are converted before reaching Compose. */

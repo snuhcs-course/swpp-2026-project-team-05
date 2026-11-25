@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for review |
+| Status | Implemented; formal intent review not recorded |
 | Owner | Analysis |
 | Clients | Web and Android |
 | Test specification | `specs/testing/economic-lens.spec.md` |

@@ -36,6 +36,7 @@ import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.FlCard
 import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
+import com.swpp.team5.frameless.ui.components.BrandRow
 import com.swpp.team5.frameless.data.AnalysisHistoryItem
 import com.swpp.team5.frameless.ui.viewmodel.AnalysisHistoryState
 import java.net.URI
@@ -237,25 +238,4 @@ private fun displayHistoryTime(raw: String): String = try {
 private fun historyStatusLabel(status: String): String = when (status) {
     "partial" -> "일부 결과"
     else -> "분석 완료"
-}
-
-/** 로고 줄: 형광 띠가 들어간 작은 렌즈 표시 + FrameLESS */
-@Composable
-internal fun BrandRow() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(26.dp)
-                .background(Fl.Accent, RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Box(modifier = Modifier.width(13.dp).height(2.5.dp).background(Fl.TintNone, RoundedCornerShape(2.dp)))
-                Box(modifier = Modifier.width(13.dp).height(2.5.dp).background(Fl.TintSame, RoundedCornerShape(2.dp)))
-                Box(modifier = Modifier.width(9.dp).height(2.5.dp).background(Fl.TintDiff, RoundedCornerShape(2.dp)))
-            }
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("FrameLESS", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-    }
 }

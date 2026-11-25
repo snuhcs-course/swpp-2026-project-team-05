@@ -3,6 +3,7 @@
   "framework": "django",
   "fluid": true,
   "regions": ["icn1"],
+  "crons": [{"path": "/api/internal/trends/cleanup", "schedule": "0 18 * * *"}],
   "functions": {
     "server/wsgi.py": {
       "maxDuration": 300,

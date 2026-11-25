@@ -14,15 +14,26 @@ import com.swpp.team5.frameless.data.NewsApiException
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.NewsDataSource
 import com.swpp.team5.frameless.data.PublisherItem
+import com.swpp.team5.frameless.data.StorySummary
 import com.swpp.team5.frameless.data.TextRange
 import com.swpp.team5.frameless.telemetry.Telemetry
 import com.swpp.team5.frameless.telemetry.TelemetryEvent
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 internal enum class NewsRoute { FEED, SAVED, READER }
+
+internal enum class NewsSection(val label: String, val category: NewsCategory?) {
+    NEWS("전체 뉴스", null),
+    PUBLISHERS("언론사", null),
+    POLITICS("정치", NewsCategory.POLITICS),
+    SOCIETY("사회", NewsCategory.SOCIETY),
+    ECONOMY("경제", NewsCategory.ECONOMY)
+}
 
 internal enum class SearchFilter(val category: NewsCategory?, val label: String) {
     ALL(null, "전체"),
@@ -56,12 +67,16 @@ private fun orderFeedItems(
 
 internal data class NewsFeedState(
     val publishers: List<PublisherItem> = emptyList(),
+    val isLoadingPublishers: Boolean = false,
+    val publisherDirectoryError: String? = null,
     val items: List<ArticleSummary> = emptyList(),
     val category: NewsCategory = NewsCategory.POLITICS,
     val searchFilter: SearchFilter = SearchFilter.ALL,
     val scope: FeedScope = FeedScope.ALL,
     val isSavingSources: Boolean = false,
     val sourceSaveError: String? = null,
+    val sourceMutationPublisherCodes: Set<String> = emptySet(),
+    val sourceSaveErrors: Map<String, String> = emptyMap(),
     val isSearchOpen: Boolean = false,
     val searchInput: String = "",
     val activeSearchQuery: String = "",
@@ -114,6 +129,11 @@ private data class ReaderDestination(
     val snapshot: ArticleReaderState
 )
 
+private data class PublisherSubscriptionUpdate(
+    val changes: Map<String, Boolean>,
+    val onSuccess: () -> Unit = {}
+)
+
 internal data class SavedArticlesState(
     val items: List<ArticleSummary> = emptyList(),
     val nextCursor: String? = null,
@@ -123,6 +143,31 @@ internal data class SavedArticlesState(
     val isOffline: Boolean = false,
     val error: String? = null,
     val nextPageError: String? = null
+)
+
+internal data class PortalDiscoveryState(
+    val homeStories: List<StorySummary> = emptyList(),
+    val homeNextCursor: String? = null,
+    val isHomeLoading: Boolean = false,
+    val isHomeRefreshing: Boolean = false,
+    val homeError: String? = null,
+    val subscribedArticles: List<ArticleSummary> = emptyList(),
+    val selectedHomePublisherCode: String? = null,
+    val isSubscribedLoading: Boolean = false,
+    val subscribedError: String? = null,
+    val newsSection: NewsSection = NewsSection.NEWS,
+    val newsStories: List<StorySummary> = emptyList(),
+    val newsNextCursor: String? = null,
+    val isNewsLoading: Boolean = false,
+    val isNewsRefreshing: Boolean = false,
+    val newsError: String? = null,
+    val isLoadingMore: Boolean = false,
+    val nextPageError: String? = null,
+    val activePublisher: PublisherItem? = null,
+    val publisherArticles: List<ArticleSummary> = emptyList(),
+    val publisherNextCursor: String? = null,
+    val isPublisherLoading: Boolean = false,
+    val publisherError: String? = null
 )
 
 internal fun isHttpLink(value: String): Boolean = try {
@@ -148,7 +193,11 @@ internal class NewsViewModel(
     /** Fixed codes, counts and flags only (specs/features/telemetry.md). */
     private fun record(event: String, vararg params: Pair<String, Any>) = telemetry.record(event, mapOf(*params))
     private fun errorCode(failure: Exception) = (failure as? NewsApiException)?.code ?: "UNKNOWN"
-
+    val trends = RecentTrends(repository, viewModelScope)
+    val headlines = HomeHeadlines(repository, viewModelScope, onAuthFailure = { authExpired = true })
+    val reactions = ReaderReactions(repository, viewModelScope,
+        onChanged = headlines::invalidate, onAuthFailure = { authExpired = true })
+    val reading = QualifiedReadTracker(viewModelScope, repository::recordView)
     var route by mutableStateOf(NewsRoute.FEED)
         private set
     var link by mutableStateOf(LinkAnalysisState())
@@ -164,9 +213,11 @@ internal class NewsViewModel(
         private set
     var saved by mutableStateOf(SavedArticlesState())
         private set
-    var savedMutationArticleId by mutableStateOf<String?>(null)
+    var discovery by mutableStateOf(PortalDiscoveryState())
         private set
-    var saveError by mutableStateOf<String?>(null)
+    var savedMutationArticleIds by mutableStateOf(emptySet<String>())
+        private set
+    var saveErrors by mutableStateOf(emptyMap<String, String>())
         private set
     var authExpired by mutableStateOf(false)
         private set
@@ -177,29 +228,54 @@ internal class NewsViewModel(
     private var feedBeforeSearch: NewsFeedState? = null
     private var readerJob: Job? = null
     private var savedJob: Job? = null
+    private var homeJob: Job? = null
+    private var subscribedHomeJob: Job? = null
+    private val homePublisherCache = mutableMapOf<String, List<ArticleSummary>>()
+    private var newsStoryJob: Job? = null
+    private var publisherJob: Job? = null
+    private var sourceSaveJob: Job? = null
+    private val sourceUpdates = ArrayDeque<PublisherSubscriptionUpdate>()
+    private val savedMutationJobs = mutableMapOf<String, Job>()
+    private var homeRequested = false
     private var readerOrigin = NewsRoute.FEED
     private val readerHistory = ArrayDeque<ReaderDestination>()
 
     fun initialize() {
         if (initialized) return
         initialized = true
-        feed = feed.copy(isLoading = true, error = null)
+        feed = feed.copy(isLoading = true, error = null,
+            isLoadingPublishers = true, publisherDirectoryError = null)
         feedJob = viewModelScope.launch {
             try {
                 val publishers = repository.publishers()
-                feed = feed.copy(publishers = publishers)
+                feed = feed.copy(publishers = publishers, isLoadingPublishers = false)
+                if (homeRequested) loadHome(force = true)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
+                feed = feed.copy(isLoadingPublishers = false,
+                    publisherDirectoryError = failure.message ?: "언론사를 불러오지 못했어요.")
             }
             loadFirstPage()
         }
     }
 
     fun reset() {
+        reactions.reset()
+        headlines.reset()
+        cancelPersonalMutations()
+        trends.reset()
+        reading.newVisit()
         feedJob?.cancel()
         searchDebounceJob?.cancel()
         readerJob?.cancel()
         savedJob?.cancel()
+        homeJob?.cancel()
+        subscribedHomeJob?.cancel()
+        homePublisherCache.clear()
+        newsStoryJob?.cancel()
+        publisherJob?.cancel()
         feedBeforeSearch = null
         initialized = false
         route = NewsRoute.FEED
@@ -208,14 +284,25 @@ internal class NewsViewModel(
         )
         reader = ArticleReaderState(analysisEnabled = repository.savedAnalysisEnabled())
         saved = SavedArticlesState()
-        savedMutationArticleId = null
-        saveError = null
+        discovery = PortalDiscoveryState()
+        homeRequested = false
         readerOrigin = NewsRoute.FEED
         readerHistory.clear()
         authExpired = false
     }
 
     fun onViewerChanged() {
+        reactions.reset()
+        headlines.reset()
+        cancelPersonalMutations()
+        feedBeforeSearch = null
+        trends.reset()
+        if (homeRequested) trends.load()
+        feedJob?.cancel()
+        homeJob?.cancel()
+        subscribedHomeJob?.cancel()
+        newsStoryJob?.cancel()
+        homePublisherCache.clear()
         val currentRoute = route
         val currentArticleId = reader.articleId
         val currentFocus = reader.comparisonFocus
@@ -228,12 +315,31 @@ internal class NewsViewModel(
         )
         reader = reader.copy(article = reader.article?.copy(isSaved = false))
         saved = SavedArticlesState()
+        discovery = discovery.copy(
+            activePublisher = discovery.activePublisher?.copy(isFollowed = false),
+            publisherArticles = discovery.publisherArticles.map { it.copy(isSaved = false) },
+            homeStories = emptyList(),
+            homeNextCursor = null,
+            homeError = null,
+            isHomeLoading = false,
+            isHomeRefreshing = false,
+            subscribedArticles = emptyList(),
+            selectedHomePublisherCode = null,
+            isSubscribedLoading = false,
+            subscribedError = null,
+            newsStories = emptyList(),
+            newsNextCursor = null,
+            newsError = null,
+            isNewsLoading = false,
+            isNewsRefreshing = false,
+            isLoadingMore = false
+        )
         authExpired = false
         initialized = false
         initialize()
         when {
             currentRoute == NewsRoute.READER && currentArticleId.isNotBlank() ->
-                loadReader(currentArticleId, currentFocus)
+                loadReader(currentArticleId, currentFocus, isNewVisit = false)
             currentRoute == NewsRoute.SAVED -> route = NewsRoute.FEED
         }
     }
@@ -296,29 +402,345 @@ internal class NewsViewModel(
     fun replaceFollowedPublishers(codes: Set<String>, onSuccess: () -> Unit = {}) {
         if (feed.isSavingSources) return
         val valid = codes.intersect(feed.publishers.map { it.code }.toSet())
-        feed = feed.copy(isSavingSources = true, sourceSaveError = null)
-        viewModelScope.launch {
-            try {
-                val savedCodes = repository.replaceFollowedPublishers(valid)
-                feed = feed.copy(
-                    publishers = feed.publishers.map { publisher ->
-                        publisher.copy(isFollowed = publisher.code in savedCodes)
-                    },
-                    isSavingSources = false,
-                    sourceSaveError = null
-                )
-                if (feed.isSearchOpen) feedBeforeSearch = null
+        val previous = feed.publishers.filter { it.isFollowed }.map { it.code }.toSet()
+        val changed = (valid - previous) + (previous - valid)
+        if (changed.isEmpty()) {
+            onSuccess()
+            return
+        }
+        enqueuePublisherUpdate(PublisherSubscriptionUpdate(changed.associateWith { it in valid }, onSuccess))
+    }
+
+    fun setPublisherSubscription(code: String, followed: Boolean) {
+        val publisher = feed.publishers.firstOrNull { it.code == code } ?: return
+        if (code in feed.sourceMutationPublisherCodes || publisher.isFollowed == followed) return
+        enqueuePublisherUpdate(PublisherSubscriptionUpdate(mapOf(code to followed)))
+    }
+
+    private fun enqueuePublisherUpdate(update: PublisherSubscriptionUpdate) {
+        sourceUpdates.addLast(update)
+        feed = feed.copy(isSavingSources = true, sourceSaveError = null,
+            sourceMutationPublisherCodes = feed.sourceMutationPublisherCodes + update.changes.keys,
+            sourceSaveErrors = feed.sourceSaveErrors - update.changes.keys)
+        if (sourceSaveJob?.isActive == true) return
+        sourceSaveJob = viewModelScope.launch {
+            var changed = false
+            while (sourceUpdates.isNotEmpty()) {
+                val next = sourceUpdates.removeFirst()
+                val target = feed.publishers.filter { it.isFollowed }.map { it.code }.toMutableSet()
+                next.changes.forEach { (code, followed) -> if (followed) target += code else target -= code }
+                try {
+                    val savedCodes = repository.replaceFollowedPublishers(target)
+                    ensureActive()
+                    applyConfirmedSubscriptions(savedCodes)
+                    feed = feed.copy(sourceSaveErrors = feed.sourceSaveErrors - next.changes.keys)
+                    changed = true
+                    if (feed.isSearchOpen) feedBeforeSearch = null
+                    next.onSuccess()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    if (isAuthFailure(failure)) authExpired = true
+                    val message = failure.message ?: "언론사 설정을 저장하지 못했어요."
+                    feed = feed.copy(
+                        sourceSaveError = message,
+                        sourceSaveErrors = feed.sourceSaveErrors + next.changes.keys.associateWith { message }
+                    )
+                }
+                val pending = feed.sourceMutationPublisherCodes - next.changes.keys
+                feed = feed.copy(isSavingSources = pending.isNotEmpty(), sourceMutationPublisherCodes = pending)
+                if (authExpired) {
+                    sourceUpdates.clear()
+                    feed = feed.copy(isSavingSources = false, sourceMutationPublisherCodes = emptySet())
+                    return@launch
+                }
+            }
+            if (changed) {
                 if (feed.scope == FeedScope.FOLLOWING && !feed.isSearchOpen) reloadForFilters()
-                onSuccess()
+                if (homeRequested) loadHome(force = true)
+            }
+        }
+    }
+
+    private fun applyConfirmedSubscriptions(codes: Set<String>) {
+        fun publisher(value: PublisherItem) = value.copy(isFollowed = value.code in codes)
+        fun story(value: StorySummary) = value.copy(
+            representativeArticle = value.representativeArticle.copy(publisher = publisher(value.representativeArticle.publisher)),
+            publishers = value.publishers.map(::publisher)
+        )
+        feed = feed.copy(publishers = feed.publishers.map(::publisher))
+        discovery = discovery.copy(
+            activePublisher = discovery.activePublisher?.let(::publisher),
+            homeStories = discovery.homeStories.map(::story),
+            newsStories = discovery.newsStories.map(::story)
+        )
+    }
+
+    private fun cancelPersonalMutations() {
+        sourceSaveJob?.cancel()
+        sourceSaveJob = null
+        sourceUpdates.clear()
+        savedMutationJobs.values.forEach { it.cancel() }
+        savedMutationJobs.clear()
+        savedMutationArticleIds = emptySet()
+        saveErrors = emptyMap()
+        feed = feed.copy(isSavingSources = false, sourceMutationPublisherCodes = emptySet(),
+            sourceSaveError = null, sourceSaveErrors = emptyMap())
+    }
+
+    fun ensureHomeLoaded() {
+        headlines.load()
+        trends.load()
+        homeRequested = true
+        if (discovery.homeStories.isEmpty() && !discovery.isHomeLoading) loadHome()
+        else loadSubscribedHome()
+    }
+
+    fun refreshHome() {
+        headlines.load(force = true)
+        trends.load(force = true)
+        loadHome(force = true, refreshing = true)
+    }
+
+    private fun loadHome(force: Boolean = false, refreshing: Boolean = false) {
+        loadSubscribedHome(force = force)
+        if (!force && (discovery.isHomeLoading || discovery.homeStories.isNotEmpty())) return
+        homeJob?.cancel()
+        discovery = discovery.copy(
+            isHomeLoading = !refreshing && discovery.homeStories.isEmpty(),
+            isHomeRefreshing = refreshing,
+            homeError = null
+        )
+        homeJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(null, FeedScope.ALL)
+                discovery = discovery.copy(
+                    homeStories = page.items,
+                    homeNextCursor = page.nextCursor,
+                    isHomeLoading = false,
+                    isHomeRefreshing = false,
+                    homeError = null
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
-                feed = feed.copy(
-                    isSavingSources = false,
-                    sourceSaveError = failure.message ?: "언론사 설정을 저장하지 못했어요."
+                val offline = if (failure is NewsApiException && failure.code == "NETWORK_ERROR") {
+                    repository.offlineSavedArticles()?.items.orEmpty().map(::singletonStory)
+                } else emptyList()
+                discovery = discovery.copy(
+                    homeStories = offline.ifEmpty { discovery.homeStories },
+                    homeNextCursor = null,
+                    isHomeLoading = false,
+                    isHomeRefreshing = false,
+                    homeError = if (offline.isEmpty()) failure.message ?: "홈 뉴스를 불러오지 못했어요." else null
                 )
             }
         }
     }
+
+    fun retrySubscribedHome() = loadSubscribedHome(force = true)
+
+    fun selectHomePublisher(code: String) {
+        if (feed.publishers.none { it.code == code && it.isFollowed }) return
+        if (discovery.selectedHomePublisherCode == code) return
+        discovery = discovery.copy(selectedHomePublisherCode = code,
+            subscribedArticles = emptyList(), isSubscribedLoading = false, subscribedError = null)
+        loadSubscribedHome()
+    }
+
+    private fun loadSubscribedHome(force: Boolean = false) {
+        if (force) homePublisherCache.clear()
+        val followed = feed.publishers.filter { it.isFollowed }
+        val selected = followed.firstOrNull { it.code == discovery.selectedHomePublisherCode }
+            ?: followed.firstOrNull()
+        if (selected == null) {
+            subscribedHomeJob?.cancel()
+            homePublisherCache.clear()
+            discovery = discovery.copy(
+                subscribedArticles = emptyList(), selectedHomePublisherCode = null,
+                isSubscribedLoading = false, subscribedError = null
+            )
+            return
+        }
+        if (!force && discovery.isSubscribedLoading && discovery.selectedHomePublisherCode == selected.code) return
+        subscribedHomeJob?.cancel()
+        val cached = homePublisherCache[selected.code]
+        discovery = discovery.copy(selectedHomePublisherCode = selected.code,
+            subscribedArticles = cached.orEmpty(), isSubscribedLoading = cached == null, subscribedError = null)
+        if (cached != null) return
+        subscribedHomeJob = viewModelScope.launch {
+            try {
+                val page = repository.publisherArticles(selected.code)
+                ensureActive()
+                if (discovery.selectedHomePublisherCode != selected.code) return@launch
+                homePublisherCache[selected.code] = page.items
+                discovery = discovery.copy(
+                    subscribedArticles = page.items, isSubscribedLoading = false, subscribedError = null
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                ensureActive()
+                if (discovery.selectedHomePublisherCode != selected.code) return@launch
+                if (isAuthFailure(failure)) authExpired = true
+                discovery = discovery.copy(
+                    isSubscribedLoading = false,
+                    subscribedError = failure.message ?: "구독 뉴스를 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun selectNewsSection(section: NewsSection) {
+        if (discovery.newsSection == section &&
+            (section == NewsSection.PUBLISHERS || discovery.newsStories.isNotEmpty())) return
+        newsStoryJob?.cancel()
+        discovery = discovery.copy(
+            newsSection = section,
+            newsStories = if (section == NewsSection.PUBLISHERS) discovery.newsStories else emptyList(),
+            newsNextCursor = null,
+            newsError = null,
+            nextPageError = null
+        )
+        if (section != NewsSection.PUBLISHERS) loadNewsStories(section)
+    }
+
+    fun ensureNewsLoaded() {
+        val section = discovery.newsSection
+        if (section != NewsSection.PUBLISHERS && discovery.newsStories.isEmpty() && !discovery.isNewsLoading) {
+            loadNewsStories(section)
+        }
+    }
+
+    fun refreshNews() {
+        if (discovery.newsSection != NewsSection.PUBLISHERS) {
+            loadNewsStories(discovery.newsSection, refreshing = true)
+        }
+    }
+
+    private fun loadNewsStories(section: NewsSection, refreshing: Boolean = false) {
+        newsStoryJob?.cancel()
+        discovery = discovery.copy(
+            isNewsLoading = !refreshing && discovery.newsStories.isEmpty(),
+            isNewsRefreshing = refreshing,
+            newsError = null
+        )
+        newsStoryJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(section.category, FeedScope.ALL)
+                if (discovery.newsSection != section) return@launch
+                discovery = discovery.copy(
+                    newsStories = page.items,
+                    newsNextCursor = page.nextCursor,
+                    isNewsLoading = false,
+                    isNewsRefreshing = false,
+                    newsError = null
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (isAuthFailure(failure)) authExpired = true
+                if (discovery.newsSection != section) return@launch
+                discovery = discovery.copy(
+                    isNewsLoading = false,
+                    isNewsRefreshing = false,
+                    newsError = failure.message ?: "뉴스를 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun loadMoreNews() {
+        val cursor = discovery.newsNextCursor ?: return
+        val section = discovery.newsSection
+        if (section == NewsSection.PUBLISHERS || discovery.isLoadingMore) return
+        discovery = discovery.copy(isLoadingMore = true, nextPageError = null)
+        newsStoryJob = viewModelScope.launch {
+            try {
+                val page = repository.stories(section.category, FeedScope.ALL, cursor)
+                if (discovery.newsSection != section) return@launch
+                discovery = discovery.copy(
+                    newsStories = discovery.newsStories + page.items,
+                    newsNextCursor = page.nextCursor,
+                    isLoadingMore = false
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                discovery = discovery.copy(
+                    isLoadingMore = false,
+                    nextPageError = failure.message ?: "다음 뉴스를 불러오지 못했어요."
+                )
+            }
+        }
+    }
+
+    fun openPublisher(publisher: PublisherItem) {
+        publisherJob?.cancel()
+        discovery = discovery.copy(
+            activePublisher = publisher,
+            publisherArticles = emptyList(),
+            publisherNextCursor = null,
+            isPublisherLoading = true,
+            publisherError = null
+        )
+        publisherJob = viewModelScope.launch { loadPublisherPage(publisher, null) }
+    }
+
+    fun closePublisher() {
+        publisherJob?.cancel()
+        discovery = discovery.copy(
+            activePublisher = null,
+            publisherArticles = emptyList(),
+            publisherNextCursor = null,
+            isPublisherLoading = false,
+            publisherError = null
+        )
+    }
+
+    fun retryPublisher() {
+        val publisher = discovery.activePublisher ?: return
+        openPublisher(publisher)
+    }
+
+    fun loadMorePublisher() {
+        val publisher = discovery.activePublisher ?: return
+        val cursor = discovery.publisherNextCursor ?: return
+        if (discovery.isPublisherLoading) return
+        discovery = discovery.copy(isPublisherLoading = true, publisherError = null)
+        publisherJob = viewModelScope.launch { loadPublisherPage(publisher, cursor) }
+    }
+
+    private suspend fun loadPublisherPage(publisher: PublisherItem, cursor: String?) {
+        try {
+            val page = repository.publisherArticles(publisher.code, cursor)
+            if (discovery.activePublisher?.code != publisher.code) return
+            discovery = discovery.copy(
+                publisherArticles = if (cursor == null) page.items else discovery.publisherArticles + page.items,
+                publisherNextCursor = page.nextCursor,
+                isPublisherLoading = false,
+                publisherError = null
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (isAuthFailure(failure)) authExpired = true
+            if (discovery.activePublisher?.code != publisher.code) return
+            discovery = discovery.copy(
+                isPublisherLoading = false,
+                publisherError = failure.message ?: "언론사 기사를 불러오지 못했어요."
+            )
+        }
+    }
+
+    private fun singletonStory(article: ArticleSummary) = StorySummary(
+        storyKey = "article:${article.id}",
+        representativeArticle = article,
+        publisherCount = 1,
+        publishers = listOf(article.publisher),
+        latestPublishedAt = article.publishedAt
+    )
 
     fun openSearch() {
         if (feed.isSearchOpen) return
@@ -338,16 +760,6 @@ internal class NewsViewModel(
         feed = feed.copy(searchInput = value, error = null, nextPageError = null)
         when {
             normalized.isEmpty() -> showSearchPrompt(value)
-            normalized.length < 2 -> feed = feed.copy(
-                items = emptyList(),
-                searchSections = emptyMap(),
-                nextCursor = null,
-                activeSearchQuery = "",
-                isSearchPending = false,
-                isLoading = false,
-                isRefreshing = false,
-                isLoadingMore = false
-            )
             else -> {
                 feed = feed.copy(isSearchPending = true)
                 searchDebounceJob = viewModelScope.launch {
@@ -360,7 +772,7 @@ internal class NewsViewModel(
 
     fun submitSearch() {
         val normalized = normalizeSearch(feed.searchInput)
-        if (!feed.isSearchOpen || normalized.length < 2) return
+        if (!feed.isSearchOpen || normalized.isEmpty()) return
         searchDebounceJob?.cancel()
         activateSearch(normalized)
     }
@@ -372,7 +784,13 @@ internal class NewsViewModel(
         val snapshot = feedBeforeSearch
         feedBeforeSearch = null
         if (snapshot != null && snapshot.category == feed.category && snapshot.scope == feed.scope) {
-            feed = snapshot
+            feed = snapshot.copy(
+                publishers = feed.publishers,
+                isSavingSources = feed.isSavingSources,
+                sourceMutationPublisherCodes = feed.sourceMutationPublisherCodes,
+                sourceSaveError = feed.sourceSaveError,
+                sourceSaveErrors = feed.sourceSaveErrors
+            )
             return
         }
         feed = feed.copy(
@@ -433,7 +851,7 @@ internal class NewsViewModel(
         feedJob?.cancel()
         searchDebounceJob?.cancel()
         val normalized = normalizeSearch(feed.searchInput)
-        val query = normalized.takeIf { feed.isSearchOpen && it.length >= 2 }
+        val query = normalized.takeIf { feed.isSearchOpen && it.isNotEmpty() }
         feed = feed.copy(
             items = emptyList(),
             searchFilter = if (query == null) feed.searchFilter else SearchFilter.ALL,
@@ -722,13 +1140,14 @@ internal class NewsViewModel(
     }
 
     fun toggleSaved(articleId: String, currentlySaved: Boolean) {
-        if (savedMutationArticleId != null) return
+        if (articleId in savedMutationArticleIds) return
         val target = !currentlySaved
-        savedMutationArticleId = articleId
-        saveError = null
-        viewModelScope.launch {
+        savedMutationArticleIds = savedMutationArticleIds + articleId
+        saveErrors = saveErrors - articleId
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 repository.setArticleSaved(articleId, target)
+                ensureActive()
                 feed = feed.copy(items = feed.items.map { article ->
                     if (article.id == articleId) article.copy(isSaved = target) else article
                 }, searchSections = feed.searchSections.mapValues { (_, section) ->
@@ -736,9 +1155,35 @@ internal class NewsViewModel(
                         if (article.id == articleId) article.copy(isSaved = target) else article
                     })
                 })
+                feedBeforeSearch = feedBeforeSearch?.let { snapshot ->
+                    snapshot.copy(items = snapshot.items.map { article ->
+                        if (article.id == articleId) article.copy(isSaved = target) else article
+                    })
+                }
                 reader = reader.copy(article = reader.article?.let { article ->
                     if (article.id == articleId) article.copy(isSaved = target) else article
                 })
+                for (index in readerHistory.indices) {
+                    val destination = readerHistory[index]
+                    val article = destination.snapshot.article
+                    if (article?.id == articleId) readerHistory[index] = destination.copy(
+                        snapshot = destination.snapshot.copy(article = article.copy(isSaved = target)))
+                }
+                discovery = discovery.copy(
+                    homeStories = discovery.homeStories.map { story ->
+                        if (story.representativeArticle.id == articleId) {
+                            story.copy(representativeArticle = story.representativeArticle.copy(isSaved = target))
+                        } else story
+                    },
+                    newsStories = discovery.newsStories.map { story ->
+                        if (story.representativeArticle.id == articleId) {
+                            story.copy(representativeArticle = story.representativeArticle.copy(isSaved = target))
+                        } else story
+                    },
+                    publisherArticles = discovery.publisherArticles.map { article ->
+                        if (article.id == articleId) article.copy(isSaved = target) else article
+                    }
+                )
                 saved = saved.copy(items = if (target) {
                     saved.items.map { article ->
                         if (article.id == articleId) article.copy(isSaved = true) else article
@@ -751,12 +1196,14 @@ internal class NewsViewModel(
                 throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
+                saveErrors = saveErrors + (articleId to (failure.message ?: "저장 상태를 바꾸지 못했어요."))
                 record(TelemetryEvent.API_ERROR, "where" to "save", "code" to errorCode(failure))
-                saveError = failure.message ?: "저장 상태를 바꾸지 못했어요."
-            } finally {
-                savedMutationArticleId = null
             }
+            savedMutationArticleIds = savedMutationArticleIds - articleId
+            savedMutationJobs.remove(articleId)
         }
+        savedMutationJobs[articleId] = job
+        job.start()
     }
 
     fun openLinkAnalysis() {
@@ -905,8 +1352,10 @@ internal class NewsViewModel(
         comparisonFocus: ReaderFocus?,
         initialScrollOffset: Int = 0,
         initialSelectedFindingId: String? = null,
-        snapshot: ArticleReaderState? = null
+        snapshot: ArticleReaderState? = null,
+        isNewVisit: Boolean = true
     ) {
+        if (isNewVisit) reading.newVisit()
         readerJob?.cancel()
         val analysisEnabled = reader.analysisEnabled
         reader = snapshot?.copy(
@@ -1015,9 +1464,10 @@ internal class NewsViewModel(
         }
     }
 
-    fun retryReader() = loadReader(reader.articleId, reader.comparisonFocus)
+    fun retryReader() = loadReader(reader.articleId, reader.comparisonFocus, isNewVisit = false)
 
     fun closeReader() {
+        reading.update(null, false, null)
         readerJob?.cancel()
         if (readerHistory.isNotEmpty()) {
             val previous = readerHistory.removeLast()

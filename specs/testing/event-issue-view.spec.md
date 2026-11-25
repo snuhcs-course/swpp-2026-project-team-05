@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for review |
+| Status | Implemented for the mapped cases; formal intent review not recorded |
 | Owner | Analysis |
 | Source requirements | `specs/features/event-issue-view.md`; `GET /api/v1/articles/{id}/analysis`; Web reader |
 | Last reviewed | 2026-11-20 |

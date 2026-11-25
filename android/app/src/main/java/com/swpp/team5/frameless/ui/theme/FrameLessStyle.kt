@@ -11,12 +11,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import com.swpp.team5.frameless.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -26,30 +34,36 @@ import androidx.compose.ui.unit.sp
 /**
  * FrameLESS 화면 스타일. 기존 ui.theme(Color.kt, Theme.kt)와 이름이 겹치지 않게 Fl 아래에 둔다.
  *
- * 방향: 연한 회청색 바탕 위 둥근 흰 카드, 네이비 알약 버튼, 명조 본문 + 문장 배경 하이라이트.
+ * 방향: 중립적인 밝은 화면/차콜 화면, 일관된 액션과 카드, 명조 본문 + 의미 있는 문장 하이라이트.
  * 하이라이트 색은 정당 상징색(빨강·파랑)과 겹치지 않게 청록(같은 내용)과 라일락(다른 해석/표현)만 쓴다.
  */
 internal object Fl {
-    val Bg = Color(0xFFEDF0F4)
-    val Card = Color(0xFFFBFCFD)
-    val Inset = Color(0xFFF3F5F8)
-    val Ink = Color(0xFF161A23)
-    val Ink2 = Color(0xFF3A4150)
-    val Muted = Color(0xFF5B6372)
-    val Line = Color(0xFFD6DBE3)
-    val Accent = Color(0xFF27324A)
-    val OnAccent = Color(0xFFFFFFFF)
+    val IsDark: Boolean @Composable @ReadOnlyComposable get() =
+        MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val Bg: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.background
+    val Card: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surface
+    val Inset: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surfaceVariant
+    val Ink: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurface
+    val Ink2: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f)
+    val Muted: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurfaceVariant
+    val Line: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.outline
+    val Accent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
+    val OnAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimary
 
     /** 대응 문장이 없는 문장 배경 */
-    val TintNone = Color(0xFFE1E4EA)
+    val TintNone: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surfaceVariant
     /** 같은 내용 */
-    val TintSame = Color(0xFFD1E7E5)
-    val InkSame = Color(0xFF0F6A67)
+    val TintSame: Color @Composable @ReadOnlyComposable get() =
+        if (IsDark) Color(0xFF274744) else Color(0xFFD1E7E5)
+    val InkSame: Color @Composable @ReadOnlyComposable get() =
+        if (IsDark) Color(0xFF9EDAD5) else Color(0xFF0F6A67)
     /** 다른 해석/표현 */
-    val TintDiff = Color(0xFFE4DDF2)
-    val InkDiff = Color(0xFF5E3FA0)
+    val TintDiff: Color @Composable @ReadOnlyComposable get() =
+        if (IsDark) Color(0xFF403653) else Color(0xFFE4DDF2)
+    val InkDiff: Color @Composable @ReadOnlyComposable get() =
+        if (IsDark) Color(0xFFD2B9FF) else Color(0xFF5E3FA0)
 
-    val Danger = Color(0xFFA3271E)
+    val Danger: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.error
 
     /** 기사 본문과 제목 */
     val Serif = FontFamily.Serif
@@ -138,14 +152,19 @@ internal fun OutlinedPill(text: String, onClick: () -> Unit, modifier: Modifier 
 /** 원문 링크. 누르면 브라우저로 연다 */
 @Composable
 internal fun SourceLink(onClick: () -> Unit, label: String = "원문 보기") {
+    Row(Modifier.clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically) {
     Text(
         text = label,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         color = Fl.Accent,
         textDecoration = TextDecoration.Underline,
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 6.dp)
+        modifier = Modifier
     )
+    Icon(painterResource(R.drawable.ic_portal_external_link), contentDescription = null,
+        tint = Fl.Accent, modifier = Modifier.padding(start = 3.dp).size(14.dp))
+    }
 }
 
 /** 두 개 이상 선택지를 고르는 알약 탭 (기사 보기 / 쟁점 비교) */

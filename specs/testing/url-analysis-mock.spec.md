@@ -5,7 +5,7 @@
 | Status | Retired UI; regression boundary only |
 | Owner | Article discovery feature owner |
 | Source requirements | [`../features/url-analysis-mock.md`](../features/url-analysis-mock.md) |
-| Last reviewed | 2026-11-24 |
+| Last reviewed | 2026-11-25 |
 
 ## Scope
 
@@ -23,8 +23,8 @@ tests.
 
 ### Android
 
-- [Acceptance] A completed zero-result search shows the ordinary recovery
-  action and no URL-analysis action or sheet.\
+- [Acceptance] A completed zero-result search keeps its editable field and clear
+  control, with no separate re-enter button, URL-analysis action, or sheet.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.zeroResultSearchOffersOnlyARegularSearchRecovery`
 - [Acceptance] The home menu exposes tutorial replay but no link-analysis
   entry.\
@@ -35,7 +35,7 @@ tests.
 | Partition | Representative values |
 | --- | --- |
 | Search state | results / zero results / loading / error / ordinary empty feed |
-| Empty-state action | retry wording / no URL input / no analysis action |
+| Empty-state recovery | editable field / existing clear control / no URL input / no analysis action |
 
 No ordinary-client test may expect URL input, an analysis request, a generated
 article, or a fake analysis result from this retired mock.

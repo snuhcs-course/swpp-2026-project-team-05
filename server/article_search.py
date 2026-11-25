@@ -9,7 +9,7 @@ from django.db.models import Case, IntegerField, Q, Value, When
 
 
 MAX_QUERY_LENGTH = 100
-MIN_QUERY_LENGTH = 2
+MIN_QUERY_LENGTH = 1
 MAX_EXCERPT_LENGTH = 180
 
 

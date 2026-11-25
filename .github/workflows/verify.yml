@@ -39,6 +39,16 @@ jobs:
     timeout-minutes: 20
     env:
       FRAMELESS_USE_SQLITE: '1'
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -51,6 +61,10 @@ jobs:
         run: python manage.py check
       - name: Check the coverage gate
         run: python -m unittest discover -s ci -p 'test_*.py'
+      - name: Test PostgreSQL trends, reactions, and demo activity
+        env:
+          DJANGO_SETTINGS_MODULE: tests.postgres_settings
+        run: python manage.py test tests.test_trends tests.test_trends_postgres tests.test_reactions tests.test_reactions_postgres tests.test_demo_activity --verbosity 1
       - name: Run tests with coverage
         run: python -m coverage run --branch --source=server manage.py test --verbosity 1
       - name: Report coverage

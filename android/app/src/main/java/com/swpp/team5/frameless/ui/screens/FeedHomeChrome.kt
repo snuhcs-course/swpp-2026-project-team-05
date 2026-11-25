@@ -1,7 +1,11 @@
 package com.swpp.team5.frameless.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.swpp.team5.frameless.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,16 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -55,13 +53,13 @@ import com.swpp.team5.frameless.ui.theme.Fl
  * the section header. Nothing here reads or invents data beyond what [ArticleSummary] already carries.
  */
 internal object HomeTokens {
-    val Navy = Color(0xFF1E2638)
-    val OffWhite = Color(0xFFF7F7F4)
-    val Surface = Color(0xFFFFFFFF)
-    val Lavender = Color(0xFFEEEAF7)
-    val LavenderInk = Color(0xFF5B4A93)
-    val Hairline = Color(0xFFE4E2EA)
-    val GuideWash = Color(0xFFF2EFF9)
+    val Navy: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onSurface
+    val OffWhite: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.background
+    val Surface: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surface
+    val Lavender: Color @Composable @ReadOnlyComposable get() = Fl.TintDiff
+    val LavenderInk: Color @Composable @ReadOnlyComposable get() = Fl.InkDiff
+    val Hairline: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.outline
+    val GuideWash: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.surfaceVariant
 }
 
 /** Actions moved from the app bar into the left menu, in display order. Labels are the existing ones. */
@@ -72,11 +70,11 @@ internal enum class FeedMenuItem(val label: String) {
 internal const val FEED_MENU_DESCRIPTION = "메뉴"
 
 /**
- * Metadata line parts for a feed row: category, publisher, time. A blank publisher name or time is dropped
+ * Metadata line parts for a feed row: category and publisher. A blank publisher name is dropped
  * rather than shown as an empty slot; nothing is substituted.
  */
-internal fun feedRowMetaParts(article: ArticleSummary, time: String): List<String> =
-    listOf(article.category.label, article.publisher.name.trim(), time.trim()).filter { it.isNotEmpty() }
+internal fun feedRowMetaParts(article: ArticleSummary): List<String> =
+    listOf(article.category.label, article.publisher.name.trim()).filter { it.isNotEmpty() }
 
 internal const val FEATURED_ARTICLE_TAG = "feed-featured-article"
 
@@ -94,24 +92,14 @@ internal fun splitFeaturedArticle(items: List<ArticleSummary>, enabled: Boolean)
 
 internal const val FEATURED_OPEN_LABEL = "기사 열기"
 
-/** Byline under a title: publisher and time, blank parts dropped, nothing substituted. */
-internal fun feedByline(article: ArticleSummary, time: String): String =
-    feedRowMetaParts(article, time).drop(1).joinToString("  ·  ")
+/** List byline: the original publisher, without a timestamp. */
+internal fun feedByline(article: ArticleSummary): String = feedRowMetaParts(article).drop(1).joinToString("  ·  ")
 
 /** Category kicker: small drawn mark plus the category label, tinted for the surface it sits on. */
 @Composable
 private fun CategoryKicker(category: NewsCategory, color: Color, fontSize: TextUnit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Canvas(Modifier.size(12.dp).clearAndSetSemantics { }) { drawCategoryMark(category, color) }
-        Spacer(Modifier.width(7.dp))
-        Text(
-            category.label,
-            color = color,
-            fontSize = fontSize,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.6.sp
-        )
-    }
+    Text(category.label, color = color, fontSize = fontSize,
+        fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
 }
 
 /**
@@ -122,7 +110,7 @@ private fun CategoryKicker(category: NewsCategory, color: Color, fontSize: TextU
 @Composable
 internal fun FeaturedArticleCard(article: ArticleSummary, onClick: () -> Unit) {
     val palette = categoryPalette(article.category)
-    val byline = feedByline(article, feedRelativeTime(article.publishedAt))
+    val byline = feedByline(article)
     val shape = RoundedCornerShape(22.dp)
     Box(
         Modifier.fillMaxWidth().background(HomeTokens.OffWhite)
@@ -178,19 +166,10 @@ internal fun FeaturedArticleCard(article: ArticleSummary, onClick: () -> Unit) {
                         )
                     }
                     // Quiet tap affordance; the whole cover is the button, so this is decorative.
-                    Canvas(
-                        Modifier.size(34.dp).clearAndSetSemantics { }
-                    ) {
-                        val c = Offset(size.width / 2, size.height / 2)
-                        drawCircle(palette.glow.copy(alpha = 0.55f), radius = size.width / 2 - density,
-                            center = c, style = Stroke(1.2f * density))
-                        val a = size.width * 0.16f
-                        drawLine(Color.White, Offset(c.x - a, c.y), Offset(c.x + a, c.y), 1.6f * density,
-                            StrokeCap.Round)
-                        drawLine(Color.White, Offset(c.x + a * 0.2f, c.y - a * 0.8f), Offset(c.x + a, c.y),
-                            1.6f * density, StrokeCap.Round)
-                        drawLine(Color.White, Offset(c.x + a * 0.2f, c.y + a * 0.8f), Offset(c.x + a, c.y),
-                            1.6f * density, StrokeCap.Round)
+                    Box(Modifier.size(34.dp).border(1.dp, palette.glow.copy(alpha = 0.55f), CircleShape),
+                        contentAlignment = Alignment.Center) {
+                        Icon(painterResource(R.drawable.ic_portal_arrow_forward), contentDescription = null,
+                            tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -249,45 +228,19 @@ internal fun ReadingGuideRail(onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.width(10.dp))
-            ConvergingMarksMotif()
+            ComparisonColumnsMotif()
             Spacer(Modifier.width(6.dp))
-            Canvas(Modifier.size(14.dp).clearAndSetSemantics { }) {
-                val stroke = 1.6.dp.toPx()
-                drawLine(HomeTokens.Navy, Offset(size.width * 0.35f, size.height * 0.2f),
-                    Offset(size.width * 0.7f, size.height * 0.5f), stroke, StrokeCap.Round)
-                drawLine(HomeTokens.Navy, Offset(size.width * 0.7f, size.height * 0.5f),
-                    Offset(size.width * 0.35f, size.height * 0.8f), stroke, StrokeCap.Round)
-            }
+            Icon(painterResource(R.drawable.ic_portal_chevron_right), contentDescription = null,
+                tint = HomeTokens.Navy, modifier = Modifier.size(18.dp))
         }
     }
 }
 
-/** Two short text-line marks, each with an underline, converging on one shared point. Decorative only. */
+/** Quiet comparison motif; the surrounding guide owns the action. */
 @Composable
-private fun ConvergingMarksMotif() {
-    Canvas(Modifier.size(width = 52.dp, height = 36.dp).clearAndSetSemantics { }) {
-        val w = size.width
-        val h = size.height
-        val thin = 1.2.dp.toPx()
-        val bar = 3.dp.toPx()
-        val meet = Offset(w * 0.86f, h * 0.5f)
-        // Upper "text line" with its underline mark.
-        drawLine(HomeTokens.Navy.copy(alpha = 0.22f), Offset(w * 0.04f, h * 0.18f), Offset(w * 0.40f, h * 0.18f),
-            bar, StrokeCap.Round)
-        drawLine(HomeTokens.LavenderInk, Offset(w * 0.04f, h * 0.30f), Offset(w * 0.30f, h * 0.30f),
-            thin, StrokeCap.Round)
-        // Lower "text line" with its underline mark.
-        drawLine(HomeTokens.Navy.copy(alpha = 0.22f), Offset(w * 0.04f, h * 0.70f), Offset(w * 0.34f, h * 0.70f),
-            bar, StrokeCap.Round)
-        drawLine(HomeTokens.LavenderInk, Offset(w * 0.04f, h * 0.82f), Offset(w * 0.26f, h * 0.82f),
-            thin, StrokeCap.Round)
-        // Both underlines lead to one shared point.
-        drawLine(HomeTokens.LavenderInk.copy(alpha = 0.7f), Offset(w * 0.30f, h * 0.30f), meet, thin, StrokeCap.Round)
-        drawLine(HomeTokens.LavenderInk.copy(alpha = 0.7f), Offset(w * 0.26f, h * 0.82f), meet, thin, StrokeCap.Round)
-        drawCircle(HomeTokens.Lavender, radius = 4.5.dp.toPx(), center = meet)
-        drawCircle(HomeTokens.LavenderInk, radius = 4.5.dp.toPx(), center = meet, style = Stroke(thin))
-        drawCircle(HomeTokens.LavenderInk, radius = 1.6.dp.toPx(), center = meet)
-    }
+private fun ComparisonColumnsMotif() {
+    Icon(painterResource(R.drawable.ic_portal_compare), contentDescription = null,
+        tint = HomeTokens.LavenderInk, modifier = Modifier.size(34.dp))
 }
 
 @Composable
@@ -295,23 +248,14 @@ internal fun FeedMenuButton(
     onTutorialOpen: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val menuInk = Fl.Ink
     Box {
         IconButton(
             onClick = { expanded = true },
             modifier = Modifier.size(48.dp).semantics { contentDescription = FEED_MENU_DESCRIPTION }
         ) {
-            Canvas(Modifier.size(20.dp)) {
-                val stroke = 1.8.dp.toPx()
-                listOf(0.25f, 0.5f, 0.75f).forEachIndexed { index, y ->
-                    drawLine(
-                        Fl.Ink,
-                        Offset(size.width * 0.12f, size.height * y),
-                        Offset(size.width * (if (index == 2) 0.62f else 0.88f), size.height * y),
-                        strokeWidth = stroke,
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
+            Icon(painterResource(R.drawable.ic_portal_menu), contentDescription = null,
+                tint = menuInk, modifier = Modifier.size(21.dp))
         }
         DropdownMenu(
             expanded = expanded,
@@ -340,27 +284,15 @@ internal fun FeedMenuButton(
 
 @Composable
 private fun FeedMenuGlyph(item: FeedMenuItem) {
-    Canvas(Modifier.size(18.dp)) {
-        val w = size.width
-        val stroke = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        when (item) {
-            FeedMenuItem.TUTORIAL -> {
-                drawCircle(Fl.Ink2, radius = w * 0.42f, style = stroke)
-                val q = Path().apply {
-                    moveTo(w * 0.36f, w * 0.38f)
-                    cubicTo(w * 0.36f, w * 0.22f, w * 0.64f, w * 0.22f, w * 0.64f, w * 0.38f)
-                    cubicTo(w * 0.64f, w * 0.5f, w * 0.5f, w * 0.5f, w * 0.5f, w * 0.6f)
-                }
-                drawPath(q, Fl.Ink2, style = stroke)
-                drawCircle(Fl.Ink2, radius = w * 0.05f, center = Offset(w * 0.5f, w * 0.75f))
-            }
-        }
+    when (item) {
+        FeedMenuItem.TUTORIAL -> Icon(painterResource(R.drawable.ic_portal_book_open),
+            contentDescription = null, tint = Fl.Ink2, modifier = Modifier.size(18.dp))
     }
 }
 
 /**
  * Light editorial row on the page surface: category kicker, serif title, optional excerpt, then byline.
- * No image tile; the small kicker mark is the only category visual.
+ * No image tile; category is conveyed by its text label.
  */
 @Composable
 internal fun ArticleFeedRow(
@@ -368,13 +300,13 @@ internal fun ArticleFeedRow(
     onClick: () -> Unit
 ) {
     val palette = categoryPalette(article.category)
-    val byline = feedByline(article, feedRelativeTime(article.publishedAt))
+    val byline = feedByline(article)
     Column(
         Modifier.fillMaxWidth().background(HomeTokens.OffWhite).clickable(onClick = onClick)
             .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        CategoryKicker(article.category, palette.ink, 11.5.sp)
+        CategoryKicker(article.category, Fl.Muted, 11.5.sp)
         Text(
             article.title,
             maxLines = 3,

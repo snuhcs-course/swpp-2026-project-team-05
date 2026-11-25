@@ -220,6 +220,63 @@ class Article(models.Model):
         ]
 
 
+class ReactionKind(models.TextChoices):
+    RECOMMEND = "RECOMMEND", "추천해요"
+    LIKE = "LIKE", "좋아요"
+    MOVED = "MOVED", "감동이에요"
+    ANGRY = "ANGRY", "화나요"
+    SAD = "SAD", "슬퍼요"
+
+
+class ArticleReaction(models.Model):
+    """One account's current response, not a click history or stored counter."""
+
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(UserAccount, on_delete=models.CASCADE, related_name="article_reactions", db_index=False)
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="reactions")
+    kind = models.CharField(max_length=16, choices=ReactionKind.choices)
+    reacted_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "frameless_article_reaction"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "article"], name="frameless_reaction_user_article"),
+            models.CheckConstraint(condition=models.Q(kind__in=ReactionKind.values), name="frameless_reaction_kind"),
+        ]
+        indexes = [models.Index(fields=["-reacted_at", "article"], name="frameless_reaction_recent")]
+
+
+class ArticleView(models.Model):
+    """Short-lived distinct audience, not a lifetime reading history."""
+
+    id = models.BigAutoField(primary_key=True)
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="recent_views")
+    viewer_key = models.CharField(max_length=64)
+    last_viewed_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "frameless_article_view"
+        constraints = [models.UniqueConstraint(
+            fields=["viewer_key", "article"], name="frameless_view_reader_article",
+        )]
+        indexes = [models.Index(
+            fields=["last_viewed_at", "article"], name="frameless_view_recent",
+        )]
+
+
+class TrendState(models.Model):
+    """One globally shared current/previous ranking, coordinated by a row lock."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    current_snapshot = models.JSONField(null=True, default=None)
+    previous_snapshot = models.JSONField(null=True, default=None)
+    next_refresh_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "frameless_trend_state"
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="frameless_trend_singleton")]
+
+
 class SavedArticle(models.Model):
     """One account's bookmark for an ordinary feed article."""
 
