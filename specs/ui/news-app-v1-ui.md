@@ -126,8 +126,11 @@ Successful authentication returns to Saved or to the public surface that
 requested it. Android may complete the single publisher subscription that
 opened authentication after the publisher list has reloaded; dismissal or
 authentication cancellation clears that pending intent. A pending bookmark is
-not replayed automatically. Android and Web use the same capability boundary
-even when the physical dialog or sheet differs.
+not replayed automatically. Web shares the public/private capability boundary,
+but uses its existing Login route instead of the Android sheet/in-place Saved
+state. Reader bookmarks preserve their return path. Direct guest `/saved` entry
+currently loses that destination on redirect; the return-navigation requirement
+remains an open Web gap in the guest/offline test specification.
 
 An Android Reader reaction tap uses this same contextual authentication flow
 and is not replayed after login. The Reader module and Home selection rules are in
@@ -157,9 +160,11 @@ Functional requirements:
 - Authentication uses the shared brand header, one clearly dominant neutral
   submit button, restrained secondary links, consistent field/button corners,
   and touch targets of at least 48 dp. Submission shows progress and disables
-  duplicate form edits/submits without clearing values or server errors.
+  duplicate submits without clearing values or server errors. Android also
+  disables field edits during submission; the current Web form keeps fields editable.
 - Password IME action submits login.
-- Validation appears beside the relevant field.
+- Android field validation appears beside the relevant field. The current Web
+  form uses a general inline error; per-field server errors are not yet rendered.
 - Server errors do not clear entered values.
 - Login and registration show an inline retry message on 429 and disable only
   submission for the bounded Retry-After wait (default 60 seconds, range 1–3,600).
@@ -189,7 +194,8 @@ Functional requirements:
 ```
 
 - Registration creates an authenticated session.
-- Duplicate email/username and password validation are field-specific.
+- The API provides field-specific duplicate email/username and password errors;
+  Android renders them by field, while Web retains the general inline error.
 - Success returns to the route that requested authentication, or Home when
   registration was opened directly.
 
@@ -216,7 +222,8 @@ Root-shell and discovery behavior:
 - Home uses a compact portal rhythm: one search entry, restrained weather and
   market utility blocks, `주요 뉴스` (ALL), then `구독한 언론사`.
   A horizontal row of rounded-square publisher logos selects the articles below it;
-  names and an outline identify the selected outlet. The first subscription
+  a bold name and selected semantics identify the outlet without an extra logo
+  border. The first subscription
   is the default, and switching outlets never opens another page or moves the
   reader's scroll position. Fetch only the selected publisher's article page,
   caching visited first pages for this viewer. The section owns loading,

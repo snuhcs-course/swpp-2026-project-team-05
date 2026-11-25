@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented baseline |
-| Version | 0.7 |
+| Version | 0.8 |
 | Date | 2026-11-25 |
 | Clients | Android and Web |
 | API | Django JSON API |
@@ -495,8 +495,10 @@ internal stack trace.
   to that saved list instead of redirecting to the category feed.
 - Keep feed, Reader, and saved-list state consistent through one shared mutation
   boundary rather than separate request logic in each component.
-- Disable duplicate input while the request is pending and apply the intended
-  state after server confirmation; a failure leaves the visible state unchanged.
+- Disable duplicate mutation input while the request is pending. Web applies an
+  optimistic change to this user's Reader, feed/search and Saved query caches,
+  restores their snapshots on failure, and invalidates affected reads afterward.
+  Android's server-confirmed mutation behavior is defined separately below.
 - Removing an article in the Reader updates the saved page without resetting
   its remaining scroll and pagination context.
 
@@ -576,7 +578,7 @@ uses `구독`, `구독 중`, and `구독 관리`; existing database, API, and
 code identifiers containing `follow` remain unchanged. On Android, follow state powers
 the Home news section and representative selection in topic feeds; it is not a
 separate `최신/팔로잉` News tab. The News tabs remain
-`뉴스 | 언론사 | 정치 | 사회 | 경제`.
+`전체 뉴스 | 언론사 | 정치 | 사회 | 경제`.
 
 Following never changes stored analysis, shared propositions, comparison
 selection, or the set of publishers that may appear as reviewed comparison
@@ -619,8 +621,10 @@ implemented Following control until its own navigation is redesigned.
   others. Changing accounts cancels this transient queue; it is not an offline
   synchronization mechanism.
 - A guest row action opens the shared contextual authentication sheet above the
-  directory. Choosing Login or Create account preserves the publisher-directory
-  origin; dismissal changes nothing and success does not replay the mutation.
+  directory. Choosing Login or Create account preserves that origin and the
+  single requested subscription. Once authentication and publisher reload
+  succeed, Android applies that subscription once. Dismissing or cancelling auth
+  clears the intent. Bookmark and reaction intents are not replayed this way.
 - Home always shows public `주요 뉴스`, followed by `구독한 언론사`.
   The latter requests articles for the selected subscribed publisher and otherwise
   shows a compact invitation to subscription management. The two requests and

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented baseline; feature-specific verification gaps remain explicit |
-| Version | 1.12 |
+| Version | 1.13 |
 | Date | 2026-11-25 |
 | Clients | Android and Web |
 | API | Django JSON API |
@@ -100,12 +100,12 @@ The following designs remain valid future work, but they are not required to shi
 
 The existing legacy URL-analysis endpoint may remain for compatibility, but it
 is not linked from the v1 ordinary-user UI and is not part of the new read-path
-implementation. A separate staged link-analysis flow, open to every reader
-with a daily limit outside developer accounts, is specified in
+implementation. A separate staged link-analysis compatibility endpoint accepts
+direct API calls with a daily limit outside developer accounts, as specified in
 [`link-analysis.md`](../features/link-analysis.md). It stores reader-only
 results outside feed/search.
 
-Future automatic analysis work is documented separately in
+Historical automatic-analysis design lessons are recorded separately in
 [`cluster-analysis-pipeline-lessons.md`](../../docs/cluster-analysis-pipeline-lessons.md).
 It must not complicate the v1 read APIs or client UI.
 
@@ -168,8 +168,10 @@ Registration accepts:
 Rules:
 
 - normalize email and username before uniqueness checks;
-- username is 3–30 characters and may contain Korean/Latin letters, digits, and underscore;
-- apply Django password validation with a minimum length of 10;
+- username is 3–30 Unicode word characters (letters, digits and underscore),
+  including Korean and Latin letters;
+- apply Django password validation with a minimum length of 10 and a maximum
+  of 128 Unicode code points for new registration passwords;
 - return field-specific validation errors;
 - successful registration returns an authenticated session;
 - login accepts email or username plus password;
@@ -182,7 +184,7 @@ Rules:
 - generate at least 256 bits of randomness;
 - return the raw token once;
 - store only its SHA-256 hash;
-- expire after a configurable period, initially 30 days;
+- expire 30 days after issuance (`SESSION_DAYS` in the server);
 - delete or invalidate it on logout;
 - store the raw token in Android Keystore-backed encrypted storage.
 
@@ -204,8 +206,10 @@ Password change, reset, account deletion, and session listing remain outside thi
 shared login/registration attempt limits, typed/bounded credentials, no-store
 authentication responses and Android secure-storage/backup recovery. It keeps
 the current bearer contract and requires its security migrations before
-backend rollout. Browser cookie/CSRF transport is still a Stage 2 draft;
-email verification/recovery remains separate follow-up work.
+backend rollout. Web currently retains the bearer session in localStorage.
+Browser cookie/CSRF transport was deferred and is not implemented; email
+verification/recovery remains separate follow-up work. Existing accounts and
+passwords remain usable without email verification.
 
 ## 4. User experience contract
 
@@ -721,7 +725,11 @@ and completed analyses with no forced comparisons.
 - Return safe request IDs and machine-readable error codes.
 - Use `select_related`/`prefetch_related` for feed and analysis reads; avoid one query per finding/comparison.
 - Keep the database password only in ignored local configuration and deployment secrets.
-- Apply registration/login rate limiting before any external public release.
+- Keep the implemented shared registration/login attempt limits and no-store
+  auth responses in force; failures of the limiter store fail closed.
+- Keep Django-managed tables and migration metadata behind the API: PostgreSQL
+  RLS is enabled and PUBLIC/Supabase client-role table grants are revoked.
+  Public Guest access is granted by Django, not direct database-role access.
 
 ## 9. Implementation boundaries
 
@@ -824,7 +832,10 @@ regression tests with long target articles and font scaling.
 ### 10.3 End to end
 
 1. Guest launch → public Home topic feed → search → open article → source-only finding.
-2. Open the 제주 finding → compare `보복살해범` with `피의자` from two publishers.
+2. Select a comparison-backed finding from the recorded dataset revision,
+   inspect its exact source/target expressions, and open a compared article as
+   a normal Reader destination. Named historical fixture stories are not a
+   guarantee about the mutable production corpus.
 3. Turn analysis off/on on Android without moving the Reader position; on Web,
    verify that the persistent analysis rail selects the same stored finding.
 4. Sign in for Saved/publisher follows, restart the app, and restore the
@@ -838,7 +849,8 @@ v1 is complete when:
 
 - a guest can read public news and analysis, while a new user can register, log
   in for personalized features, remain signed in, and log out;
-- configured politics, society, and economy coverage appears once per topic in discovery feeds;
+- configured politics, society, and economy coverage appears once per topic in
+  Android discovery; Web retains its article-level feeds;
 - News sections, representative selection, and topic pagination are stable;
 - search, saved articles, and followed sources behave consistently on Android and Web;
 - Android can reopen bounded, locally complete Saved article and analysis data

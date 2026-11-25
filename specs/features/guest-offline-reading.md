@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented |
-| Version | 1.3 |
+| Version | 1.4 |
 | Date | 2026-11-25 |
 | Clients | Android and Web guest access; Android offline cache |
 | API | Existing Django JSON API with optional authentication on public reads |
@@ -25,8 +25,9 @@ second news database or a general synchronization engine.
 without changing optional bearer authentication on public reads. Android excludes
 auth preferences from backup/transfer and recovers unreadable credentials to
 Guest while preserving public Room content. Its browser cookie stage remains
-draft and must explicitly revise Web restoration/logout behavior and credential
-transport while preserving Android's bearer and offline-reading contracts.
+deferred and unimplemented; it would need to revise Web restoration/logout
+behavior and credential transport while preserving Android's bearer and
+offline-reading contracts.
 Guest access is an API policy; clients do not use Supabase's `anon` database role.
 
 ## 1. Goals and boundaries
@@ -66,9 +67,9 @@ Guest access is an API policy; clients do not use Supabase's `anon` database rol
 | Article detail and stored analysis | Yes | Yes |
 | Comparison evidence and original links | Yes | Yes |
 | Subscribed Home feed | Public fallback | Yes |
-| Publisher subscription mutation | Contextual auth sheet | Yes |
-| Saved route | In-place sign-in state | Yes |
-| Save/remove mutation | Contextual auth sheet | Yes |
+| Publisher subscription mutation | Android auth sheet; Web sign-in flow | Yes |
+| Saved route | Android in-place sign-in; Web Login redirect | Yes |
+| Save/remove mutation | Android auth sheet; Web Login redirect | Yes |
 | Registration, login, and logout | Register or sign in | Logout |
 
 `Guest` is a client state with no bearer token. The backend does not create or
@@ -378,8 +379,12 @@ the mutation contract.
 - Never show a summary-only row that cannot be opened offline.
 - Disabled online-only mutations explain why they cannot complete.
 
-Web has the same guest and protected-action behavior but no persistent offline
-contract in this version.
+Web shares the public-read/protected-write capability boundary and has no
+persistent offline contract. Its Reader bookmark and navigation sign-in actions
+redirect to Login with the current public return path. Android's in-place Saved
+state and contextual auth sheet are not implemented on Web. Direct guest entry
+to `/saved` currently redirects without preserving that destination; this is an
+open return-navigation gap, not a completed contextual-auth flow.
 
 ## 9. Security and data isolation
 
@@ -400,8 +405,9 @@ This slice is complete when:
 
 - Android and Web can reach feed, search, Reader, and stored analysis without an
   account;
-- Saved renders its guest state without redirecting, while mutation controls
-  request sign-in contextually and return to the same public route;
+- Android Saved renders its guest state without redirecting, while mutation
+  controls request sign-in contextually. Web's protected-entry return contract
+  remains incomplete for direct guest `/saved`, as tracked in its test spec;
 - authenticated Saved and subscription behavior remains account-isolated;
 - Android opens locally complete Saved articles and their verified Reader
   analysis during a network failure without showing non-openable feed rows;

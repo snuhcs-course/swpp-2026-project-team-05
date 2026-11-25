@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Living team document |
-| Current revision | 2026-11-20 |
+| Current revision | 2026-11-25 |
 | Historical baseline | [`archive/iteration-2/testing-documentation-iter2.md`](archive/iteration-2/testing-documentation-iter2.md) |
 
 This page is the maintainable entry point for the testing plan and measured
@@ -30,8 +30,8 @@ represented as a deterministic unit-test result.
 
 | Layer | Framework and boundary | Primary purpose |
 | --- | --- | --- |
-| Django | Django TestCase/SimpleTestCase, unittest.mock, coverage.py | API, persistence, validation, search, analysis adapters, failures |
-| Web | Vitest, ESLint, TypeScript/Vite build | request contracts, client logic, type/build regressions |
+| Django | Django TestCase/SimpleTestCase/TransactionTestCase, unittest.mock, coverage.py | API, persistence, validation, PostgreSQL concurrency, analysis adapters, failures |
+| Web | Vitest, Testing Library/jsdom, Oxlint, TypeScript/Vite build | request contracts, client state/navigation, type/build regressions |
 | Android | JUnit 4, Robolectric, JaCoCo, Android lint | parsing, repositories, ViewModels, state and pure UI logic |
 | Cross-client | Shared JSON fixtures and API contract tests | detect response/schema drift |
 | Device/manual | Compose instrumentation, emulator and physical device | rendering, gestures, navigation, release-environment smoke |
@@ -48,13 +48,20 @@ backend and Android coverage gates and uploads reports for 14 days.
 | Saved articles v1 | [`specs/testing/saved-articles.spec.md`](../specs/testing/saved-articles.spec.md) | Implemented with explicit remaining UI/security gaps |
 | Following sources v1 | [`specs/testing/following-sources.spec.md`](../specs/testing/following-sources.spec.md) | Implemented with explicit remaining navigation/concurrency gaps |
 | Reader analysis hierarchy | [`specs/testing/reader-analysis-ui.spec.md`](../specs/testing/reader-analysis-ui.spec.md) | Implemented from reviewed HE feedback; remaining device back-navigation gap is explicit |
-| URL-analysis preview | [`specs/testing/url-analysis-mock.spec.md`](../specs/testing/url-analysis-mock.spec.md) | Implemented as a client-only mock; no upload or analysis is claimed |
-| Evaluation feed opening order | [`specs/testing/feed-opening-order.spec.md`](../specs/testing/feed-opening-order.spec.md) | Implemented as an isolated, temporary evaluation-build behavior |
+| Retired URL-analysis preview | [`specs/testing/url-analysis-mock.spec.md`](../specs/testing/url-analysis-mock.spec.md) | Removed from ordinary Web/Android navigation; regression oracles prevent its return |
+| Evaluation feed opening order | [`specs/testing/feed-opening-order.spec.md`](../specs/testing/feed-opening-order.spec.md) | Retained on Web and in the legacy Android helper; current Android discovery uses topic ordering |
 | News app acceptance | [`specs/testing/acceptance-v1.spec.md`](../specs/testing/acceptance-v1.spec.md) | Six stories frozen for Iteration 3 against `ab8d9bf` |
-| Guest and offline reading | [`specs/testing/acceptance-v2.spec.md`](../specs/testing/acceptance-v2.spec.md) | Implemented behavior with five supplemental cases still awaiting team freeze and execution |
+| Guest and offline reading | [`specs/testing/guest-offline-reading.spec.md`](../specs/testing/guest-offline-reading.spec.md) | Implemented public reads and bounded Android Saved cache; app-shell/Web return gaps remain explicit |
 | Staged link analysis | [`specs/testing/link-analysis.spec.md`](../specs/testing/link-analysis.spec.md) | Deterministic endpoint boundaries implemented; live model quality remains separate evaluation evidence |
 | Iteration 4 release verification | [`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md) | Release CI, dataset-aware API smoke, UAT cycle 1, and device evidence are recorded below |
 | Iteration 3 Android release smoke | [`specs/testing/iteration-3-release-smoke.spec.md`](../specs/testing/iteration-3-release-smoke.spec.md) | Passed 6/6 on `ff16cd1`; exact API structure matched 6/6 |
+| Current Android portal and publishers | [`story-feed.spec.md`](../specs/testing/story-feed.spec.md), [`publisher-navigation.spec.md`](../specs/testing/publisher-navigation.spec.md), [`appearance-consistency.spec.md`](../specs/testing/appearance-consistency.spec.md) | Topic discovery, subscriptions, root navigation and appearance; component coverage is distinct from an installed-device pass |
+| Reader annotation and tutorial | [`scroll-synced-analysis-peek.spec.md`](../specs/testing/scroll-synced-analysis-peek.spec.md), [`first-run-tutorial.spec.md`](../specs/testing/first-run-tutorial.spec.md) | Fixed scroll-synced dock, comparison navigation and first-run guidance; app-shell/device gaps are recorded |
+| Economic/event context | [`economic-lens.spec.md`](../specs/testing/economic-lens.spec.md), [`event-issue-view.spec.md`](../specs/testing/event-issue-view.spec.md) | Stored data, offsets, API projection and client presentation; no semantic-accuracy claim |
+| Trends, reactions and Home highlights | [`realtime-trends.spec.md`](../specs/testing/realtime-trends.spec.md), [`article-reactions-and-home-highlights.spec.md`](../specs/testing/article-reactions-and-home-highlights.spec.md) | Three-hour readership, per-article reactions, 24-hour topic participation and two-hour Breaking eligibility; PostgreSQL races run separately |
+| Demo activity | [`demo-activity.spec.md`](../specs/testing/demo-activity.spec.md) | Explicit repeatable seed/cleanup, ordinary-account isolation and rollback; not organic engagement evidence |
+| News loading/cache reuse | [`news-loading-cache.spec.md`](../specs/testing/news-loading-cache.spec.md) | Viewer-scoped reuse, invalidation, independent loading and complete-Saved-only offline fallback |
+| Account security Stage 1 | [`account-security.spec.md`](../specs/testing/account-security.spec.md) | Shared admission limits, DB-role isolation, no-store and Android credential recovery; browser-cookie Stage 2 deferred |
 
 ### Result recording template
 
@@ -67,12 +74,16 @@ failure or change its revision.
 
 ## 3. Acceptance testing plan
 
-The six stable user stories and concrete procedures are frozen in
-`specs/testing/acceptance-v1.spec.md` against `main` commit `ab8d9bf`. From
-Iteration 4 onward, record per-story pass/fail, tester, date, client/build,
-backend revision, database seed, deviations, and evidence here. The smaller
-Iteration 3 release smoke below is integration evidence, not a claim that formal
-UAT results were completed early.
+`acceptance-v1.spec.md` freezes six Iteration 3 stories against `ab8d9bf`.
+`acceptance-v2.spec.md` preserves a separate, unfrozen guest/offline proposal;
+it is not the five-story Iteration 4 UAT sheet recorded in §8.3. Neither is a
+claim that its procedures have been rerun on the current portal.
+
+For the next formal cycle, reconcile the selected procedures with current
+feature/UI contracts and freeze their revision before execution. Record each
+story's outcome, tester/date, client/build, backend, dataset, deviations and
+evidence. Keep old plans and results attached to their own revisions. The
+Iteration 3 release smoke below is integration evidence, not completed formal UAT.
 
 ## 4. Heuristic evaluation follow-up
 
@@ -140,6 +151,7 @@ one-to-many, multiple-finding, and mixed single/multi-source structures.
 | 2026-11-05 | `ff16cd1`; APK SHA-256 `901c4a8bdc9ced21e32d0fe0129952979c43a4ddfcbc4ac0ca830ab4422f90e4` | GitHub Actions; production API; Android 16 / API 36 emulator | Verify workflow; `scripts/smoke_iteration3_release.py`; frozen six-story installed-Reader procedure | Pass: Django 381, Web 25, Android JVM 84; API 6/6; Reader 6/6 | [Verify run 42027115443](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/42027115443); Android lint: 0 errors, 28 warnings. No blocking deviation. |
 | 2026-11-06 | `b9d03ef`; APK SHA-256 `04bd3bcbf2dad3281b399f8d7d98f469ce786b98682232efc354afe95d5ab640` | Local macOS; SQLite; Node 24; Android Studio JBR 21 | Canonical backend, Web, and Android commands from `AGENTS.md`; backend and Android coverage gates | Pass: Django 381, Web 27, Android JVM 84; Web lint/build; Android lint/build; all enforced coverage gates | A clean Python environment exposed that the OpenRouter client used `httpx` directly without declaring it; `requirements.txt` now declares it explicitly. Compose views remain a tracked device-test gap. The live API and six-story installed-Reader smoke were not rerun, so the 11/05 integration evidence remains the applicable result. |
 | 2026-11-20 | `ffc093c`; APK SHA-256 `23ce07d220c0c37ca4ff44283b6af85f2e3fe8daa4ba5b4f656f92ecf18694f7` | GitHub Actions; production API/Web; Samsung Galaxy S22 demo device | Final Verify workflow; dataset-aware six-article API smoke; Iteration 4 UAT cycle 1; recorded device walkthrough | Pass: Django 421, Web 37, Android JVM 122; API smoke 6/6. UAT accepted 109/128 executed steps; manual negative-state gaps remain explicit. | [Verify run 44697780855](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/44697780855); [smoke evidence](evidence/iteration-4-release-api-smoke.json); [demo branch](https://github.com/snuhcs-course/swpp-2026-project-team-05/tree/iteration-4-demo). |
+| 2026-11-25 | Tested code `2157916`, merged as `faba4aa` in PR #116 | GitHub Actions SQLite/PostgreSQL; local JVM/Web checks; deployed API/Web rewrite | Verify; news-loading/cache and security Stage 1 regression suites; additive security migrations; focused HTTP checks | Pass: SQLite 496 discovered, 11 skipped; separate CI PostgreSQL 51; Web 44; Android JVM 205; coverage gates, lint and builds passed | [Verify 45561135353](https://github.com/snuhcs-course/swpp-2026-project-team-05/actions/runs/45561135353); [PR #116 rollout evidence](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/116). Local PostgreSQL additionally ran the 16 ordinary auth cases (67 total). No device/browser walkthrough or new UAT/AI-quality result is claimed. |
 
 The 11/05 APK was downloaded from the named CI run rather than rebuilt locally.
 The 11/06 APK digest belongs only to the local regression build recorded in its
@@ -147,6 +159,10 @@ row. Iteration 2 evidence and known gaps remain preserved in the historical
 baseline linked at the top of this document.
 
 ## 8. Iteration 4 release verification
+
+This section preserves the recorded release-candidate evidence for `ffc093c`.
+Later merges and counts in §7 do not replace its APK, dataset, UAT results or
+known limitations.
 
 The execution contract for the final Iteration 4 candidate is versioned in
 [`specs/testing/iteration-4-release.spec.md`](../specs/testing/iteration-4-release.spec.md).
@@ -249,6 +265,25 @@ reviewer method, denominators, and failure analysis before the first run.
 
 ### 8.7 Final limitations and publication
 
-The separate English Wiki page is updated without removing earlier iteration
-evidence. Its final revision is exported to PDF for eTL submission; the Wiki and
-PDF must preserve the same release identity and limitations recorded here.
+Wiki updates preserve earlier iteration evidence. Submission packaging and
+uploading belong to the PM; any exported copy must preserve the release identity
+and limitations of its actual source revision.
+
+## 9. Current boundaries after PR #116
+
+The 2026-11-25 evidence covers news-cache correctness and Stage 1 account
+security. Production migrations through `0017_backend_only_tables` were applied
+before the API rollout. RLS and the absence of PUBLIC/Supabase client-role grants
+were verified on all 17 managed/metadata tables; Guest article reads remained
+HTTP 200. Auth errors used no-store. Four malformed registration requests with
+no credentials confirmed that forged forwarding headers could not choose a
+different limiter key through either the direct API or Web rewrite, and both
+paths shared the same client bucket. These are focused deployment checks,
+not a penetration-test result.
+
+Web still uses its existing bearer/localStorage transport. Browser-cookie/CSRF
+Stage 2 was deferred; no email verification, recovery flow or new browser CSP
+was implemented. Android instrumentation was compiled but not run for this
+change. Physical backup restoration, app-shell authentication transitions and
+the direct guest Web `/saved` return path remain explicit gaps in their test
+specifications. The older HE/UAT and editorial-quality results remain historical.

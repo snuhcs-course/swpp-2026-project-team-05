@@ -2,15 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Stage 1 implemented with local executable coverage; Stage 2 draft |
+| Status | Stage 1 verified and deployed; Stage 2 deferred, not implemented |
 | Owner | Account/API and client maintainers |
 | Source requirements | [Account security hardening](../features/account-security.md) |
 | Date | 2026-11-25 |
 
 ## Scope and preconditions
 
-Stage 1 protects the existing credential APIs. Stage 2 changes browser transport
-while preserving Android/legacy bearer clients. Tests use isolated SQLite and
+Stage 1 protects the existing credential APIs. The deferred Stage 2 proposal
+would change browser transport while preserving Android/legacy bearer clients;
+none of its postconditions is a current passing claim. Tests use isolated SQLite and
 PostgreSQL databases, controllable UTC time and fake credentials. No real account,
 production database, mail provider, live password guessing or live AI call.
 
@@ -131,7 +132,7 @@ source; reports/logs must not contain submitted secrets.
     account object after rotation; no concurrent operator/login stress test is
     claimed.
 
-## Postconditions: Stage 2
+## Deferred oracles: Stage 2 (not implemented)
 
 14. Browser login/registration sets the production host-only Secure/HttpOnly/Lax
     session cookie, returns metadata without a raw bearer, and reuses hash-only
@@ -190,11 +191,11 @@ source; reports/logs must not contain submitted secrets.
 ## Review checkpoint
 
 - [x] Stage 1 defaults and shared-network behavior accepted before implementation.
-- [ ] Stage 2 browser-only one-time sign-in and fresh-page restore behavior accepted.
-- [x] Canonical product/UI/guest contracts updated for Stage 1; Stage 2 remains draft.
+- [ ] Stage 2 implementation approved again after its 2026-11-25 deferral.
+- [x] Canonical product/UI/guest contracts updated for Stage 1; Stage 2 remains deferred.
 - [x] Stage 1 executable tests derived from these oracles, with remaining gaps explicit.
 
-## Local verification — 2026-11-25
+## Local verification — 2026-11-25, implementation `2157916`
 
 The full SQLite suite passed 496 tests (11 environment-specific skips); the
 isolated PostgreSQL run passed 67 tests, including three admission/cleanup races
@@ -204,3 +205,9 @@ gates passed without threshold changes. PostgreSQL used a temporary local
 cluster; no production credential guessing or browser/emulator/device run was
 part of this verification. Compose device coverage and the deployment checks
 listed above remain separate evidence.
+
+Deployment evidence is attached to [PR #116](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/116)
+and the dated entry in [`docs/testing-documentation.md`](../../docs/testing-documentation.md).
+The deployed checks cover auth no-store responses, direct database-role
+restrictions, and forged forwarding headers through the API/Web rewrite. They
+do not establish browser-cookie behavior or physical Android backup restoration.

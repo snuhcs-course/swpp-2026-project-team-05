@@ -90,8 +90,9 @@ save state; clients own interaction and cache synchronization.
 - [Unit] The API client parses `is_saved` and `saved_at` and sends authenticated
   list, PUT, and DELETE requests to the exact contract paths.\
   Tested by: `web/src/lib/api.test.ts > saved articles API > lists, saves, and removes through the authenticated contract`
-- [Component] Reader uses the shared mutation boundary; success updates
-  all relevant caches and failure restores the previous state with an error.\
+- [Component] Reader uses the shared mutation boundary: the Web query caches
+  update optimistically, success invalidates affected reads, and failure
+  restores the previous state with an error.\
   Tested by: `web/src/hooks/useSavedArticle.test.tsx > useSavedArticle > updates personalized article caches before the save request completes`,
   `web/src/hooks/useSavedArticle.test.tsx > useSavedArticle > restores cached state when the save request fails`
 - [Component] `/saved` renders loading, populated, empty, initial-error, and

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Stage 1 implemented and locally verified; Stage 2 remains draft |
+| Status | Stage 1 implemented and deployed; Stage 2 deferred, not implemented |
 | Date | 2026-11-25 |
 | Clients | Android and Web |
 | Baseline | Existing Django accounts, opaque sessions and PostgreSQL |
@@ -15,19 +15,22 @@ for readers or replacing the account system. Extend the account/session rules in
 [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md), and the public/private boundary
 in [`guest-offline-reading.md`](guest-offline-reading.md).
 
-Stage 1 implements the approved protection for the existing bearer APIs. Local
-verification does not claim a production rollout. Stage 2 remains a proposal;
-the current bearer transport remains authoritative. Keep the stages independently
+Stage 1 implements the approved protection for the existing bearer APIs and was
+deployed through [PR #116](https://github.com/snuhcs-course/swpp-2026-project-team-05/pull/116).
+Stage 2 was deferred on 2026-11-25; its design below is a retained proposal, not
+an implemented contract or an instruction to proceed. Both clients still use
+bearer sessions. Web retains its existing localStorage session; no browser
+cookie/CSRF transport cutover or new CSP was made. Keep the stages independently
 reviewable:
 
 | Stage | Deliverable | Persistence/API impact |
 | --- | --- | --- |
 | 1 | Login/registration throttling, bounded validation, authentication/DB access protection, Android backup exclusions | One short-lived throttle table and backend-only table permissions; existing account/session and article fields stay unchanged |
-| 2 | Browser HttpOnly session, CSRF checks, Web security headers and storage cutover | Reuse AuthSession; add browser auth routes; Android bearer routes keep their contract |
+| 2 (deferred) | Proposed browser HttpOnly session, CSRF checks, Web security headers and storage cutover | Not implemented; requires renewed approval |
 | Follow-up | Verified email, password change/recovery and account-wide session revocation | Separate spec once the mail sender and ownership policy are decided |
 
-Complete Stage 1 before starting Stage 2. Neither stage silently implements or
-claims email verification/recovery. Those remain prerequisites for accepting
+Any future Stage 2 work needs a new implementation decision. Neither stage
+silently implements or claims email verification/recovery. Those remain prerequisites for accepting
 external real-user accounts under the product baseline.
 
 JWT/refresh-token infrastructure, a second identity provider, Redis, routine
@@ -163,7 +166,10 @@ deployment is separate from local verification.
   session; show a retryable storage error. This cannot undo a committed signup
   or promise revocation when the network is unavailable.
 
-## 3. Stage 2: browser session transport
+## 3. Deferred proposal: browser session transport
+
+Everything in this section is unimplemented. These routes, cookies and client
+transitions must not be treated as current API behavior or passing coverage.
 
 ### 3.1 Reuse the existing session model
 
@@ -270,9 +276,9 @@ deletion. No mail-provider SDK, mail-token table or recovery UI is created here.
 2. Keep Django/Android/Web checks and isolated PostgreSQL admission races as
    release gates. The PostgreSQL concurrency tests run in the existing CI job;
    SQLite alone is not row-lock evidence.
-3. Implement Stage 2 only after its one-time sign-in and fresh-page network-failure
-   behavior are accepted. Update the canonical product/guest/UI contracts in the
-   same change; do not silently weaken their existing bearer/offline guarantees.
+3. Leave Stage 2 deferred. If it is approved later, reconfirm its one-time
+   sign-in and fresh-page network-failure behavior and update the canonical
+   product/guest/UI contracts with that implementation.
 4. Verify the deployment proxy/origin/cookie assumptions separately. No production
    login brute-force tests, credentials in artifacts, or automatic browser/emulator
    runs. Live/browser checks require the user's requested test scope.

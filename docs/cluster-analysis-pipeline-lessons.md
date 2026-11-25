@@ -5,15 +5,17 @@
 | Date | 2026-10-31 |
 | Evidence | Two manual pilot waves and one reviewed production-DB fixture |
 | Reviewed fixture | 5 clusters, 19 articles, 10 findings, 2 shared propositions, 3 comparisons |
-| Scope | Deferred future cluster-centered A–G pipeline; not part of the v1 read experience |
+| Scope | Historical 2026-10-31 pilot lessons; not the current pipeline/API contract |
 
 ## 1. Purpose and evidence boundary
 
-This document records implementation lessons for a future automatic analysis
-pipeline. It is not another product specification and is not part of the current
-v1 implementation order. The product and schema contracts remain in
-[`news-app-v1.md`](../specs/product/news-app-v1.md), while the current reviewed
-examples live in [`gold_v5/`](../server/fixtures/gold_v5/).
+This document preserves design lessons and recommendations from the dated
+manual pilot. Its fixture counts and proposed stages are historical, not the
+current production dataset or an implementation backlog. The product/schema
+contract is [`news-app-v1.md`](../specs/product/news-app-v1.md); the existing staged
+compatibility API is [link-analysis.md](../specs/features/link-analysis.md).
+[`gold_v5/`](../server/fixtures/gold_v5/) preserves the original reviewed examples;
+current datasets use the normalized import described in [backend.md](backend.md).
 
 The conclusions come from manually and agent-assisted review of recent politics and society clusters. They validate the shape of the data and expose common semantic errors. They do **not** establish the precision, latency, or cost of an automatic model pipeline.
 

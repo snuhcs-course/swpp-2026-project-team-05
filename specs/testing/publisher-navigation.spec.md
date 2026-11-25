@@ -1,6 +1,6 @@
 # Publisher identity and navigation refinement
 
-Status: intent supplied by the user on 2026-11-24; implementation and checks follow this contract.
+Status: Implemented; component/ViewModel coverage and remaining app-shell/device gaps are recorded below.
 
 ## Intent
 
@@ -12,8 +12,9 @@ settings screen instead of sending readers to the publisher article directory.
 ## Preconditions and scope
 
 - News remains a root destination. Its uncategorized section is labeled `전체 뉴스`.
-- Publisher identity uses the server's logo URL when available, with bundled
-  genuine brand images for the current reviewed outlets and a neutral fallback.
+- Publisher identity prefers the bundled genuine brand image for a known outlet,
+  uses the server logo URL as a fallback, and keeps a neutral fallback for an
+  unknown or failed logo. This avoids downloading a logo already bundled locally.
 - Publisher directories keep real, individually navigable article headlines;
   no stock photos or fabricated article thumbnails are introduced.
 - Account subscription state and authentication requirements are unchanged.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for Iteration 4 review |
+| Status | Historical supplemental draft; not frozen or recorded as a completed UAT run |
 | Owner | Team |
 | Source requirements | [`../features/guest-offline-reading.md`](../features/guest-offline-reading.md) |
 | Last reviewed | 2026-11-14 |
@@ -13,6 +13,12 @@ available for review, but these acceptance cases are not considered frozen or
 passed until the team runs them. It does not rewrite the v1 results. Once
 reviewed and frozen, failures are fixed in the product rather than by weakening
 a criterion.
+
+Written for review on 2026-11-14, before the current Home/News portal. Its
+Latest/Following labels describe that proposal's UI. The separately recorded
+five-story Iteration 4 UAT cycle is not execution evidence for UAT-07–11 below.
+Reconcile navigation against the current UI contract before freezing a new run;
+do not silently rewrite this draft as an already-completed acceptance result.
 
 ## UAT-07 — Read FrameLESS without an account
 

@@ -56,8 +56,8 @@ Canonical local checks from the repository root are:
 
 ```sh
 FRAMELESS_USE_SQLITE=1 python3.12 manage.py test
-cd web && npm test && npm run lint && npm run build
-cd android && ./gradlew :app:jacocoDebugUnitTestReport :app:lintDebug :app:assembleDebug
+(cd web && npm test && npm run lint && npm run build)
+(cd android && ./gradlew :app:jacocoDebugUnitTestReport :app:lintDebug :app:assembleDebug)
 ```
 
 Run the smallest relevant command while iterating, then the affected full suite

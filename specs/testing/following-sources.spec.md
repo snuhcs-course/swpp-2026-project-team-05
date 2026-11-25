@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Implemented API/Web contract; Android navigation superseded by story-feed spec |
 | Owner | Following sources feature owner |
-| Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§11–12 |
+| Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §11; [`story-feed.spec.md`](story-feed.spec.md) |
 | Last reviewed | 2026-11-25 |
 
 ## Scope
@@ -140,6 +140,13 @@ independent of follows.
   `구독` copy, offers one action per publisher, and opens the contextual
   authentication sheet for a guest without issuing a mutation.\
   Tip: add Compose tests alongside the story-feed section tests.
+- [State transition] Guest authentication may complete only the subscription
+  that opened the sheet, after the authenticated publisher response arrives.
+  Auth dismissal/cancellation clears that intent; bookmarks/reactions do not
+  inherit subscription replay behavior.\
+  Tip: add the delayed-publisher app-shell case described in
+  `story-feed.spec.md` postcondition 13; the existing publisher component tests
+  do not exercise `FrameLESSApp` authentication.
 - [Security regression] Logout clears follow and Following-feed state before a
   second account initializes the app.\
   Tip: extend reset tests with two accounts and opposing follow sets.
@@ -169,14 +176,14 @@ independent of follows.
 
 | Risk or partition | Representative cases | Oracle source |
 | --- | --- | --- |
-| Relationship set | empty / one / many / duplicate / replacement | Feature spec §§11.3–11.5 |
-| Account boundary | same user / different user / sequential login | Feature spec §11.6 |
-| Publisher lifecycle | selectable / inactive / no eligible article / hard-deleted | Feature spec §§11.3–11.5 |
-| Feed scope | absent / ALL / FOLLOWING / invalid | Feature spec §§11.2, 11.5 |
-| Cursor context | same set / changed follows / changed category / changed scope | Feature spec §11.6 |
+| Relationship set | empty / one / many / duplicate / replacement | Feature spec §11.2 |
+| Account boundary | same user / different user / sequential login | Feature spec §11.4 |
+| Publisher lifecycle | selectable / inactive / no eligible article / hard-deleted | Feature spec §11.2 |
+| Feed scope | absent / ALL / FOLLOWING / invalid | Feature spec §§11.1–11.2 |
+| Cursor context | same set / changed follows / changed category / changed scope | Feature spec §11.4 |
 | Analysis independence | followed source / unfollowed comparison source | Feature spec §11.1 |
-| Client editor | draft / cancel / saving / success / failure | Feature spec §§11.7–11.9 |
-| Navigation | Following / global search / Reader / back | Feature spec §§11.7–11.8 |
+| Client editor | draft / cancel / saving / success / failure | Feature spec §§11.2–11.4; Web component oracles above |
+| Navigation | subscribed Home / Web Following / search / Reader / back | Feature spec §§11.1–11.4 |
 
 ## Human review checkpoint
 

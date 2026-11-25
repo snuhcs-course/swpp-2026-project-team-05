@@ -46,10 +46,10 @@ art direction (phase 3).
 - [Acceptance] `기사 검색`, `저장한 기사` and `계정 메뉴` stay directly in the app
   bar and still work.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.appBarKeepsSearchSavedAndAccountDirectlyReachable`
-- [Unit] The row metadata order is category, publisher, time.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.rowMetadataIsCategoryThenPublisherThenTime`
-- [Unit] The byline is publisher then time, without the category.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.bylineIsPublisherThenTimeWithoutTheCategory`
+- [Unit] Current shared row metadata is category then publisher, without time.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.rowMetadataIsCategoryThenPublisherWithoutPublicationTime`
+- [Unit] The current shared byline is publisher only, without category or time.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.bylineIsPublisherWithoutCategoryOrTime`
 - [Unit] Politics, Society and Economy each have a distinct palette and kicker
   ink.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.eachCategoryHasItsOwnArtDirection`
@@ -106,10 +106,13 @@ art direction (phase 3).
 - [Unit] A blank publisher name or time is dropped from the metadata line, not
   replaced with placeholder text.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.rowMetadataDropsBlankPartsInsteadOfInventingThem`
-- [Acceptance] Existing feed tests (category tabs of equal width, scope sheet,
-  `기사 더 보기`, account sheet, search filters, ordinary no-result recovery) pass
-  unchanged.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest`
+- [Historical boundary] Retained legacy feed tests exercise the earlier tabs,
+  scope/account sheets and lead card; they are not a claim that the current
+  portal exposes those controls.\
+  Tip: use `story-feed.spec.md`, `publisher-navigation.spec.md` and
+  `appearance-consistency.spec.md` for current oracles. Some retained lead-card
+  instrumentation still expects a time byline and must be reconciled before
+  running that archived suite as a current-device gate.
 - [Acceptance] With a blank publisher and time, a row shows no byline line.\
   Tip: render a row whose publisher name is blank and whose time cannot be
   formatted, and assert only the kicker and title texts are present.

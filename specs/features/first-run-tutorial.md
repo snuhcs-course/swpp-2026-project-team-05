@@ -4,15 +4,14 @@
 | --- | --- |
 | Status | Implemented |
 | Owner | Reader / onboarding feature owner |
-| Related behavior | [`news-app-features.md`](news-app-features.md) §11.8, §12; [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) |
-| Last reviewed | 2026-11-21 |
+| Related behavior | [`Publisher subscriptions`](news-app-features.md#11-publisher-subscriptions); [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §§4–6 |
+| Last reviewed | 2026-11-25 |
 
 ## 0. Product decision
 
-`news-app-features.md` §11.8 kept onboarding out of the Following-sources work,
-and §12 required a separate product decision. The implemented tutorial is that
-separate feature: it is skippable, adds no navigation destination, and does not
-change the Following scope.
+The tutorial is a separate feature from publisher subscriptions: it is skippable,
+adds no server-side tutorial state, and does not change subscription or topic
+selection rules. Its replay entry follows the current portal navigation.
 
 ## 1. Purpose
 
@@ -40,8 +39,9 @@ was worded differently.
   3. *7가지 표현 차이* — the A–G chip labels, each with a one-line summary.
 - `건너뛰기`, `시작하기`, and `로그인하러 가기` all mark onboarding as seen.
   `로그인하러 가기` then opens the existing login screen.
-- System Back on page 2 returns to page 1; on page 1 it follows the default
-  activity behavior.
+- System Back goes to the previous onboarding page. On the first page it closes
+  the intro through the same completion callback and returns to the preserved
+  origin, including MY when replay started there.
 
 ## 3. Reader coach marks (first analyzed article)
 
