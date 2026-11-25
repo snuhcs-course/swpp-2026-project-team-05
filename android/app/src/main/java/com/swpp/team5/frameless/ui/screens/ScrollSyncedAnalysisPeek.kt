@@ -68,10 +68,13 @@ internal fun selectScrollSyncedPeekCandidate(
     markers: List<PeekMarkerPosition>,
     viewportTop: Float,
     viewportBottom: Float,
-    atScrollEnd: Boolean = false
+    atScrollEnd: Boolean = false,
+    atScrollStart: Boolean = false,
+    firstFindingId: String? = null
 ): String? {
     val height = viewportBottom - viewportTop
     if (height <= 0f) return null
+    if (atScrollStart) return firstFindingId
     if (atScrollEnd) {
         return markers.asSequence()
             .filter { it.physicalCenterY in viewportTop..viewportBottom }

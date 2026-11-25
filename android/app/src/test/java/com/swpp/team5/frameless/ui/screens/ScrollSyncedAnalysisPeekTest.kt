@@ -74,6 +74,25 @@ class ScrollSyncedAnalysisPeekTest {
     }
 
     @Test
+    fun scrollStartRestoresTheFirstFindingIncludingTitleWithoutChangingOrdinarySelection() {
+        val markers = listOf(
+            PeekMarkerPosition("first-body", 12f, 0),
+            PeekMarkerPosition("later-body", 55f, 1)
+        )
+        assertEquals("later-body", selectScrollSyncedPeekCandidate(
+            markers, 0f, 100f, firstFindingId = "title"
+        ))
+        for (first in listOf("title", "first-body")) {
+            assertEquals(first, selectScrollSyncedPeekCandidate(
+                markers, 0f, 100f, atScrollStart = true, firstFindingId = first
+            ))
+        }
+        assertEquals("title", selectScrollSyncedPeekCandidate(
+            emptyList(), 0f, 100f, atScrollStart = true, firstFindingId = "title"
+        ))
+    }
+
+    @Test
     fun sameLineFindingsReceiveSequentialVirtualSelectionSlots() {
         fun positionedAt(centerY: Float) = spaceSameLinePeekMarkers(
             listOf(

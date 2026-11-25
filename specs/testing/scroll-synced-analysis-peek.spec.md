@@ -21,7 +21,7 @@ selection, and routing into the existing Android comparison flow.
 
 ### Candidate policy
 
-- [Unit] Only BODY marker centres inside the inclusive 45–65% band are automatic
+- [Unit] Between scroll boundaries, only BODY marker centres inside the inclusive 45–65% band are automatic
   candidates. The marker nearest 55% wins and reading order breaks ties.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ScrollSyncedAnalysisPeekTest.selectsNearestEligibleBodyFindingIncludingBandBoundaries`,
   `com.swpp.team5.frameless.ui.screens.ScrollSyncedAnalysisPeekTest.readingOrderBreaksAnEqualDistanceTie`
@@ -31,6 +31,11 @@ selection, and routing into the existing Android comparison flow.
 - [Unit] At the physical scroll end, the last visible BODY finding is selected
   even below the ordinary band; a later off-screen finding is ignored.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ScrollSyncedAnalysisPeekTest.scrollEndSelectsTheLastVisibleFindingOutsideTheOrdinaryBand`
+- [Regression] Returning to the physical top during user scrolling restores the
+  first displayable finding (TITLE first, otherwise BODY), even outside the
+  ordinary band. Initial/restored state and idle manual choices are unchanged.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.ScrollSyncedAnalysisPeekTest.scrollStartRestoresTheFirstFindingIncludingTitleWithoutChangingOrdinarySelection`,
+  `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll`
 - [Timing] An eligible candidate replaces the dock finding in the same Compose
   update; no dwell timer or delayed replacement remains.\
   Tested by: `android/app/src/androidTest/java/com/swpp/team5/frameless/ui/screens/NewsScreensInstrumentedTest.kt > readerKeepsFixedAnnotationDockAndUpdatesItDuringUserScroll`

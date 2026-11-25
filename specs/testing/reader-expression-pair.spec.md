@@ -44,6 +44,16 @@ restyle.
 - [Acceptance] Existing sheet behaviour (heading, close, overview once, pager,
   article action) is unchanged.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.readerAnnotationOpensFullComparisonDetail`
+- [Acceptance] No full compared body or replacement excerpt area is rendered
+  below the article controls. Paired expressions and their context remain, the
+  original link remains available, and `이 기사 읽기` closes the sheet and
+  passes the unchanged article, including its full body and evidence.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.ExpressionPairInstrumentedTest.comparisonSheetOmitsFullBodyAndKeepsOriginalArticleActions`
+- [Acceptance] The sheet uses its content height rather than reserving an empty
+  full-screen article-reading region; overflowing comparison content remains
+  scrollable and navigation does not cover its final controls.\
+  Tip: inspect the single- and multiple-publisher cases on the physical phone,
+  including enlarged text.
 
 ### Errors and boundaries
 
@@ -77,4 +87,4 @@ restyle.
 ## Undefined behavior
 
 - Pairing when a page has several BODY evidence rows: only the first is shown in
-  the panel; the others remain highlighted in the article below.
+  the panel; `이 기사 읽기` remains available for full-text reading.
