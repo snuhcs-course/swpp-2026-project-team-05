@@ -317,10 +317,7 @@ internal fun PortalHomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box(
-                                modifier = Modifier.size(54.dp)
-                                    .border(if (active) 2.dp else 1.dp,
-                                        if (active) Fl.Ink else Fl.Line, RoundedCornerShape(12.dp))
-                                    .padding(5.dp),
+                                modifier = Modifier.size(54.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 PublisherLogo(publisher, Modifier.size(44.dp))

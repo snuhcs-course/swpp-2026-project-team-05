@@ -90,8 +90,11 @@ selectable, at least 48dp high. Curated publisher logos use sharp original brand
 assets sized for their largest 44dp display at high-density phone resolution;
 do not enlarge 16/32px favicons to fill those slots. Keep source URLs and native
 asset dimensions in `android/app/src/main/assets/publishers/sources.json`.
-Publisher artwork uses 44dp inside Home's 54dp rounded-square selection border, 40dp in the
-directory, 38dp in publisher headers, and 36dp in subscription management.
+Publisher artwork uses 44dp inside Home's 54dp slot, 40dp in the directory,
+38dp in publisher headers, and 36dp in subscription management. Home reuses the
+same rounded-square white logo tile as subscription management, without a second
+outer border. Selected Home publishers use the existing bold name and selected
+semantics rather than an extra frame around the logo.
 Keep publisher actions at least 48dp high as artwork becomes more compact.
 
 Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not ordinary-user navigation.

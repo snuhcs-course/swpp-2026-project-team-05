@@ -164,8 +164,9 @@ pages, and scroll position.
 Home keeps its portal utilities above two independent news sections:
 
 - `주요 뉴스` always requests `scope=ALL`;
-- `구독한 언론사` follows directly below it, with a horizontal row of circular
-  publisher logos and short names. Select the first subscribed publisher by
+- `구독한 언론사` follows directly below it, with a horizontal row of rounded-square
+  publisher logos and short names. Reuse subscription management's logo tile
+  without a second outer frame. Select the first subscribed publisher by
   default; choosing another changes only the articles directly below the row;
 - query the ordinary article endpoint with the chosen publisher filter. Never
   filter only the already-loaded public page or fetch every outlet eagerly;
