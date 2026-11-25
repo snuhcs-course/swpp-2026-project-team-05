@@ -22,7 +22,7 @@ reviewable:
 
 | Stage | Deliverable | Persistence/API impact |
 | --- | --- | --- |
-| 1 | Login/registration throttling, bounded validation, authentication response protection, Android backup exclusions | One short-lived throttle table; existing account/session and article schemas stay unchanged |
+| 1 | Login/registration throttling, bounded validation, authentication/DB access protection, Android backup exclusions | One short-lived throttle table and backend-only table permissions; existing account/session and article fields stay unchanged |
 | 2 | Browser HttpOnly session, CSRF checks, Web security headers and storage cutover | Reuse AuthSession; add browser auth routes; Android bearer routes keep their contract |
 | Follow-up | Verified email, password change/recovery and account-wide session revocation | Separate spec once the mail sender and ownership policy are decided |
 
@@ -61,10 +61,17 @@ than silently disabling protection. Deployment settings and defaults are:
 | `FRAMELESS_AUTH_LOGIN_WINDOW_SECONDS` | 600 |
 | `FRAMELESS_AUTH_REGISTER_WINDOW_SECONDS` | 3600 |
 
-Apply `server.0016_auth_throttle` before deploying the new backend. It adds only
-`frameless_auth_throttle`; a missing table is an unavailable authentication
-dependency, not a bypass mode. No password or existing session is changed by this
-migration. Production migration/deployment is separate from local verification.
+Apply through `server.0017_backend_only_tables` before deploying the new backend.
+`0016` adds only `frameless_auth_throttle`; a missing table is an unavailable
+authentication dependency, not a bypass mode. `0017` enables PostgreSQL row-level
+security and revokes direct PUBLIC/Supabase `anon`/`authenticated` table grants
+on Django-managed storage and migration metadata. Account/session tables must
+not offer a way around API authentication or limiter enforcement through the
+Supabase Data API. Clients use Django for public and private reads; the backend
+retains its existing database owner/service access. Future managed tables must
+receive the same boundary. Rollback keeps these restrictions in place.
+Neither migration changes passwords or existing sessions. Production migration/
+deployment is separate from local verification.
 
 - Normalize an identifier exactly as authentication does: trim and lowercase.
   After IP admission, resolve the existing account before hashing. Its username

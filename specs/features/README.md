@@ -48,7 +48,7 @@ contracts. `telemetry.md` records Firebase's conditional setup, event vocabulary
 and current portal coverage limits.
 
 `account-security.md` Stage 1 implements shared login/registration limits,
-no-store authentication responses and Android secure-storage/backup recovery.
+backend-only database access, no-store authentication responses and Android secure-storage/backup recovery.
 It adds one short-lived throttle table while preserving bearer sessions. Stage 2
 browser cookie/CSRF transport remains draft; mail-based verification/recovery is
 separate follow-up work. The linked test specification distinguishes local

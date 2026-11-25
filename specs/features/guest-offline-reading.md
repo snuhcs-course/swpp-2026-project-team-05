@@ -27,6 +27,7 @@ auth preferences from backup/transfer and recovers unreadable credentials to
 Guest while preserving public Room content. Its browser cookie stage remains
 draft and must explicitly revise Web restoration/logout behavior and credential
 transport while preserving Android's bearer and offline-reading contracts.
+Guest access is an API policy; clients do not use Supabase's `anon` database role.
 
 ## 1. Goals and boundaries
 

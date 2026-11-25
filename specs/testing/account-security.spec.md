@@ -53,8 +53,13 @@ source; reports/logs must not contain submitted secrets.
 6. IP spoofing cannot select an arbitrary limiter bucket. Missing/untrusted
    forwarding information has a conservative stable fallback. Stored keys are
    namespaced hashes, not raw identifiers/IPs.
+   Django-managed tables and migration metadata are backend-only: RLS is enabled
+   and PUBLIC/Supabase client roles have no direct table grants. A direct database
+   client cannot forge sessions or alter counters to bypass API protection;
+   ordinary Guest reads through Django still work.
    Tested by: `tests.test_auth_security.AuthConfigurationTests.test_ip_trust_canonicalization_and_spoofed_headers`,
    `tests.test_auth_security.AuthSecurityTests.test_counter_expiry_is_fixed_and_rows_are_reused`.
+   Tested by: `tests.test_auth_security_postgres.AuthConcurrencyTests.test_managed_tables_are_backend_only_without_breaking_guest_api`.
    Tip: verify the canonical header through the deployed proxy path separately;
    parser tests and provider documentation alone are not that evidence.
 7. Expired counters are reused/pruned in bounded batches. Counter-store failure
@@ -191,9 +196,9 @@ source; reports/logs must not contain submitted secrets.
 
 ## Local verification — 2026-11-25
 
-The full SQLite suite passed 495 tests (10 environment-specific skips); the
-isolated PostgreSQL run passed 66 tests, including the three admission/cleanup
-races. Android passed 205 JVM tests, lint, debug APK and device-test APK compilation.
+The full SQLite suite passed 496 tests (11 environment-specific skips); the
+isolated PostgreSQL run passed 67 tests, including three admission/cleanup races
+and the direct-database-role boundary. Android passed 205 JVM tests, lint, debug APK and device-test APK compilation.
 Web passed 44 tests, lint and production build. Existing backend/Android coverage
 gates passed without threshold changes. PostgreSQL used a temporary local
 cluster; no production credential guessing or browser/emulator/device run was

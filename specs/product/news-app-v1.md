@@ -203,7 +203,7 @@ Password change, reset, account deletion, and session listing remain outside thi
 [`../features/account-security.md`](../features/account-security.md) Stage 1 adds
 shared login/registration attempt limits, typed/bounded credentials, no-store
 authentication responses and Android secure-storage/backup recovery. It keeps
-the current bearer contract and requires its throttle-table migration before
+the current bearer contract and requires its security migrations before
 backend rollout. Browser cookie/CSRF transport is still a Stage 2 draft;
 email verification/recovery remains separate follow-up work.
 

@@ -4,9 +4,11 @@ from datetime import timedelta
 from threading import Barrier
 from unittest import skipUnless
 from unittest.mock import patch
+from uuid import uuid4
 
+from django.apps import apps
 from django.contrib.auth.hashers import make_password
-from django.db import close_old_connections, connection
+from django.db import DatabaseError, close_old_connections, connection, transaction
 from django.test import Client, TransactionTestCase, override_settings
 from django.utils import timezone
 
@@ -16,6 +18,53 @@ from server.models import AuthSession, AuthThrottleBucket, UserAccount
 
 @skipUnless(connection.vendor == "postgresql", "Requires the isolated PostgreSQL run")
 class AuthConcurrencyTests(TransactionTestCase):
+    def test_managed_tables_are_backend_only_without_breaking_guest_api(self):
+        tables = sorted({model._meta.db_table for model in apps.get_app_config("server").get_models()
+                         if model._meta.managed} | {"django_migrations"})
+        with connection.cursor() as cursor:
+            for table in tables:
+                cursor.execute("SELECT relrowsecurity FROM pg_class WHERE oid = %s::regclass", [table])
+                self.assertTrue(cursor.fetchone()[0], table)
+                cursor.execute("SELECT COUNT(*) FROM pg_class c, LATERAL aclexplode(c.relacl) a "
+                               "WHERE c.oid = %s::regclass AND a.grantee = 0", [table])
+                self.assertEqual(cursor.fetchone()[0], 0, table)
+            cursor.execute("SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')")
+            for (name,) in cursor.fetchall():
+                for table in tables:
+                    for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+                        cursor.execute("SELECT has_table_privilege(%s, %s, %s)", [name, table, privilege])
+                        self.assertFalse(cursor.fetchone()[0], (name, table, privilege))
+        reserve("test", "owner", limit=2, window=60)
+        role = connection.ops.quote_name("frameless_boundary_" + uuid4().hex)
+        with connection.cursor() as cursor:
+            cursor.execute(f"CREATE ROLE {role} NOLOGIN NOSUPERUSER NOBYPASSRLS")
+        try:
+            # Even an accidental future row-operation grant cannot bypass RLS.
+            with connection.cursor() as cursor:
+                cursor.execute(f"GRANT USAGE ON SCHEMA public TO {role}")
+                cursor.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON frameless_auth_throttle TO {role}")
+            with transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute(f"SET LOCAL ROLE {role}")
+                cursor.execute("SELECT COUNT(*) FROM frameless_auth_throttle")
+                self.assertEqual(cursor.fetchone()[0], 0)
+                cursor.execute("UPDATE frameless_auth_throttle SET count = 0")
+                self.assertEqual(cursor.rowcount, 0)
+                cursor.execute("DELETE FROM frameless_auth_throttle")
+                self.assertEqual(cursor.rowcount, 0)
+            with self.assertRaises(DatabaseError) as denied:
+                with transaction.atomic(), connection.cursor() as cursor:
+                    cursor.execute(f"SET LOCAL ROLE {role}")
+                    cursor.execute("INSERT INTO frameless_auth_throttle (id, scope, key_hash, count, expires_at) "
+                                   "VALUES (999999, 'test', %s, 0, CURRENT_TIMESTAMP)", ["0" * 64])
+            self.assertEqual(denied.exception.__cause__.sqlstate, "42501")
+            self.assertIn("row-level security", str(denied.exception).lower())
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP OWNED BY {role}")
+                cursor.execute(f"DROP ROLE {role}")
+        self.assertEqual(AuthThrottleBucket.objects.get().count, 1)
+        self.assertEqual(Client().get("/api/v1/articles").status_code, 200)
+
     def concurrent(self, actions):
         barrier = Barrier(len(actions))
         def run(action):
