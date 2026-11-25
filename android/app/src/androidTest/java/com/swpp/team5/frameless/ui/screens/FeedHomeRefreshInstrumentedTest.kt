@@ -80,9 +80,9 @@ class FeedHomeRefreshInstrumentedTest {
     fun redesignedRowShowsExactTitleCategoryMetadataAndNoInventedBadges() {
         setFeed()
         compose.onNodeWithText(title).assertIsDisplayed()
-        // Since phase 3 the single article is the cover: category kicker, then a publisher · time byline.
+        // The cover keeps its category kicker and publisher, without a publication time.
         compose.onNode(hasTestTag(FEATURED_ARTICLE_TAG) and hasText("경제")).assertIsDisplayed()
-        compose.onNode(hasTestTag(FEATURED_ARTICLE_TAG) and hasText("연합뉴스  ·  ", substring = true))
+        compose.onNode(hasTestTag(FEATURED_ARTICLE_TAG) and hasText("연합뉴스"))
             .assertIsDisplayed()
         compose.onAllNodesWithText("비교 가능", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("오늘의 비교 이슈", substring = true).assertCountEquals(0)

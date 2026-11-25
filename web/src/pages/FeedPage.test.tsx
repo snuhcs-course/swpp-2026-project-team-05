@@ -88,6 +88,18 @@ describe('FeedPage search', () => {
     expect(screen.getByLabelText('location-search')).not.toHaveTextContent('q=')
   })
 
+  it('searches a single character and retains the query when no results match', async () => {
+    renderFeed()
+    const input = screen.getByRole('searchbox', { name: 'Search articles' })
+    fireEvent.change(input, { target: { value: '정' } })
+    await waitFor(() => expect(api.articles).toHaveBeenCalledWith(
+      'test-token', expect.objectContaining({ query: '정', scope: 'ALL', category: undefined }),
+    ))
+    expect(input).toHaveValue('정')
+    expect(screen.queryByText('Enter at least 2 characters to search.')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('location-search')).toHaveTextContent('?category=POLITICS')
+  })
+
   it('keeps Latest complete and requests Following only when selected', async () => {
     const user = userEvent.setup()
     renderFeed()

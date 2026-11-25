@@ -32,8 +32,7 @@ export function FeedPage() {
   const [activeQuery, setActiveQuery] = useState('')
   const [searchFilter, setSearchFilter] = useState<SearchFilter>('ALL')
   const [sourcesOpen, setSourcesOpen] = useState(false)
-  const queryTooShort = !isComposing && normalizedInput.length === 1
-  const queryPending = !isComposing && normalizedInput.length >= 2 && activeQuery !== normalizedInput
+  const queryPending = !isComposing && normalizedInput.length > 0 && activeQuery !== normalizedInput
 
   useEffect(() => {
     if (!params.has('q')) return
@@ -43,7 +42,7 @@ export function FeedPage() {
   }, [params, setParams])
 
   useEffect(() => {
-    if (isComposing || normalizedInput.length < 2) return
+    if (isComposing || !normalizedInput) return
     const timer = window.setTimeout(() => {
       if (normalizedInput !== activeQuery) setSearchFilter('ALL')
       setActiveQuery(normalizedInput)
@@ -65,7 +64,7 @@ export function FeedPage() {
     }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-    enabled: !activeQuery && !queryTooShort,
+    enabled: !activeQuery,
   })
 
   const searchQuery = useInfiniteQuery({
@@ -78,7 +77,7 @@ export function FeedPage() {
     }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-    enabled: Boolean(activeQuery) && !queryPending && !queryTooShort,
+    enabled: Boolean(activeQuery) && !queryPending,
   })
 
   const followMutation = useMutation({
@@ -103,11 +102,11 @@ export function FeedPage() {
 
   const articles = useMemo(
     () => {
-      if (queryPending || queryTooShort || activeQuery) return []
+      if (queryPending || activeQuery) return []
       const loaded = articlesQuery.data?.pages.flatMap((page) => page.items) ?? []
       return orderFeedArticles(loaded, scope, false)
     },
-    [activeQuery, articlesQuery.data, queryPending, queryTooShort, scope],
+    [activeQuery, articlesQuery.data, queryPending, scope],
   )
   const searchResults = searchQuery.data?.pages.flatMap((page) => page.items) ?? []
   const searchInitialLoading = Boolean(activeQuery) && searchQuery.isLoading
@@ -129,17 +128,17 @@ export function FeedPage() {
 
   function updateQuery(value: string) {
     const nextNormalized = value.trim().replace(/\s+/g, ' ')
-    if (!activeQuery && normalizedInput.length < 2 && nextNormalized.length >= 2) {
+    if (!activeQuery && !normalizedInput && nextNormalized) {
       setSearchFilter('ALL')
     }
     setQueryInput(value)
-    if (value.trim().length < 2) setActiveQuery('')
+    if (!nextNormalized) setActiveQuery('')
   }
 
   function submitSearch(event: FormEvent) {
     event.preventDefault()
     if (isComposing) return
-    if (normalizedInput.length >= 2) {
+    if (normalizedInput) {
       if (normalizedInput !== activeQuery) setSearchFilter('ALL')
       setActiveQuery(normalizedInput)
     }
@@ -252,13 +251,10 @@ export function FeedPage() {
               </span>
             </div>
 
-            {queryTooShort && (
-              <div className="border-y border-zinc-300 py-20 text-center text-sm text-zinc-500">Enter at least 2 characters to search.</div>
-            )}
-            {(queryPending || (!activeQuery && articlesQuery.isLoading) || searchInitialLoading) && !queryTooShort && (
+            {(queryPending || (!activeQuery && articlesQuery.isLoading) || searchInitialLoading) && (
               <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading the latest coverage…</div>
             )}
-            {!activeQuery && articlesQuery.isError && !queryTooShort && (
+            {!activeQuery && articlesQuery.isError && (
               <div className="border border-red-300 p-8 text-center text-sm text-red-700">We could not load the feed. Please try again shortly.</div>
             )}
             {!activeQuery && hero && !queryPending && (
@@ -288,7 +284,7 @@ export function FeedPage() {
               />
             )}
             {!activeQuery && rest.map((article, index) => <ArticleRow key={article.id} article={article} index={index} />)}
-            {!activeQuery && !articlesQuery.isLoading && !queryPending && !queryTooShort && !articles.length && (
+            {!activeQuery && !articlesQuery.isLoading && !queryPending && !articles.length && (
               <div className="border-y border-zinc-300 px-5 py-20 text-center text-sm text-zinc-500">
                 {scope === 'FOLLOWING' && followedCount === 0 ? (
                   <>
@@ -305,7 +301,7 @@ export function FeedPage() {
                 )}
               </div>
             )}
-            {!activeQuery && articlesQuery.hasNextPage && !queryPending && !queryTooShort && (
+            {!activeQuery && articlesQuery.hasNextPage && !queryPending && (
               <Button variant="outline" className="mt-7 w-full" disabled={articlesQuery.isFetchingNextPage} onClick={() => void articlesQuery.fetchNextPage()}>
                 {articlesQuery.isFetchingNextPage ? 'Loading…' : 'Load more stories'}
               </Button>

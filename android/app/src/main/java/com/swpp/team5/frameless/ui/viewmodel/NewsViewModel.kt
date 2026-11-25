@@ -705,16 +705,6 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feed = feed.copy(searchInput = value, error = null, nextPageError = null)
         when {
             normalized.isEmpty() -> showSearchPrompt(value)
-            normalized.length < 2 -> feed = feed.copy(
-                items = emptyList(),
-                searchSections = emptyMap(),
-                nextCursor = null,
-                activeSearchQuery = "",
-                isSearchPending = false,
-                isLoading = false,
-                isRefreshing = false,
-                isLoadingMore = false
-            )
             else -> {
                 feed = feed.copy(isSearchPending = true)
                 searchDebounceJob = viewModelScope.launch {
@@ -727,7 +717,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
 
     fun submitSearch() {
         val normalized = normalizeSearch(feed.searchInput)
-        if (!feed.isSearchOpen || normalized.length < 2) return
+        if (!feed.isSearchOpen || normalized.isEmpty()) return
         searchDebounceJob?.cancel()
         activateSearch(normalized)
     }
@@ -799,7 +789,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         feedJob?.cancel()
         searchDebounceJob?.cancel()
         val normalized = normalizeSearch(feed.searchInput)
-        val query = normalized.takeIf { feed.isSearchOpen && it.length >= 2 }
+        val query = normalized.takeIf { feed.isSearchOpen && it.isNotEmpty() }
         feed = feed.copy(
             items = emptyList(),
             searchFilter = if (query == null) feed.searchFilter else SearchFilter.ALL,

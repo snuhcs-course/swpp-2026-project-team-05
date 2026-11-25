@@ -894,11 +894,23 @@ class NewsApiTests(TestCase):
         self.assertEqual(wrong_query.json()["error"]["code"], "INVALID_CURSOR")
 
     def test_search_validates_query_length_and_feed_shape_is_unchanged(self):
-        for query in ("한", "가" * 101):
-            with self.subTest(length=len(query)):
-                response = self.client.get("/api/v1/articles", {"q": query}, **self.auth)
-                self.assertEqual(response.status_code, 400)
-                self.assertIn("q", response.json()["error"]["fields"])
+        single = self.client.get("/api/v1/articles", {"q": " 정 "})
+        self.assertEqual(single.status_code, 200)
+        self.assertEqual(single.json()["total_count"], 2)
+        self.assertEqual(
+            {row["id"] for row in single.json()["items"]},
+            {str(self.source.id), str(self.target.id)},
+        )
+        boundary = self.client.get("/api/v1/articles", {"q": "가" * 100}, **self.auth)
+        self.assertEqual(boundary.status_code, 200)
+        self.assertEqual(boundary.json()["total_count"], 0)
+        response = self.client.get("/api/v1/articles", {"q": "가" * 101}, **self.auth)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("q", response.json()["error"]["fields"])
+
+        blank = self.client.get("/api/v1/articles", {"q": "  "}, **self.auth)
+        self.assertEqual(blank.status_code, 200)
+        self.assertNotIn("total_count", blank.json())
 
         feed = self.client.get("/api/v1/articles", **self.auth)
         self.assertNotIn("search_excerpt", feed.json()["items"][0])

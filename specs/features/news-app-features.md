@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented baseline |
-| Version | 0.6 |
-| Date | 2026-11-15 |
+| Version | 0.7 |
+| Date | 2026-11-25 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -74,7 +74,7 @@ Internal cluster labels, A-G category codes, analysis explanations, user data,
 and comparison-only article text are not searchable in v1.
 
 Queries are trimmed and Unicode-normalized. Latin matching is case-insensitive.
-The accepted query length after normalization is 2 to 100 characters. An absent
+The accepted query length after normalization is 1 to 100 characters. An absent
 or empty `q` keeps the existing feed behavior; a non-empty query outside the
 accepted range returns a field-specific validation error.
 
@@ -172,7 +172,7 @@ Changing the query or any filter always resets pagination on the client.
 | Missing session with `scope=FOLLOWING` | Existing `401 AUTH_REQUIRED` |
 | Supplied invalid or expired session | Existing `401 AUTH_REQUIRED` |
 | Unsupported category or publisher | Existing `400 VALIDATION_ERROR` |
-| Query shorter than 2 or longer than 100 characters | `400 VALIDATION_ERROR` with `q` field detail |
+| Query longer than 100 characters | `400 VALIDATION_ERROR` with `q` field detail |
 | Cursor from another query or filter set | `400 INVALID_CURSOR` |
 | Temporary server failure | Existing safe server error; client offers retry |
 
@@ -222,7 +222,7 @@ signal and may also become an explicit user-selected filter.
 
 ### 5.2 Request behavior
 
-- Start automatic search after at least two normalized characters.
+- Start automatic search after the first normalized character.
 - Debounce typing by approximately 300 ms.
 - Cancel or ignore an obsolete request when the query changes.
 - Search the complete Politics, Society, and Economy corpus with one uncategorized request,
@@ -238,7 +238,7 @@ signal and may also become an explicit user-selected filter.
 
 The screen must distinguish:
 
-- focused but not yet searchable;
+- focused with an empty field;
 - loading with no existing results;
 - results;
 - loading another page;
@@ -249,6 +249,10 @@ The screen must distinguish:
 Results reuse the existing compact article row. A returned search excerpt
 appears below the headline in restrained secondary text. Opening a
 result uses the existing Reader and analysis flow.
+
+A no-results state keeps the query and search field available for editing.
+Do not add a separate clear/re-enter button below the message; the field's
+existing clear action handles that operation.
 
 The search field has an accessibility label, the clear and back controls have
 distinct button descriptions, and IME search submits immediately.

@@ -221,8 +221,7 @@ internal fun NewsFeedScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (state.isSearchOpen) {
-                    // Filters appear once a query can be searched (two characters).
-                    if (normalizedSearch.length >= 2) SearchFilter.entries.forEach { filter ->
+                    if (normalizedSearch.isNotEmpty()) SearchFilter.entries.forEach { filter ->
                         SearchFilterTab(
                             label = filter.label,
                             selected = state.searchFilter == filter,
@@ -256,12 +255,6 @@ internal fun NewsFeedScreen(
         HorizontalDivider(color = HomeTokens.Hairline)
         when {
             state.isSearchOpen && normalizedSearch.isEmpty() -> SearchPrompt()
-            state.isSearchOpen && normalizedSearch.length == 1 -> FeedMessage(
-                title = "검색어를 조금 더 입력해 주세요",
-                detail = "두 글자 이상부터 전체 기사에서 검색해요.",
-                action = "다시 입력하기",
-                onAction = { onSearchInput("") }
-            )
             state.isSearchPending -> LoadingFeed()
             state.activeSearchQuery.isNotBlank() -> SearchResultsFeed(
                 query = state.activeSearchQuery,
@@ -271,7 +264,6 @@ internal fun NewsFeedScreen(
                 onRetrySection = onRetrySearch,
                 onLoadMore = onLoadMoreSearch,
                 onArticle = onArticle,
-                onClearSearch = { onSearchInput("") },
                 onShowAllResults = { onSearchFilter(SearchFilter.ALL) }
             )
             state.isLoading && state.items.isEmpty() -> LoadingFeed()
@@ -280,10 +272,6 @@ internal fun NewsFeedScreen(
                 detail = state.error,
                 action = "다시 시도",
                 onAction = onRetry
-            )
-            state.items.isEmpty() && state.activeSearchQuery.isNotBlank() -> SearchNoResults(
-                query = state.activeSearchQuery,
-                onClearSearch = { onSearchInput("") }
             )
             state.items.isEmpty() -> FeedMessage(
                 title = if (state.isOffline) "오프라인에서 읽을 저장 기사가 없어요"
@@ -459,7 +447,6 @@ private fun SearchResultsFeed(
     onRetrySection: (SearchFilter) -> Unit,
     onLoadMore: (SearchFilter) -> Unit,
     onArticle: (String) -> Unit,
-    onClearSearch: () -> Unit,
     onShowAllResults: () -> Unit
 ) {
     val selected = sections[selectedFilter] ?:
@@ -566,10 +553,7 @@ private fun SearchResultsFeed(
             if (selected.filter == SearchFilter.ALL && selected.items.isEmpty() &&
                 !selected.isLoading && selected.error == null) {
                 item(key = "global-empty-search") {
-                    SearchNoResults(
-                        query = query,
-                        onClearSearch = onClearSearch
-                    )
+                    SearchNoResults(query = query)
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -741,10 +725,7 @@ internal fun FeedMessage(title: String, detail: String, action: String, onAction
 }
 
 @Composable
-private fun SearchNoResults(
-    query: String,
-    onClearSearch: () -> Unit
-) {
+private fun SearchNoResults(query: String) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 44.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -757,8 +738,6 @@ private fun SearchNoResults(
             lineHeight = 20.sp,
             color = Fl.Muted
         )
-        Spacer(Modifier.height(4.dp))
-        OutlinedPill("검색어 다시 입력", onClearSearch)
     }
 }
 

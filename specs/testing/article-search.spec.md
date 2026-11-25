@@ -5,7 +5,7 @@
 | Status | Implemented; intent review inherited from the product specification |
 | Owner | Article search feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§2–8 |
-| Last reviewed | 2026-11-05 |
+| Last reviewed | 2026-11-25 |
 
 ## Scope
 
@@ -24,7 +24,7 @@ restoration of the ordinary feed.
 
 - The request has no credentials or a valid session.
 - Searchable rows have `visibility=VISIBLE` and `is_feed_visible=true`.
-- `q`, when present, normalizes to 2–100 characters.
+- A non-empty `q` normalizes to 1–100 characters; blank keeps ordinary feed behavior.
 - Category, publisher, limit, and cursor use the existing article-feed contract.
 
 ## Postconditions
@@ -64,8 +64,8 @@ restoration of the ordinary feed.
 
 ### Backend errors and boundaries
 
-- [Integration] Normalized queries shorter than 2 or longer than 100 characters
-  return a field-specific validation error.\
+- [Integration] One-character and 100-character queries are accepted; queries
+  longer than 100 characters return a field-specific validation error.\
   Tested by: `tests.test_news_api.NewsApiTests.test_search_validates_query_length_and_feed_shape_is_unchanged`
 - [Integration] Invalid or tampered cursors use the existing `INVALID_CURSOR`
   response.\
@@ -79,6 +79,9 @@ restoration of the ordinary feed.
 
 ### Web client
 
+- [Component] One non-blank character searches the full corpus and remains in
+  the field after zero matches, without a minimum-length warning.\
+  Tested by: `web/src/pages/FeedPage.test.tsx > searches a single character and retains the query when no results match`
 - [Unit] Search query, category, repeated publisher filters, and cursor are URL
   encoded without losing values.\
   Tested by: `web/src/lib/api.test.ts > articleQueryString > encodes search, filters, and cursor without losing repeated publishers`
@@ -111,10 +114,14 @@ restoration of the ordinary feed.
 - [Unit] The repository forwards the active query through the authenticated news
   service.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`
-- [Unit] Input shorter than two characters does not search; rapid input is
+- [Unit] One non-blank character is searchable; empty input does not search. Rapid input is
   debounced to the latest query; the full corpus is searched first; closing
   search restores the existing feed.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.searchDebouncesServerQueryAndClosingRestoresFeed`
+  Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.singleCharacterSearchSupportsDebounceAndImmediateSubmit`
+- [Component] One-character search exposes the normal filters and results. A
+  zero-result search retains its editable query without a re-enter/clear CTA.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedReadingGuideInstrumentedTest.singleCharacterSearchUsesNormalResultsAndEmptyStateWithoutResetAction`
 - [Unit] Clearing the field inside search shows only the prompt: no query, no
   filter sections, no request; closing search still restores the feed.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.clearingTheSearchFieldShowsOnlyThePromptWithoutReloadingTheFeed`
@@ -146,7 +153,7 @@ restoration of the ordinary feed.
 | Risk or partition | Representative cases | Oracle source |
 | --- | --- | --- |
 | Search field | title / publisher / body / no match | Product spec §2.3 |
-| Query boundary | empty / 1 / 2 / 100 / 101 characters | Product spec §§2.3, 3.2 |
+| Query boundary | empty / whitespace / 1 / 2 / 100 / 101 characters | Product spec §§2.3, 3.2 |
 | Corpus membership | visible feed / comparison-only / hidden | Product spec §2.2 |
 | Ordering | cross-tier / same-tier timestamp / ID tie | Product spec §2.4 |
 | Cursor state | same context / changed query / changed filter / tampered | Product spec §3.1 |

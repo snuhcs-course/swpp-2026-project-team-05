@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.NewsCategory
@@ -94,6 +95,27 @@ class FeedReadingGuideInstrumentedTest {
         )
         compose.onAllNodesWithContentDescription(READING_GUIDE_DESCRIPTION).assertCountEquals(0)
         compose.runOnIdle { assertEquals(0, tutorialOpens) }
+    }
+
+    @Test
+    fun singleCharacterSearchUsesNormalResultsAndEmptyStateWithoutResetAction() {
+        val state = mutableStateOf(NewsFeedState(
+            isSearchOpen = true, searchInput = "정", activeSearchQuery = "정",
+            searchSections = mapOf(SearchFilter.ALL to SearchSectionState(
+                SearchFilter.ALL, listOf(lead), totalCount = 1))
+        ))
+        render { state.value }
+        compose.onNodeWithText(lead.title).assertIsDisplayed()
+        compose.onNodeWithContentDescription("전체 검색 필터").assertIsDisplayed()
+        compose.onAllNodesWithText("두 글자", substring = true).assertCountEquals(0)
+        compose.runOnIdle {
+            state.value = state.value.copy(searchSections = mapOf(
+                SearchFilter.ALL to SearchSectionState(SearchFilter.ALL, emptyList(), totalCount = 0)))
+        }
+        compose.onNodeWithText("검색 결과가 없어요").assertIsDisplayed()
+        compose.onNodeWithContentDescription("기사 검색어").assertIsDisplayed()
+        compose.onNodeWithContentDescription("검색어 지우기").assertIsDisplayed()
+        compose.onAllNodesWithText("다시 입력", substring = true).assertCountEquals(0)
     }
 
     @Test

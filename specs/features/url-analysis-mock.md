@@ -17,10 +17,11 @@ no URL field, loading preview, modal sheet, or article-analysis action.
 ## 2. Search empty state
 
 - It appears only after a valid completed search returns zero articles.
-- It remains distinct from loading, request failure, a short query, an empty
+- It remains distinct from loading, request failure, a blank query, an empty
   feed, and an empty Following feed.
-- Android offers `검색어 다시 입력`, which clears the current field and keeps
-  the reader in search. Web keeps the search field available above the message.
+- Both clients keep the query editable in the search field above the message.
+  Android has no separate `검색어 다시 입력` button; the field's clear control
+  remains available.
 
 ## 3. Compatibility boundary
 

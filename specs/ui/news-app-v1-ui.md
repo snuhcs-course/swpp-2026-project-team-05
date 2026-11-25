@@ -354,7 +354,7 @@ are restored when search closes.
 │──────────────────────────────────────│
 │  [전체]   [정치]   [사회]   [경제]      │
 │──────────────────────────────────────│
-│  연합뉴스 · 12분 전                    │
+│  연합뉴스                             │
 │  정치 분야 검색 결과                  │
 │  …검색어가 있는 본문 일부…             │
 │  [기사 더 보기]                       │
@@ -362,7 +362,7 @@ are restored when search closes.
 ```
 
 - With an empty field the screen shows only `검색어를 입력하세요`: no article list
-  and no filter row. The filter row appears once the query has two characters.
+  and no filter row. The filter row appears from the first non-blank character.
 - Ordinary discovery navigation remains unchanged. Search adds a separate
   compact `All / Politics / Society / Economy` filter row so section navigation and result
   filtering are not conflated.
@@ -376,7 +376,8 @@ are restored when search closes.
 - An empty category filter shows a restrained category-specific message. An
   inline `전체 검색 결과 보기` action returns to `All` without changing the
   query. An empty `All` result shows a concise no-results state, suggests
-  another term or checking the spelling, and never exposes URL analysis.
+  another term or checking the spelling, and never exposes URL analysis or a
+  redundant re-enter button. Keep the query editable in the existing search field.
 - On Android, tapping ordinary content outside a focused search, authentication,
   or URL field dismisses the keyboard without consuming the tapped control's
   action.

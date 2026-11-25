@@ -468,7 +468,7 @@ class NewsViewModelTest {
 
         viewModel.openSearch()
         viewModel.updateSearchInput("정")
-        assertTrue(viewModel.feed.items.isEmpty())
+        assertTrue(viewModel.feed.isSearchPending)
         assertEquals("", viewModel.feed.activeSearchQuery)
 
         viewModel.updateSearchInput("정책")
@@ -511,6 +511,37 @@ class NewsViewModelTest {
         assertEquals(NewsCategory.POLITICS, viewModel.feed.category)
         assertEquals(listOf("ordinary"), viewModel.feed.items.map { it.id })
         assertEquals(4, repository.articlePageCalls)
+    }
+
+    @Test
+    fun singleCharacterSearchSupportsDebounceAndImmediateSubmit() {
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("ordinary")), null)
+            searchPages.getValue(null) += ArticlePage(listOf(summary("one-character")), null, 1)
+            searchPages.getValue(null) += ArticlePage(emptyList(), null, 0)
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.openSearch()
+        viewModel.updateSearchInput(" 정 ")
+        mainLooper.idleFor(299, TimeUnit.MILLISECONDS)
+        assertEquals(1, repository.articlePageCalls)
+        mainLooper.idleFor(2, TimeUnit.MILLISECONDS)
+        assertEquals("정", viewModel.feed.activeSearchQuery)
+        assertEquals("정", repository.queries.last())
+        assertEquals(FeedScope.ALL, repository.scopes.last())
+        assertEquals(null, repository.categories.last())
+        assertEquals(listOf("one-character"), viewModel.feed.searchSections.getValue(SearchFilter.ALL).items.map { it.id })
+
+        viewModel.updateSearchInput("뿡")
+        viewModel.submitSearch()
+        mainLooper.idle()
+        assertEquals("뿡", repository.queries.last())
+        assertEquals("뿡", viewModel.feed.searchInput)
+        assertEquals(0, viewModel.feed.searchSections.getValue(SearchFilter.ALL).totalCount)
+        mainLooper.idleFor(301, TimeUnit.MILLISECONDS)
+        assertEquals(3, repository.articlePageCalls)
     }
 
     @Test
