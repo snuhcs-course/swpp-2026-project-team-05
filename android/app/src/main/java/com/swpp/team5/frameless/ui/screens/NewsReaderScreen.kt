@@ -161,7 +161,10 @@ internal fun NewsReaderScreen(
     saveError: String?,
     onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit = { _, _, _ -> },
     onOpenRelatedArticle: (String, Int, String?) -> Unit = { _, _, _ -> },
-    coach: ReaderCoachUi = ReaderCoachUi()
+    coach: ReaderCoachUi = ReaderCoachUi(),
+    reactionState: com.swpp.team5.frameless.ui.viewmodel.ArticleReactionState? = null,
+    onReaction: (com.swpp.team5.frameless.data.ReactionKind) -> Unit = {},
+    onReactionRetry: () -> Unit = {}
 ) {
     when {
         state.isArticleLoading -> {
@@ -176,7 +179,7 @@ internal fun NewsReaderScreen(
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
             state.initialScrollOffset, state.initialSelectedFindingId,
-            onOpenComparisonArticle, onOpenRelatedArticle, coach)
+            onOpenComparisonArticle, onOpenRelatedArticle, coach, reactionState, onReaction, onReactionRetry)
     }
 }
 
@@ -198,7 +201,10 @@ private fun NewsReaderContent(
     initialSelectedFindingId: String?,
     onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit,
     onOpenRelatedArticle: (String, Int, String?) -> Unit,
-    coach: ReaderCoachUi
+    coach: ReaderCoachUi,
+    reactionState: com.swpp.team5.frameless.ui.viewmodel.ArticleReactionState?,
+    onReaction: (com.swpp.team5.frameless.data.ReactionKind) -> Unit,
+    onReactionRetry: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -559,6 +565,10 @@ private fun NewsReaderContent(
                     },
                     onTextLayout = { bodyLayout = it }
                 )
+                if (!isOffline && reactionState != null) {
+                    ArticleReactionSection(reactionState, onReaction, onReactionRetry,
+                        modifier = Modifier.padding(top = 28.dp))
+                }
                 economic?.let { lens ->
                     Spacer(Modifier.height(28.dp))
                     OtherOutletsSection(

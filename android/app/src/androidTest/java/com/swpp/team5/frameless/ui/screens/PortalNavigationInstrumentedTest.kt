@@ -103,6 +103,39 @@ class PortalNavigationInstrumentedTest {
     }
 
     @Test
+    fun homeHighlightsUseOnlyServerCandidatesAndKeepExactReaderTargets() {
+        val highlights = mutableStateOf(com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState())
+        var opened: String? = null
+        val breaking = story("breaking", "[속보] 확인된 새 소식").representativeArticle
+        val issue = story("issue", "독자 반응이 모인 소식")
+        compose.setContent {
+            FrameLESSTheme {
+                PortalHomeScreen(listOf(story("ordinary", "평소 뉴스")), emptyList(), false, null,
+                    rememberLazyListState(), onSearch = {}, onArticle = { opened = it },
+                    onProfile = {}, onSubscriptions = {}, onRetry = {}, highlights = highlights.value)
+            }
+        }
+        compose.onAllNodesWithText("속보", substring = false).assertCountEquals(0)
+        compose.onAllNodesWithText("이슈", substring = false).assertCountEquals(0)
+        compose.runOnIdle {
+            highlights.value = highlights.value.copy(page = com.swpp.team5.frameless.data.HomeHighlights(
+                "2026-11-25T09:00:00Z",
+                com.swpp.team5.frameless.data.BreakingHeadline(breaking, "2026-11-25T09:30:00Z"),
+                com.swpp.team5.frameless.data.IssueHeadline(issue, 2)))
+        }
+        compose.onNodeWithText(breaking.title).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("breaking", opened) }
+        compose.onNodeWithText(issue.representativeArticle.title).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("issue", opened) }
+        compose.runOnIdle { highlights.value = highlights.value.copy(page = highlights.value.page!!.copy(breaking = null)) }
+        compose.onAllNodesWithText("속보", substring = false).assertCountEquals(0)
+        compose.onNodeWithText("이슈").assertIsDisplayed()
+        compose.runOnIdle { highlights.value = com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState() }
+        compose.onAllNodesWithText("이슈", substring = false).assertCountEquals(0)
+        compose.onNodeWithText("평소 뉴스").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun trendsDistinguishEmptyFailureAndSparseCorpus() {
         val current = mutableStateOf(com.swpp.team5.frameless.ui.viewmodel.TrendsState(
             page = com.swpp.team5.frameless.data.TrendPage("2026-11-25T09:00:00Z", false, emptyList())))

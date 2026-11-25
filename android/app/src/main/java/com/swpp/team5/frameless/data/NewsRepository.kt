@@ -3,6 +3,9 @@ package com.swpp.team5.frameless.data
 import android.content.Context
 
 internal interface NewsDataSource {
+    suspend fun reactions(articleId: String): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 불러오지 못했어요.")
+    suspend fun setReaction(articleId: String, kind: ReactionKind?): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 저장하지 못했어요.")
+    suspend fun homeHighlights(): HomeHighlights = throw NewsApiException("UNSUPPORTED", "홈 소식을 불러오지 못했어요.")
     suspend fun trends(): TrendPage = throw NewsApiException("UNSUPPORTED", "트렌드를 불러오지 못했어요.")
     suspend fun recordView(articleId: String) = Unit
     suspend fun publishers(): List<PublisherItem>
@@ -59,6 +62,10 @@ internal class NewsRepository(
         ?: throw NewsApiException("AUTH_REQUIRED", "로그인이 필요합니다.")
 
     private fun optionalToken(): String? = auth.currentSession()?.token
+
+    override suspend fun reactions(articleId: String) = service.reactions(optionalToken(), articleId)
+    override suspend fun setReaction(articleId: String, kind: ReactionKind?) = service.setReaction(token(), articleId, kind)
+    override suspend fun homeHighlights() = service.homeHighlights(optionalToken())
 
     override suspend fun trends(): TrendPage = service.trends(optionalToken())
 

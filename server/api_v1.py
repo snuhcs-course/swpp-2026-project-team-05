@@ -32,7 +32,8 @@ from .analysis.staged import llm as staged_llm
 from .analysis.staged.link import LinkAnalysisError, analyze_link
 from .analysis.v2.article_fetch import validate_article_url
 from .article_search import MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, normalize_search_query
-from .models import AnalysisRecord, Article, AuthSession, NewsCategory, Publisher, UserAccount
+from .models import AnalysisRecord, Article, AuthSession, NewsCategory, Publisher, ReactionKind, UserAccount
+from .reactions import highlights_payload, reaction_payload, set_reaction
 from .news_queries import (
     InvalidCursor,
     article_analysis_payload,
@@ -357,6 +358,50 @@ def trends(request):
         response["Retry-After"] = "60"
     else:
         response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    response["Cache-Control"] = "private, no-store"
+    return _credential_varying(response)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def article_reactions(request, article_id):
+    user, error = _optional_auth(request) if request.method == "GET" else _auth(request)
+    if error:
+        return error
+    kind = None
+    if request.method == "PUT":
+        body, error = _body(request)
+        if error:
+            return error
+        if set(body) != {"reaction"} or body["reaction"] not in ReactionKind.values:
+            return _error("VALIDATION_ERROR", "올바른 반응을 선택해 주세요.", 400)
+        kind = body["reaction"]
+    try:
+        payload = (reaction_payload(article_id=article_id, user=user) if request.method == "GET"
+                   else set_reaction(article_id=article_id, user=user, kind=kind))
+    except IntegrityError:
+        return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
+    except DatabaseError:
+        return _error("REACTIONS_UNAVAILABLE", "반응을 저장하거나 불러오지 못했어요.", 503)
+    if payload is None:
+        return _error("NOT_FOUND", "기사를 찾을 수 없습니다.", 404)
+    response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
+    response["Cache-Control"] = "private, no-store"
+    return _credential_varying(response)
+
+
+@require_GET
+def home_highlights(request):
+    user, error = _optional_auth(request)
+    if error:
+        return error
+    if request.GET:
+        return _error("VALIDATION_ERROR", "홈 소식은 별도 필터 없이 조회합니다.", 400)
+    try:
+        payload = highlights_payload(user=user)
+    except DatabaseError:
+        return _error("HIGHLIGHTS_UNAVAILABLE", "홈 소식을 불러오지 못했어요.", 503)
+    response = JsonResponse(payload, json_dumps_params={"ensure_ascii": False})
     response["Cache-Control"] = "private, no-store"
     return _credential_varying(response)
 

@@ -46,6 +46,9 @@ private fun ArticlePage.asSingletonStories(): StoryPage = StoryPage(
 )
 
 internal interface NewsService {
+    suspend fun reactions(token: String?, articleId: String): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 불러오지 못했어요.")
+    suspend fun setReaction(token: String, articleId: String, kind: ReactionKind?): ArticleReactions = throw NewsApiException("UNSUPPORTED", "반응을 저장하지 못했어요.")
+    suspend fun homeHighlights(token: String?): HomeHighlights = throw NewsApiException("UNSUPPORTED", "홈 소식을 불러오지 못했어요.")
     suspend fun trends(token: String?): TrendPage = throw NewsApiException("UNSUPPORTED", "트렌드를 불러오지 못했어요.")
     suspend fun recordView(token: String?, guestId: String?, articleId: String) = Unit
     suspend fun register(email: String, username: String, password: String,
@@ -81,6 +84,9 @@ internal interface NewsService {
 
 internal object NewsApi : NewsService {
     private val client by lazy { NewsApiClient(BuildConfig.BACKEND_BASE_URL) }
+    override suspend fun reactions(token: String?, articleId: String) = client.reactions(token, articleId)
+    override suspend fun setReaction(token: String, articleId: String, kind: ReactionKind?) = client.setReaction(token, articleId, kind)
+    override suspend fun homeHighlights(token: String?) = client.homeHighlights(token)
     override suspend fun trends(token: String?) = client.trends(token)
     override suspend fun recordView(token: String?, guestId: String?, articleId: String) =
         client.recordView(token, guestId, articleId)
@@ -121,6 +127,48 @@ internal object NewsApi : NewsService {
 internal class NewsApiClient(baseUrl: String) {
     private val baseUrl = baseUrl.trimEnd('/')
     @Volatile private var groupedStoryRouteAvailable: Boolean? = null
+
+    suspend fun reactions(token: String?, articleId: String): ArticleReactions =
+        reactionPayload(request("GET", "/api/v1/articles/${encode(articleId)}/reactions", token = token), articleId)
+
+    suspend fun setReaction(token: String, articleId: String, kind: ReactionKind?): ArticleReactions =
+        reactionPayload(request(if (kind == null) "DELETE" else "PUT",
+            "/api/v1/articles/${encode(articleId)}/reactions", token = token,
+            body = kind?.let { JSONObject().put("reaction", it.name) }), articleId)
+
+    private fun reactionPayload(root: JSONObject, articleId: String): ArticleReactions {
+        val counts = root.requireObject("counts")
+        val selected = if (root.has("my_reaction") && root.isNull("my_reaction")) null
+            else ReactionKind.entries.firstOrNull { it.name == root.requireString("my_reaction") }
+                ?: throw NewsApiException("INVALID_RESPONSE", "반응을 읽지 못했어요.")
+        if (root.requireString("article_id") != articleId) throw NewsApiException("INVALID_RESPONSE", "반응을 읽지 못했어요.")
+        val values = ReactionKind.entries.associateWith { kind ->
+            val raw = counts.opt(kind.name)
+            if (raw !is Number || raw.toLong() < 0 || raw.toDouble() != raw.toLong().toDouble())
+                throw NewsApiException("INVALID_RESPONSE", "반응을 읽지 못했어요.")
+            raw.toLong()
+        }
+        return ArticleReactions(articleId, values, selected)
+    }
+
+    suspend fun homeHighlights(token: String?): HomeHighlights {
+        val root = request("GET", "/api/v1/home-highlights", token = token)
+        fun timestamp(value: String): String {
+            if (runCatching { java.time.OffsetDateTime.parse(value) }.isFailure)
+                throw NewsApiException("INVALID_RESPONSE", "홈 소식을 읽지 못했어요.")
+            return value
+        }
+        if (!root.has("breaking") || !root.has("issue")) throw NewsApiException("INVALID_RESPONSE", "홈 소식을 읽지 못했어요.")
+        val breaking = if (root.isNull("breaking")) null else root.requireObject("breaking").let {
+            BreakingHeadline(articleSummary(it.requireObject("article")), timestamp(it.requireString("expires_at")))
+        }
+        val issue = if (root.isNull("issue")) null else root.requireObject("issue").let {
+            val count = it.optLong("reaction_user_count", 0)
+            if (count < 1) throw NewsApiException("INVALID_RESPONSE", "홈 소식을 읽지 못했어요.")
+            IssueHeadline(storySummary(it.requireObject("story")), count)
+        }
+        return HomeHighlights(timestamp(root.requireString("generated_at")), breaking, issue)
+    }
 
     suspend fun trends(token: String?): TrendPage {
         val root = request("GET", "/api/v1/trends", token = token)

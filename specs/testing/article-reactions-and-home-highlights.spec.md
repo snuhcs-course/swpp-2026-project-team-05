@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft; planned oracles, no implementation or measurement claim |
+| Status | Implemented; automated checks and remaining integration gaps recorded below |
 | Owner | News interaction feature owner |
 | Source requirements | [Article reactions and Home highlights](../features/article-reactions-and-home-highlights.md) |
 | Date | 2026-11-25 |
@@ -29,61 +29,67 @@ three-hour ranking.
    unknown types and malformed bodies are rejected without modifying state.
    Type change updates reaction time; same-type PUT preserves it and repeated DELETE is
    idempotent. Counts reflect only current rows and include all zero keys.
-   Tip: add API/model tests for none → type → same type → other type → none,
-   invalid input, meaningful-change time, and database enum/uniqueness constraints.
+   Tested by: `tests.test_reactions.ReactionTests.test_current_counts_selection_and_idempotent_transitions`,
+   `tests.test_reactions.ReactionTests.test_type_change_refreshes_time_but_get_does_not`,
+   `tests.test_reactions.ReactionTests.test_auth_ownership_headers_and_invalid_inputs`,
+   `tests.test_reactions.ReactionTests.test_database_constraints_and_safe_failures`.
 2. Guests can read counts with null selection. Protected writes require a valid
    session; invalid bearer on a public read is not silently treated as guest.
    Two accounts see their own selection and shared counts without user IDs.
-   Tip: add API ownership, optional-auth, response-header, and no-identity-leak tests.
+   Tested by: `tests.test_reactions.ReactionTests.test_auth_ownership_headers_and_invalid_inputs`.
 3. Readable comparison-support articles accept reactions. Hidden/deleted
    articles and inactive publishers reject reads/writes; article/account hard
    deletion cascades the rows. GET never writes reactions or view events.
-   Tip: add lifecycle, eligibility, cascade, and GET-purity API tests.
+   Tested by: `tests.test_reactions.ReactionTests.test_support_hidden_inactive_missing_and_cascades`,
+   `tests.test_reactions.ReactionTests.test_type_change_refreshes_time_but_get_does_not`.
 4. Concurrent create/change/delete never produce duplicate rows, negative
    counts, mixed selection, or an unhandled integrity failure. Different
    accounts do not overwrite each other.
-   Tip: add real PostgreSQL transaction tests for same-account simultaneous
-   PUTs, PUT/DELETE, and different-account updates; do not claim SQLite proves locking.
+   Tested by: `tests.test_reactions_postgres.ReactionConcurrencyTests.test_same_account_simultaneous_creates_and_put_delete_are_serialized`,
+   `tests.test_reactions_postgres.ReactionConcurrencyTests.test_two_accounts_keep_two_independent_choices`
+   on isolated PostgreSQL, not SQLite.
 
 ### Issue selection
 
 5. At T, reactions exactly at T−24h count; earlier and future-dated rows do not.
    Article publication age is irrelevant. Actually changing reaction type
    renews eligibility; same-type retries do not. Deleting/re-adding creates a new timestamp.
-   Tip: add frozen-clock tests at the cutoff ±1 microsecond and for old
-   articles, repeated PUT, replacement, deletion, and re-addition.
+   Tested by: `tests.test_reactions.ReactionTests.test_issue_window_eligibility_ties_and_zero`,
+   `tests.test_reactions.ReactionTests.test_issue_time_changes_and_deletion_follow_current_state`.
 6. One account reacting on multiple articles of one cluster contributes one
    participant. Another account contributes a second. All five types have equal
    weight. Article counts remain separate from topic participant count.
-   Tip: add fixtures where summing article counts or counting only positive
-   reactions would choose the wrong winning topic.
+   Tested by: `tests.test_reactions.ReactionTests.test_issue_distinct_users_support_and_equal_types`.
 7. A discoverable topic can count reactions on readable support articles;
    hidden/inactive reactions and support-only topics cannot contribute.
    Ungrouped feed articles retain independent identity.
-   Tip: add clustered/ungrouped, feed/support, hidden, inactive, and deletion cases.
+   Tested by: `tests.test_reactions.ReactionTests.test_issue_distinct_users_support_and_equal_types`,
+   `tests.test_reactions.ReactionTests.test_support_only_and_inactive_topics_cannot_displace_a_discoverable_topic`.
 8. One topic is selected by participant count, newest eligible publication,
    then stable key. The existing topic representative policy and Reader route
    remain in force; subscriptions do not alter the shared topic score.
-   Tip: test tie ordering, repeated equivalent reads, representative eligibility,
-   two users with different subscriptions, and the one-row output limit.
+   Tested by: `tests.test_reactions.ReactionTests.test_issue_stable_ties_and_personalization_do_not_change_the_topic_score`,
+   `tests.test_reactions.ReactionTests.test_issue_window_eligibility_ties_and_zero`.
 9. Breaking's topic is not repeated in the adjacent Issue row; the next
    qualifying topic is used or Issue is null. No reactions means null, without
    latest-news fillers or fabricated scores. Existing trends ranks are unchanged.
-   Tip: test overlap with one/two candidates, no activity, and independent
-   readership ranking against the existing trend oracle.
+   Tested by: `tests.test_reactions.ReactionTests.test_breaking_tags_boundaries_overlap_and_exact_article`,
+   `tests.test_reactions.ReactionTests.test_highlights_empty_errors_and_bounded_queries`;
+   the unchanged readership suite remains `tests.test_trends`.
 
 ### Breaking selection
 
 10. Leading `[속보]`, `(속보)`, and `【속보】` tags, whitespace variants, and
     a sequence such as `[정치][속보]` qualify. Untagged prose, body-only matches,
     mid-sentence tags, and other words such as `속보성` do not.
-    Tip: add parameterized title classification cases, including mixed/mismatched
-    bracket pairs and blank titles; expected matches come from feature §5.
+    Tested by: `tests.test_reactions.ReactionTests.test_breaking_tags_boundaries_overlap_and_exact_article`,
+    `tests.test_reactions.ReactionTests.test_breaking_just_inside_window_sql_tags_and_stable_tied_ids`.
 11. Exactly T is eligible, T−2h is expired, and the cutoff +1 microsecond is
     eligible. Future, hidden, inactive, and non-feed articles are excluded.
     Collection/modification time cannot revive a stale tagged article. Newest
     publication wins; equal-time IDs break ties deterministically.
-    Tip: add frozen-clock API/service cases and assert the exact expires_at.
+    Tested by: `tests.test_reactions.ReactionTests.test_breaking_tags_boundaries_overlap_and_exact_article`,
+    `tests.test_reactions.ReactionTests.test_breaking_just_inside_window_sql_tags_and_stable_tied_ids`.
 
 ### Android and request lifecycle
 
@@ -91,20 +97,22 @@ three-hour ranking.
     article counts before related articles. Every type remains reachable with
     minimum 48dp targets, light/dark appearance, and enlarged system text.
     Selection/progress does not resize cells or affect stored finding offsets.
-    Tip: add controlled Compose previews and assertions for five zero counts,
-    9,999/10,000/12,345/100,000,000 counts with full accessibility values,
-    selected/pending state, font scaling, and actual device captures.
+    Component geometry, both appearances, 1.6× text, and exact accessibility
+    counts are covered by `com.swpp.team5.frameless.ui.screens.ArticleReactionsInstrumentedTest`;
+    formatting boundaries by `com.swpp.team5.frameless.ui.viewmodel.ArticleInteractionTest.countLabelsUseFloorAndKeepIntegerPrecision`.
+    Tip: add a full Reader integration assertion for placement between body
+    and related articles; component captures do not prove that placement.
 13. Tapping the selected type removes it; a different type replaces it. Pending
     input is blocked only for the same article. Confirmed response replaces the
     entire count/selection state; failed or lost responses do not add phantom
     counts and retries remain idempotent.
-    Tip: add gated ViewModel/API-client tests for duplicate taps, response loss,
-    success, mutation failure, and explicit retry.
+    Tested by: `com.swpp.team5.frameless.ui.viewmodel.ArticleInteractionTest.selectionCancellationRetryAndFreshCacheUseConfirmedState`,
+    `com.swpp.team5.frameless.data.NewsApiClientTest.reactionsAndHighlightsUseTheirOwnResourcesAndValidateResponses`.
 14. A saving/failing does not change B's buttons or error. A → B → Back restores
     A's confirmed state without extra fresh-cache requests. Account change
     clears personal state and prevents late old-viewer responses from leaking.
-    Tip: add out-of-order response, cache-age 60s boundary, back-stack, and
-    account-switch tests using deferred responses rather than sleeps.
+    Tested by: `com.swpp.team5.frameless.ui.viewmodel.ArticleInteractionTest.otherArticleAndViewerAreIsolatedFromLateWrites`,
+    `com.swpp.team5.frameless.ui.viewmodel.ArticleInteractionTest.selectionCancellationRetryAndFreshCacheUseConfirmedState`.
 15. Guest interaction opens contextual authentication and preserves the Reader;
     dismissal and successful authentication never post the attempted reaction.
     Offline reading omits online reactions and creates no pending write queue.
@@ -113,27 +121,32 @@ three-hour ranking.
 16. Reaction loading/failure does not block article/analysis or resemble zero
     counts. Home highlights load independently; successful empty, failure and
     expired cached data do not become fake labels or a full-screen Home failure.
-    Tip: add controlled loading, error, partial-feature availability, and
-    no-results fixtures for Reader and Home.
+    Component failure/unknown counts and nullable Home rows are covered by
+    `com.swpp.team5.frameless.ui.screens.ArticleReactionsInstrumentedTest.unknownCountsAreNotZeroAndFailuresHaveAnIndependentRetry`
+    and `com.swpp.team5.frameless.ui.screens.PortalNavigationInstrumentedTest.homeHighlightsUseOnlyServerCandidatesAndKeepExactReaderTargets`.
+    Tip: add a full Reader test with a failed reaction request while article
+    text and analysis succeed independently.
 17. Home entry/resume/pull-to-refresh obey local freshness and no-polling rules.
     A successful reaction invalidates only the next Home highlights read.
     Breaking expires on an active screen and on resume, including phone-clock
     changes, while ordinary scrolling and navigation remain usable.
-    Tip: add fake-clock lifecycle and API request-count tests; include a Home
-    capture where Breaking disappears at expiry and Issue is absent/present.
+    Fake elapsed time, no polling, cache expiry, and explicit invalidation are
+    covered by `com.swpp.team5.frameless.ui.viewmodel.ArticleInteractionTest.highlightsExpireWithElapsedTimeAndDoNotPollOrUseExpiredFailureCache`
+    and `com.swpp.team5.frameless.ui.viewmodel.ArticleInteractionTest.resumingAfterSleepExpiresBreakingEvenWhenTheCacheIsStillFresh`.
+    Tip: add an activity pause/resume regression with an intervening phone-clock
+    change; the controller test does not drive Android lifecycle events.
 
 ### Performance and deployment
 
 18. Counts use grouped aggregation; recent Issue reads filter by indexed time.
     Database query count does not grow with the number of candidate topics,
     and no client or server loads full reaction/body lists to rank them.
-    Tip: add query-count assertions for small/expanded fixtures and inspect a
-    representative PostgreSQL query plan before considering a separate cache.
+    PostgreSQL plan inspection is recorded as `MANUAL-REACTIONS-PLAN-20261125` below.
+    Tested by: `tests.test_reactions.ReactionTests.test_highlights_empty_errors_and_bounded_queries`.
 19. The forward migration adds only the reaction table/constraints/indexes and
     preserves articles, analyses, Saved, follows, trends, and existing data.
     API deployment precedes an APK that depends on these endpoints.
-    Tip: test migration from the current schema, run affected full checks, then
-    verify live read responses without seeding fake production activity.
+    Tested by: `MANUAL-REACTIONS-ROLLOUT-20261125` below.
 
 ## Undefined behavior and non-goals
 
@@ -151,7 +164,39 @@ three-hour ranking.
 - [x] The user requested five reactions with original vector artwork, real Issue
   selection, and the previously discussed Breaking rules.
 - [x] The user selected topic-level, recent-24-hour Issue aggregation.
-- [ ] Review the full draft's one-reaction rule, Reader UI, time semantics,
-  representative policy, overlap behavior, and failure boundaries.
-- [ ] Implement executable cases before replacing any `Tip` with `Tested by`.
-- [ ] Record measured outcomes separately; this draft reports no passing tests.
+- [x] The user authorized implementation after the specification draft.
+- [x] Map executable cases to the reviewed rules; keep integration gaps as `Tip`.
+- [x] Record measured outcomes separately from intended behavior.
+
+## Verification record — 2026-11-25
+
+Checks on the implemented branch:
+
+- Django full suite: 468 discovered, 461 passed, seven PostgreSQL-only skips.
+  The separate isolated PostgreSQL reaction run passed all 15 cases, including
+  concurrent same-account and different-account writes. Existing PostgreSQL
+  readership tests also passed with the initial reaction regression run.
+- Android: 179 JVM tests passed; debug APK, AndroidTest APK, lint, and existing
+  coverage gates passed. The connected physical phone passed 29 instrumented
+  cases across reactions, Home/navigation, auth appearance, comparisons, and
+  the reading guide. No emulator or browser test was used.
+- Reaction captures were inspected in light/dark and at 360dp with 1.6× text.
+  All five options remain present; wrapping labels keep counts aligned and
+  selection/progress retains cell width. These are component and regression
+  checks, not a claim that the integration gaps above are covered.
+
+`MANUAL-REACTIONS-PLAN-20261125`: isolated PostgreSQL 16.2 with 8,000 current
+reaction rows, of which 100 were within the window. Home returned 100 distinct
+participants using four guest-read SQL queries. `EXPLAIN (ANALYZE, BUFFERS)`
+selected `frameless_reaction_recent` for the recent-row filter. Candidate
+aggregate statements took 0.280 ms and 0.045 ms on this small local fixture;
+these are query-plan checks, not a production latency claim. The separate
+corpus-expansion regression checks that query count stays constant.
+
+`MANUAL-REACTIONS-ROLLOUT-20261125`: applied migration `0015_article_reactions`
+to the shared database. Article, analysis-record, and Saved counts stayed at
+1,277 / 4 / 12; the new reaction table started empty. The production API reached
+Ready before APK installation. Public reaction reads returned all five numeric
+keys, null personal selection, and `private, no-store`; Home returned null
+Breaking and Issue because neither had a qualifying candidate. No reaction or
+fake publication date was inserted into shared data for this check.

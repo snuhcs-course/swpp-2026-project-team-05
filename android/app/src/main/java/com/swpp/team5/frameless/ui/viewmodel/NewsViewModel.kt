@@ -186,6 +186,9 @@ internal data class LinkAnalysisState(
 
 internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel() {
     val trends = RecentTrends(repository, viewModelScope)
+    val headlines = HomeHeadlines(repository, viewModelScope, onAuthFailure = { authExpired = true })
+    val reactions = ReaderReactions(repository, viewModelScope,
+        onChanged = headlines::invalidate, onAuthFailure = { authExpired = true })
     val reading = QualifiedReadTracker(viewModelScope, repository::recordView)
     var route by mutableStateOf(NewsRoute.FEED)
         private set
@@ -251,6 +254,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun reset() {
+        reactions.reset()
+        headlines.reset()
         cancelPersonalMutations()
         trends.reset()
         reading.newVisit()
@@ -279,6 +284,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun onViewerChanged() {
+        reactions.reset()
+        headlines.reset()
         cancelPersonalMutations()
         feedBeforeSearch = null
         trends.reset()
@@ -473,6 +480,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun ensureHomeLoaded() {
+        headlines.load()
         trends.load()
         homeRequested = true
         if (discovery.homeStories.isEmpty() && !discovery.isHomeLoading) loadHome()
@@ -480,6 +488,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun refreshHome() {
+        headlines.load(force = true)
         trends.load(force = true)
         loadHome(force = true, refreshing = true)
     }

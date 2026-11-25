@@ -149,9 +149,11 @@ internal fun PortalHomeScreen(
     isSignedIn: Boolean = false,
     trends: com.swpp.team5.frameless.ui.viewmodel.TrendsState = com.swpp.team5.frameless.ui.viewmodel.TrendsState(),
     onRetryTrends: () -> Unit = {},
-    isRefreshing: Boolean = false
+    isRefreshing: Boolean = false,
+    highlights: com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState = com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState()
 ) {
-    val articles = stories.map(StorySummary::representativeArticle)
+    val breaking = highlights.page?.breaking
+    val issue = highlights.page?.issue
     var trendsExpanded by rememberSaveable { mutableStateOf(false) }
     val trendCount = if (trendsExpanded) 5 else 2
     val trending = trends.page?.items.orEmpty().take(trendCount)
@@ -261,11 +263,13 @@ internal fun PortalHomeScreen(
             }
         }
         item { HomeBriefingStrip() }
-        item {
+        if (breaking != null || issue != null) item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)) {
-                articles.drop(2).take(2).forEachIndexed { index, article ->
-                    BreakingNewsRow(if (index == 0) "속보" else "이슈", article) { onArticle(article.id) }
-                    if (index == 0) Spacer(Modifier.height(10.dp))
+                breaking?.let { BreakingNewsRow("속보", it.article) { onArticle(it.article.id) } }
+                if (breaking != null && issue != null) Spacer(Modifier.height(10.dp))
+                issue?.let {
+                    val article = it.story.representativeArticle
+                    BreakingNewsRow("이슈", article) { onArticle(article.id) }
                 }
             }
         }

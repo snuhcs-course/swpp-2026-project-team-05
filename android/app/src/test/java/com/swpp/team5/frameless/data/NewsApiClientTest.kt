@@ -46,6 +46,29 @@ class NewsApiClientTest {
     }
 
     @Test
+    fun reactionsAndHighlightsUseTheirOwnResourcesAndValidateResponses() = runBlocking {
+        val empty = """{"article_id":"a1","counts":{"RECOMMEND":0,"LIKE":0,"MOVED":0,"ANGRY":0,"SAD":0},"my_reaction":null}"""
+        responses += Response(200, empty)
+        assertNull(client.reactions(null, "a1").selected)
+        responses += Response(200, empty.replace("\"LIKE\":0", "\"LIKE\":1").replace("\"my_reaction\":null", "\"my_reaction\":\"LIKE\""))
+        assertEquals(ReactionKind.LIKE, client.setReaction("token", "a1", ReactionKind.LIKE).selected)
+        responses += Response(200, empty)
+        assertEquals(0L, client.setReaction("token", "a1", null).counts.getValue(ReactionKind.LIKE))
+        assertEquals(listOf("GET", "PUT", "DELETE"), requests.map { it.method })
+        assertEquals("{\"reaction\":\"LIKE\"}", requests[1].body)
+        assertEquals("Bearer token", requests[1].authorization)
+        assertNull(requests[0].authorization)
+        responses += Response(200, """{"generated_at":"2026-11-25T00:00:00Z","breaking":{"article":${articleJson()},"expires_at":"2026-11-25T01:00:00Z"},"issue":null}""")
+        val highlights = client.homeHighlights(null)
+        assertEquals("a1", highlights.breaking!!.article.id)
+        assertNull(highlights.issue)
+        for (bad in listOf(empty.replace("\"LIKE\":0", "\"LIKE\":-1"), empty.replace("\"ANGRY\":0,", ""), empty.replace("\"a1\"", "\"a2\""))) {
+            responses += Response(200, bad)
+            assertThrows(NewsApiException::class.java) { runBlocking { client.reactions(null, "a1") } }
+        }
+    }
+
+    @Test
     fun trendsDecodeNullableRanksAndViewRecordingCarriesOnlyIdentity() = runBlocking {
         val story = """{"story_key":"article:a1","representative_article":${articleJson()},
           "publisher_count":1,"publishers":[{"code":"yna","name":"연합뉴스"}],

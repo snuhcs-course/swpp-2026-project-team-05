@@ -59,7 +59,7 @@ keeps search, publisher pages, and Saved article-based.
 sparse-result, tie/movement, concurrency, retention, and Android lifecycle
 oracles, exact automated test identifiers, and remaining verification gaps.
 
-`article-reactions-and-home-highlights.spec.md` is a draft for article reaction
+`article-reactions-and-home-highlights.spec.md` covers article reaction
 ownership/counts, topic-level Issue selection, Breaking eligibility/expiry,
-client isolation, and performance/deployment checks. Its `Tip` entries are
-planned coverage, not claims that tests or the feature already exist.
+client isolation, and performance/deployment checks. Exact test identifiers and
+verification evidence are recorded alongside remaining `Tip` coverage gaps.

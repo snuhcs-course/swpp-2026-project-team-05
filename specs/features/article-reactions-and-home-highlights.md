@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for intent review; not implemented |
+| Status | Implemented in the shared Django API and Android; remaining verification gaps are tracked in the test specification |
 | Date | 2026-11-25 |
 | Clients | Android Reader and Home; shared Django API |
 | Database | Existing PostgreSQL, one new reaction table |
@@ -15,15 +15,14 @@ reaction-based topic selection; `속보` becomes a recent, explicitly tagged
 article selection. The existing readership-based `실시간 트렌드` remains
 independent.
 
-The user selected **topic-level, trailing 24-hour** Issue aggregation on
-2026-11-25. Article reactions remain article-specific. The rest of this draft
-provides concrete rules for review before implementation.
+The user selected **topic-level, trailing 24-hour** Issue aggregation and
+authorized implementation on 2026-11-25. Article reactions remain article-specific.
 
 This slice does not add a Web reaction interface, notifications, comments,
 public user activity, custom reactions, a recommendation model, or offline
 writes. It does not change findings, A–G classifications, comparison evidence,
-article feed membership, or ordinary feed ordering. UI/API behavior described
-here is planned, not evidence of a completed migration or deployment.
+article feed membership, or ordinary feed ordering. Deployment and verification
+evidence is recorded in the linked test specification.
 
 ## 2. Reactions on one article
 
@@ -33,7 +32,7 @@ Keep this fixed order in both the API contract and the Reader:
 
 | API value | Android label | Original vector direction |
 | --- | --- | --- |
-| `RECOMMEND` | 추천해요 | Spark with a small upward gesture |
+| `RECOMMEND` | 추천해요 | Layered star with a small sparkle |
 | `LIKE` | 좋아요 | Soft, open heart |
 | `MOVED` | 감동이에요 | Warm expression with a small sparkle |
 | `ANGRY` | 화나요 | Restrained angular expression |
@@ -332,7 +331,8 @@ shared HTTP caching.
    the dependent APK, and verify real reads without planting fake reactions or
    fake recent publication dates into the shared dataset.
 
-Review must confirm the concrete selection/cancellation behavior, article versus
-topic counts, empty states, and failure boundaries before executable tests are
-generated. The user has confirmed the Issue aggregation unit/window; the whole
-draft is not marked implemented or fully intent-reviewed by that decision alone.
+The implementation uses one current-choice table, SQL aggregation, and short
+per-account mutation transactions. There is no reaction event log, scheduled
+reaction cleanup, client write queue, or second ranking snapshot table. Original
+SVG sources live in `android/artwork/reactions/`; Android uses matching native
+vectors. The forward migration and API deployment precede the dependent APK.

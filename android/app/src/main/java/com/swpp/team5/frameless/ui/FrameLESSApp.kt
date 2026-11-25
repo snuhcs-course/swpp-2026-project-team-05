@@ -51,15 +51,17 @@ import com.swpp.team5.frameless.ui.viewmodel.TutorialViewModel
 
 private enum class AuthDestination { SAVED }
 private enum class AuthPrompt {
-    BOOKMARK, SUBSCRIPTION;
+    BOOKMARK, SUBSCRIPTION, REACTION;
 
     val title: String get() = when (this) {
         BOOKMARK -> "이 기사를 저장할까요?"
         SUBSCRIPTION -> "관심 언론사를 구독할까요?"
+        REACTION -> "이 기사에 반응을 남길까요?"
     }
     val detail: String get() = when (this) {
         BOOKMARK -> "로그인하면 저장한 기사와 분석을 여러 기기에서 이어 볼 수 있어요."
         SUBSCRIPTION -> "로그인하면 구독한 언론사의 최신 기사를 홈에서 먼저 볼 수 있어요."
+        REACTION -> "로그인하면 기사에 반응을 남기거나 바꿀 수 있어요."
     }
 }
 
@@ -171,6 +173,9 @@ internal fun FrameLESSApp(
                     }
                 }
                 if (news.route == NewsRoute.READER) {
+                    val reactionArticle = news.reader.article?.id?.takeUnless { news.reader.isOffline || news.reader.isArticleLoading }
+                    LaunchedEffect(reactionArticle, session?.token) { reactionArticle?.let { news.reactions.load(it) } }
+                    HomePresence { reactionArticle?.let { news.reactions.load(it) } }
                     ReadingPresence(news.reading,
                         news.reader.article?.id?.takeIf { !news.reader.isOffline && !news.reader.isArticleLoading },
                         session?.user?.id)
@@ -187,6 +192,12 @@ internal fun FrameLESSApp(
                         },
                         savedPending = news.reader.articleId in news.savedMutationArticleIds,
                         saveError = news.saveErrors[news.reader.articleId],
+                        reactionState = news.reactions.state(news.reader.articleId),
+                        onReaction = { kind ->
+                            if (session == null) authPrompt = AuthPrompt.REACTION
+                            else news.reactions.select(news.reader.articleId, kind)
+                        },
+                        onReactionRetry = { news.reactions.retry(news.reader.articleId) },
                         coach = ReaderCoachUi(
                             step = tutorial.readerStep,
                             onEligible = tutorial::onReaderEligible,
@@ -308,6 +319,7 @@ internal fun FrameLESSApp(
                                 onRetrySubscriptions = news::retrySubscribedHome,
                                 isSignedIn = session != null,
                                 trends = news.trends.state,
+                                highlights = news.headlines.state,
                                 onRetryTrends = { news.trends.load(force = true) },
                                 isRefreshing = news.discovery.isHomeRefreshing ||
                                     (news.trends.state.loading && news.trends.state.page != null)
