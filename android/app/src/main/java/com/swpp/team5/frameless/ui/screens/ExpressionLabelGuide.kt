@@ -108,7 +108,7 @@ internal fun ExpressionLabelGuideDialog(highlightCodes: Set<String>, onDismiss: 
                             Text(categoryLabel(example.code), fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold, color = Fl.InkDiff)
                             if (example.code in highlightCodes) {
-                                TagPill("방금 본 라벨", Fl.InkDiff, Fl.OnAccent)
+                                TagPill("현재 기준", Fl.InkDiff, Fl.OnAccent)
                             }
                         }
                         Text(
@@ -124,13 +124,6 @@ internal fun ExpressionLabelGuideDialog(highlightCodes: Set<String>, onDismiss: 
                     HorizontalDivider(color = Fl.Line)
                 }
             }
-            Text(
-                "표시가 없다고 해서 중립적인 기사라는 뜻은 아니에요. " +
-                    "비교할 기사가 부족하거나 차이가 발견되지 않았을 수 있어요.",
-                fontSize = 13.sp, lineHeight = 19.sp, color = Fl.Ink2,
-                modifier = Modifier.fillMaxWidth().background(Fl.Inset, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
-            )
             FilledPill("확인", onDismiss, Modifier.fillMaxWidth())
         }
     }
