@@ -336,3 +336,15 @@ per-account mutation transactions. There is no reaction event log, scheduled
 reaction cleanup, client write queue, or second ranking snapshot table. Original
 SVG sources live in `android/artwork/reactions/`; Android uses matching native
 vectors. The forward migration and API deployment precede the dependent APK.
+
+## 9. Optional demo activity
+
+The user separately authorized synthetic activity in the shared dataset on
+2026-11-25. `seed_demo_activity` explicitly previews, replaces, or clears activity
+for 20 reserved non-login accounts on up to 60 discoverable topics. Its account
+IDs and `demo:` viewer keys isolate cleanup from ordinary accounts; no schema,
+background bot, publication-time edit, or ranking algorithm change is involved.
+The seed deliberately varies readership and reactions, leaving zero-activity
+articles and allowing the ordinary time windows to expire. This is demo data,
+not organic usage or evidence for the verification results recorded before it
+was seeded. See [demo activity checks](../testing/demo-activity.spec.md).

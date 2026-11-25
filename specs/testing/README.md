@@ -63,3 +63,6 @@ oracles, exact automated test identifiers, and remaining verification gaps.
 ownership/counts, topic-level Issue selection, Breaking eligibility/expiry,
 client isolation, and performance/deployment checks. Exact test identifiers and
 verification evidence are recorded alongside remaining `Tip` coverage gaps.
+
+`demo-activity.spec.md` covers the explicitly requested, repeatable shared-dataset
+demo seed and its ordinary-account isolation, cleanup, and rollback boundaries.
