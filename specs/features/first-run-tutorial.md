@@ -70,10 +70,9 @@ start or consume the coach.
 - It opens a dialog listing the seven expression-difference categories A–G,
   using the same names as the chips, each with one baseline → marked example
   from the judging rubric v0.2. Labels from the current card are marked
-  `방금 본 라벨`.
-- The dialog states that labels describe the type of difference and do not
-  judge right or wrong, and that the absence of highlights does not mean an
-  article is neutral.
+  `현재 기준`.
+- The introduction states that labels describe differences rather than judge
+  right or wrong. Do not add a separate notice box below the examples.
 
 ## 5. Persistence
 
