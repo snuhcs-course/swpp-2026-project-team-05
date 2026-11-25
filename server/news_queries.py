@@ -168,6 +168,7 @@ def list_publishers(*, user: UserAccount | None) -> list[dict]:
             )
         )
         .filter(publisher_rank__lte=3)
+        .only("id", "publisher_id", "title", "published_at")
         .order_by("publisher_id", "-published_at", "-id")
     )
     recent_by_publisher: dict[UUID, list[dict]] = {}
@@ -203,7 +204,10 @@ def list_articles(*, user: UserAccount | None, category: str | None,
                     publisher__is_active=True,
                 )
                 .annotate(is_saved=is_saved)
-                .select_related("publisher", "story_cluster"))
+                .select_related("publisher", "story_cluster")
+                .defer("economic_context", "frame_context", "story_cluster__issue_table"))
+    if not query:
+        queryset = queryset.defer("body_text")
     if category:
         queryset = queryset.filter(category=category)
     if publisher_codes:

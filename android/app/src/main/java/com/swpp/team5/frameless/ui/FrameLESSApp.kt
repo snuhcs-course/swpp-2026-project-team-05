@@ -163,6 +163,9 @@ internal fun FrameLESSApp(
                 }
 
                 val feedListState = rememberLazyListState()
+                val newsListStates = com.swpp.team5.frameless.ui.viewmodel.NewsSection.entries.associateWith {
+                    androidx.compose.runtime.key(it) { rememberLazyListState() }
+                }
                 val homeListState = rememberLazyListState()
                 val savedListState = rememberLazyListState()
                 LaunchedEffect(news.authExpired) {
@@ -300,6 +303,7 @@ internal fun FrameLESSApp(
                                 subscribedPublishers = news.feed.publishers.filter { it.isFollowed },
                                 isLoading = news.discovery.isHomeLoading,
                                 error = news.discovery.homeError,
+                                isOffline = news.discovery.isHomeOffline,
                                 listState = homeListState,
                                 onSearch = {
                                     searchReturnTab = PortalTab.HOME
@@ -371,7 +375,7 @@ internal fun FrameLESSApp(
                                 isLoadingPublishers = news.feed.isLoadingPublishers,
                                 publisherDirectoryError = news.feed.publisherDirectoryError,
                                 onPublisherDirectoryRetry = news::retryFeed,
-                                listState = feedListState,
+                                listState = newsListStates.getValue(news.discovery.newsSection),
                                 onSection = news::selectNewsSection,
                                 onSearch = {
                                     searchReturnTab = PortalTab.NEWS

@@ -11,14 +11,17 @@ import java.time.Instant
 
 internal interface NewsCacheDataSource {
     suspend fun article(articleId: String): ArticleDetail?
+    suspend fun freshArticle(articleId: String, maxAge: Long): ArticleDetail? = null
     suspend fun isSaved(userId: String, articleId: String): Boolean = false
     suspend fun storeArticle(article: ArticleDetail)
     suspend fun analysis(article: ArticleDetail): ApiArticleAnalysis?
+    suspend fun freshAnalysis(article: ArticleDetail, maxAge: Long): ApiArticleAnalysis? = null
     suspend fun storeAnalysis(article: ArticleDetail, analysis: ApiArticleAnalysis): Boolean
     suspend fun offlineSavedArticles(userId: String, category: NewsCategory? = null): ArticlePage?
     suspend fun storeSavedPage(userId: String, page: ArticlePage, replace: Boolean)
     suspend fun setSaved(userId: String, articleId: String, saved: Boolean)
     suspend fun clearSaved(userId: String)
+    suspend fun removeArticle(articleId: String, userId: String?) = Unit
 }
 
 internal class NewsCache(
@@ -26,6 +29,28 @@ internal class NewsCache(
     private val database: FrameLESSDatabase = FrameLESSDatabase.get(context)
 ) : NewsCacheDataSource {
     private val dao = database.newsCacheDao()
+
+    override suspend fun removeArticle(articleId: String, userId: String?) = withContext(Dispatchers.IO) {
+        database.runInTransaction {
+            dao.clearDetail(articleId)
+            dao.deleteAnalysis(articleId)
+            if (userId != null) dao.deleteSaved(userId, articleId)
+            dao.removeUnusedSummaries()
+        }
+    }
+
+    override suspend fun freshArticle(articleId: String, maxAge: Long): ArticleDetail? = withContext(Dispatchers.IO) {
+        val row = dao.article(articleId) ?: return@withContext null
+        val at = row.detailCachedAt ?: return@withContext null
+        if (System.currentTimeMillis() - at !in 0 until maxAge) return@withContext null
+        row.toDetail()
+    }
+
+    override suspend fun freshAnalysis(article: ArticleDetail, maxAge: Long): ApiArticleAnalysis? = withContext(Dispatchers.IO) {
+        val row = dao.analysis(article.id) ?: return@withContext null
+        if (System.currentTimeMillis() - row.cachedAt !in 0 until maxAge) return@withContext null
+        analysis(article)
+    }
 
     override suspend fun article(articleId: String): ArticleDetail? = withContext(Dispatchers.IO) {
         dao.article(articleId)?.toDetail()?.also {

@@ -70,11 +70,9 @@ predictably.
     with no continuation cursor; no Saved copies means an explicit offline-empty
     state. Search and subscribed Home retain their separate connection-required
     contract rather than pretending to be a complete offline feed.
-    Tip: close the portal-loader integration gap before adding broader list
-    caching. Home can retain old online rows when its Saved fallback is empty,
-    and the new News loader does not yet apply the legacy feed's Saved fallback.
-    `NewsViewModelTest.networkFailureShowsOnlyOfflineSavedArticles` exercises
-    the older feed state and does not establish this portal behavior.
+    Tested by: `NewsViewModelTest.portalOfflineFallbackNeverRetainsUnsavedOnlineRows`.
+    The retained-page and refresh path is covered by
+    `NewsViewModelTest.newsSectionRoundTripKeepsPagesUntilExplicitRefresh`.
 
 ## Boundaries
 

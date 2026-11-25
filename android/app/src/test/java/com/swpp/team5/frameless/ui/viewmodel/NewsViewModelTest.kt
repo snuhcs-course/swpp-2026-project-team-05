@@ -36,6 +36,110 @@ import java.util.concurrent.TimeUnit
 @Config(sdk = [35])
 @LooperMode(LooperMode.Mode.PAUSED)
 class NewsViewModelTest {
+    // Legacy feed/search tests explicitly load their article page. The portal
+    // initializes only the directory and requests its visible topic feed separately.
+    private fun NewsViewModel.initializeArticleFeed() { initialize(); refresh() }
+
+    @Test
+    fun viewerChangeReloadsVisitedPortalFeedsWithoutWaitingForAnotherTabSwitch() {
+        var viewer = "guest"
+        val repository = FakeNewsDataSource().apply { storyHandler = { StoryPage(listOf(story(viewer)), null) } }
+        val vm = NewsViewModel(repository)
+        vm.ensureHomeLoaded()
+        vm.ensureNewsLoaded()
+        mainLooper.idle()
+        viewer = "account"
+        vm.onViewerChanged()
+        mainLooper.idle()
+        assertEquals("account", vm.discovery.homeStories.single().representativeArticle.id)
+        assertEquals("account", vm.discovery.newsStories.single().representativeArticle.id)
+        assertEquals(0, repository.articlePageCalls)
+    }
+
+    @Test
+    fun portalHomeDoesNotWaitForOrRestartAfterPublisherDirectory() {
+        val gate = CompletableDeferred<List<PublisherItem>>()
+        val repository = FakeNewsDataSource().apply {
+            publisherGate = gate
+            storyHandler = { StoryPage(listOf(story("live")), null) }
+        }
+        val vm = NewsViewModel(repository)
+        vm.initialize()
+        vm.ensureHomeLoaded()
+        mainLooper.idle()
+        assertEquals("live", vm.discovery.homeStories.single().representativeArticle.id)
+        assertTrue(vm.feed.isLoadingPublishers)
+        gate.complete(listOf(yna))
+        mainLooper.idle()
+        assertEquals(1, repository.storyScopes.size)
+        assertEquals(0, repository.articlePageCalls)
+    }
+
+    @Test
+    fun portalOfflineFallbackNeverRetainsUnsavedOnlineRows() {
+        val repository = FakeNewsDataSource().apply {
+            storyHandler = { StoryPage(listOf(story("online-only")), "more") }
+        }
+        val vm = NewsViewModel(repository)
+        vm.ensureHomeLoaded()
+        mainLooper.idle()
+        repository.storyHandler = { throw NewsApiException("NETWORK_ERROR", "offline") }
+        repository.offlineSavedPage = ArticlePage(listOf(summary("saved")), "ignored")
+        vm.refreshHome()
+        mainLooper.idle()
+        assertEquals(listOf("saved"), vm.discovery.homeStories.map { it.representativeArticle.id })
+        assertEquals(null, vm.discovery.homeNextCursor)
+        repository.offlineSavedPage = null
+        vm.refreshHome()
+        mainLooper.idle()
+        assertTrue(vm.discovery.homeStories.isEmpty())
+        assertTrue(vm.discovery.isHomeOffline)
+        assertTrue(vm.discovery.homeError!!.contains("저장된 기사가 없어요"))
+        repository.offlineFailure = IllegalStateException("local read failed")
+        vm.refreshHome()
+        mainLooper.idle()
+        assertFalse(vm.discovery.isHomeLoading)
+        assertTrue(vm.discovery.homeStories.isEmpty())
+        vm.selectNewsSection(NewsSection.SOCIETY)
+        mainLooper.idle()
+        assertTrue(vm.discovery.isNewsOffline)
+        assertTrue(vm.discovery.newsStories.isEmpty())
+        assertEquals(NewsCategory.SOCIETY, repository.offlineCategories.last())
+        assertEquals(null, vm.discovery.newsNextCursor)
+    }
+
+    @Test
+    fun newsSectionRoundTripKeepsPagesUntilExplicitRefresh() {
+        val first = StoryPage(listOf(story("a")), "next")
+        val repository = FakeNewsDataSource().apply {
+            portalStoryHandler = { category, cursor, refresh ->
+                when {
+                    refresh -> StoryPage(listOf(story("fresh")), "new-next")
+                    category == NewsCategory.SOCIETY -> StoryPage(listOf(story("society")), null)
+                    cursor != null -> StoryPage(listOf(story("b")), null)
+                    else -> first
+                }
+            }
+        }
+        val vm = NewsViewModel(repository)
+        vm.selectNewsSection(NewsSection.POLITICS)
+        mainLooper.idle()
+        vm.loadMoreNews()
+        mainLooper.idle()
+        vm.selectNewsSection(NewsSection.SOCIETY)
+        mainLooper.idle()
+        vm.selectNewsSection(NewsSection.POLITICS)
+        mainLooper.idle()
+        assertEquals(listOf("a", "b"), vm.discovery.newsStories.map { it.representativeArticle.id })
+        assertEquals(null, vm.discovery.newsNextCursor)
+        vm.refreshNews()
+        mainLooper.idle()
+        assertEquals(listOf("fresh"), vm.discovery.newsStories.map { it.representativeArticle.id })
+        assertEquals("new-next", vm.discovery.newsNextCursor)
+    }
+
+    private fun story(id: String) = StorySummary("article:$id", summary(id), 1, listOf(yna), summary(id).publishedAt)
+
     @Test
     fun qualifyingReadNeedsThreeContinuousForegroundSecondsAndOnlySendsOnce() {
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
@@ -130,7 +234,7 @@ class NewsViewModelTest {
             pages += ArticlePage(listOf(summary("public")), null)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         assertFalse(viewModel.feed.isLoadingPublishers)
@@ -155,7 +259,7 @@ class NewsViewModelTest {
             publisherHandler = { ArticlePage(listOf(summary("subscribed")), null) }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.ensureHomeLoaded()
         mainLooper.idle()
@@ -175,7 +279,7 @@ class NewsViewModelTest {
             publisherHandler = { ArticlePage(listOf(summary("subscribed")), null) }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.ensureHomeLoaded()
         mainLooper.idle()
@@ -205,7 +309,7 @@ class NewsViewModelTest {
             publisherHandler = { throw NewsApiException("NETWORK_ERROR", "연결 오류") }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.ensureHomeLoaded()
         mainLooper.idle()
@@ -216,7 +320,7 @@ class NewsViewModelTest {
     }
 
     @Test
-    fun homePublisherSelectionUsesExactQueriesAndCachedPages() {
+    fun homePublisherSelectionUsesExactQueriesAndRevalidatesCachedPages() {
         val repository = FakeNewsDataSource().apply {
             publisherItems = listOf(yna.copy(isFollowed = true), mbc.copy(isFollowed = true))
             pages += ArticlePage(emptyList(), null)
@@ -224,7 +328,7 @@ class NewsViewModelTest {
             publisherHandler = { code -> ArticlePage(listOf(summary(code)), null) }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.ensureHomeLoaded()
         mainLooper.idle()
@@ -236,17 +340,17 @@ class NewsViewModelTest {
         viewModel.selectHomePublisher("yna")
         mainLooper.idle()
         assertEquals("yna", viewModel.discovery.subscribedArticles.single().id)
-        assertEquals(listOf("yna", "mbc"), repository.publisherRequests)
+        assertEquals(listOf("yna", "mbc", "yna"), repository.publisherRequests)
 
         viewModel.selectHomePublisher("unknown")
         viewModel.selectHomePublisher("yna")
         mainLooper.idle()
-        assertEquals(listOf("yna", "mbc"), repository.publisherRequests)
+        assertEquals(listOf("yna", "mbc", "yna"), repository.publisherRequests)
 
         viewModel.replaceFollowedPublishers(setOf("mbc"))
         mainLooper.idle()
         assertEquals("mbc", viewModel.discovery.selectedHomePublisherCode)
-        assertEquals(listOf("yna", "mbc", "mbc"), repository.publisherRequests)
+        assertEquals(listOf("yna", "mbc", "yna", "mbc"), repository.publisherRequests)
     }
 
     @Test
@@ -262,7 +366,7 @@ class NewsViewModelTest {
             }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.ensureHomeLoaded()
         mainLooper.idle()
@@ -291,7 +395,7 @@ class NewsViewModelTest {
         val viewModel = NewsViewModel(repository)
 
         assertEquals(NewsCategory.SOCIETY, viewModel.feed.category)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         assertEquals(listOf(yna, mbc), viewModel.feed.publishers)
@@ -323,7 +427,7 @@ class NewsViewModelTest {
         }
         val viewModel = NewsViewModel(repository)
 
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         assertEquals(listOf("hd", "panda", "regular"), viewModel.feed.items.map { it.id })
 
@@ -352,7 +456,7 @@ class NewsViewModelTest {
             pages += ArticlePage(listOf(summary("refreshed", mbc)), null)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         viewModel.selectCategory(NewsCategory.SOCIETY)
@@ -381,7 +485,7 @@ class NewsViewModelTest {
             pages += ArticlePage(listOf(summary("followed", mbc)), null)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.selectScope(FeedScope.FOLLOWING)
         mainLooper.idle()
@@ -405,7 +509,7 @@ class NewsViewModelTest {
             sourceWriteHandler = { if (sourceWrites.size == 1) first.await() else second.await() }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.setPublisherSubscription("yna", true)
         mainLooper.idle()
@@ -436,7 +540,7 @@ class NewsViewModelTest {
             sourceWriteHandler = { codes -> if (sourceWrites.size == 1) first.await() else codes }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.setPublisherSubscription("yna", true)
         mainLooper.idle()
@@ -461,7 +565,7 @@ class NewsViewModelTest {
             sourceWriteHandler = { gate.await() }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.setPublisherSubscription("yna", true)
         mainLooper.idle()
@@ -491,7 +595,7 @@ class NewsViewModelTest {
             savedMutationHandler = { _, _ -> withContext(NonCancellable) { bookmark.await() } }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.openArticle("a")
         mainLooper.idle()
@@ -523,7 +627,7 @@ class NewsViewModelTest {
             pageFailure = IllegalStateException("피드 실패")
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         assertEquals("피드 실패", viewModel.feed.error)
 
@@ -550,7 +654,7 @@ class NewsViewModelTest {
         }
         val viewModel = NewsViewModel(repository)
 
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         assertEquals(listOf("saved-offline"), viewModel.feed.items.map { it.id })
@@ -566,7 +670,7 @@ class NewsViewModelTest {
         }
         val viewModel = NewsViewModel(repository)
 
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         assertTrue(viewModel.feed.items.isEmpty())
@@ -586,7 +690,7 @@ class NewsViewModelTest {
                 ArticlePage(listOf(summary("politics-result-2")), null, 2)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         viewModel.openSearch()
@@ -644,7 +748,7 @@ class NewsViewModelTest {
             searchPages.getValue(null) += ArticlePage(emptyList(), null, 0)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.openSearch()
         viewModel.updateSearchInput(" 정 ")
@@ -674,7 +778,7 @@ class NewsViewModelTest {
             searchPages.getValue(null) += ArticlePage(listOf(summary("result")), null, 1)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         viewModel.openSearch()
@@ -705,7 +809,7 @@ class NewsViewModelTest {
             categoryFailures[NewsCategory.POLITICS] = IllegalStateException("정치 검색 실패")
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.openSearch()
         viewModel.updateSearchInput("검색 오류")
@@ -896,7 +1000,7 @@ class NewsViewModelTest {
         assertEquals(NewsRoute.READER, viewModel.route)
         assertEquals("reader", viewModel.reader.article?.id)
         assertEquals(2, repository.articleCalls)
-        assertEquals(1, repository.articlePageCalls)
+        assertEquals(0, repository.articlePageCalls)
     }
 
     @Test
@@ -930,7 +1034,7 @@ class NewsViewModelTest {
             savedPages += ArticlePage(listOf(summary("saved-2").copy(isSaved = true)), null)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         viewModel.openSaved()
@@ -1007,7 +1111,7 @@ class NewsViewModelTest {
             pages += ArticlePage(listOf(summary("a")), null)
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         repository.savedMutationFailure = IllegalStateException("저장 실패")
@@ -1035,7 +1139,7 @@ class NewsViewModelTest {
             savedMutationHandler = { id, _ -> attempts += id; gates[id]?.await(); Unit }
         }
         val viewModel = NewsViewModel(repository)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
         viewModel.openArticle("a")
         mainLooper.idle()
@@ -1184,7 +1288,7 @@ class NewsViewModelTest {
         }
         val telemetry = RecordingTelemetry()
         val viewModel = NewsViewModel(repository, telemetry)
-        viewModel.initialize()
+        viewModel.initializeArticleFeed()
         mainLooper.idle()
 
         viewModel.selectCategory(NewsCategory.ECONOMY)
@@ -1257,15 +1361,17 @@ class NewsViewModelTest {
         var publisherHandler: (suspend (String) -> ArticlePage)? = null
         val publisherRequests = mutableListOf<String>()
         val storyScopes = mutableListOf<FeedScope>()
+        var publisherGate: CompletableDeferred<List<PublisherItem>>? = null
+        var portalStoryHandler: (suspend (NewsCategory?, String?, Boolean) -> StoryPage)? = null
 
-        override suspend fun stories(category: NewsCategory?, scope: FeedScope, cursor: String?): StoryPage {
+        override suspend fun stories(category: NewsCategory?, scope: FeedScope, cursor: String?, refresh: Boolean): StoryPage {
             storyScopes += scope
-            return storyHandler?.invoke(scope) ?: super.stories(category, scope, cursor)
+            return portalStoryHandler?.invoke(category, cursor, refresh) ?: storyHandler?.invoke(scope) ?: super.stories(category, scope, cursor, refresh)
         }
 
-        override suspend fun publisherArticles(publisherCode: String, cursor: String?): ArticlePage {
+        override suspend fun publisherArticles(publisherCode: String, cursor: String?, refresh: Boolean): ArticlePage {
             publisherRequests += publisherCode
-            return publisherHandler?.invoke(publisherCode) ?: super.publisherArticles(publisherCode, cursor)
+            return publisherHandler?.invoke(publisherCode) ?: super.publisherArticles(publisherCode, cursor, refresh)
         }
         var linkResult = "linked"
         var linkFailure: Exception? = null
@@ -1294,6 +1400,7 @@ class NewsViewModelTest {
         var cachedArticleValue: ArticleDetail? = null
         var cachedAnalysisValue: ArticleAnalysisUi? = null
         var offlineSavedPage: ArticlePage? = null
+        var offlineFailure: Exception? = null
         var savedCategoryValue = NewsCategory.POLITICS
         var savedAnalysisEnabledValue = true
         var followedCodes = emptySet<String>()
@@ -1310,9 +1417,9 @@ class NewsViewModelTest {
         val clearedSavedUsers = mutableListOf<String>()
         val offlineCategories = mutableListOf<NewsCategory?>()
 
-        override suspend fun publishers(): List<PublisherItem> {
+        override suspend fun publishers(refresh: Boolean): List<PublisherItem> {
             publisherFailure?.let { throw it }
-            return publisherItems
+            return publisherGate?.await() ?: publisherItems
         }
         override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> {
             sourceWrites += publisherCodes.toSet()
@@ -1321,7 +1428,7 @@ class NewsViewModelTest {
             return result
         }
         override suspend fun articles(category: NewsCategory?, scope: FeedScope,
-                                      cursor: String?, query: String?): ArticlePage {
+                                      cursor: String?, query: String?, refresh: Boolean): ArticlePage {
             articlePageCalls += 1
             queries += query
             scopes += scope
@@ -1331,22 +1438,23 @@ class NewsViewModelTest {
             return if (query == null) pages.removeFirst()
             else searchPages.getValue(category).removeFirst()
         }
-        override suspend fun article(articleId: String): ArticleDetail {
+        override suspend fun article(articleId: String, refresh: Boolean): ArticleDetail {
             articleCalls += 1
             articleFailure?.let { throw it }
             return articleGate?.await() ?: detail(articleId)
         }
         override suspend fun offlineSavedArticles(category: NewsCategory?): ArticlePage? {
             offlineCategories += category
+            offlineFailure?.let { throw it }
             return offlineSavedPage
         }
         override suspend fun cachedArticle(articleId: String) = cachedArticleValue
-        override suspend fun analysis(article: ArticleDetail): ArticleAnalysisUi {
+        override suspend fun analysis(article: ArticleDetail, refresh: Boolean): ArticleAnalysisUi {
             analysisFailure?.let { throw it }
             return ArticleAnalysisUi(StoredAnalysisState.READY, "reviewed-v1", emptyList())
         }
         override suspend fun cachedAnalysis(article: ArticleDetail) = cachedAnalysisValue
-        override suspend fun savedArticles(cursor: String?): ArticlePage {
+        override suspend fun savedArticles(cursor: String?, refresh: Boolean): ArticlePage {
             savedFailure?.let { throw it }
             savedPageGate?.let { return it.await() }
             return savedPages.removeFirst()

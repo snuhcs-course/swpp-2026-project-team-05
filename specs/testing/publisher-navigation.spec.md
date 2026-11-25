@@ -73,7 +73,7 @@ settings screen instead of sending readers to the publisher article directory.
     single-select row, and updates the articles below when an outlet is selected.
     A visited outlet uses its cached first page. Superseded responses cannot
     overwrite the latest selection. Tested by:
-    `NewsViewModelTest.homePublisherSelectionUsesExactQueriesAndCachedPages`,
+    `NewsViewModelTest.homePublisherSelectionUsesExactQueriesAndRevalidatesCachedPages`,
     `NewsViewModelTest.lateHomePublisherResponseCannotReplaceTheSelectedOutlet`,
     `PortalNavigationInstrumentedTest.homePublisherLogosChangeTheArticlesBelow`.
 

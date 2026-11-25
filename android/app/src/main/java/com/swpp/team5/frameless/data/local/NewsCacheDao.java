@@ -10,6 +10,13 @@ import java.util.List;
 
 @Dao
 public interface NewsCacheDao {
+    @Query("UPDATE cached_article SET body_text = NULL, original_url = NULL, content_hash = NULL, " +
+            "detail_cached_at = NULL, last_opened_at = NULL WHERE article_id = :articleId")
+    void clearDetail(String articleId);
+
+    @Query("DELETE FROM cached_analysis WHERE article_id = :articleId")
+    void deleteAnalysis(String articleId);
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     void insertArticle(CachedArticleEntity article);
 

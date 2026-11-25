@@ -102,6 +102,14 @@ function renderPage() {
 }
 
 describe('ArticlePage analysis rail', () => {
+  it('does not show findings from another version of the article body', async () => {
+    vi.mocked(api.article).mockResolvedValue({ ...article, content_hash: 'updated-body' })
+    renderPage()
+    expect(await screen.findByText(article.title)).toBeInTheDocument()
+    expect(await screen.findByText('Analysis for this version is unavailable.')).toBeInTheDocument()
+    expect(screen.queryByText('Finding 1 of 2')).not.toBeInTheDocument()
+    expect(screen.queryByText(findings[0].comparison_overview)).not.toBeInTheDocument()
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.article).mockResolvedValue(article)

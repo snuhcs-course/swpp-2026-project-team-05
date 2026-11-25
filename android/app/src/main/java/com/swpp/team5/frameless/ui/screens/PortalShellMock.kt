@@ -150,10 +150,11 @@ internal fun PortalHomeScreen(
     trends: com.swpp.team5.frameless.ui.viewmodel.TrendsState = com.swpp.team5.frameless.ui.viewmodel.TrendsState(),
     onRetryTrends: () -> Unit = {},
     isRefreshing: Boolean = false,
-    highlights: com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState = com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState()
+    highlights: com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState = com.swpp.team5.frameless.ui.viewmodel.HomeHighlightsState(),
+    isOffline: Boolean = false
 ) {
-    val breaking = highlights.page?.breaking
-    val issue = highlights.page?.issue
+    val breaking = highlights.page?.breaking?.takeUnless { isOffline }
+    val issue = highlights.page?.issue?.takeUnless { isOffline }
     var trendsExpanded by rememberSaveable { mutableStateOf(false) }
     val trendCount = if (trendsExpanded) 5 else 2
     val trending = trends.page?.items.orEmpty().take(trendCount)
@@ -214,7 +215,7 @@ internal fun PortalHomeScreen(
             }
         }
 
-        item {
+        if (!isOffline) item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("실시간 트렌드", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
@@ -274,9 +275,17 @@ internal fun PortalHomeScreen(
             }
         }
         item { Box(Modifier.fillMaxWidth().height(7.dp).background(Fl.Bg)) }
-        item { PortalSectionHeader("주요 뉴스") }
+        item { PortalSectionHeader(if (isOffline) "저장한 기사" else "주요 뉴스") }
+        if (error != null && latest.isNotEmpty()) {
+            item { Text(error, color = Fl.Muted, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) }
+        }
         if (latest.isEmpty()) {
-            item { EmptyPortalSection("표시할 최신 기사가 없어요") }
+            item { EmptyPortalSection(when {
+                isLoading -> "뉴스를 불러오는 중이에요"
+                error != null -> error
+                else -> "표시할 최신 기사가 없어요"
+            }) }
         } else {
             items(latest, key = { "major:${it.storyKey}" }) { story ->
                 LatestNewsRow(story.representativeArticle, story.publisherCount) {
