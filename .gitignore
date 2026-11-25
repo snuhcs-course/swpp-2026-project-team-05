@@ -8,3 +8,11 @@ db.sqlite3
 .vercel/
 .DS_Store
 .coverage
+
+# Firebase config for local builds only (specs/features/telemetry.md)
+**/google-services.json
+
+# Release signing keys stay outside git
+*.jks
+*.keystore
+keystore.properties

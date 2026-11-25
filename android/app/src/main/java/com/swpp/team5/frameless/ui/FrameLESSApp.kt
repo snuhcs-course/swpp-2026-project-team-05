@@ -172,6 +172,7 @@ internal fun FrameLESSApp(
                         auth.sessionExpired()
                     }
                 }
+                LaunchedEffect(news.route) { news.recordScreen(news.route) }
                 if (news.route == NewsRoute.READER) {
                     val reactionArticle = news.reader.article?.id?.takeUnless { news.reader.isOffline || news.reader.isArticleLoading }
                     LaunchedEffect(reactionArticle, session?.token) { reactionArticle?.let { news.reactions.load(it) } }
@@ -186,6 +187,7 @@ internal fun FrameLESSApp(
                         onAnalysisEnabled = news::setAnalysisEnabled,
                         onOpenComparisonArticle = news::openComparisonArticle,
                         onOpenRelatedArticle = news::openRelatedArticle,
+                        onComparisonShown = news::recordComparisonShown,
                         onToggleSaved = { articleId, saved ->
                             if (session == null) authPrompt = AuthPrompt.BOOKMARK
                             else news.toggleSaved(articleId, saved)

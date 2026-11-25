@@ -164,7 +164,8 @@ internal fun NewsReaderScreen(
     coach: ReaderCoachUi = ReaderCoachUi(),
     reactionState: com.swpp.team5.frameless.ui.viewmodel.ArticleReactionState? = null,
     onReaction: (com.swpp.team5.frameless.data.ReactionKind) -> Unit = {},
-    onReactionRetry: () -> Unit = {}
+    onReactionRetry: () -> Unit = {},
+    onComparisonShown: (Int) -> Unit = {}
 ) {
     when {
         state.isArticleLoading -> {
@@ -179,7 +180,7 @@ internal fun NewsReaderScreen(
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
             state.initialScrollOffset, state.initialSelectedFindingId,
-            onOpenComparisonArticle, onOpenRelatedArticle, coach, reactionState, onReaction, onReactionRetry)
+            onOpenComparisonArticle, onOpenRelatedArticle, coach, reactionState, onReaction, onReactionRetry, onComparisonShown)
     }
 }
 
@@ -204,7 +205,8 @@ private fun NewsReaderContent(
     coach: ReaderCoachUi,
     reactionState: com.swpp.team5.frameless.ui.viewmodel.ArticleReactionState?,
     onReaction: (com.swpp.team5.frameless.data.ReactionKind) -> Unit,
-    onReactionRetry: () -> Unit
+    onReactionRetry: () -> Unit,
+    onComparisonShown: (Int) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -221,6 +223,10 @@ private fun NewsReaderContent(
         mutableStateOf(false)
     }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
+    // Telemetry (specs/features/telemetry.md): one event each time the comparison sheet opens for a finding.
+    LaunchedEffect(detailOpen, selected?.id) {
+        if (detailOpen) selected?.let { onComparisonShown(it.comparisons.size) }
+    }
     val readerInk = Fl.Ink
     val highlightColors = readerHighlightColors()
     val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id, readerInk, highlightColors) {
