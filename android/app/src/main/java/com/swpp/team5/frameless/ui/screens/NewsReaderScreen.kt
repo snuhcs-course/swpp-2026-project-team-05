@@ -647,6 +647,7 @@ private fun NewsReaderContent(
     selected?.takeIf { detailOpen }?.let { finding ->
         FindingDetailSheet(
             finding = finding,
+            sourcePublisher = article.publisher.name,
             onDismiss = {
                 detailOpen = false
                 coach.onFinish()
@@ -877,6 +878,7 @@ internal fun FindingDetailSheet(
     finding: FindingUi,
     onDismiss: () -> Unit,
     onOpenArticle: (ComparisonArticleUi) -> Unit = {},
+    sourcePublisher: String = "",
     coachVisible: Boolean = false,
     onCoachDone: () -> Unit = {},
     sourcePublisher: String = ""
@@ -950,6 +952,14 @@ internal fun FindingDetailSheet(
                             color = Fl.Ink2
                         )
                     }
+                }
+                // Paired expression card (specs/features/paired-expression-comparison.md): supplements the
+                // overview above; the target side follows the pager below.
+                expressionComparisonFor(sourcePublisher, finding, pagerState.currentPage)?.let { comparison ->
+                    ExpressionComparisonCard(
+                        comparison = comparison,
+                        modifier = Modifier.padding(end = 12.dp, bottom = 10.dp)
+                    )
                 }
                 if (coachVisible) {
                     CoachTooltip(
