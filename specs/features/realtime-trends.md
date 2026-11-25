@@ -296,8 +296,9 @@ fill the gap with an eligible latest topic through one bounded query, and suppre
 movement for the result. Keep remaining popularity ranks until recalculation.
 
 Android preserves the existing compact Home layout and ordinary Reader/Back
-flow. Show quiet `최근 3시간 · HH:mm 기준` metadata; show `최근 집계 · HH:mm`
-for a usable stale result. Expand/collapse is offered only for more than two
+flow. Do not render calculation times, `최근 3시간`, or `최근 집계` captions;
+the payload retains those fields solely for cache age, expiry, and backoff.
+Expand/collapse is offered only for more than two
 returned entries and preserves current expansion state when data refreshes.
 Use standard vector arrows only for real movement. Do not add an inert info
 badge or expose SQL/internal IDs. Latest fillers show `최신` instead of a rank.
@@ -305,7 +306,7 @@ badge or expose SQL/internal IDs. Latest fillers show `최신` instead of a rank
 Load trends independently on Home entry/resume and pull-to-refresh. Reuse a
 fresh local result for five minutes; do not poll in the background or on each
 recomposition/Reader return. On refresh failure retain only a still-usable
-cached result with its actual timestamp. Initial load, successful empty, and
+cached result with its actual timestamp retained in the model. Initial load, successful empty, and
 failure are separate states; an inline retry never bypasses server backoff.
 Offline Home keeps its existing Saved fallback and does not show cached ranks
 as live data.

@@ -1,12 +1,20 @@
 package com.swpp.team5.frameless.ui.screens
 
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -21,6 +29,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.unit.dp
 import com.swpp.team5.frameless.data.ArticleSummary
 import com.swpp.team5.frameless.data.NewsCategory
 import com.swpp.team5.frameless.data.PublisherArticlePreview
@@ -36,6 +45,48 @@ import org.junit.Test
 
 class PortalNavigationInstrumentedTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun briefingCardsFollowWeatherAndNumericMarketDirectionInBothThemes() {
+        val dark = mutableStateOf(false)
+        val condition = mutableStateOf(WeatherCondition.CLEAR)
+        compose.setContent {
+            FrameLESSTheme(darkTheme = dark.value) {
+                Column(Modifier.testTag("briefing-preview")) {
+                    WeatherBriefingCard(WeatherBriefing(condition = condition.value))
+                    Row {
+                        MarketBriefingCard(MarketBriefing("상승 지표", "100.00", 1.25))
+                        MarketBriefingCard(MarketBriefing("하락 지표", "100.00", -0.75))
+                    }
+                    MarketBriefingCard(MarketBriefing("보합 지표", "100.00", 0.0))
+                }
+            }
+        }
+        val expected = listOf(WeatherCondition.CLEAR to "맑음", WeatherCondition.CLOUDY to "흐림",
+            WeatherCondition.RAIN to "비", WeatherCondition.SNOW to "눈")
+        for (isDark in listOf(false, true)) {
+            compose.runOnIdle { dark.value = isDark }
+            for ((weather, label) in expected) {
+                compose.runOnIdle { condition.value = weather }
+                compose.onNodeWithText(label).assertIsDisplayed()
+                captureCard("weather-briefing", "weather-${weather.name}-$isDark.png")
+            }
+            compose.onNodeWithText("+1.25%").assertIsDisplayed()
+            compose.onNodeWithText("-0.75%").assertIsDisplayed()
+            compose.onNodeWithText("0.00%").assertIsDisplayed()
+            compose.onNodeWithContentDescription("상승").assertIsDisplayed()
+            compose.onNodeWithContentDescription("하락").assertIsDisplayed()
+            captureCard("briefing-preview", "briefing-$isDark.png")
+        }
+    }
+
+    private fun captureCard(tag: String, filename: String) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val bitmap = compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        java.io.File(context.cacheDir, filename).outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
 
     @Test
     fun homePullRefreshCallsItsRefreshAction() {
@@ -96,6 +147,8 @@ class PortalNavigationInstrumentedTest {
             }
         }
         compose.onAllNodesWithText("트렌드 기사 5").assertCountEquals(0)
+        compose.onAllNodesWithText("최근 3시간", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("기준", substring = true).assertCountEquals(0)
         compose.onNodeWithContentDescription("실시간 트렌드 펼치기").performClick()
         compose.onNodeWithContentDescription("실시간 트렌드 최신, 트렌드 기사 5").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("t5", opened) }
@@ -114,7 +167,8 @@ class PortalNavigationInstrumentedTest {
             FrameLESSTheme { PortalBottomBar(selected) { selected = it } }
         }
         PortalTab.entries.forEach { tab ->
-            compose.onNodeWithContentDescription("${tab.label} 탭").performClick().assertIsSelected()
+            compose.onNodeWithContentDescription("${tab.label} 탭").assertHeightIsAtLeast(48.dp)
+                .performClick().assertIsSelected()
         }
     }
 

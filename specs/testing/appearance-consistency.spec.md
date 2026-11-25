@@ -31,6 +31,29 @@ meaning and follow the app appearance override.
    `PortalNavigationInstrumentedTest.homeTrendExpansionKeepsHeadlineTargets`.
    Tip: inspect Home, search, Saved, Reader and comparison navigation on the
    connected phone in both appearances; icon geometry is a visual check.
+6. The compact root bar preserves its four full-cell tab actions and selection;
+   tap targets stay at least 48dp high. Tested by:
+   `PortalNavigationInstrumentedTest.rootTabsExposeSelectionAndKeepTheirActions`.
+   Tip: inspect the 60dp bar and curated publisher logos at actual
+   phone density; verify sharp edges and full, uncropped brand artwork.
+7. Home omits ranking-window/calculation-time captions. Article list bylines
+   retain publisher/category without publication times; Reader source dates
+   remain available. Tested by:
+   `FeedHomeChromeTest.rowMetadataIsCategoryThenPublisherWithoutPublicationTime`,
+   `FeedHomeChromeTest.bylineIsPublisherWithoutCategoryOrTime`,
+   `PortalNavigationInstrumentedTest.homeTrendExpansionKeepsHeadlineTargets`.
+   Tip: inspect publisher-directory and Saved rows as part of phone verification.
+8. Numeric market changes select the matching signed label and direction;
+   positive is red/up-triangle, negative blue/down-triangle, and zero neutral
+   without a triangle in either appearance. Tested by:
+   `HomeBriefingTest.marketDirectionFollowsNumericChangeIncludingZero`,
+   `HomeBriefingTest.changeLabelPreservesSignAndNormalizesNegativeZero`.
+   Tip: inspect actual card colors and triangle SVGs in light/dark screenshots.
+9. Clear, cloudy, rain and snow each render their matching SVG and condition
+   label; changing supplied weather updates the existing card.
+   Tested by: `PortalNavigationInstrumentedTest.briefingCardsFollowWeatherAndNumericMarketDirectionInBothThemes`.
+   Tip: inspect its cropped weather/market captures for all four conditions in
+   light and dark mode; the normal Home remains a mock clear-weather snapshot.
 
 ## Scope
 

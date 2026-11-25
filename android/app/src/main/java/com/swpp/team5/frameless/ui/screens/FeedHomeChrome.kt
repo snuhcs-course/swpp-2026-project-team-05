@@ -70,11 +70,11 @@ internal enum class FeedMenuItem(val label: String) {
 internal const val FEED_MENU_DESCRIPTION = "메뉴"
 
 /**
- * Metadata line parts for a feed row: category, publisher, time. A blank publisher name or time is dropped
+ * Metadata line parts for a feed row: category and publisher. A blank publisher name is dropped
  * rather than shown as an empty slot; nothing is substituted.
  */
-internal fun feedRowMetaParts(article: ArticleSummary, time: String): List<String> =
-    listOf(article.category.label, article.publisher.name.trim(), time.trim()).filter { it.isNotEmpty() }
+internal fun feedRowMetaParts(article: ArticleSummary): List<String> =
+    listOf(article.category.label, article.publisher.name.trim()).filter { it.isNotEmpty() }
 
 internal const val FEATURED_ARTICLE_TAG = "feed-featured-article"
 
@@ -92,9 +92,8 @@ internal fun splitFeaturedArticle(items: List<ArticleSummary>, enabled: Boolean)
 
 internal const val FEATURED_OPEN_LABEL = "기사 열기"
 
-/** Byline under a title: publisher and time, blank parts dropped, nothing substituted. */
-internal fun feedByline(article: ArticleSummary, time: String): String =
-    feedRowMetaParts(article, time).drop(1).joinToString("  ·  ")
+/** List byline: the original publisher, without a timestamp. */
+internal fun feedByline(article: ArticleSummary): String = feedRowMetaParts(article).drop(1).joinToString("  ·  ")
 
 /** Category kicker: small drawn mark plus the category label, tinted for the surface it sits on. */
 @Composable
@@ -111,7 +110,7 @@ private fun CategoryKicker(category: NewsCategory, color: Color, fontSize: TextU
 @Composable
 internal fun FeaturedArticleCard(article: ArticleSummary, onClick: () -> Unit) {
     val palette = categoryPalette(article.category)
-    val byline = feedByline(article, feedRelativeTime(article.publishedAt))
+    val byline = feedByline(article)
     val shape = RoundedCornerShape(22.dp)
     Box(
         Modifier.fillMaxWidth().background(HomeTokens.OffWhite)
@@ -301,7 +300,7 @@ internal fun ArticleFeedRow(
     onClick: () -> Unit
 ) {
     val palette = categoryPalette(article.category)
-    val byline = feedByline(article, feedRelativeTime(article.publishedAt))
+    val byline = feedByline(article)
     Column(
         Modifier.fillMaxWidth().background(HomeTokens.OffWhite).clickable(onClick = onClick)
             .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp),

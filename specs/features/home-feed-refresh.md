@@ -16,6 +16,10 @@ copy, and tutorial placement are defined by
 [`story-feed.md`](story-feed.md). Sections 2, 4, 5.0, and scope-specific copy
 below are not current Android product requirements.
 
+The shared list byline also changed on 2026-11-25: Android rows now retain only
+publisher/category and omit dates. Historical `publisher · time` copy below is
+superseded by the current UI specification; Reader publication details remain.
+
 Give the Android home feed a clearer, calmer news-app hierarchy (navy, off-white
 and soft lavender; serif headlines) without changing what the feed shows or
 where any action leads. This is a presentation change only: no API, database,

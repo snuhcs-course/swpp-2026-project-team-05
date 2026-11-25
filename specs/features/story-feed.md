@@ -151,7 +151,8 @@ app update.
 ## 6. Android presentation and navigation
 
 A topic row shows the representative headline, representative publisher,
-publication time, and restrained coverage metadata such as `외 3개 언론사`.
+and restrained coverage metadata such as `외 3개 언론사`. Android list rows omit
+publication/relative time; the API still carries it for ordering and Reader.
 It never shows an internal cluster ID, raw analysis state, A–G code, generated
 summary, ranking, or bias/truth label.
 

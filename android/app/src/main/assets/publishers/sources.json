@@ -12,46 +12,53 @@
     "note": "Original publisher icon; format conversion only when needed for native decoding."
   },
   "newsis": {
-    "source": "https://image.newsis.com/n_www/images/ci/2024/favicon.png",
-    "width": 114,
-    "height": 114,
-    "note": "Original publisher icon; format conversion only when needed for native decoding."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/003/2025/03/07/logo_003_100_20250307145615.png",
+    "source_page": "https://media.naver.com/press/003",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "mbc": {
-    "source": "https://image.imnews.imbc.com/page/include/images/meta_image.png",
-    "width": 640,
-    "height": 360,
-    "note": "Original publisher brand sharing image, preserved without crop."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/214/2025/03/07/logo_214_100_20250307145647.png",
+    "source_page": "https://media.naver.com/press/214",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "sbs": {
-    "source": "https://news.sbs.co.kr/favicon_144x144.png",
-    "width": 144,
-    "height": 144,
-    "note": "Original publisher icon; format conversion only when needed for native decoding."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/055/2025/03/26/logo_055_100_20250326142328.png",
+    "source_page": "https://media.naver.com/press/055",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "ytn": {
-    "source": "https://www.ytn.co.kr/img/comm/favicon.ico",
-    "width": 32,
-    "height": 32,
-    "note": "Original publisher icon; format conversion only when needed for native decoding."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/052/2025/03/07/logo_052_100_20250307145633.png",
+    "source_page": "https://media.naver.com/press/052",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "hani": {
-    "source": "https://www.hani.co.kr/images/shortcut-icon.png",
-    "width": 128,
-    "height": 128,
-    "note": "Original publisher icon; format conversion only when needed for native decoding."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/028/2025/03/07/logo_028_100_20250307145718.png",
+    "source_page": "https://media.naver.com/press/028",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "khan": {
-    "source": "https://img.khan.co.kr/spko/icon/apple-touch-icon-precomposed-web.png",
-    "width": 114,
-    "height": 114,
-    "note": "Original publisher icon; format conversion only when needed for native decoding."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/032/2025/03/07/logo_032_100_20250307145554.png",
+    "source_page": "https://media.naver.com/press/032",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-47369115f4": {
-    "source": "https://nstatic.jtbc.co.kr/favicon_2023/news/apple-icon-180x180.png",
-    "width": 180,
-    "height": 180,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://nstatic.jtbc.co.kr/news-front/images/logo/pc_jtbc_blue_logo_2x.png",
+    "source_page": "https://news.jtbc.co.kr/",
+    "width": 157,
+    "height": 80,
+    "note": "Original sharp transparent blue news-header wordmark, preserved at native resolution and aspect ratio; replaces the soft shadowed favicon."
   },
   "outlet-a14c8fc59a": {
     "source": "https://static.mk.co.kr/favicon_180180.png",
@@ -60,22 +67,25 @@
     "note": "Original publisher icon, preserved without modification."
   },
   "outlet-82eeb45e38": {
-    "source": "https://img.ikbc.co.kr/data/kbc/upload/save/company/kbc16573826355853.png",
-    "width": 32,
-    "height": 32,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/660/2025/03/07/logo_660_100_20250307145705.png",
+    "source_page": "https://media.naver.com/press/660",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-f90967a905": {
-    "source": "https://www.busan.com/nas/wcms/public/pc/images/new/favicon.ico",
-    "width": 16,
-    "height": 16,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/082/2026/01/26/logo_082_100_20260126154325.png",
+    "source_page": "https://media.naver.com/press/082",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-81135273b6": {
-    "source": "https://www.nocutnews.co.kr/favicon.ico",
-    "width": 16,
-    "height": 16,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/079/2025/04/24/logo_079_100_20250424111642.png",
+    "source_page": "https://media.naver.com/press/079",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-a1b9eb7231": {
     "source": "https://static.fnnews.com/resources/img/icon2020/apple-touch-icon-180.png",
@@ -108,16 +118,18 @@
     "note": "Original publisher icon; format conversion only where needed."
   },
   "outlet-a35f532933": {
-    "source": "https://www.imaeil.com/assets/images/common/favicon.ico",
-    "width": 256,
-    "height": 256,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/088/2025/03/07/logo_088_100_20250307145609.png",
+    "source_page": "https://media.naver.com/press/088",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-338ed021b8": {
-    "source": "https://static.heraldcorp.com/wbazic/biz/www/image/m_touch_icon180.png",
-    "width": 180,
-    "height": 180,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/016/2025/03/07/logo_016_100_20250307145646.png",
+    "source_page": "https://media.naver.com/press/016",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-3730c581fc": {
     "source": "https://biz.chosun.com/pf/resources/icons/favicon_chosun.png?d=489",
@@ -132,16 +144,18 @@
     "note": "Original publisher icon; format conversion only where needed."
   },
   "outlet-770ea431aa": {
-    "source": "https://www.pressian.com/pressian.ico",
-    "width": 150,
-    "height": 150,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/002/2025/03/07/logo_002_100_20250307145612.png",
+    "source_page": "https://media.naver.com/press/002",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-c10faa97e9": {
-    "source": "https://3f3bm4nnaefgwrtq8izg16625.edge.naverncp.com/data1/resources/media/favicon.ico",
-    "width": 32,
-    "height": 32,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/005/2025/03/07/logo_005_100_20250307145616.png",
+    "source_page": "https://media.naver.com/press/005",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "chosun": {
     "source": "https://www.chosun.com/pf/resources/icons/favicon_chosun.png?d=2465",
@@ -162,10 +176,11 @@
     "note": "Original publisher icon; format conversion only where needed."
   },
   "donga": {
-    "source": "https://www.donga.com/favicon.ico",
-    "width": 32,
-    "height": 32,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/020/2025/03/07/logo_020_100_20250307145700.png",
+    "source_page": "https://media.naver.com/press/020",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-3a23117aa0": {
     "source": "https://www.dailian.co.kr/favicon.ico",
@@ -174,21 +189,24 @@
     "note": "Original publisher icon; format conversion only where needed."
   },
   "outlet-3bbc99f2e1": {
-    "source": "https://cwstatic.asiae.co.kr/icns/asiae.ico",
-    "width": 16,
-    "height": 16,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/277/2025/03/12/logo_277_100_20250312105338.png",
+    "source_page": "https://media.naver.com/press/277",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-ef6b80b08b": {
-    "source": "https://img.segye.com/static/2019_segye/common/images/segyefavicon_new.ico",
-    "width": 256,
-    "height": 256,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/022/2025/03/20/logo_022_100_20250320162643.png",
+    "source_page": "https://media.naver.com/press/022",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   },
   "outlet-dfbf8b6ac1": {
-    "source": "https://static.dt.co.kr/img/favicon_service.ico",
-    "width": 144,
-    "height": 144,
-    "note": "Original publisher icon; format conversion only where needed."
+    "source": "https://mimgnews.pstatic.net/image/upload/office_logo/029/2025/04/14/logo_029_100_20250414154305.png",
+    "source_page": "https://media.naver.com/press/029",
+    "width": 200,
+    "height": 200,
+    "note": "Original 200px publisher-provided square logo from its Naver press home; no scaling, cropping or recoloring."
   }
 }

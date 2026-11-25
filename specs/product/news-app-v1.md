@@ -203,8 +203,10 @@ Android Home and the `전체 뉴스`, `정치`, `사회`, and `경제` News sect
 topic-grouped endpoint defined in
 [`story-feed.md`](../features/story-feed.md). Topics order by their newest
 eligible article and use stable cursor pagination. One topic row shows its
-representative article's publisher, publication time, and headline plus a quiet
-distinct-publisher count. Tapping it opens the ordinary Reader for that article.
+representative article's publisher and headline plus a quiet distinct-publisher
+count. Android list rows omit publication/relative time; publication timestamps
+remain in the API, ordering and full Reader. Tapping a topic opens the ordinary
+Reader for that article.
 
 `언론사`, search, and Saved remain article-level surfaces. A publisher page and
 search result order articles by `(published_at DESC, id DESC)` with their

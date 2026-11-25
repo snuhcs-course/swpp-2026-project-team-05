@@ -84,6 +84,13 @@ MY`. Search is a mode entered from Home or News, not a fifth root destination.
 The bottom bar stays hidden in Reader, authentication, tutorial, and nested
 settings screens.
 
+The Android bottom navigation bar is 60dp tall, excluding the OS navigation inset, with 22dp
+icons, a 3dp icon-to-label gap, and 11sp labels. Each tab's whole cell remains
+selectable, at least 48dp high. Curated publisher logos use sharp original brand
+assets sized for their largest 52dp display at high-density phone resolution;
+do not enlarge 16/32px favicons to fill those slots. Keep source URLs and native
+asset dimensions in `android/app/src/main/assets/publishers/sources.json`.
+
 Clusters, internal analysis state, A-G codes, URL input, and diagnostics are not ordinary-user navigation.
 
 ## 3. Guest and authentication wireframes
@@ -196,19 +203,25 @@ Root-shell and discovery behavior:
   failure, retry and empty states;
   its header links to MY subscription management. Guests and readers with no
   subscriptions see an in-place invitation below the public headlines.
-  Mock utility values
-  remain visibly sample data until a provider is separately approved.
+  Weather/market values remain presentation fixtures until a provider is
+  connected. Weather condition selects the matching clear/cloudy/rain/snow
+  SVG and label. Every market/currency card derives direction from its numeric
+  change: red plus an upward SVG triangle for positive, blue plus a downward
+  triangle for negative, and neutral with no triangle for zero. Do not attach
+  arbitrary colors to individual symbols or show provider/as-of boilerplate.
 - Live `실시간 트렌드` behavior is defined in
   [Recent-read trends](../features/realtime-trends.md). It is independent of
   `주요 뉴스`: recent-three-hour readership, at most five distinct topics,
   first two collapsed, and an expand control only when more than two entries
-  exist. Show actual calculation time, stable tie ordering, real rank movement,
+  exist. Keep stable tie ordering, real rank movement,
   and distinct loading/empty/failure states. Sparse popularity is supplemented
   with distinct latest topics labeled `최신`, without ranks. Any latest fill,
   incomplete previous popularity list, first calculation, or old baseline hides
   all movement indicators. Fewer than five eligible topics show only the actual
   number; an empty corpus shows the empty state. Home pull-to-refresh updates
   the feed and requests trends independently, respecting server refresh/backoff.
+  The three-hour window and calculation timestamps are internal cache/ranking
+  metadata, not visible Home captions.
 - News uses one text-tab row in this fixed order: `전체 뉴스 | 언론사 | 정치 |
   사회 | 경제`. There is no second category row and no `최신/팔로잉`
   selector.
@@ -250,13 +263,17 @@ Root-shell and discovery behavior:
 Topic-row required content:
 
 - representative publisher;
-- publication time;
 - representative headline, normally capped at two lines for scanability;
 - quiet distinct-source metadata such as `외 3개 언론사` when applicable.
 
 Publisher pages, search, and Saved reuse the compact article row without source
-count metadata. The selected section is not repeated on every row. Analysis
-status belongs to the Reader where its consequence can be explained;
+count metadata. The selected section is not repeated on every row.
+Publication/relative timestamps are omitted from Android Home, News, publisher,
+search and Saved list rows. Preserve them in the API and for chronological
+ordering, and retain original publication details inside Reader/comparisons.
+Duplicate captions such as `최신 기사` beside `주요 뉴스` and `최근 저장순` on
+Saved are omitted; actual offline/loading/error states remain visible.
+Analysis status belongs to the Reader where its consequence can be explained;
 discovery does not expose `READY`, `PARTIAL`, processing, or failure badges.
 
 Do not show:
@@ -286,8 +303,8 @@ Do not show:
 - User-facing copy is `구독`, `구독 중`, and `구독 관리`. Existing
   internal API/model names containing `follow` remain implementation details.
 - The directory is publisher-first, not a flat checkbox settings form. Each
-  publisher block shows an actual publisher logo, name, latest available
-  publication time, one subscription action, and up to three unnumbered
+  publisher block shows an actual publisher logo, name,
+  one subscription action, and up to three unnumbered
   recent article headlines separated by quiet dividers. A stored logo URL
   takes precedence; bundled genuine publisher assets and a neutral identity
   placeholder cover unavailable images. No article image is fabricated.
@@ -619,6 +636,8 @@ right rail. Its two navigation levels must use different controls:
 - Appearance is device-local and account-independent. The initial value is
   `기기 설정 사용`; changing it updates the whole app immediately and survives
   process restart without a backend request.
+- MY lists implemented settings only. Do not show the former `오프라인 저장 공간`
+  / `상세 관리 준비 중` placeholder; Saved's existing offline cache remains automatic.
 
 The existing legacy URL-analysis capability is not linked from this v1 UI. A developer screen may be specified later without changing the feed or Reader routes.
 

@@ -83,8 +83,6 @@ internal fun NewsSavedScreen(
                     color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))
             } else {
                 Text("저장", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                Spacer(Modifier.weight(1f))
-                Text("최근 저장순", fontSize = 11.sp, color = Fl.Muted)
             }
         }
         HorizontalDivider(color = Fl.Line)
@@ -120,7 +118,7 @@ internal fun NewsSavedScreen(
                     state = listState,
                     modifier = Modifier.fillMaxSize().testTag("saved-list")
                 ) {
-                    item {
+                    if (state.isOffline || state.isRefreshing) item {
                         Row(
                             Modifier.fillMaxWidth().background(Fl.Inset)
                                 .padding(horizontal = 18.dp, vertical = 9.dp),
@@ -128,8 +126,7 @@ internal fun NewsSavedScreen(
                         ) {
                             Text(
                                 if (state.isOffline) "저장된 목록 · 오프라인"
-                                else if (state.isRefreshing) "저장 목록을 갱신하는 중…"
-                                else "최근 저장순",
+                                else "저장 목록을 갱신하는 중…",
                                 color = Fl.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium
                             )
                         }

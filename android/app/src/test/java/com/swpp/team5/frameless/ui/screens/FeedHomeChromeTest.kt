@@ -24,23 +24,22 @@ class FeedHomeChromeTest {
     }
 
     @Test
-    fun rowMetadataIsCategoryThenPublisherThenTime() {
+    fun rowMetadataIsCategoryThenPublisherWithoutPublicationTime() {
         assertEquals(
-            listOf("경제", "연합뉴스", "3시간 전"),
-            feedRowMetaParts(article("연합뉴스"), "3시간 전")
+            listOf("경제", "연합뉴스"),
+            feedRowMetaParts(article("연합뉴스"))
         )
         assertEquals(
-            listOf("정치", "연합뉴스", "방금"),
-            feedRowMetaParts(article("연합뉴스", NewsCategory.POLITICS), "방금")
+            listOf("정치", "연합뉴스"),
+            feedRowMetaParts(article("연합뉴스", NewsCategory.POLITICS))
         )
     }
 
     @Test
     fun rowMetadataDropsBlankPartsInsteadOfInventingThem() {
-        assertEquals(listOf("사회", "11월 19일 09:00"),
-            feedRowMetaParts(article("  ", NewsCategory.SOCIETY), "11월 19일 09:00"))
-        assertEquals(listOf("경제", "연합뉴스"), feedRowMetaParts(article("연합뉴스"), ""))
-        assertFalse(feedRowMetaParts(article(""), " ").any { it.isBlank() })
+        assertEquals(listOf("사회"), feedRowMetaParts(article("  ", NewsCategory.SOCIETY)))
+        assertEquals(listOf("경제", "연합뉴스"), feedRowMetaParts(article("연합뉴스")))
+        assertFalse(feedRowMetaParts(article("")).any { it.isBlank() })
     }
 
     @Test
@@ -73,11 +72,10 @@ class FeedHomeChromeTest {
     }
 
     @Test
-    fun bylineIsPublisherThenTimeWithoutTheCategory() {
-        assertEquals("연합뉴스  ·  3시간 전", feedByline(article("연합뉴스"), "3시간 전"))
-        assertEquals("연합뉴스", feedByline(article("연합뉴스"), " "))
-        assertEquals("방금", feedByline(article("  "), "방금"))
-        assertEquals("", feedByline(article(""), ""))
+    fun bylineIsPublisherWithoutCategoryOrTime() {
+        assertEquals("연합뉴스", feedByline(article("연합뉴스")))
+        assertEquals("", feedByline(article("  ")))
+        assertEquals("", feedByline(article("")))
     }
 
     @Test

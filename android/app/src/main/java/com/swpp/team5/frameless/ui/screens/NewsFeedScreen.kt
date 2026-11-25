@@ -78,8 +78,6 @@ import com.swpp.team5.frameless.ui.theme.OutlinedPill
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
-import java.time.Duration
-import java.time.OffsetDateTime
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -876,15 +874,3 @@ private fun CheckboxRow(label: String, checked: Boolean, onClick: () -> Unit) {
         Text(label, fontSize = 15.sp, color = Fl.Ink, modifier = Modifier.padding(start = 6.dp))
     }
 }
-
-internal fun feedRelativeTime(raw: String): String = try {
-    val then = OffsetDateTime.parse(raw)
-    val now = OffsetDateTime.now(then.offset)
-    val minutes = Duration.between(then, now).toMinutes()
-    when {
-        minutes < 1 -> "방금"
-        minutes < 60 -> "${minutes}분 전"
-        minutes < 24 * 60 -> "${minutes / 60}시간 전"
-        else -> formatNewsTimestamp(raw)
-    }
-} catch (_: Exception) { raw }

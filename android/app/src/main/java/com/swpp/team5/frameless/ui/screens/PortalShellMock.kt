@@ -89,7 +89,7 @@ internal fun PortalBottomBar(selected: PortalTab, onSelect: (PortalTab) -> Unit)
     Column(Modifier.fillMaxWidth().background(PortalSurface)) {
         HorizontalDivider(color = PortalLine.copy(alpha = 0.65f), thickness = 0.5.dp)
         Row(
-            modifier = Modifier.fillMaxWidth().height(68.dp).selectableGroup()
+            modifier = Modifier.fillMaxWidth().height(60.dp).selectableGroup()
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -112,9 +112,9 @@ internal fun PortalBottomBar(selected: PortalTab, onSelect: (PortalTab) -> Unit)
                         }),
                         contentDescription = null,
                         tint = color,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         tab.label,
                         fontSize = 11.sp,
@@ -127,17 +127,6 @@ internal fun PortalBottomBar(selected: PortalTab, onSelect: (PortalTab) -> Unit)
         }
     }
 }
-
-private enum class BriefingIcon { WEATHER, MARKET, CURRENCY }
-
-private data class BriefingMetric(
-    val label: String,
-    val value: String,
-    val detail: String,
-    val context: String,
-    val accent: Color,
-    val icon: BriefingIcon
-)
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,14 +157,6 @@ internal fun PortalHomeScreen(
     val trendCount = if (trendsExpanded) 5 else 2
     val trending = trends.page?.items.orEmpty().take(trendCount)
     val latest = stories.take(7)
-    val briefing = listOf(
-        BriefingMetric("서울", "8°", "맑음", "최고 12° · 최저 2°", Color(0xFF4E76B7), BriefingIcon.WEATHER),
-        BriefingMetric("KOSPI", "2,591.05", "+0.32%", "최근 종가", Color(0xFFB84D51), BriefingIcon.MARKET),
-        BriefingMetric("원·달러", "1,397.40", "+0.12%", "최근 고시", Color(0xFF3D6FA8), BriefingIcon.CURRENCY),
-        BriefingMetric("NASDAQ", "19,003.65", "-0.60%", "최근 종가", Color(0xFF47775E), BriefingIcon.MARKET),
-        BriefingMetric("S&P 500", "5,948.71", "-0.29%", "최근 종가", Color(0xFF5D5A91), BriefingIcon.MARKET)
-    )
-
     PullToRefreshBox(isRefreshing = isRefreshing, onRefresh = onRetry,
         modifier = Modifier.fillMaxSize().testTag("home-feed")) {
     LazyColumn(
@@ -235,17 +216,7 @@ internal fun PortalHomeScreen(
         item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("실시간 트렌드", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-                        trends.page?.let { page ->
-                            val time = runCatching {
-                                java.time.OffsetDateTime.parse(page.calculatedAt).atZoneSameInstant(java.time.ZoneId.systemDefault())
-                                    .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-                            }.getOrDefault("")
-                            Text(if (page.isStale) "최근 집계 · $time" else "최근 3시간 · $time 기준",
-                                fontSize = 10.sp, color = Fl.Muted)
-                        }
-                    }
+                    Text("실시간 트렌드", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
                     Spacer(Modifier.weight(1f))
                     if (trends.page?.items.orEmpty().size > 2) {
                     Row(
@@ -290,15 +261,7 @@ internal fun PortalHomeScreen(
                 }
             }
         }
-        item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                contentPadding = PaddingValues(horizontal = 18.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(briefing, key = { it.label }) { metric -> BriefingCard(metric) }
-            }
-        }
+        item { HomeBriefingStrip() }
         item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)) {
                 articles.drop(2).take(2).forEachIndexed { index, article ->
@@ -308,7 +271,7 @@ internal fun PortalHomeScreen(
             }
         }
         item { Box(Modifier.fillMaxWidth().height(7.dp).background(Fl.Bg)) }
-        item { PortalSectionHeader("주요 뉴스", "최신 기사") }
+        item { PortalSectionHeader("주요 뉴스") }
         if (latest.isEmpty()) {
             item { EmptyPortalSection("표시할 최신 기사가 없어요") }
         } else {
@@ -411,14 +374,12 @@ internal fun PortalHomeScreen(
 }
 
 @Composable
-private fun PortalSectionHeader(title: String, caption: String) {
+private fun PortalSectionHeader(title: String) {
     Row(
         Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 8.dp),
         verticalAlignment = Alignment.Bottom
     ) {
         Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Fl.Ink)
-        Spacer(Modifier.width(7.dp))
-        Text(caption, fontSize = 10.5.sp, color = Fl.Muted, modifier = Modifier.padding(bottom = 1.dp))
     }
 }
 
@@ -485,45 +446,6 @@ private fun BreakingNewsRow(label: String, article: ArticleSummary, onClick: () 
 }
 
 @Composable
-private fun BriefingCard(metric: BriefingMetric) {
-    Column(
-        Modifier.width(126.dp).height(84.dp)
-            .background(PortalSurface, RoundedCornerShape(11.dp))
-            .border(1.dp, PortalLine, RoundedCornerShape(11.dp))
-            .padding(horizontal = 11.dp, vertical = 9.dp),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BriefingGlyph(metric.icon, metric.accent)
-            Spacer(Modifier.width(7.dp))
-            Text(metric.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Fl.Ink2)
-        }
-        Text(
-            metric.value,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = Fl.Ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(metric.detail, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = metric.accent)
-            Spacer(Modifier.weight(1f))
-            Text(metric.context, fontSize = 8.sp, color = Fl.Muted)
-        }
-    }
-}
-
-@Composable
-private fun BriefingGlyph(icon: BriefingIcon, color: Color) {
-    Icon(painterResource(when (icon) {
-        BriefingIcon.WEATHER -> R.drawable.ic_portal_sun
-        BriefingIcon.MARKET -> R.drawable.ic_portal_chart_line
-        BriefingIcon.CURRENCY -> R.drawable.ic_portal_exchange
-    }), contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-}
-
-@Composable
 private fun LatestNewsRow(article: ArticleSummary, publisherCount: Int, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 18.dp)
@@ -541,7 +463,7 @@ private fun LatestNewsRow(article: ArticleSummary, publisherCount: Int, onClick:
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
             Text(article.category.label, fontSize = 10.sp, color = Fl.Muted, fontWeight = FontWeight.Bold)
-            Text(" · ${article.publisher.name} · ${feedRelativeTime(article.publishedAt)}", fontSize = 10.sp, color = Fl.Muted)
+            Text(" · ${article.publisher.name}", fontSize = 10.sp, color = Fl.Muted)
             if (publisherCount > 1) {
                 Text(" · ${publisherCount}개 언론사", fontSize = 10.sp, color = Fl.Accent, fontWeight = FontWeight.Bold)
             }
@@ -659,7 +581,6 @@ internal fun PortalProfileScreen(
             )
         }
         item { ProfileAction("튜토리얼 다시 보기", "FrameLESS 읽는 법", onTutorial) }
-        item { ProfileStaticRow("오프라인 저장 공간", "상세 관리 준비 중") }
         if (session != null) {
             item { ProfileAction("로그아웃", null, onLogout, destructive = true) }
         }
@@ -950,18 +871,6 @@ private fun ProfileAction(
         }
         if (!destructive) Icon(painterResource(R.drawable.ic_portal_chevron_right),
             contentDescription = null, tint = Fl.Muted, modifier = Modifier.size(20.dp))
-    }
-    HorizontalDivider(color = PortalLine, modifier = Modifier.padding(start = 18.dp))
-}
-
-@Composable
-private fun ProfileStaticRow(title: String, detail: String) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(title, fontSize = 15.sp, color = Fl.Ink, modifier = Modifier.weight(1f))
-        Text(detail, fontSize = 11.sp, color = Fl.Muted)
     }
     HorizontalDivider(color = PortalLine, modifier = Modifier.padding(start = 18.dp))
 }

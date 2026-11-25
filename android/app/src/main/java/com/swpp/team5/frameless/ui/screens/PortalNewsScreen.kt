@@ -289,7 +289,6 @@ private fun StoryRow(story: StorySummary, onClick: () -> Unit) {
         )
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(article.publisher.name, fontSize = 10.5.sp, color = Fl.Muted)
-            Text(" · ${feedRelativeTime(article.publishedAt)}", fontSize = 10.5.sp, color = Fl.Muted)
             if (story.publisherCount > 1) {
                 Spacer(Modifier.width(7.dp))
                 Text(
@@ -373,14 +372,6 @@ private fun PublisherBlock(
                             contentDescription = null,
                             tint = Fl.Muted,
                             modifier = Modifier.padding(start = 3.dp).size(14.dp)
-                        )
-                    }
-                    publisher.recentArticles.firstOrNull()?.let { latest ->
-                        Text(
-                            feedRelativeTime(latest.publishedAt),
-                            fontSize = 12.sp,
-                            color = Fl.Muted,
-                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                 }
@@ -478,7 +469,6 @@ private fun PublisherPage(
                 PublisherLogo(publisher)
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
                     Text(publisher.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Fl.Ink)
-                    Text("이 언론사의 최신 기사", fontSize = 11.sp, color = Fl.Muted)
                 }
                 SubscriptionButton(publisher.isFollowed, onSubscription, enabled = !isSavingSubscription)
             }
@@ -498,7 +488,7 @@ private fun PublisherPage(
                     ) {
                         Text(article.title, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, color = Fl.Ink)
                         Text(
-                            "${article.category.label} · ${feedRelativeTime(article.publishedAt)}",
+                            article.category.label,
                             fontSize = 10.5.sp,
                             color = Fl.Muted,
                             modifier = Modifier.padding(top = 6.dp)
