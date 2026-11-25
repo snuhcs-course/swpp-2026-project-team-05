@@ -144,7 +144,8 @@ internal fun NewsReaderScreen(
     saveError: String?,
     onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit = { _, _, _ -> },
     onOpenRelatedArticle: (String, Int, String?) -> Unit = { _, _, _ -> },
-    coach: ReaderCoachUi = ReaderCoachUi()
+    coach: ReaderCoachUi = ReaderCoachUi(),
+    onComparisonShown: (Int) -> Unit = {}
 ) {
     when {
         state.isArticleLoading -> {
@@ -159,7 +160,7 @@ internal fun NewsReaderScreen(
             state.isAnalysisLoading, state.analysisError, state.isOffline, onBack, onAnalysisEnabled,
             onToggleSaved, savedPending, saveError, state.comparisonFocus,
             state.initialScrollOffset, state.initialSelectedFindingId,
-            onOpenComparisonArticle, onOpenRelatedArticle, coach)
+            onOpenComparisonArticle, onOpenRelatedArticle, coach, onComparisonShown)
     }
 }
 
@@ -181,7 +182,8 @@ private fun NewsReaderContent(
     initialSelectedFindingId: String?,
     onOpenComparisonArticle: (ComparisonArticleUi, Int, String?) -> Unit,
     onOpenRelatedArticle: (String, Int, String?) -> Unit,
-    coach: ReaderCoachUi
+    coach: ReaderCoachUi,
+    onComparisonShown: (Int) -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     val visibleFindings = remember(analysis, analysisEnabled) {
@@ -198,6 +200,10 @@ private fun NewsReaderContent(
         mutableStateOf(false)
     }
     var detailOpen by remember(article.id) { mutableStateOf(false) }
+    // Telemetry (specs/features/telemetry.md): one event each time the comparison sheet opens for a finding.
+    LaunchedEffect(detailOpen, selected?.id) {
+        if (detailOpen) selected?.let { onComparisonShown(it.comparisons.size) }
+    }
     val titleText = remember(article.title, titleFindings, titleFocus, economicViews, selected?.id) {
         annotatedReaderText(
             article.title, titleFindings, titleFocus,

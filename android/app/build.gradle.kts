@@ -13,6 +13,12 @@ jacoco {
     toolVersion = "0.8.13"
 }
 
+// Firebase Analytics (specs/features/telemetry.md) starts only when a local app/google-services.json exists. The file
+// stays out of git, so CI and other builds run without telemetry.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -20,6 +26,15 @@ val localProperties = Properties().apply {
 val backendBaseUrl = providers.gradleProperty("framelessBackendUrl").orNull
     ?: localProperties.getProperty("framelessBackendUrl")
     ?: "https://frameless-team05-api.vercel.app"
+
+// Release signing for store uploads. The keystore and its passwords stay outside the repository; pass the path of a
+// keystore.properties file (storeFile, storePassword, keyAlias, keyPassword) as -PframelessSigning=<path> or put
+// framelessSigning=<path> in local.properties. Without it, release builds stay unsigned.
+val signingProperties = (providers.gradleProperty("framelessSigning").orNull
+    ?: localProperties.getProperty("framelessSigning"))
+    ?.let { file(it) }
+    ?.takeIf { it.isFile }
+    ?.let { source -> Properties().apply { source.inputStream().use { load(it) } } }
 
 android {
     namespace = "com.swpp.team5.frameless"
@@ -31,8 +46,8 @@ android {
         applicationId = "com.swpp.team5.frameless"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 10
+        versionName = "1.0.0"
 
         buildConfigField("String", "BACKEND_BASE_URL", "\"${backendBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
@@ -46,8 +61,22 @@ android {
         }
     }
 
+    signingConfigs {
+        if (signingProperties != null) {
+            create("release") {
+                storeFile = file(signingProperties.getProperty("storeFile"))
+                storePassword = signingProperties.getProperty("storePassword")
+                keyAlias = signingProperties.getProperty("keyAlias")
+                keyPassword = signingProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (signingProperties != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                 enable = false
             }
@@ -83,6 +112,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.security:security-crypto:1.1.0")
     implementation("androidx.room:room-runtime:2.8.5")
+    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation("com.google.firebase:firebase-analytics")
     annotationProcessor("androidx.room:room-compiler:2.8.5")
     testImplementation("androidx.room:room-testing:2.8.5")
     testImplementation("androidx.test:core:1.7.0")

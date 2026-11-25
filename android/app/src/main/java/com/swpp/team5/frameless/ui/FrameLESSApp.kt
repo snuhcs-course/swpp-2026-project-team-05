@@ -106,6 +106,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                         auth.sessionExpired()
                     }
                 }
+                LaunchedEffect(news.route) { news.recordScreen(news.route) }
                 when (news.route) {
                     NewsRoute.FEED -> {
                         BackHandler(enabled = news.feed.isSearchOpen) { news.closeSearch() }
@@ -160,6 +161,7 @@ internal fun FrameLESSApp(news: NewsViewModel, auth: AuthViewModel, tutorial: Tu
                         onAnalysisEnabled = news::setAnalysisEnabled,
                         onOpenComparisonArticle = news::openComparisonArticle,
                         onOpenRelatedArticle = news::openRelatedArticle,
+                        onComparisonShown = news::recordComparisonShown,
                         onToggleSaved = { articleId, saved ->
                             if (session == null) auth.openLogin()
                             else news.toggleSaved(articleId, saved)
