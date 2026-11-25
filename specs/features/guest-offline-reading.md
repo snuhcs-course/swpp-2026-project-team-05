@@ -74,6 +74,12 @@ This is an explicit extension of the no-installation-ID boundary above,
 not a guest account or an identifier required by public read APIs.
 It does not change guest Saved/Following permissions or add identity merging.
 
+Planned separate extension:
+[Article reactions and Home highlights](article-reactions-and-home-highlights.md)
+allows public reaction-count reads and authenticated-only reaction writes.
+Its new server table belongs to that feature; it does not add guest accounts,
+Room reaction storage, or offline synchronization to this contract.
+
 ## 3. Authentication state and transitions
 
 Clients expose three top-level authentication states:

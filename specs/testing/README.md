@@ -58,3 +58,8 @@ keeps search, publisher pages, and Saved article-based.
 `realtime-trends.spec.md` records the planned readership-window, deduplication,
 sparse-result, tie/movement, concurrency, retention, and Android lifecycle
 oracles, exact automated test identifiers, and remaining verification gaps.
+
+`article-reactions-and-home-highlights.spec.md` is a draft for article reaction
+ownership/counts, topic-level Issue selection, Breaking eligibility/expiry,
+client isolation, and performance/deployment checks. Its `Tip` entries are
+planned coverage, not claims that tests or the feature already exist.

@@ -50,6 +50,9 @@ and followed-source behavior are specified in
 [`news-app-features.md`](../features/news-app-features.md). Guest access and
 Android offline reading behavior are specified in
 [`guest-offline-reading.md`](../features/guest-offline-reading.md).
+The planned Android reaction and Home highlight extension is specified in
+[`article-reactions-and-home-highlights.md`](../features/article-reactions-and-home-highlights.md).
+It is a draft extension and does not change the implementation status of this baseline.
 
 ### 1.1 Required v1 functionality
 

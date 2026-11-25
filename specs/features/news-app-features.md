@@ -27,11 +27,13 @@ baseline specifications into a feature backlog.
 | Following sources | Implemented data contract; Android navigation update pending | Personalize Home without a News scope tab |
 | Reading history | Deferred | Saved articles already cover the primary return-to-reading need |
 | Sharing | Deferred | Native and browser link sharing already cover the immediate need |
-| Likes or reactions | Deferred | Add only after defining what a reaction means for a news product |
+| Article reactions | Specified; implementation pending | Five article reactions and reaction-based Home Issue selection; see [dedicated specification](article-reactions-and-home-highlights.md) |
 | Comments | Deferred | Requires moderation, reporting, blocking, and deletion policies |
 
 The three implemented rows are the current product baseline. Deferred rows are
 directional notes, not authorization to build their schemas or UI in advance.
+The reaction row is a separate planned extension, not an implemented part of
+this baseline. Its data, UI, and Home selection rules live in its own feature file.
 
 ## 2. Article search v1
 

@@ -122,6 +122,12 @@ authentication cancellation clears that pending intent. A pending bookmark is
 not replayed automatically. Android and Web use the same capability boundary
 even when the physical dialog or sheet differs.
 
+Planned Android extension: a Reader reaction tap uses this same contextual
+authentication flow and is not replayed after login. The full proposed Reader
+module and Home behavior remain in
+[Article reactions and Home highlights](../features/article-reactions-and-home-highlights.md),
+pending intent review and implementation.
+
 ### 3.1 Login
 
 ```text
@@ -225,6 +231,11 @@ Root-shell and discovery behavior:
   the feed and requests trends independently, respecting server refresh/backoff.
   The three-hour window and calculation timestamps are internal cache/ranking
   metadata, not visible Home captions.
+- Planned `속보` and `이슈` rows follow
+  [Article reactions and Home highlights](../features/article-reactions-and-home-highlights.md):
+  one unexpired publisher-tagged Breaking article and one recent-reaction topic,
+  omitting rows with no qualifying item. This draft will replace the current
+  temporary labels on ordinary Home articles; it does not change trends ranks.
 - News uses one text-tab row in this fixed order: `전체 뉴스 | 언론사 | 정치 |
   사회 | 경제`. There is no second category row and no `최신/팔로잉`
   selector.

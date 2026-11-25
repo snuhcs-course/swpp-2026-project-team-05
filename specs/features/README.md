@@ -34,3 +34,9 @@ flows.
 last-read row per viewer/article, a shared rank snapshot, and daily expiry
 cleanup. Sparse popularity is supplemented with clearly labeled latest topics;
 ordinary feed ordering is unchanged.
+
+`article-reactions-and-home-highlights.md` drafts five account-backed article
+reactions, topic-level recent-24-hour Issue selection, and explicitly tagged
+two-hour Breaking headlines. It replaces the Home labels' temporary placement
+only when implemented, keeps readership trends separate, and adds one reaction
+table rather than stored counters or a second ranking subsystem.
