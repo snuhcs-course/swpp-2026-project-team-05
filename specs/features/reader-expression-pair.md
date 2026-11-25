@@ -60,13 +60,21 @@ block):
 - Paging swaps only the bottom side; the top side stays the same.
 - No score, ranking, bias judgment, red/blue coding, outlet logo, or "VS" label.
 
-## 4. Unchanged
+## 4. Article actions
 
 Publisher and time caption, speaker label rules (`기자 표현` omitted), article
 title, `이 기사 읽기` (closes the sheet, then opens the Reader), `원문 보기`, the
-full compared article with highlighted sentence and marker, automatic scroll to
-that marker, per-page scroll positions, drag-to-dismiss regions (the panel is part
-of the page's header region), the tutorial 3 / 3 callout, and all callbacks.
+tutorial 3 / 3 callout, publisher paging, and all callbacks remain available.
+The full compared article is no longer rendered below these controls. Keep the
+existing paired markers and their context previews; do not add a replacement
+excerpt area. Full-text reading and comparison focus belong to the ordinary
+Reader reached through `이 기사 읽기`.
+
+The sheet fits its remaining comparison content up to the available screen
+height. Long pages can scroll, with enough bottom padding for the floating
+navigator. A downward pull at the top and the fixed close action retain their
+existing dismissal behavior. Removing the body must not leave an empty
+full-screen article-reading region.
 
 ## 5. Not shown
 

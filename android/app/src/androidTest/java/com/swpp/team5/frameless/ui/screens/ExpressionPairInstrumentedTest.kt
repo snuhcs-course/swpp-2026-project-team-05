@@ -1,5 +1,8 @@
 package com.swpp.team5.frameless.ui.screens
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.text.TextLayoutResult
@@ -13,6 +16,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.swpp.team5.frameless.data.ComparisonArticleUi
 import com.swpp.team5.frameless.data.ComparisonEvidenceUi
 import com.swpp.team5.frameless.data.FindingUi
@@ -98,6 +102,38 @@ class ExpressionPairInstrumentedTest {
         compose.onNodeWithText(PAIR_HEADING).assertIsDisplayed()
         compose.onNodeWithText(PAIR_CONNECTOR).assertIsDisplayed()
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+    }
+
+    @Test
+    fun comparisonSheetOmitsFullBodyAndKeepsOriginalArticleActions() {
+        val bodyOnlyText = "전문에만 있는 별도의 문단입니다."
+        val page = first.copy(body = first.body + "\n\n" + bodyOnlyText.repeat(30))
+        var opened: ComparisonArticleUi? = null
+        var originalUrl: String? = null
+        var dismissed = false
+        val uriHandler = object : UriHandler {
+            override fun openUri(uri: String) { originalUrl = uri }
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                FindingDetailSheet(
+                    finding = finding.copy(comparisons = listOf(page)),
+                    onDismiss = { dismissed = true },
+                    onOpenArticle = { opened = it },
+                    sourcePublisher = "연합뉴스"
+                )
+            }
+        }
+        compose.onAllNodesWithText(bodyOnlyText, substring = true).assertCountEquals(0)
+        compose.onNode(hasText(PAIR_COMPARED_ROLE) and hasText("“넓히고 있다”"))
+            .assertIsDisplayed()
+        compose.onNodeWithText(page.title).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("원문 보기").performScrollTo().performClick()
+        assertEquals(page.originalUrl, originalUrl)
+        compose.onNodeWithText("이 기사 읽기").performScrollTo().performClick()
+        compose.waitUntil { opened != null }
+        assertEquals(page, opened)
+        assertTrue(dismissed)
     }
 
     @Test

@@ -526,6 +526,9 @@ Do not describe the article as neutral.
 - During user scrolling, the nearest eligible BODY finding replaces the dock
   content immediately. Opening/restoring a Reader, coach movement, and comparison
   focus do not trigger automatic replacement.
+- Scrolling back to the physical top restores the initial first finding (TITLE
+  first, otherwise BODY), even outside the ordinary reading band. An idle manual
+  selection at the top is retained until the user scrolls again.
 - When a direct finger drag changes the active finding, Android may emit one
   low-intensity system haptic. Fling inertia, programmatic movement, tutorial
   movement, and direct marker taps do not emit this feedback.
@@ -555,10 +558,6 @@ adding information.
 │  연합뉴스 · 발행 시각                 │
 │  비교 기사 제목                       │
 │  [이 기사 읽기]             원문 보기 │
-│  “피의자”가 들어간 대응 문장           │
-│                                      │
-│  비교 기사 전문...                    │
-│  대응 표현은 본문에서 강조된다.      │
 │                  ┌───────────┐ │
 │                  │  ‹  1 / 2  ›  │ │
 │                  └───────────┘ │
@@ -590,8 +589,11 @@ Comparison behavior:
   target. It does not create a second comparison-only article view.
 - Show a speaker label such as `교육부 표현` only when a specific attributed
   speaker is stored. Omit the generic `기자 표현` label.
-- The sheet opens directly at its maximum height. The target article scrolls
-  vertically, and horizontal swiping changes publisher pages.
+- The sheet opens without an intermediate anchor and fits its comparison
+  content up to the available screen height. The full compared article and its
+  auto-scroll area are omitted; full-text reading uses `이 기사 읽기`. Keep the
+  paired expressions and context previews above the article controls. Long
+  comparison pages scroll vertically, and horizontal swiping changes publishers.
 - With multiple pages, a compact floating `‹  n / N  ›` pill overlays the
   bottom edge and mirrors horizontal swiping without reserving article height.
   Its surface is lightly translucent but keeps accessible contrast. Boundary
@@ -624,13 +626,13 @@ Comparison behavior:
 - The fixed-heading close action follows the same dismissal path.
 - Back with only the dock visible leaves Reader normally.
 - The dock itself has no swipe or drag gesture. Inside the expanded sheet,
-  vertical gestures scroll the selected article and horizontal gestures page publishers.
+  vertical gestures scroll overflowing comparison content and horizontal gestures page publishers.
 - Downward drag dismisses from the top handle, the fixed comparison heading, or
-  the fixed article metadata/evidence area.
-- Article body gestures scroll normally; once that body is already at its top,
+  the comparison metadata/evidence area when it is at the top.
+- Comparison content scrolls normally; once that content is already at its top,
   a deliberate downward pull dismisses the sheet after release. Dismissal uses
   the Material hide animation; Material whole-sheet dragging stays disabled so
-  these regions never fight the article scroll and wobble.
+  these regions never fight the comparison scroll and wobble.
 
 ### 6.5 Desktop web analysis rail
 
@@ -838,8 +840,8 @@ NewsFeedViewModel + ArticleReaderViewModel ─> normal product routes
 - Manual marker selection and eligible BODY-marker changes update the dock immediately
 - Initial/restored/programmatic positions never auto-replace the dock
 - Scroll restart keeps the current dock content without moving the article
-- Detail sheet opens directly at maximum height
-- Horizontal publisher paging and vertical article scrolling remain stable
+- Detail sheet fits the comparison content without an empty full-article region
+- Horizontal publisher paging and overflowing comparison scrolling remain stable
 
 ## 12. UI definition of done
 

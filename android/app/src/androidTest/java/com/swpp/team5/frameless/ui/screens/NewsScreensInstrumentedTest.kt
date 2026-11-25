@@ -4,6 +4,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
@@ -661,6 +662,15 @@ class NewsScreensInstrumentedTest {
         }
         assertEquals(heightBefore, dock.fetchSemanticsNode().boundsInRoot.height)
         compose.onNodeWithText("다른 보도 1곳", substring = true).assertIsDisplayed()
+        val readerScroll = compose.onNodeWithTag("article-reader-scroll")
+        repeat(20) {
+            if (readerScroll.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value() > 0f) {
+                readerScroll.performTouchInput { swipeDown(durationMillis = 300) }
+                compose.waitForIdle()
+            }
+        }
+        assertEquals(0f, readerScroll.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value())
+        compose.onNodeWithText("“강조표현2”").assertIsDisplayed()
     }
 
     @Test

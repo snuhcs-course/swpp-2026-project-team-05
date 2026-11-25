@@ -51,12 +51,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,10 +74,8 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
@@ -377,10 +373,12 @@ private fun NewsReaderContent(
             selectionMarkers,
             viewport.top,
             viewport.bottom,
-            atScrollEnd = scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 1
+            atScrollEnd = scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 1,
+            atScrollStart = scroll.value == 0,
+            firstFindingId = titleFindings.firstOrNull()?.id ?: bodyFindings.firstOrNull()?.id
         )
         if (candidateId == null || candidateId == selected?.id) return@LaunchedEffect
-        val candidate = measured.firstOrNull { it.first.id == candidateId } ?: return@LaunchedEffect
+        val candidate = visibleFindings.firstOrNull { it.id == candidateId } ?: return@LaunchedEffect
         val now = SystemClock.elapsedRealtime()
         val hapticConstant = annotationHapticFeedbackConstant(Build.VERSION.SDK_INT)
         if (directUserDragActive && selected != null && hapticConstant != null &&
@@ -388,7 +386,7 @@ private fun NewsReaderContent(
             readerView.performHapticFeedback(hapticConstant)
             lastAnnotationHapticAt = now
         }
-        selected = candidate.first
+        selected = candidate
     }
 
     LaunchedEffect(analysisEnabled) {
@@ -935,7 +933,7 @@ internal fun FindingDetailSheet(
         onDismissRequest = dismissSheet,
         sheetState = sheetState,
         // Material never moves the sheet directly. App-owned regions arbitrate
-        // dismissal: fixed headers accept a downward drag, and article content
+        // dismissal: fixed headers accept a downward drag, and comparison content
         // accepts it only after its own scroll reaches the top.
         sheetGesturesEnabled = false,
         dragHandle = {
@@ -950,7 +948,7 @@ internal fun FindingDetailSheet(
         containerColor = HomeTokens.OffWhite,
         contentColor = Fl.Ink
     ) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.93f)) {
+        Column(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.fillMaxWidth().then(sectionDismissModifier)
                     .padding(start = 20.dp, end = 8.dp)
@@ -987,7 +985,7 @@ internal fun FindingDetailSheet(
                     CoachTooltip(
                         stepLabel = "3 / 3",
                         title = "다른 언론사는 이렇게 썼어요",
-                        body = "아래 기사에서 밑줄 친 문장이 같은 내용을 다룬 부분이에요.",
+                        body = "위아래 표현과 문맥을 비교해 보세요.",
                         primaryLabel = "완료",
                         onPrimary = onCoachDone,
                         secondaryLabel = null,
@@ -1000,8 +998,9 @@ internal fun FindingDetailSheet(
                     )
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
+            Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top) { index ->
                     val page = finding.comparisons[index]
                     NewsComparisonPage(
                         page = page,
@@ -1129,81 +1128,36 @@ private fun NewsComparisonPage(
     hasFloatingNavigator: Boolean
 ) {
     val uriHandler = LocalUriHandler.current
-    val density = LocalDensity.current
-    val rootView = LocalView.current.rootView
     val scroll = rememberScrollState()
-    val bodyEvidence = page.evidence.filter { it.scope == "BODY" }
     val titleEvidence = page.evidence.filter { it.scope == "TITLE" }
     val highlightColors = readerHighlightColors()
-    val body = remember(page, highlightColors) { annotatedTarget(page.body, bodyEvidence, highlightColors) }
     val title = remember(page, highlightColors) { annotatedTarget(page.title, titleEvidence, highlightColors) }
-    var layout by remember(page.articleId) { mutableStateOf<TextLayoutResult?>(null) }
-    var viewportHeight by remember(page.articleId) { mutableIntStateOf(0) }
-    var visibleHeight by remember(page.articleId) { mutableIntStateOf(0) }
-    var focused by rememberSaveable(page.articleId) { mutableStateOf(false) }
-    val headerDismissModifier = downwardDismissModifier(onDismiss)
     val pullDismissConnection = rememberPullDownDismissConnection(scroll, onDismiss)
     val speakerLabels = remember(page.evidence) {
         page.evidence.mapNotNull { it.speakerLabel?.takeIf(String::isNotBlank) }
             .distinct()
     }
 
-    LaunchedEffect(layout, visibleHeight, viewportHeight, scroll.maxValue, sheetState.currentValue) {
-        if (focused || bodyEvidence.isEmpty() || sheetState.currentValue == SheetValue.Hidden) {
-            return@LaunchedEffect
-        }
-        val textLayout = layout ?: return@LaunchedEffect
-        val offset = bodyEvidence.first().markerRange.start
-        if (offset !in page.body.indices || visibleHeight <= 0) return@LaunchedEffect
-        if (scroll.maxValue == 0 && textLayout.size.height > viewportHeight) return@LaunchedEffect
-        awaitFrame()
-        val box = textLayout.getBoundingBox(offset)
-        val target = centeredReaderOffset(
-            with(density) { 14.dp.toPx() } + box.top + box.height / 2f,
-            visibleHeight,
-            scroll.maxValue
-        )
-        scroll.scrollTo(target)
-        focused = true
-    }
-
-    Column(Modifier.fillMaxSize().padding(bottom = 8.dp)) {
-        // The pair sits edge to edge above the article; it belongs to the drag-to-dismiss header region.
-        Column(Modifier.fillMaxWidth().then(headerDismissModifier)) {
-            pair?.let { ExpressionPairPanel(it) }
-            Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
-                if (speakerLabels.isNotEmpty()) {
-                    Caption(speakerLabels.joinToString(" · ") { "$it 표현" }, color = Fl.InkDiff)
-                }
-                Caption("${page.publisher.name} · ${formatNewsTimestamp(page.publishedAt)}")
-                Text(title, fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
-                    fontWeight = FontWeight.Bold, color = Fl.Ink)
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilledPill(text = "이 기사 읽기", onClick = { onOpenArticle(page) })
-                    SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
-                }
-                HorizontalDivider(color = HomeTokens.Hairline)
+    Column(
+        Modifier.fillMaxWidth().nestedScroll(pullDismissConnection)
+            .verticalScroll(scroll, enabled = sheetState.currentValue == SheetValue.Expanded)
+            .padding(bottom = if (hasFloatingNavigator) 64.dp else 16.dp)
+    ) {
+        pair?.let { ExpressionPairPanel(it) }
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
+            if (speakerLabels.isNotEmpty()) {
+                Caption(speakerLabels.joinToString(" · ") { "$it 표현" }, color = Fl.InkDiff)
             }
-        }
-        Box(
-            Modifier.fillMaxSize().padding(horizontal = 20.dp).onSizeChanged { viewportHeight = it.height }
-                .onGloballyPositioned { coordinates ->
-                    visibleHeight = (rootView.height - coordinates.positionInWindow().y).toInt()
-                        .coerceIn(0, coordinates.size.height)
-                }
-        ) {
-            Column(
-                Modifier.fillMaxSize().nestedScroll(pullDismissConnection)
-                    .verticalScroll(scroll, enabled = sheetState.currentValue == SheetValue.Expanded)
+            Caption("${page.publisher.name} · ${formatNewsTimestamp(page.publishedAt)}")
+            Text(title, fontFamily = Fl.Serif, fontSize = 18.sp, lineHeight = 25.sp,
+                fontWeight = FontWeight.Bold, color = Fl.Ink)
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(body, modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                    fontFamily = Fl.Serif, fontSize = 15.sp, lineHeight = 27.sp,
-                    color = Fl.Ink, onTextLayout = { layout = it })
-                if (hasFloatingNavigator) Spacer(Modifier.height(64.dp))
+                FilledPill(text = "이 기사 읽기", onClick = { onOpenArticle(page) })
+                SourceLink(onClick = { uriHandler.openUri(page.originalUrl) })
             }
         }
     }

@@ -47,7 +47,7 @@ comparison sheet, target-article navigation, or saving behavior.
 ## 4. Scroll-synced selection
 
 - The eligible band is 45–65% of the article viewport and its anchor is 55%.
-- Only BODY markers are selected automatically. The eligible marker nearest the
+- Between scroll boundaries, only BODY markers are selected automatically. The eligible marker nearest the
   anchor wins; reading order breaks an equal-distance tie.
 - During a user scroll, the dock content changes as soon as a different BODY
   marker becomes the nearest eligible marker. There is no dwell timer because
@@ -66,6 +66,10 @@ comparison sheet, target-article navigation, or saving behavior.
 - At the physical end of the article, the last visible BODY finding wins even
   when it cannot reach the ordinary band. Off-screen findings are never selected
   by this boundary rule, and the Reader does not add artificial trailing space.
+- When the user scrolls back to the physical top, select the first displayable
+  finding as on initial entry: TITLE first, otherwise the first BODY finding,
+  even if it cannot reach the reading band. This reset does not move the article
+  and does not run on initial/restored layout or replace an idle manual choice.
 - While a real user scroll is in progress, a short low-contrast tick at the
   right edge marks the 55% anchor. It is decorative and never crosses the text.
 
