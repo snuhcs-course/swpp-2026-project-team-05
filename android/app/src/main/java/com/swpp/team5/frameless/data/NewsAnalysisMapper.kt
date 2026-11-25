@@ -97,6 +97,8 @@ internal fun ApiEconomicLens.toUi(article: ArticleDetail): EconomicLensUi = Econ
     event = event,
     views = views.map { it.toUi(article) },
     others = others.map { outlet ->
-        EconomicOutletUi(outlet.articleId, outlet.publisher, outlet.title, outlet.views.map { it.toUi(null) })
-    }
+        EconomicOutletUi(outlet.articleId, outlet.publisher, outlet.title, outlet.views.map { it.toUi(null) },
+            outlet.position)
+    },
+    position = position
 )

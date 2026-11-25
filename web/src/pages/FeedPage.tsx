@@ -6,7 +6,6 @@ import { useAuth } from '../auth/useAuth'
 import { ArticleRow } from '../components/ArticleRow'
 import { AppShell } from '../components/AppShell'
 import { ManageSourcesDialog } from '../components/ManageSourcesDialog'
-import { UrlAnalysisMock } from '../components/UrlAnalysisMock'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { orderFeedArticles } from '../lib/feedOrdering'
@@ -371,8 +370,11 @@ function SearchResultSection({
       ))}
       {!isLoading && !isError && articles.length === 0 && (
         filter === 'ALL' ? (
-          <div className="border-y border-zinc-300 px-5 py-12 text-center text-sm text-zinc-500">
-            <UrlAnalysisMock key={query} query={query} />
+          <div className="border-y border-zinc-300 px-5 py-12 text-center">
+            <h3 className="font-serif text-2xl font-black text-zinc-950">No stories found for “{query}”.</h3>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-600">
+              Try another search term or check the spelling.
+            </p>
           </div>
         ) : (
           <p className="border-b border-zinc-300 py-7 text-sm text-zinc-500">

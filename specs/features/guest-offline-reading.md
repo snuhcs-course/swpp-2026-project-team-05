@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented |
-| Version | 1.1 |
-| Date | 2026-11-14 |
+| Version | 1.2 |
+| Date | 2026-11-24 |
 | Clients | Android and Web guest access; Android offline cache |
 | API | Existing Django JSON API with optional authentication on public reads |
 | Server database | Existing Supabase PostgreSQL schema; no new server tables |
@@ -269,6 +269,19 @@ requires a connection.
 5. If only the article is cached, keep it readable and show analysis as
    unavailable offline.
 6. If no detail is cached and the network fails, show a retryable Reader error.
+
+Reader-to-Reader navigation also keeps an in-memory session snapshot containing
+the already loaded article, validated analysis, scroll offset, selected finding,
+and transient comparison focus. Back, or a comparison link to the immediately
+previous article, restores that snapshot synchronously instead of creating a
+duplicate `A → B → A` history entry. Room remains the fallback after process
+death or eviction; the session snapshot is not a second persistent store.
+
+Displaying a valid session or Room snapshot while an online refresh is pending
+does not claim that the device is offline and does not replace readable analysis
+with a loading surface. Refresh failure marks the Reader offline only after the
+network request fails. A changed article `content_hash` invalidates the visible
+cached analysis before the replacement analysis is shown.
 
 Original publisher links may still fail in the external browser while offline;
 FrameLESS does not mirror publisher sites.

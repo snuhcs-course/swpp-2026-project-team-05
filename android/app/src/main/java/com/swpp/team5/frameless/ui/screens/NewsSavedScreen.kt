@@ -15,8 +15,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -25,14 +29,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
+import com.swpp.team5.frameless.ui.components.edgeSwipeBack
 import com.swpp.team5.frameless.ui.viewmodel.SavedArticlesState
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 internal fun NewsSavedScreen(
     state: SavedArticlesState,
     listState: LazyListState,
@@ -43,13 +50,18 @@ internal fun NewsSavedScreen(
     onArticle: (String) -> Unit
 ) {
     BackHandler(onBack = onBack)
+    val pullRefreshState = rememberPullToRefreshState()
     LaunchedEffect(listState.firstVisibleItemIndex, state.items.size, state.nextCursor) {
         if (state.items.isNotEmpty() && listState.firstVisibleItemIndex >= state.items.lastIndex - 3) {
             onLoadMore()
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Fl.Card)) {
+    Column(
+        Modifier.fillMaxSize().edgeSwipeBack(onBack = onBack)
+            .background(Fl.Card)
+            .testTag("saved-screen")
+    ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -65,13 +77,6 @@ internal fun NewsSavedScreen(
             ArticleBookmarkIcon(true, Fl.Accent, Modifier.size(19.dp))
             Text("저장한 기사", fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 color = Fl.Ink, modifier = Modifier.padding(start = 8.dp))
-            Spacer(Modifier.weight(1f))
-            Text(
-                "새로고침", fontSize = 12.sp, color = Fl.Accent,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable(enabled = !state.isRefreshing, onClick = onRefresh)
-                    .padding(horizontal = 4.dp, vertical = 8.dp)
-            )
         }
         HorizontalDivider(color = Fl.Line)
         when {
@@ -87,44 +92,63 @@ internal fun NewsSavedScreen(
                 if (state.isOffline) "다시 연결" else "기사 둘러보기",
                 if (state.isOffline) onRefresh else onBack
             )
-            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().background(Fl.Inset)
-                            .padding(horizontal = 18.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            if (state.isOffline) "저장된 목록 · 오프라인"
-                            else if (state.isRefreshing) "저장 목록을 갱신하는 중…"
-                            else "최근 저장순",
-                            color = Fl.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-                items(state.items, key = { it.id }) { article ->
-                    ArticleFeedRow(
-                        article = article,
-                        onClick = { onArticle(article.id) }
+            else -> PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh = { if (!state.isRefreshing) onRefresh() },
+                state = pullRefreshState,
+                modifier = Modifier.weight(1f),
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = pullRefreshState,
+                        isRefreshing = state.isRefreshing,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        containerColor = Fl.Card,
+                        color = Fl.Accent
                     )
-                    HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
                 }
-                if (state.isLoadingMore) {
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().testTag("saved-list")
+                ) {
                     item {
-                        Box(
-                            Modifier.fillMaxWidth().padding(20.dp),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            Modifier.fillMaxWidth().background(Fl.Inset)
+                                .padding(horizontal = 18.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                Modifier.size(22.dp), color = Fl.Accent, strokeWidth = 2.dp
+                            Text(
+                                if (state.isOffline) "저장된 목록 · 오프라인"
+                                else if (state.isRefreshing) "저장 목록을 갱신하는 중…"
+                                else "최근 저장순",
+                                color = Fl.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium
                             )
                         }
                     }
+                    items(state.items, key = { it.id }) { article ->
+                        ArticleFeedRow(
+                            article = article,
+                            onClick = { onArticle(article.id) }
+                        )
+                        HorizontalDivider(color = Fl.Line, modifier = Modifier.padding(horizontal = 18.dp))
+                    }
+                    if (state.isLoadingMore) {
+                        item {
+                            Box(
+                                Modifier.fillMaxWidth().padding(20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    Modifier.size(22.dp), color = Fl.Accent, strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                    state.nextPageError?.let { message ->
+                        item { FeedMessage("다음 기사를 불러오지 못했어요", message, "다시 시도", onLoadMore) }
+                    }
+                    item { Spacer(Modifier.size(24.dp)) }
                 }
-                state.nextPageError?.let { message ->
-                    item { FeedMessage("다음 기사를 불러오지 못했어요", message, "다시 시도", onLoadMore) }
-                }
-                item { Spacer(Modifier.size(24.dp)) }
             }
         }
     }

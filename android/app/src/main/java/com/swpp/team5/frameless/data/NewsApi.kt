@@ -352,6 +352,13 @@ private fun parseEconomicView(view: JSONObject): ApiEconomicView {
     )
 }
 
+private fun parseEconomicPosition(root: JSONObject): EconomicPositionUi? {
+    val position = root.optJSONObject("position") ?: return null
+    val stance = position.optString("stance")
+    val summary = position.optString("summary").trim()
+    return if (stance.isBlank() || summary.isBlank()) null else EconomicPositionUi(stance, summary)
+}
+
 private fun parseEconomic(root: JSONObject) = ApiEconomicLens(
     event = root.optString("event"),
     views = root.optJSONArray("views").orEmptyObjects().map(::parseEconomicView),
@@ -360,9 +367,11 @@ private fun parseEconomic(root: JSONObject) = ApiEconomicLens(
             articleId = outlet.requireString("article_id"),
             publisher = parsePublisher(outlet.requireObject("publisher")),
             title = outlet.optString("title"),
-            views = outlet.optJSONArray("views").orEmptyObjects().map(::parseEconomicView)
+            views = outlet.optJSONArray("views").orEmptyObjects().map(::parseEconomicView),
+            position = parseEconomicPosition(outlet)
         )
-    }
+    },
+    position = parseEconomicPosition(root)
 )
 
 private fun parsePublisher(root: JSONObject) = PublisherItem(

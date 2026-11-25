@@ -66,7 +66,6 @@ internal object HomeTokens {
 
 /** Actions moved from the app bar into the left menu, in display order. Labels are the existing ones. */
 internal enum class FeedMenuItem(val label: String) {
-    LINK_ANALYSIS("기사 링크로 분석하기"),
     TUTORIAL("튜토리얼 다시 보기")
 }
 
@@ -293,7 +292,6 @@ private fun ConvergingMarksMotif() {
 
 @Composable
 internal fun FeedMenuButton(
-    onLinkOpen: () -> Unit,
     onTutorialOpen: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -329,7 +327,6 @@ internal fun FeedMenuButton(
                     onClick = {
                         expanded = false
                         when (item) {
-                            FeedMenuItem.LINK_ANALYSIS -> onLinkOpen()
                             FeedMenuItem.TUTORIAL -> onTutorialOpen()
                         }
                     },
@@ -347,13 +344,6 @@ private fun FeedMenuGlyph(item: FeedMenuItem) {
         val w = size.width
         val stroke = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         when (item) {
-            FeedMenuItem.LINK_ANALYSIS -> {
-                // Two linked rounded rectangles.
-                drawRoundRect(Fl.Ink2, Offset(w * 0.08f, w * 0.34f), Size(w * 0.5f, w * 0.32f),
-                    CornerRadius(w * 0.16f), style = stroke)
-                drawRoundRect(Fl.Ink2, Offset(w * 0.42f, w * 0.34f), Size(w * 0.5f, w * 0.32f),
-                    CornerRadius(w * 0.16f), style = stroke)
-            }
             FeedMenuItem.TUTORIAL -> {
                 drawCircle(Fl.Ink2, radius = w * 0.42f, style = stroke)
                 val q = Path().apply {
@@ -407,43 +397,30 @@ internal fun ArticleFeedRow(
 }
 
 /**
- * Section heading over the feed list: serif title, the existing scope/offline caption, and the existing refresh
- * link. With no title (a one-article feed) only the caption row remains.
+ * Section heading over the feed list: serif title and the existing scope/offline caption.
+ * Refresh is owned by the surrounding pull gesture. With no title (a one-article
+ * feed) only the caption row remains.
  */
 @Composable
 internal fun FeedSectionHeader(
     title: String?,
-    caption: String,
-    refreshEnabled: Boolean,
-    onRefresh: () -> Unit
+    caption: String
 ) {
-    val refresh: @Composable () -> Unit = {
-        Text("새로고침", fontSize = 12.5.sp, color = HomeTokens.Navy,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable(enabled = refreshEnabled, onClick = onRefresh)
-                .padding(horizontal = 8.dp, vertical = 8.dp))
-    }
     Column(
         Modifier.fillMaxWidth().background(HomeTokens.OffWhite)
             .padding(start = 20.dp, end = 12.dp, top = if (title != null) 26.dp else 10.dp, bottom = 6.dp)
     ) {
         if (title != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontFamily = Fl.Serif, fontSize = 21.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.3).sp, color = Fl.Ink, modifier = Modifier.weight(1f))
-                refresh()
-            }
+            Text(title, fontFamily = Fl.Serif, fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.3).sp, color = Fl.Ink)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(14.dp).height(2.dp).background(HomeTokens.Navy, RoundedCornerShape(1.dp)))
                 Spacer(Modifier.width(8.dp))
                 Text(caption, color = Fl.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(caption, color = Fl.Muted, fontSize = 12.sp, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                refresh()
-            }
+            Text(caption, color = Fl.Muted, fontSize = 12.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

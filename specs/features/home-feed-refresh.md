@@ -17,10 +17,9 @@ pipeline or view-model change.
 ## 2. App bar
 
 - Left: a menu button (content description `메뉴`), then the FrameLESS mark.
-- The menu holds, in order, `기사 링크로 분석하기` (opens the existing link
-  analysis sheet) and `튜토리얼 다시 보기` (replays the existing tutorial). Each
-  item keeps its old label as its content description. Choosing an item closes
-  the menu, then calls the same callback the app-bar button used to call.
+- The menu holds only `튜토리얼 다시 보기`, which replays the existing
+  tutorial. Choosing it closes the menu before invoking the callback. URL
+  analysis is not ordinary-user navigation.
 - Right, still one tap away: `기사 검색`, `저장한 기사`, `계정 메뉴`.
 - Search mode keeps its existing header unchanged.
 
@@ -97,11 +96,13 @@ navy indicator. The scope control (`최신  ⌄` / `팔로잉 · N곳  ⌄`) is 
 
 ### 5.2 Latest list
 
-- Below the cover, a section header: serif `최신 기사` with the existing
-  `새로고침` link on the same line, then a short navy rule and the existing
+- Below the cover, a section header: serif `최신 기사`, then a short navy rule and the existing
   caption (`전체 언론사 · 최신순`, `팔로잉 언론사 · 최신순`, refreshing caption).
-- With exactly one article, the header keeps only its caption and `새로고침`,
-  and no rows follow.
+- With exactly one article, the header keeps only its caption and no rows follow.
+- Android refreshes the normal feed by pulling down while the list is already
+  at its top. The Material pull indicator is the only refresh affordance; it
+  invokes the existing first-page refresh and ignores further pulls while that
+  refresh is running. Search results retain their own retry controls.
 - Offline, the header reads `이 기기의 기사` with the offline caption, and every
   stored article is listed as a row (no cover).
 - Each article row sits directly on the page surface with no image tile and no
@@ -120,15 +121,8 @@ No "오늘의 비교 이슈" card, "top story" or "recommended" label, outlet co
 bias scores, rankings, left/right colouring or rubric codes. These need real
 backend data and are out of scope for this phase.
 
-## 7. Conflicts with reviewed specs (to resolve at review)
+## 7. Related specification note
 
-- [`link-analysis.md`](link-analysis.md) §1 and
-  [`../testing/link-analysis.spec.md`](../testing/link-analysis.spec.md) refer to
-  the feed header's `+` button. After this change the entry is the
-  `기사 링크로 분석하기` menu item.
 - [`first-run-tutorial.md`](first-run-tutorial.md) §2 describes a header `?`
   button left of `+`. After this change the replay is the `튜토리얼 다시 보기`
   menu item. (The reader's label-guide `?` button in §4 is unaffected.)
-
-This draft does not amend those documents; a reviewer should update them when
-this spec is accepted.

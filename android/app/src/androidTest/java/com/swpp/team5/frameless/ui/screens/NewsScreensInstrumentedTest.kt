@@ -19,8 +19,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import com.swpp.team5.frameless.data.AppSession
 import com.swpp.team5.frameless.data.ArticleAnalysisUi
@@ -40,6 +43,7 @@ import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.ReaderFocus
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
+import com.swpp.team5.frameless.ui.viewmodel.SavedArticlesState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -103,8 +107,83 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText("기사 더 보기").performScrollTo().performClick()
+        // LazyColumn only composes nearby rows, so reveal the pagination row by index first.
+        compose.onNodeWithTag("feed-list").performScrollToIndex(21)
+        compose.onNodeWithText("기사 더 보기").performClick()
         compose.runOnIdle { assertTrue(loadMoreCalls >= 1) }
+    }
+
+    @Test
+    fun normalFeedPullRefreshesWithoutAHeaderButton() {
+        var refreshCalls = 0
+        val state = NewsFeedState(
+            publishers = listOf(publisher),
+            items = listOf(
+                ArticleSummary(
+                    "article-refresh", publisher, "당겨서 갱신할 기사", NewsCategory.POLITICS,
+                    "2026-10-31T12:00:00+09:00", StoredAnalysisState.READY
+                )
+            )
+        )
+        compose.setContent {
+            NewsFeedScreen(
+                state, null, rememberLazyListState(),
+                onCategory = {}, onSearchFilter = {}, onScope = {}, onSources = { _, _ -> },
+                onRefresh = { refreshCalls += 1 }, onRetry = {}, onLoadMore = {},
+                onLoadMoreSearch = {}, onRetrySearch = {}, onSearchOpen = {},
+                onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {}, onSavedOpen = {},
+                onArticle = {}, onLogin = {}, onLogout = {}
+            )
+        }
+
+        compose.onAllNodesWithText("새로고침").assertCountEquals(0)
+        compose.onNodeWithTag("feed-list").performTouchInput {
+            swipeDown(startY = 80f, endY = height * 0.8f, durationMillis = 500)
+        }
+        compose.runOnIdle { assertEquals(1, refreshCalls) }
+    }
+
+    @Test
+    fun savedUsesPullRefreshAndEdgeSwipeBack() {
+        var refreshCalls = 0
+        var backCalls = 0
+        val item = ArticleSummary(
+            "saved-article", publisher, "저장한 기사", NewsCategory.POLITICS,
+            "2026-10-31T12:00:00+09:00", StoredAnalysisState.READY
+        )
+        compose.setContent {
+            NewsSavedScreen(
+                state = SavedArticlesState(items = listOf(item)),
+                listState = rememberLazyListState(),
+                onBack = { backCalls += 1 },
+                onRefresh = { refreshCalls += 1 },
+                onRetry = {}, onLoadMore = {}, onArticle = {}
+            )
+        }
+
+        compose.onAllNodesWithText("새로고침").assertCountEquals(0)
+        compose.onNodeWithTag("saved-list").performTouchInput {
+            swipeDown(startY = 80f, endY = height * 0.8f, durationMillis = 500)
+        }
+        compose.runOnIdle { assertEquals(1, refreshCalls) }
+
+        compose.onNodeWithTag("saved-screen").performTouchInput {
+            swipe(
+                start = Offset(width * 0.35f, centerY),
+                end = Offset(width * 0.85f, centerY),
+                durationMillis = 350
+            )
+        }
+        compose.runOnIdle { assertEquals(0, backCalls) }
+
+        compose.onNodeWithTag("saved-screen").performTouchInput {
+            swipe(
+                start = Offset(1f, centerY),
+                end = Offset(width * 0.65f, centerY),
+                durationMillis = 350
+            )
+        }
+        compose.runOnIdle { assertEquals(1, backCalls) }
     }
 
     @Test
@@ -161,7 +240,7 @@ class NewsScreensInstrumentedTest {
     }
 
     @Test
-    fun zeroResultSearchPreviewsUrlAnalysisWithoutSubmitting() {
+    fun zeroResultSearchOffersOnlyARegularSearchRecovery() {
         val state = NewsFeedState(
             publishers = listOf(publisher),
             isSearchOpen = true,
@@ -182,20 +261,9 @@ class NewsScreensInstrumentedTest {
             )
         }
 
-        compose.onNodeWithText("기사 링크로 분석하기").performClick()
-        compose.onNodeWithText("계속").performClick()
-        compose.onNodeWithText("http:// 또는 https://로 시작하는 전체 기사 주소를 입력해 주세요.")
-            .assertIsDisplayed()
-        val urlInput = compose.onNodeWithContentDescription("기사 URL 입력")
-        urlInput.performTextInput("https://news.example.com/story")
-        urlInput.assertIsFocused()
-        compose.onNodeWithText("공개된 뉴스 기사 주소를 입력해", substring = true)
-            .performTouchInput { click() }
-        compose.onNodeWithContentDescription("기사 URL 입력").assertIsNotFocused()
-        compose.onNodeWithText("계속").performClick()
-        compose.onNodeWithText("기사 분석 기능을 준비하고 있어요").assertIsDisplayed()
-        compose.onNodeWithText("검색으로 돌아가기").performClick()
         compose.onNodeWithText("검색 결과가 없어요").assertIsDisplayed()
+        compose.onNodeWithText("기사 링크로 분석하기").assertDoesNotExist()
+        compose.onNodeWithText("검색어 다시 입력").assertIsDisplayed()
     }
 
     @Test
@@ -480,7 +548,7 @@ class NewsScreensInstrumentedTest {
                 state = remember { state },
                 onBack = {}, onRetry = {}, onAnalysisEnabled = {},
                 onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
-                onOpenComparisonArticle = { article, _ -> openedComparison = article }
+                onOpenComparisonArticle = { article, _, _ -> openedComparison = article }
             )
         }
 
@@ -646,6 +714,34 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithText("“$marker”").assertIsDisplayed()
     }
 
+    @Test
+    fun readerSnapshotRestoresThePreviouslySelectedFinding() {
+        val body = "첫 표현을 사용했다. 이어서 둘째 표현을 사용했다."
+        val first = summaryFinding("first", body, "첫 표현", emptyList())
+        val second = summaryFinding("second", body, "둘째 표현", emptyList())
+        val article = summaryArticle("restored-reader", body)
+
+        compose.setContent {
+            NewsReaderScreen(
+                state = ArticleReaderState(
+                    articleId = article.id,
+                    article = article,
+                    analysis = ArticleAnalysisUi(
+                        StoredAnalysisState.READY, "reviewed-v1", listOf(first, second)
+                    ),
+                    analysisEnabled = true,
+                    initialSelectedFindingId = second.id
+                ),
+                onBack = {}, onRetry = {}, onAnalysisEnabled = {},
+                onToggleSaved = { _, _ -> }, savedPending = false, saveError = null
+            )
+        }
+
+        compose.onNodeWithTag("analysis-annotation-dock").assertIsDisplayed()
+        compose.onNodeWithText("“둘째 표현”").assertIsDisplayed()
+        compose.onAllNodesWithText("“첫 표현”").assertCountEquals(0)
+    }
+
     private fun summaryComparison(
         id: String,
         publisherName: String,
@@ -716,7 +812,7 @@ class NewsScreensInstrumentedTest {
                 ),
                 onBack = {}, onRetry = {}, onAnalysisEnabled = {},
                 onToggleSaved = { _, _ -> }, savedPending = false, saveError = null,
-                onOpenComparisonArticle = { page, _ -> onOpenComparison(page) }
+                onOpenComparisonArticle = { page, _, _ -> onOpenComparison(page) }
             )
         }
     }
@@ -779,7 +875,8 @@ class NewsScreensInstrumentedTest {
         compose.onNodeWithContentDescription("비교 상세 닫기").assertIsDisplayed()
         compose.onAllNodesWithText(finding.comparisonOverview).assertCountEquals(1)
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
-        compose.onAllNodesWithText(finding.explanation).assertCountEquals(0)
+        // The fixed annotation dock remains visible behind the detail sheet by design.
+        compose.onAllNodesWithText(finding.explanation).assertCountEquals(1)
 
         compose.onNodeWithContentDescription("비교 상세 닫기").performClick()
         compose.onAllNodesWithText("같은 내용을 다른 기사에서는").assertCountEquals(0)

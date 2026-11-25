@@ -131,13 +131,13 @@ coherent navigation path.
 Tip: execute once from a multi-publisher finding on each client and record the
 source and destination article IDs and Saved state.
 
-### R4-04 — Staged link analysis
+### R4-04 — Staged link-analysis compatibility endpoint
 
-Run one already-stored URL, one valid new public URL, one invalid or unsupported
-URL, and one controlled upstream failure. Existing content reuses stored data;
-new content produces a bounded staged result; invalid and failed requests show
-recoverable errors; credentials and internal error details are not exposed.
-Record model-backed output separately from deterministic endpoint checks.
+Exercise the endpoint directly with one already-stored URL, one valid new public
+URL, one invalid or unsupported URL, and one controlled upstream failure.
+Existing content reuses stored data; new content produces a bounded staged
+result; credentials and internal error details are not exposed. Confirm
+separately that ordinary client navigation exposes no URL-analysis action.
 
 Tip: execute the four URL partitions against the final deployment and retain
 request IDs, terminal states, and sanitized error evidence.

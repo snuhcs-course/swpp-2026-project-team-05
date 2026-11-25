@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
+import com.swpp.team5.frameless.ui.components.edgeSwipeBack
 
 @Composable
 internal fun LoginScreen(
@@ -46,7 +47,7 @@ internal fun LoginScreen(
     onRegister: () -> Unit,
     onDismiss: () -> Unit = {}
 ) {
-    AuthFrame {
+    AuthFrame(onBack = onDismiss) {
         BrandRow()
         Spacer(Modifier.height(34.dp))
         Text("다른 보도를\n함께 읽는 뉴스", fontFamily = Fl.Serif, fontWeight = FontWeight.Bold,
@@ -104,7 +105,7 @@ internal fun RegistrationScreen(
     onBack: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    AuthFrame {
+    AuthFrame(onBack = onBack) {
         Text("←  로그인", color = Fl.Accent, fontSize = 14.sp, fontWeight = FontWeight.Medium,
             modifier = Modifier.clickable(onClick = onBack).padding(vertical = 8.dp))
         Spacer(Modifier.height(24.dp))
@@ -147,9 +148,10 @@ internal fun RegistrationScreen(
 }
 
 @Composable
-private fun AuthFrame(content: @Composable () -> Unit) {
+private fun AuthFrame(onBack: () -> Unit, content: @Composable () -> Unit) {
     Column(
         Modifier.fillMaxSize().dismissKeyboardOnTap()
+            .edgeSwipeBack(onBack = onBack)
             .verticalScroll(rememberScrollState()).padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally

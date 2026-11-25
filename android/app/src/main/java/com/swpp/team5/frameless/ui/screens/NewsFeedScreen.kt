@@ -32,6 +32,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -58,6 +61,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,10 +73,8 @@ import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.ui.components.ArticleBookmarkIcon
 import com.swpp.team5.frameless.ui.components.dismissKeyboardOnTap
 import com.swpp.team5.frameless.ui.theme.Caption
-import com.swpp.team5.frameless.ui.theme.FilledPill
 import com.swpp.team5.frameless.ui.theme.Fl
 import com.swpp.team5.frameless.ui.theme.OutlinedPill
-import com.swpp.team5.frameless.ui.viewmodel.LinkAnalysisState
 import com.swpp.team5.frameless.ui.viewmodel.NewsFeedState
 import com.swpp.team5.frameless.ui.viewmodel.SearchFilter
 import com.swpp.team5.frameless.ui.viewmodel.SearchSectionState
@@ -102,26 +104,20 @@ internal fun NewsFeedScreen(
     onArticle: (String) -> Unit,
     onLogin: () -> Unit,
     onLogout: () -> Unit,
-    link: LinkAnalysisState = LinkAnalysisState(),
-    onLinkOpen: () -> Unit = {},
     onTutorialOpen: () -> Unit = {},
-    onLinkInput: (String) -> Unit = {},
-    onLinkSubmit: () -> Unit = {},
-    onLinkClose: () -> Unit = {}
 ) {
     var showFeedScope by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
     var showAccount by remember { mutableStateOf(false) }
-    var showUrlAnalysisMock by remember { mutableStateOf(false) }
     var savedFeedIndex by remember { mutableIntStateOf(0) }
     var savedFeedOffset by remember { mutableIntStateOf(0) }
+    val pullRefreshState = rememberPullToRefreshState()
 
     LaunchedEffect(state.category, state.scope) {
         listState.scrollToItem(0)
     }
 
     LaunchedEffect(state.activeSearchQuery, state.isLoading) {
-        showUrlAnalysisMock = false
         if (state.activeSearchQuery.isNotBlank() && !state.isLoading &&
             state.searchSections.values.any { it.items.isNotEmpty() }) {
             listState.scrollToItem(0)
@@ -159,8 +155,7 @@ internal fun NewsFeedScreen(
                     Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Link analysis and the tutorial replay live in this menu; both callbacks are unchanged.
-                    FeedMenuButton(onLinkOpen = onLinkOpen, onTutorialOpen = onTutorialOpen)
+                    FeedMenuButton(onTutorialOpen = onTutorialOpen)
                     BrandRow()
                     Spacer(Modifier.weight(1f))
                     IconButton(
@@ -252,11 +247,9 @@ internal fun NewsFeedScreen(
                 sections = state.searchSections,
                 selectedFilter = state.searchFilter,
                 listState = listState,
-                onRefresh = onRefresh,
                 onRetrySection = onRetrySearch,
                 onLoadMore = onLoadMoreSearch,
                 onArticle = onArticle,
-                onAnalyzeLink = { showUrlAnalysisMock = true },
                 onClearSearch = { onSearchInput("") },
                 onShowAllResults = { onSearchFilter(SearchFilter.ALL) }
             )
@@ -269,7 +262,6 @@ internal fun NewsFeedScreen(
             )
             state.items.isEmpty() && state.activeSearchQuery.isNotBlank() -> SearchNoResults(
                 query = state.activeSearchQuery,
-                onAnalyzeLink = { showUrlAnalysisMock = true },
                 onClearSearch = { onSearchInput("") }
             )
             state.items.isEmpty() -> FeedMessage(
@@ -297,75 +289,91 @@ internal fun NewsFeedScreen(
                     else onRefresh()
                 }
             )
-            else -> LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize().background(HomeTokens.OffWhite)
+            else -> PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh = { if (!state.isRefreshing) onRefresh() },
+                state = pullRefreshState,
+                modifier = Modifier.weight(1f),
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = pullRefreshState,
+                        isRefreshing = state.isRefreshing,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        containerColor = HomeTokens.OffWhite,
+                        color = HomeTokens.Navy
+                    )
+                }
             ) {
-                // The newest article leads the normal online feed; it is the same stored data, shown larger.
-                val split = splitFeaturedArticle(
-                    items = state.items,
-                    enabled = !state.isOffline && !state.isSearchOpen && state.activeSearchQuery.isBlank()
-                )
-                split.featured?.let { lead ->
-                    // The reading guide shares the lead item so list positions (and load-more) are unchanged.
-                    item(key = "featured-${lead.id}") {
-                        Column {
-                            ReadingGuideRail(onClick = onTutorialOpen)
-                            FeaturedArticleCard(article = lead, onClick = { onArticle(lead.id) })
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().background(HomeTokens.OffWhite)
+                        .testTag("feed-list")
+                ) {
+                    // The newest article leads the normal online feed; it is the same stored data, shown larger.
+                    val split = splitFeaturedArticle(
+                        items = state.items,
+                        enabled = !state.isOffline && !state.isSearchOpen && state.activeSearchQuery.isBlank()
+                    )
+                    split.featured?.let { lead ->
+                        // The reading guide shares the lead item so list positions (and load-more) are unchanged.
+                        item(key = "featured-${lead.id}") {
+                            Column {
+                                ReadingGuideRail(onClick = onTutorialOpen)
+                                FeaturedArticleCard(article = lead, onClick = { onArticle(lead.id) })
+                            }
                         }
                     }
-                }
-                item {
-                    FeedSectionHeader(
-                        title = when {
-                            state.isOffline -> "이 기기의 기사"
-                            split.featured != null && split.rest.isEmpty() -> null
-                            else -> "최신 기사"
-                        },
-                        caption = if (state.isOffline) "이 기기에 저장한 기사 · 오프라인"
-                            else if (state.isRefreshing) "새 기사를 확인하는 중…"
-                            else if (state.activeSearchQuery.isNotBlank())
-                                "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
-                            else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
-                            else "전체 언론사 · 최신순",
-                        refreshEnabled = !state.isRefreshing,
-                        onRefresh = onRefresh
-                    )
-                    if (split.rest.isNotEmpty()) FeedRowDivider()
-                }
-                itemsIndexed(split.rest, key = { _, article -> article.id }) { index, article ->
-                    ArticleFeedRow(
-                        article = article,
-                        onClick = { onArticle(article.id) }
-                    )
-                    if (index < split.rest.lastIndex) FeedRowDivider()
-                }
-                if (state.isLoadingMore) {
-                    item { Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(22.dp), color = Fl.Accent, strokeWidth = 2.dp)
-                    } }
-                }
-                state.nextPageError?.let { message ->
-                    item { FeedMessage("다음 기사를 불러오지 못했어요", message, "다시 시도", onLoadMore) }
-                }
-                // On a tall screen the scroll rule above never reaches the last rows of a 20-article page, so the
-                // next page also has a button (as search results do).
-                if (state.nextCursor != null && !state.isLoadingMore && state.nextPageError == null) {
-                    item(key = "feed-more") {
-                        Text(
-                            "기사 더 보기",
-                            color = HomeTokens.Navy,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable(onClick = onLoadMore)
-                                .padding(vertical = 18.dp)
-                                .semantics { role = Role.Button },
-                            textAlign = TextAlign.Center
+                    item {
+                        FeedSectionHeader(
+                            title = when {
+                                state.isOffline -> "이 기기의 기사"
+                                split.featured != null && split.rest.isEmpty() -> null
+                                else -> "최신 기사"
+                            },
+                            caption = if (state.isOffline) "이 기기에 저장한 기사 · 오프라인"
+                                else if (state.isRefreshing) "새 기사를 확인하는 중…"
+                                else if (state.activeSearchQuery.isNotBlank())
+                                    "‘${state.activeSearchQuery}’ · 전체 언론사 검색"
+                                else if (state.scope == FeedScope.FOLLOWING) "팔로잉 언론사 · 최신순"
+                                else "전체 언론사 · 최신순"
                         )
+                        if (split.rest.isNotEmpty()) FeedRowDivider()
                     }
+                    itemsIndexed(split.rest, key = { _, article -> article.id }) { index, article ->
+                        ArticleFeedRow(
+                            article = article,
+                            onClick = { onArticle(article.id) }
+                        )
+                        if (index < split.rest.lastIndex) FeedRowDivider()
+                    }
+                    if (state.isLoadingMore) {
+                        item { Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(22.dp), color = Fl.Accent, strokeWidth = 2.dp)
+                        } }
+                    }
+                    state.nextPageError?.let { message ->
+                        item { FeedMessage("다음 기사를 불러오지 못했어요", message, "다시 시도", onLoadMore) }
+                    }
+                    // On a tall screen the scroll rule above never reaches the last rows of a 20-article page, so the
+                    // next page also has a button (as search results do).
+                    if (state.nextCursor != null && !state.isLoadingMore && state.nextPageError == null) {
+                        item(key = "feed-more") {
+                            Text(
+                                "기사 더 보기",
+                                color = HomeTokens.Navy,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable(onClick = onLoadMore)
+                                    .padding(vertical = 18.dp)
+                                    .semantics { role = Role.Button },
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    // Leave enough trailing room for the last row to clear the screen edge.
+                    item { Spacer(Modifier.height(48.dp)) }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
@@ -419,13 +427,6 @@ internal fun NewsFeedScreen(
             }
         }
     }
-    if (link.isOpen) {
-        LinkAnalysisSheet(state = link, onInput = onLinkInput, onSubmit = onLinkSubmit, onDismiss = onLinkClose)
-    }
-
-    if (showUrlAnalysisMock) {
-        UrlAnalysisMockSheet(onDismiss = { showUrlAnalysisMock = false })
-    }
 }
 
 @Composable
@@ -434,11 +435,9 @@ private fun SearchResultsFeed(
     sections: Map<SearchFilter, SearchSectionState>,
     selectedFilter: SearchFilter,
     listState: LazyListState,
-    onRefresh: () -> Unit,
     onRetrySection: (SearchFilter) -> Unit,
     onLoadMore: (SearchFilter) -> Unit,
     onArticle: (String) -> Unit,
-    onAnalyzeLink: () -> Unit,
     onClearSearch: () -> Unit,
     onShowAllResults: () -> Unit
 ) {
@@ -465,17 +464,6 @@ private fun SearchResultsFeed(
                         color = Fl.Muted,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        "새로고침",
-                        fontSize = 11.sp,
-                        color = Fl.Accent,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable(
-                            enabled = !selected.isLoading,
-                            onClick = onRefresh
-                        ).padding(horizontal = 6.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -559,7 +547,6 @@ private fun SearchResultsFeed(
                 item(key = "global-empty-search") {
                     SearchNoResults(
                         query = query,
-                        onAnalyzeLink = onAnalyzeLink,
                         onClearSearch = onClearSearch
                     )
                 }
@@ -733,7 +720,6 @@ internal fun FeedMessage(title: String, detail: String, action: String, onAction
 @Composable
 private fun SearchNoResults(
     query: String,
-    onAnalyzeLink: () -> Unit,
     onClearSearch: () -> Unit
 ) {
     Column(
@@ -743,21 +729,13 @@ private fun SearchNoResults(
     ) {
         Text("검색 결과가 없어요", fontWeight = FontWeight.SemiBold, color = Fl.Ink)
         Text(
-            "‘$query’와 일치하는 기사를 찾지 못했어요. 찾고 있는 기사의 링크가 있다면 분석 흐름을 미리 확인할 수 있어요.",
+            "‘$query’와 일치하는 기사를 찾지 못했어요. 다른 검색어나 맞춤법을 확인해 보세요.",
             fontSize = 13.sp,
             lineHeight = 20.sp,
             color = Fl.Muted
         )
         Spacer(Modifier.height(4.dp))
-        FilledPill("기사 링크로 분석하기", onAnalyzeLink)
-        Text(
-            "전체 기사 보기",
-            fontSize = 13.sp,
-            color = Fl.Muted,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.clickable(onClick = onClearSearch).padding(8.dp)
-                .semantics { role = Role.Button }
-        )
+        OutlinedPill("검색어 다시 입력", onClearSearch)
     }
 }
 

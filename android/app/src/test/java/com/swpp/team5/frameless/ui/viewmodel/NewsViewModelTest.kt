@@ -400,7 +400,11 @@ class NewsViewModelTest {
 
         viewModel.openArticle("source")
         mainLooper.idle()
-        viewModel.openComparisonArticle(target, sourceScrollOffset = 420)
+        viewModel.openComparisonArticle(
+            target,
+            sourceScrollOffset = 420,
+            sourceSelectedFindingId = "source-finding"
+        )
         mainLooper.idle()
 
         assertEquals(NewsRoute.READER, viewModel.route)
@@ -408,14 +412,65 @@ class NewsViewModelTest {
         assertEquals(target.evidence.single().markerRange, viewModel.reader.comparisonFocus?.markerRange)
 
         viewModel.closeReader()
-        mainLooper.idle()
+        assertFalse(viewModel.reader.isArticleLoading)
         assertEquals(NewsRoute.READER, viewModel.route)
         assertEquals("source", viewModel.reader.article?.id)
         assertEquals(null, viewModel.reader.comparisonFocus)
         assertEquals(420, viewModel.reader.initialScrollOffset)
+        assertEquals("source-finding", viewModel.reader.initialSelectedFindingId)
+        mainLooper.idle()
 
         viewModel.closeReader()
         assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
+    @Test
+    fun reverseComparisonLinkRestoresThePreviousSnapshotWithoutDuplicatingHistory() {
+        val repository = FakeNewsDataSource()
+        val viewModel = NewsViewModel(repository)
+        val target = comparisonArticle("comparison", "비교 표현")
+        val reverseTarget = comparisonArticle("source", "원문 표현")
+
+        viewModel.openArticle("source")
+        mainLooper.idle()
+        viewModel.openComparisonArticle(target, 420, "source-finding")
+        mainLooper.idle()
+
+        viewModel.openComparisonArticle(reverseTarget, 180, "comparison-finding")
+
+        assertEquals("source", viewModel.reader.article?.id)
+        assertEquals(420, viewModel.reader.initialScrollOffset)
+        assertEquals("source-finding", viewModel.reader.initialSelectedFindingId)
+        assertFalse(viewModel.reader.isArticleLoading)
+        mainLooper.idle()
+
+        viewModel.closeReader()
+        assertEquals(NewsRoute.FEED, viewModel.route)
+    }
+
+    @Test
+    fun cachedReaderDoesNotClaimOfflineWhileItsRefreshIsPending() {
+        val refresh = CompletableDeferred<ArticleDetail>()
+        val repository = FakeNewsDataSource().apply {
+            cachedArticleValue = detail("cached-reader")
+            cachedAnalysisValue = ArticleAnalysisUi(
+                StoredAnalysisState.READY, "cached-v1", emptyList()
+            )
+            articleGate = refresh
+        }
+        val viewModel = NewsViewModel(repository)
+
+        viewModel.openArticle("cached-reader")
+        mainLooper.idle()
+
+        assertEquals("cached-reader", viewModel.reader.article?.id)
+        assertEquals("cached-v1", viewModel.reader.analysis?.version)
+        assertFalse(viewModel.reader.isArticleLoading)
+        assertFalse(viewModel.reader.isOffline)
+
+        refresh.complete(detail("cached-reader"))
+        mainLooper.idle()
+        assertFalse(viewModel.reader.isOffline)
     }
 
     @Test
@@ -773,6 +828,7 @@ class NewsViewModelTest {
         var pageFailure: Exception? = null
         val categoryFailures = mutableMapOf<NewsCategory?, Exception>()
         var articleFailure: Exception? = null
+        var articleGate: CompletableDeferred<ArticleDetail>? = null
         var analysisFailure: Exception? = null
         var savedFailure: Exception? = null
         var savedPageGate: CompletableDeferred<ArticlePage>? = null
@@ -813,7 +869,7 @@ class NewsViewModelTest {
         override suspend fun article(articleId: String): ArticleDetail {
             articleCalls += 1
             articleFailure?.let { throw it }
-            return detail(articleId)
+            return articleGate?.await() ?: detail(articleId)
         }
         override suspend fun offlineSavedArticles(category: NewsCategory?): ArticlePage? {
             offlineCategories += category
@@ -847,5 +903,29 @@ class NewsViewModelTest {
         override fun saveAnalysisEnabled(enabled: Boolean) {
             savedAnalysisEnabledValue = enabled
         }
+    }
+
+    private fun comparisonArticle(articleId: String, marker: String): ComparisonArticleUi {
+        val body = "$marker 이 포함된 기사입니다."
+        return ComparisonArticleUi(
+            articleId = articleId,
+            publisher = mbc,
+            title = "비교 기사 $articleId",
+            publishedAt = "2026-10-31T13:00:00+09:00",
+            originalUrl = "https://example.com/$articleId",
+            body = body,
+            evidence = listOf(
+                ComparisonEvidenceUi(
+                    scope = "BODY",
+                    sentenceRange = TextRange(0, body.length),
+                    sentenceText = body,
+                    markerRange = TextRange(0, marker.length),
+                    markerText = marker,
+                    owner = "REPORTER",
+                    speakerLabel = null,
+                    summary = "표현을 비교합니다."
+                )
+            )
+        )
     }
 }

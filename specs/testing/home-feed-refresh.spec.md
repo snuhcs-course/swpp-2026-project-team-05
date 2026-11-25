@@ -5,7 +5,7 @@
 | Status | Draft |
 | Owner | Android UI owner |
 | Source requirements | [`../features/home-feed-refresh.md`](../features/home-feed-refresh.md) |
-| Last reviewed | 2026-11-19 |
+| Last reviewed | 2026-11-24 |
 
 ## Scope
 
@@ -28,13 +28,11 @@ art direction (phase 3).
 
 ### Success
 
-- [Unit] The menu offers exactly `기사 링크로 분석하기` then
-  `튜토리얼 다시 보기`.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.menuKeepsBothMovedActionsWithTheirExistingLabels`
-- [Acceptance] Link analysis and tutorial replay are not app-bar buttons; opening
-  `메뉴` and choosing each item calls the existing callback once and closes the
-  menu.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.headerMenuOpensLinkAnalysisAndTutorialReplay`
+- [Unit] The menu offers only `튜토리얼 다시 보기`.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.menuKeepsOnlyTutorialReplay`
+- [Acceptance] Opening `메뉴` exposes no link-analysis action; choosing tutorial
+  replay calls its callback once and closes the menu.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.headerMenuOffersOnlyTutorialReplay`
 - [Acceptance] `기사 검색`, `저장한 기사` and `계정 메뉴` stay directly in the app
   bar and still work.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.appBarKeepsSearchSavedAndAccountDirectlyReachable`
@@ -73,6 +71,10 @@ art direction (phase 3).
   the lead cover, and tapping it calls the tutorial callback exactly once and
   nothing else.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedReadingGuideInstrumentedTest.guideAppearsAboveTheCoverInTheNormalFeedAndReplaysTheTutorialOnce`
+- [Acceptance] At the top of the normal feed, a downward pull invokes the
+  existing refresh callback once and the feed contains no `새로고침` header
+  action. Search mode does not expose this feed gesture.\
+  Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.normalFeedPullRefreshesWithoutAHeaderButton`
 
 ### Errors and boundaries
 
@@ -80,7 +82,7 @@ art direction (phase 3).
   untouched and there is no lead.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.featuredSplitLeavesTheListUntouchedWhenDisabledOrEmpty`
 - [Acceptance] With one article, only the lead card shows; there is no
-  `최신 기사` title, and `새로고침` stays available.\
+  `최신 기사` title or separate refresh action.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedFeaturedArticleInstrumentedTest.singleArticleShowsOnlyTheFeaturedCardWithoutAnEmptyLatestSection`
 - [Acceptance] Offline, there is no lead card and every stored article is a row.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedFeaturedArticleInstrumentedTest.offlineFeedHasNoFeaturedCardAndListsEveryArticle`
@@ -95,7 +97,7 @@ art direction (phase 3).
   replaced with placeholder text.\
   Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeChromeTest.rowMetadataDropsBlankPartsInsteadOfInventingThem`
 - [Acceptance] Existing feed tests (category tabs of equal width, scope sheet,
-  `기사 더 보기`, account sheet, search filters, no-result link analysis) pass
+  `기사 더 보기`, account sheet, search filters, ordinary no-result recovery) pass
   unchanged.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest`
 - [Acceptance] With a blank publisher and time, a row shows no byline line.\

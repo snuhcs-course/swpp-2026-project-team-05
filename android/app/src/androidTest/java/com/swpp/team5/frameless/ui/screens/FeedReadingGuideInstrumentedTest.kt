@@ -39,7 +39,6 @@ class FeedReadingGuideInstrumentedTest {
     )
 
     private var tutorialOpens = 0
-    private var linkOpens = 0
     private var articleOpens = 0
 
     private fun render(state: () -> NewsFeedState) {
@@ -50,7 +49,7 @@ class FeedReadingGuideInstrumentedTest {
                 onRefresh = {}, onRetry = {}, onLoadMore = {}, onLoadMoreSearch = {}, onRetrySearch = {},
                 onSearchOpen = {}, onSearchInput = {}, onSearchSubmit = {}, onSearchClose = {},
                 onSavedOpen = {}, onArticle = { articleOpens += 1 }, onLogin = {}, onLogout = {},
-                onLinkOpen = { linkOpens += 1 }, onTutorialOpen = { tutorialOpens += 1 }
+                onTutorialOpen = { tutorialOpens += 1 }
             )
         }
     }
@@ -73,7 +72,6 @@ class FeedReadingGuideInstrumentedTest {
         compose.onNodeWithContentDescription(READING_GUIDE_DESCRIPTION).performClick()
         compose.runOnIdle {
             assertEquals(1, tutorialOpens)
-            assertEquals(0, linkOpens)
             assertEquals(0, articleOpens)
         }
     }

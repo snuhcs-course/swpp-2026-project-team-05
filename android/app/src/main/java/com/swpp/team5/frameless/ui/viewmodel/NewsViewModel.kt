@@ -101,7 +101,8 @@ internal data class ArticleReaderState(
     val articleError: String? = null,
     val analysisError: String? = null,
     val comparisonFocus: ReaderFocus? = null,
-    val initialScrollOffset: Int = 0
+    val initialScrollOffset: Int = 0,
+    val initialSelectedFindingId: String? = null
 )
 
 internal data class ReaderFocus(
@@ -110,9 +111,7 @@ internal data class ReaderFocus(
 )
 
 private data class ReaderDestination(
-    val articleId: String,
-    val comparisonFocus: ReaderFocus?,
-    val scrollOffset: Int
+    val snapshot: ArticleReaderState
 )
 
 internal data class SavedArticlesState(
@@ -832,14 +831,17 @@ internal class NewsViewModel(
 
     fun recordComparisonShown(pages: Int) = record(TelemetryEvent.COMPARISON_OPEN, "pages" to pages)
 
-    fun openComparisonArticle(article: ComparisonArticleUi, sourceScrollOffset: Int) {
+    fun openComparisonArticle(
+        article: ComparisonArticleUi,
+        sourceScrollOffset: Int,
+        sourceSelectedFindingId: String? = null
+    ) {
         if (route != NewsRoute.READER || reader.articleId.isBlank()) {
             openArticle(article.articleId)
             return
         }
-        readerHistory.addLast(
-            ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset)
-        )
+        if (restorePreviousIfSameArticle(article.articleId)) return
+        readerHistory.addLast(readerDestination(sourceScrollOffset, sourceSelectedFindingId))
         record(TelemetryEvent.ARTICLE_OPEN, "source" to "comparison")
         val evidence = article.evidence.firstOrNull()
         loadReader(
@@ -849,50 +851,108 @@ internal class NewsViewModel(
     }
 
     /** Another outlet's article on the same event, opened from the economic lens; back returns here. */
-    fun openRelatedArticle(articleId: String, sourceScrollOffset: Int) {
+    fun openRelatedArticle(
+        articleId: String,
+        sourceScrollOffset: Int,
+        sourceSelectedFindingId: String? = null
+    ) {
         if (route != NewsRoute.READER || reader.articleId.isBlank()) {
             openArticle(articleId)
             return
         }
-        readerHistory.addLast(ReaderDestination(reader.articleId, reader.comparisonFocus, sourceScrollOffset))
+        if (restorePreviousIfSameArticle(articleId)) return
+        readerHistory.addLast(readerDestination(sourceScrollOffset, sourceSelectedFindingId))
         record(TelemetryEvent.ARTICLE_OPEN, "source" to "related")
         loadReader(articleId, null)
+    }
+
+    private fun readerDestination(
+        scrollOffset: Int,
+        selectedFindingId: String?
+    ) = ReaderDestination(
+        reader.copy(
+            isArticleLoading = false,
+            isAnalysisLoading = false,
+            articleError = null,
+            analysisError = null,
+            initialScrollOffset = scrollOffset,
+            initialSelectedFindingId = selectedFindingId
+        )
+    )
+
+    /** A comparison link back to the immediately previous article behaves like Back, not A → B → A. */
+    private fun restorePreviousIfSameArticle(articleId: String): Boolean {
+        val previous = readerHistory.lastOrNull()?.takeIf { it.snapshot.articleId == articleId }
+            ?: return false
+        readerHistory.removeLast()
+        restoreReader(previous)
+        return true
+    }
+
+    private fun restoreReader(destination: ReaderDestination) {
+        val snapshot = destination.snapshot
+        loadReader(
+            articleId = snapshot.articleId,
+            comparisonFocus = snapshot.comparisonFocus,
+            initialScrollOffset = snapshot.initialScrollOffset,
+            initialSelectedFindingId = snapshot.initialSelectedFindingId,
+            snapshot = snapshot
+        )
     }
 
     private fun loadReader(
         articleId: String,
         comparisonFocus: ReaderFocus?,
-        initialScrollOffset: Int = 0
+        initialScrollOffset: Int = 0,
+        initialSelectedFindingId: String? = null,
+        snapshot: ArticleReaderState? = null
     ) {
         readerJob?.cancel()
-        reader = ArticleReaderState(
+        val analysisEnabled = reader.analysisEnabled
+        reader = snapshot?.copy(
+            analysisEnabled = analysisEnabled,
+            isArticleLoading = false,
+            isAnalysisLoading = false,
+            isOffline = false,
+            articleError = null,
+            analysisError = null,
+            comparisonFocus = comparisonFocus,
+            initialScrollOffset = initialScrollOffset,
+            initialSelectedFindingId = initialSelectedFindingId
+        ) ?: ArticleReaderState(
             articleId = articleId,
-            analysisEnabled = reader.analysisEnabled,
+            analysisEnabled = analysisEnabled,
             isArticleLoading = true,
             comparisonFocus = comparisonFocus,
-            initialScrollOffset = initialScrollOffset
+            initialScrollOffset = initialScrollOffset,
+            initialSelectedFindingId = initialSelectedFindingId
         )
         readerJob = viewModelScope.launch {
-            val cachedArticle = repository.cachedArticle(articleId)
-            if (cachedArticle != null && route == NewsRoute.READER &&
-                reader.articleId == articleId) {
-                val cachedAnalysis = repository.cachedAnalysis(cachedArticle)
-                if (route != NewsRoute.READER || reader.articleId != articleId) return@launch
-                reader = reader.copy(
-                    article = cachedArticle,
-                    analysis = cachedAnalysis,
-                    isArticleLoading = false,
-                    isAnalysisLoading = false,
-                    isOffline = true
-                )
+            if (snapshot?.article == null) {
+                val cachedArticle = repository.cachedArticle(articleId)
+                if (cachedArticle != null && route == NewsRoute.READER &&
+                    reader.articleId == articleId) {
+                    val cachedAnalysis = repository.cachedAnalysis(cachedArticle)
+                    if (route != NewsRoute.READER || reader.articleId != articleId) return@launch
+                    reader = reader.copy(
+                        article = cachedArticle,
+                        analysis = cachedAnalysis,
+                        isArticleLoading = false,
+                        isAnalysisLoading = cachedAnalysis == null,
+                        isOffline = false
+                    )
+                }
             }
             try {
                 val article = repository.article(articleId)
                 if (route != NewsRoute.READER || reader.articleId != articleId) return@launch
+                val previousArticle = reader.article
+                val retainAnalysis = previousArticle?.contentHash == article.contentHash
                 reader = reader.copy(
                     article = article,
+                    analysis = reader.analysis.takeIf { retainAnalysis },
                     isArticleLoading = false,
-                    isAnalysisLoading = true,
+                    isAnalysisLoading = !retainAnalysis || reader.analysis == null,
                     isOffline = false,
                     articleError = null
                 )
@@ -918,7 +978,9 @@ internal class NewsViewModel(
                     record(TelemetryEvent.API_ERROR, "where" to "analysis", "code" to errorCode(failure))
                     reader = reader.copy(
                         isAnalysisLoading = false,
-                        analysisError = failure.message ?: "분석 표시를 불러오지 못했어요."
+                        analysisError = if (reader.analysis == null) {
+                            failure.message ?: "분석 표시를 불러오지 못했어요."
+                        } else null
                     )
                 }
             } catch (cancelled: CancellationException) {
@@ -959,7 +1021,7 @@ internal class NewsViewModel(
         readerJob?.cancel()
         if (readerHistory.isNotEmpty()) {
             val previous = readerHistory.removeLast()
-            loadReader(previous.articleId, previous.comparisonFocus, previous.scrollOffset)
+            restoreReader(previous)
         } else {
             route = readerOrigin
         }
