@@ -46,7 +46,7 @@ restyle.
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.readerAnnotationOpensFullComparisonDetail`
 - [Acceptance] No full compared body or replacement excerpt area is rendered
   below the article controls. Paired expressions and their context remain, the
-  original link opens the same URL, and `이 기사 읽기` closes the sheet and
+  original link remains available, and `이 기사 읽기` closes the sheet and
   passes the unchanged article, including its full body and evidence.\
   Tested by: `com.swpp.team5.frameless.ui.screens.ExpressionPairInstrumentedTest.comparisonSheetOmitsFullBodyAndKeepsOriginalArticleActions`
 - [Acceptance] The sheet uses its content height rather than reserving an empty
