@@ -395,6 +395,127 @@ class NewsViewModelTest {
     }
 
     @Test
+    fun publisherChangesAreSerializedWithoutDroppingOtherPublishers() {
+        val first = CompletableDeferred<Set<String>>()
+        val second = CompletableDeferred<Set<String>>()
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(emptyList(), null)
+            sourceWriteHandler = { if (sourceWrites.size == 1) first.await() else second.await() }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.setPublisherSubscription("yna", true)
+        mainLooper.idle()
+        viewModel.setPublisherSubscription("yna", true)
+        viewModel.setPublisherSubscription("mbc", true)
+        mainLooper.idle()
+        assertEquals(listOf(setOf("yna")), repository.sourceWrites)
+        assertEquals(setOf("yna", "mbc"), viewModel.feed.sourceMutationPublisherCodes)
+        assertTrue(viewModel.feed.publishers.none { it.isFollowed })
+
+        first.complete(setOf("yna"))
+        mainLooper.idle()
+        assertEquals(listOf(setOf("yna"), setOf("yna", "mbc")), repository.sourceWrites)
+        assertEquals(setOf("mbc"), viewModel.feed.sourceMutationPublisherCodes)
+        second.complete(setOf("yna", "mbc"))
+        mainLooper.idle()
+        assertEquals(setOf("yna", "mbc"), repository.followedCodes)
+        assertTrue(viewModel.feed.publishers.all { it.isFollowed })
+        assertTrue(viewModel.feed.sourceMutationPublisherCodes.isEmpty())
+        assertFalse(viewModel.feed.isSavingSources)
+    }
+
+    @Test
+    fun failedPublisherChangeDoesNotLeakIntoTheNextWrite() {
+        val first = CompletableDeferred<Set<String>>()
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(emptyList(), null)
+            sourceWriteHandler = { codes -> if (sourceWrites.size == 1) first.await() else codes }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.setPublisherSubscription("yna", true)
+        mainLooper.idle()
+        viewModel.setPublisherSubscription("mbc", true)
+        first.completeExceptionally(IllegalStateException("연합뉴스 저장 실패"))
+        mainLooper.idle()
+        assertEquals(listOf(setOf("yna"), setOf("mbc")), repository.sourceWrites)
+        assertFalse(viewModel.feed.publishers.single { it.code == "yna" }.isFollowed)
+        assertTrue(viewModel.feed.publishers.single { it.code == "mbc" }.isFollowed)
+        assertEquals(mapOf("yna" to "연합뉴스 저장 실패"), viewModel.feed.sourceSaveErrors)
+        viewModel.setPublisherSubscription("yna", true)
+        mainLooper.idle()
+        assertEquals(setOf("yna", "mbc"), repository.followedCodes)
+        assertTrue(viewModel.feed.sourceSaveErrors.isEmpty())
+    }
+
+    @Test
+    fun closingSearchDoesNotRestoreStaleSubscriptionState() {
+        val gate = CompletableDeferred<Set<String>>()
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("ordinary")), null)
+            sourceWriteHandler = { gate.await() }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.setPublisherSubscription("yna", true)
+        mainLooper.idle()
+        viewModel.openSearch()
+        viewModel.closeSearch()
+        assertEquals(setOf("yna"), viewModel.feed.sourceMutationPublisherCodes)
+        viewModel.openSearch()
+        gate.completeExceptionally(IllegalStateException("저장 실패"))
+        mainLooper.idle()
+        viewModel.closeSearch()
+        assertFalse(viewModel.feed.isSavingSources)
+        assertTrue(viewModel.feed.sourceMutationPublisherCodes.isEmpty())
+        assertEquals(mapOf("yna" to "저장 실패"), viewModel.feed.sourceSaveErrors)
+        assertEquals(listOf("ordinary"), viewModel.feed.items.map { it.id })
+    }
+
+    @Test
+    fun viewerChangeCancelsPendingPersonalMutations() {
+        val source = CompletableDeferred<Set<String>>()
+        val bookmark = CompletableDeferred<Unit>()
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("a")), null)
+            pages += ArticlePage(listOf(summary("a")), null)
+            publisherItems = listOf(yna.copy(isFollowed = true), mbc)
+            publisherHandler = { ArticlePage(emptyList(), null) }
+            sourceWriteHandler = { withContext(NonCancellable) { source.await() } }
+            savedMutationHandler = { _, _ -> withContext(NonCancellable) { bookmark.await() } }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.openArticle("a")
+        mainLooper.idle()
+        viewModel.openPublisher(repository.publisherItems.first())
+        viewModel.setPublisherSubscription("yna", false)
+        viewModel.toggleSaved("a", false)
+        mainLooper.idle()
+        viewModel.setPublisherSubscription("mbc", true)
+        repository.publisherItems = listOf(yna, mbc)
+        viewModel.onViewerChanged()
+        mainLooper.idle()
+        source.complete(emptySet())
+        bookmark.complete(Unit)
+        mainLooper.idle()
+        assertEquals(1, repository.sourceWrites.size)
+        assertTrue(viewModel.feed.publishers.none { it.isFollowed })
+        assertFalse(viewModel.discovery.activePublisher!!.isFollowed)
+        assertFalse(viewModel.feed.items.single().isSaved)
+        assertFalse(viewModel.reader.article!!.isSaved)
+        assertTrue(viewModel.savedMutationArticleIds.isEmpty())
+        assertTrue(viewModel.feed.sourceMutationPublisherCodes.isEmpty())
+        assertTrue(viewModel.saveErrors.isEmpty())
+        assertTrue(viewModel.feed.sourceSaveErrors.isEmpty())
+    }
+
+    @Test
     fun feedFailuresAreRetryableAndAuthenticationFailureExpiresSession() {
         val repository = FakeNewsDataSource().apply {
             pageFailure = IllegalStateException("피드 실패")
@@ -891,14 +1012,59 @@ class NewsViewModelTest {
         viewModel.toggleSaved("a", false)
         mainLooper.runToEndOfTasks()
         assertFalse(viewModel.feed.items.single().isSaved)
-        assertEquals("저장 실패", viewModel.saveError)
+        assertEquals("저장 실패", viewModel.saveErrors["a"])
 
         repository.savedMutationFailure = null
         viewModel.toggleSaved("a", false)
         mainLooper.runToEndOfTasks()
         assertTrue(viewModel.feed.items.single().isSaved)
         assertEquals(listOf("a" to true), repository.savedMutations)
-        assertEquals(null, viewModel.savedMutationArticleId)
+        assertTrue(viewModel.savedMutationArticleIds.isEmpty())
+    }
+
+    @Test
+    fun savedMutationsAndErrorsAreIsolatedPerArticle() {
+        val a = CompletableDeferred<Unit>()
+        val b = CompletableDeferred<Unit>()
+        val gates = mutableMapOf("a" to a, "b" to b)
+        val attempts = mutableListOf<String>()
+        val repository = FakeNewsDataSource().apply {
+            pages += ArticlePage(listOf(summary("a"), summary("b")), null)
+            savedMutationHandler = { id, _ -> attempts += id; gates[id]?.await(); Unit }
+        }
+        val viewModel = NewsViewModel(repository)
+        viewModel.initialize()
+        mainLooper.idle()
+        viewModel.openArticle("a")
+        mainLooper.idle()
+        viewModel.toggleSaved("a", false)
+        viewModel.toggleSaved("a", false)
+        mainLooper.idle()
+        viewModel.openRelatedArticle("b", 100, null)
+        mainLooper.idle()
+        viewModel.toggleSaved("b", false)
+        mainLooper.idle()
+        assertEquals(listOf("a", "b"), attempts)
+        assertEquals(setOf("a", "b"), viewModel.savedMutationArticleIds)
+        b.complete(Unit)
+        mainLooper.idle()
+        assertTrue(viewModel.reader.article!!.isSaved)
+        a.completeExceptionally(IllegalStateException("A 저장 실패"))
+        mainLooper.idle()
+        assertEquals(mapOf("a" to "A 저장 실패"), viewModel.saveErrors)
+        assertTrue(viewModel.reader.article!!.isSaved)
+        gates.remove("a")
+        viewModel.toggleSaved("a", false)
+        mainLooper.idle()
+        // Hold revalidation to check the immediate Back snapshot independently.
+        repository.articleGate = CompletableDeferred()
+        viewModel.closeReader()
+        assertEquals("a", viewModel.reader.articleId)
+        assertTrue(viewModel.reader.article!!.isSaved)
+        assertTrue(viewModel.saveErrors.isEmpty())
+        assertTrue(viewModel.savedMutationArticleIds.isEmpty())
+        repository.articleGate!!.complete(detail("a").copy(isSaved = true))
+        mainLooper.idle()
     }
 
     @Test
@@ -1052,6 +1218,9 @@ class NewsViewModelTest {
         var savedCategoryValue = NewsCategory.POLITICS
         var savedAnalysisEnabledValue = true
         var followedCodes = emptySet<String>()
+        val sourceWrites = mutableListOf<Set<String>>()
+        var sourceWriteHandler: (suspend (Set<String>) -> Set<String>)? = null
+        var savedMutationHandler: (suspend (String, Boolean) -> Unit)? = null
         var articlePageCalls = 0
         var articleCalls = 0
         val queries = mutableListOf<String?>()
@@ -1067,8 +1236,10 @@ class NewsViewModelTest {
             return publisherItems
         }
         override suspend fun replaceFollowedPublishers(publisherCodes: Set<String>): Set<String> {
-            followedCodes = publisherCodes
-            return publisherCodes
+            sourceWrites += publisherCodes.toSet()
+            val result = sourceWriteHandler?.invoke(publisherCodes) ?: publisherCodes
+            followedCodes = result
+            return result
         }
         override suspend fun articles(category: NewsCategory?, scope: FeedScope,
                                       cursor: String?, query: String?): ArticlePage {
@@ -1102,6 +1273,7 @@ class NewsViewModelTest {
             return savedPages.removeFirst()
         }
         override suspend fun setArticleSaved(articleId: String, saved: Boolean) {
+            savedMutationHandler?.invoke(articleId, saved)
             savedMutationFailure?.let { throw it }
             savedMutations += articleId to saved
         }

@@ -105,10 +105,8 @@ internal fun FrameLESSApp(
                 LaunchedEffect(session?.token, news.feed.publishers, pendingSubscriptionCode) {
                     val code = pendingSubscriptionCode ?: return@LaunchedEffect
                     if (session == null || news.feed.publishers.none { it.code == code }) return@LaunchedEffect
-                    val codes = news.feed.publishers.filter { it.isFollowed }
-                        .map { it.code }.toMutableSet().apply { add(code) }
                     pendingSubscriptionCode = null
-                    news.replaceFollowedPublishers(codes)
+                    news.setPublisherSubscription(code, true)
                 }
                 if (tutorial.showIntro && !auth.showLogin) {
                     OnboardingScreen(
@@ -187,8 +185,8 @@ internal fun FrameLESSApp(
                             if (session == null) authPrompt = AuthPrompt.BOOKMARK
                             else news.toggleSaved(articleId, saved)
                         },
-                        savedPending = news.savedMutationArticleId == news.reader.articleId,
-                        saveError = news.saveError,
+                        savedPending = news.reader.articleId in news.savedMutationArticleIds,
+                        saveError = news.saveErrors[news.reader.articleId],
                         coach = ReaderCoachUi(
                             step = tutorial.readerStep,
                             onEligible = tutorial::onReaderEligible,
@@ -354,8 +352,8 @@ internal fun FrameLESSApp(
                                 state = news.discovery,
                                 publishers = news.feed.publishers,
                                 session = session,
-                                isSavingSubscription = news.feed.isSavingSources,
-                                subscriptionError = news.feed.sourceSaveError,
+                                pendingSubscriptionCodes = news.feed.sourceMutationPublisherCodes,
+                                subscriptionErrors = news.feed.sourceSaveErrors,
                                 isLoadingPublishers = news.feed.isLoadingPublishers,
                                 publisherDirectoryError = news.feed.publisherDirectoryError,
                                 onPublisherDirectoryRetry = news::retryFeed,
@@ -379,10 +377,7 @@ internal fun FrameLESSApp(
                                         pendingSubscriptionCode = publisher.code
                                         authPrompt = AuthPrompt.SUBSCRIPTION
                                     } else {
-                                        val codes = news.feed.publishers.filter { it.isFollowed }
-                                            .map { it.code }.toMutableSet()
-                                        if (follow) codes += publisher.code else codes -= publisher.code
-                                        news.replaceFollowedPublishers(codes)
+                                        news.setPublisherSubscription(publisher.code, follow)
                                     }
                                 }
                             )
@@ -424,20 +419,16 @@ internal fun FrameLESSApp(
                                 )
                                 ProfilePage.SOURCES -> PortalFollowedPublishersScreen(
                                     publishers = news.feed.publishers,
-                                    isSaving = news.feed.isSavingSources,
-                                    error = news.feed.sourceSaveError,
                                     onBack = { profilePage = ProfilePage.OVERVIEW },
                                     isGuest = session == null,
-                                    pendingPublisherCode = news.feed.sourceMutationPublisherCode,
+                                    pendingPublisherCodes = news.feed.sourceMutationPublisherCodes,
+                                    errors = news.feed.sourceSaveErrors,
                                     onToggle = { publisher, follow ->
                                         if (session == null) {
                                             pendingSubscriptionCode = publisher.code
                                             authPrompt = AuthPrompt.SUBSCRIPTION
                                         } else {
-                                            val codes = news.feed.publishers.filter { it.isFollowed }
-                                                .map { it.code }.toMutableSet()
-                                            if (follow) codes += publisher.code else codes -= publisher.code
-                                            news.replaceFollowedPublishers(codes)
+                                            news.setPublisherSubscription(publisher.code, follow)
                                         }
                                     }
                                 )

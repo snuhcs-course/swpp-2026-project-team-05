@@ -44,7 +44,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -316,11 +315,11 @@ internal fun PortalHomeScreen(
                             Box(
                                 modifier = Modifier.size(54.dp)
                                     .border(if (active) 2.dp else 1.dp,
-                                        if (active) Fl.Ink else Fl.Line, CircleShape)
+                                        if (active) Fl.Ink else Fl.Line, RoundedCornerShape(12.dp))
                                     .padding(5.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                PublisherLogo(publisher, Modifier.size(44.dp).clip(CircleShape))
+                                PublisherLogo(publisher, Modifier.size(44.dp))
                             }
                             Text(publisher.name, fontSize = 11.sp,
                                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
@@ -649,12 +648,11 @@ internal fun PortalAppearanceSettingsScreen(
 @Composable
 internal fun PortalFollowedPublishersScreen(
     publishers: List<PublisherItem>,
-    isSaving: Boolean,
-    error: String?,
     onBack: () -> Unit,
     onToggle: (PublisherItem, Boolean) -> Unit,
     isGuest: Boolean = false,
-    pendingPublisherCode: String? = null
+    pendingPublisherCodes: Set<String> = emptySet(),
+    errors: Map<String, String> = emptyMap()
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(PortalPage).testTag("subscription-management"),
@@ -668,26 +666,16 @@ internal fun PortalFollowedPublishersScreen(
                 onBack = onBack
             )
         }
-        if (error != null) {
-            item {
-                Text(
-                    error,
-                    color = Fl.Danger,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                        .testTag("subscription-save-error")
-                )
-            }
-        }
         if (publishers.isEmpty()) {
             item { EmptyPortalSection("표시할 언론사가 없어요") }
         } else {
             items(publishers, key = PublisherItem::code) { publisher ->
+                val pending = publisher.code in pendingPublisherCodes
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .toggleable(
                             value = publisher.isFollowed,
-                            enabled = !isSaving,
+                            enabled = !pending,
                             role = Role.Switch,
                             onValueChange = { onToggle(publisher, it) }
                         )
@@ -705,22 +693,29 @@ internal fun PortalFollowedPublishersScreen(
                             modifier = Modifier.padding(top = 3.dp)
                         )
                     }
-                    if (isSaving && pendingPublisherCode == publisher.code) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.padding(end = 12.dp).size(16.dp),
-                            strokeWidth = 1.5.dp,
-                            color = PortalAccent
-                        )
+                    Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                        if (pending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 1.5.dp,
+                                color = PortalAccent
+                            )
+                        }
                     }
                     Switch(
                         checked = publisher.isFollowed,
                         onCheckedChange = null,
-                        enabled = !isSaving,
+                        enabled = !pending,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Fl.OnAccent,
                             checkedTrackColor = PortalAccent
                         )
                     )
+                }
+                errors[publisher.code]?.let { message ->
+                    Text(message, color = Fl.Danger, fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 70.dp, end = 20.dp, bottom = 12.dp)
+                            .testTag("subscription-error-${publisher.code}"))
                 }
                 HorizontalDivider(
                     color = PortalLine.copy(alpha = 0.6f),

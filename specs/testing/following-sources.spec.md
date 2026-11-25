@@ -5,7 +5,7 @@
 | Status | Implemented API/Web contract; Android navigation superseded by story-feed spec |
 | Owner | Following sources feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§11–12 |
-| Last reviewed | 2026-11-03 |
+| Last reviewed | 2026-11-25 |
 
 ## Scope
 
@@ -114,6 +114,17 @@ independent of follows.
 
 ### Android client
 
+- [Unit] Rapid changes to different publishers use serial full-set requests
+  based on the latest confirmed set; pending duplicates are ignored. Failure
+  preserves other queued changes and is reported only for its publisher.\
+  Tested by: `NewsViewModelTest.publisherChangesAreSerializedWithoutDroppingOtherPublishers`,
+  `NewsViewModelTest.failedPublisherChangeDoesNotLeakIntoTheNextWrite`
+- [Security regression] Account changes cancel pending subscription writes and
+  discard late UI updates and queued changes from the old viewer.\
+  Tested by: `NewsViewModelTest.viewerChangeCancelsPendingPersonalMutations`
+- [Unit] Returning from search preserves current per-publisher progress and
+  errors instead of restoring a stale mutation snapshot.\
+  Tested by: `NewsViewModelTest.closingSearchDoesNotRestoreStaleSubscriptionState`
 - [Unit] API and repository layers parse `is_followed`, replace the full set,
   encode scope, and keep the existing authenticated request boundary.\
   Tested by: `com.swpp.team5.frameless.data.NewsApiClientTest.newsEndpointsParseFeedDetailAndGroundedComparison`,

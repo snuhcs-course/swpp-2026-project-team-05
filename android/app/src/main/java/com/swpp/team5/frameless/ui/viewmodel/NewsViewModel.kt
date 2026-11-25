@@ -17,6 +17,7 @@ import com.swpp.team5.frameless.data.PublisherItem
 import com.swpp.team5.frameless.data.StorySummary
 import com.swpp.team5.frameless.data.TextRange
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -72,7 +73,8 @@ internal data class NewsFeedState(
     val scope: FeedScope = FeedScope.ALL,
     val isSavingSources: Boolean = false,
     val sourceSaveError: String? = null,
-    val sourceMutationPublisherCode: String? = null,
+    val sourceMutationPublisherCodes: Set<String> = emptySet(),
+    val sourceSaveErrors: Map<String, String> = emptyMap(),
     val isSearchOpen: Boolean = false,
     val searchInput: String = "",
     val activeSearchQuery: String = "",
@@ -123,6 +125,11 @@ internal data class ReaderFocus(
 
 private data class ReaderDestination(
     val snapshot: ArticleReaderState
+)
+
+private data class PublisherSubscriptionUpdate(
+    val changes: Map<String, Boolean>,
+    val onSuccess: () -> Unit = {}
 )
 
 internal data class SavedArticlesState(
@@ -197,9 +204,9 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         private set
     var discovery by mutableStateOf(PortalDiscoveryState())
         private set
-    var savedMutationArticleId by mutableStateOf<String?>(null)
+    var savedMutationArticleIds by mutableStateOf(emptySet<String>())
         private set
-    var saveError by mutableStateOf<String?>(null)
+    var saveErrors by mutableStateOf(emptyMap<String, String>())
         private set
     var authExpired by mutableStateOf(false)
         private set
@@ -215,6 +222,9 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     private val homePublisherCache = mutableMapOf<String, List<ArticleSummary>>()
     private var newsStoryJob: Job? = null
     private var publisherJob: Job? = null
+    private var sourceSaveJob: Job? = null
+    private val sourceUpdates = ArrayDeque<PublisherSubscriptionUpdate>()
+    private val savedMutationJobs = mutableMapOf<String, Job>()
     private var homeRequested = false
     private var readerOrigin = NewsRoute.FEED
     private val readerHistory = ArrayDeque<ReaderDestination>()
@@ -241,6 +251,7 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun reset() {
+        cancelPersonalMutations()
         trends.reset()
         reading.newVisit()
         feedJob?.cancel()
@@ -262,14 +273,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         saved = SavedArticlesState()
         discovery = PortalDiscoveryState()
         homeRequested = false
-        savedMutationArticleId = null
-        saveError = null
         readerOrigin = NewsRoute.FEED
         readerHistory.clear()
         authExpired = false
     }
 
     fun onViewerChanged() {
+        cancelPersonalMutations()
+        feedBeforeSearch = null
         trends.reset()
         if (homeRequested) trends.load()
         feedJob?.cancel()
@@ -290,6 +301,8 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         reader = reader.copy(article = reader.article?.copy(isSaved = false))
         saved = SavedArticlesState()
         discovery = discovery.copy(
+            activePublisher = discovery.activePublisher?.copy(isFollowed = false),
+            publisherArticles = discovery.publisherArticles.map { it.copy(isSaved = false) },
             homeStories = emptyList(),
             homeNextCursor = null,
             homeError = null,
@@ -375,64 +388,88 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         val valid = codes.intersect(feed.publishers.map { it.code }.toSet())
         val previous = feed.publishers.filter { it.isFollowed }.map { it.code }.toSet()
         val changed = (valid - previous) + (previous - valid)
-        feed = feed.copy(
-            isSavingSources = true,
-            sourceSaveError = null,
-            sourceMutationPublisherCode = changed.singleOrNull()
-        )
-        viewModelScope.launch {
-            try {
-                val savedCodes = repository.replaceFollowedPublishers(valid)
-                feed = feed.copy(
-                    publishers = feed.publishers.map { publisher ->
-                        publisher.copy(isFollowed = publisher.code in savedCodes)
-                    },
-                    isSavingSources = false,
-                    sourceMutationPublisherCode = null,
-                    sourceSaveError = null
-                )
-                discovery = discovery.copy(
-                    activePublisher = discovery.activePublisher?.let { publisher ->
-                        publisher.copy(isFollowed = publisher.code in savedCodes)
-                    },
-                    homeStories = discovery.homeStories.map { story ->
-                        story.copy(
-                            representativeArticle = story.representativeArticle.copy(
-                                publisher = story.representativeArticle.publisher.copy(
-                                    isFollowed = story.representativeArticle.publisher.code in savedCodes
-                                )
-                            ),
-                            publishers = story.publishers.map { publisher ->
-                                publisher.copy(isFollowed = publisher.code in savedCodes)
-                            }
-                        )
-                    },
-                    newsStories = discovery.newsStories.map { story ->
-                        story.copy(
-                            representativeArticle = story.representativeArticle.copy(
-                                publisher = story.representativeArticle.publisher.copy(
-                                    isFollowed = story.representativeArticle.publisher.code in savedCodes
-                                )
-                            ),
-                            publishers = story.publishers.map { publisher ->
-                                publisher.copy(isFollowed = publisher.code in savedCodes)
-                            }
-                        )
-                    }
-                )
-                if (feed.isSearchOpen) feedBeforeSearch = null
+        if (changed.isEmpty()) {
+            onSuccess()
+            return
+        }
+        enqueuePublisherUpdate(PublisherSubscriptionUpdate(changed.associateWith { it in valid }, onSuccess))
+    }
+
+    fun setPublisherSubscription(code: String, followed: Boolean) {
+        val publisher = feed.publishers.firstOrNull { it.code == code } ?: return
+        if (code in feed.sourceMutationPublisherCodes || publisher.isFollowed == followed) return
+        enqueuePublisherUpdate(PublisherSubscriptionUpdate(mapOf(code to followed)))
+    }
+
+    private fun enqueuePublisherUpdate(update: PublisherSubscriptionUpdate) {
+        sourceUpdates.addLast(update)
+        feed = feed.copy(isSavingSources = true, sourceSaveError = null,
+            sourceMutationPublisherCodes = feed.sourceMutationPublisherCodes + update.changes.keys,
+            sourceSaveErrors = feed.sourceSaveErrors - update.changes.keys)
+        if (sourceSaveJob?.isActive == true) return
+        sourceSaveJob = viewModelScope.launch {
+            var changed = false
+            while (sourceUpdates.isNotEmpty()) {
+                val next = sourceUpdates.removeFirst()
+                val target = feed.publishers.filter { it.isFollowed }.map { it.code }.toMutableSet()
+                next.changes.forEach { (code, followed) -> if (followed) target += code else target -= code }
+                try {
+                    val savedCodes = repository.replaceFollowedPublishers(target)
+                    ensureActive()
+                    applyConfirmedSubscriptions(savedCodes)
+                    feed = feed.copy(sourceSaveErrors = feed.sourceSaveErrors - next.changes.keys)
+                    changed = true
+                    if (feed.isSearchOpen) feedBeforeSearch = null
+                    next.onSuccess()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    if (isAuthFailure(failure)) authExpired = true
+                    val message = failure.message ?: "언론사 설정을 저장하지 못했어요."
+                    feed = feed.copy(
+                        sourceSaveError = message,
+                        sourceSaveErrors = feed.sourceSaveErrors + next.changes.keys.associateWith { message }
+                    )
+                }
+                val pending = feed.sourceMutationPublisherCodes - next.changes.keys
+                feed = feed.copy(isSavingSources = pending.isNotEmpty(), sourceMutationPublisherCodes = pending)
+                if (authExpired) {
+                    sourceUpdates.clear()
+                    feed = feed.copy(isSavingSources = false, sourceMutationPublisherCodes = emptySet())
+                    return@launch
+                }
+            }
+            if (changed) {
                 if (feed.scope == FeedScope.FOLLOWING && !feed.isSearchOpen) reloadForFilters()
                 if (homeRequested) loadHome(force = true)
-                onSuccess()
-            } catch (failure: Exception) {
-                if (isAuthFailure(failure)) authExpired = true
-                feed = feed.copy(
-                    isSavingSources = false,
-                    sourceMutationPublisherCode = null,
-                    sourceSaveError = failure.message ?: "언론사 설정을 저장하지 못했어요."
-                )
             }
         }
+    }
+
+    private fun applyConfirmedSubscriptions(codes: Set<String>) {
+        fun publisher(value: PublisherItem) = value.copy(isFollowed = value.code in codes)
+        fun story(value: StorySummary) = value.copy(
+            representativeArticle = value.representativeArticle.copy(publisher = publisher(value.representativeArticle.publisher)),
+            publishers = value.publishers.map(::publisher)
+        )
+        feed = feed.copy(publishers = feed.publishers.map(::publisher))
+        discovery = discovery.copy(
+            activePublisher = discovery.activePublisher?.let(::publisher),
+            homeStories = discovery.homeStories.map(::story),
+            newsStories = discovery.newsStories.map(::story)
+        )
+    }
+
+    private fun cancelPersonalMutations() {
+        sourceSaveJob?.cancel()
+        sourceSaveJob = null
+        sourceUpdates.clear()
+        savedMutationJobs.values.forEach { it.cancel() }
+        savedMutationJobs.clear()
+        savedMutationArticleIds = emptySet()
+        saveErrors = emptyMap()
+        feed = feed.copy(isSavingSources = false, sourceMutationPublisherCodes = emptySet(),
+            sourceSaveError = null, sourceSaveErrors = emptyMap())
     }
 
     fun ensureHomeLoaded() {
@@ -729,7 +766,13 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
         val snapshot = feedBeforeSearch
         feedBeforeSearch = null
         if (snapshot != null && snapshot.category == feed.category && snapshot.scope == feed.scope) {
-            feed = snapshot
+            feed = snapshot.copy(
+                publishers = feed.publishers,
+                isSavingSources = feed.isSavingSources,
+                sourceMutationPublisherCodes = feed.sourceMutationPublisherCodes,
+                sourceSaveError = feed.sourceSaveError,
+                sourceSaveErrors = feed.sourceSaveErrors
+            )
             return
         }
         feed = feed.copy(
@@ -1077,13 +1120,14 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
     }
 
     fun toggleSaved(articleId: String, currentlySaved: Boolean) {
-        if (savedMutationArticleId != null) return
+        if (articleId in savedMutationArticleIds) return
         val target = !currentlySaved
-        savedMutationArticleId = articleId
-        saveError = null
-        viewModelScope.launch {
+        savedMutationArticleIds = savedMutationArticleIds + articleId
+        saveErrors = saveErrors - articleId
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 repository.setArticleSaved(articleId, target)
+                ensureActive()
                 feed = feed.copy(items = feed.items.map { article ->
                     if (article.id == articleId) article.copy(isSaved = target) else article
                 }, searchSections = feed.searchSections.mapValues { (_, section) ->
@@ -1091,9 +1135,20 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                         if (article.id == articleId) article.copy(isSaved = target) else article
                     })
                 })
+                feedBeforeSearch = feedBeforeSearch?.let { snapshot ->
+                    snapshot.copy(items = snapshot.items.map { article ->
+                        if (article.id == articleId) article.copy(isSaved = target) else article
+                    })
+                }
                 reader = reader.copy(article = reader.article?.let { article ->
                     if (article.id == articleId) article.copy(isSaved = target) else article
                 })
+                for (index in readerHistory.indices) {
+                    val destination = readerHistory[index]
+                    val article = destination.snapshot.article
+                    if (article?.id == articleId) readerHistory[index] = destination.copy(
+                        snapshot = destination.snapshot.copy(article = article.copy(isSaved = target)))
+                }
                 discovery = discovery.copy(
                     homeStories = discovery.homeStories.map { story ->
                         if (story.representativeArticle.id == articleId) {
@@ -1120,11 +1175,13 @@ internal class NewsViewModel(private val repository: NewsDataSource) : ViewModel
                 throw cancelled
             } catch (failure: Exception) {
                 if (isAuthFailure(failure)) authExpired = true
-                saveError = failure.message ?: "저장 상태를 바꾸지 못했어요."
-            } finally {
-                savedMutationArticleId = null
+                saveErrors = saveErrors + (articleId to (failure.message ?: "저장 상태를 바꾸지 못했어요."))
             }
+            savedMutationArticleIds = savedMutationArticleIds - articleId
+            savedMutationJobs.remove(articleId)
         }
+        savedMutationJobs[articleId] = job
+        job.start()
     }
 
     fun openLinkAnalysis() {

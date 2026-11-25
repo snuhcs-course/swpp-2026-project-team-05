@@ -517,6 +517,10 @@ internal stack trace.
 - Reuse the compact feed row and current Reader navigation.
 - Apply confirmed save state consistently across discovery, Reader, and Saved. Failed
   requests are not shown optimistically or queued for later synchronization.
+- Save progress and errors belong to an article ID. A pending save blocks only
+  repeat taps for that article; navigating to another article keeps its action
+  independent. Account changes cancel pending personal mutations and discard
+  late UI updates from the previous viewer.
 - When offline, show only locally complete Saved rows whose body and validated
   analysis are available; save/remove stays online-only.
 
@@ -592,7 +596,7 @@ The replacement body is `{"publisher_codes": [...]}`. It may be empty, is
 idempotent, rejects unknown or unselectable publishers, and commits atomically.
 
 `scope=FOLLOWING` remains a server query capability. Android Home now selects
-one subscribed publisher through circular logos and uses its exact article
+one subscribed publisher through rounded-square logos and uses its exact article
 filter, rather than exposing a feed-scope selector. Web may retain its
 implemented Following control until its own navigation is redesigned.
 
@@ -607,6 +611,12 @@ implemented Following control until its own navigation is redesigned.
 - A signed-in row action replaces the server set atomically and shows a pending
   state only on that row. A failure restores the confirmed state and leaves an
   inline retry message.
+- Other publishers remain actionable and visually unchanged. Serialize the
+  existing full-set API writes, applying each publisher change to the latest
+  confirmed set; repeated taps on a pending publisher do not enqueue duplicates.
+  Failure affects only that publisher and does not discard queued changes to
+  others. Changing accounts cancels this transient queue; it is not an offline
+  synchronization mechanism.
 - A guest row action opens the shared contextual authentication sheet above the
   directory. Choosing Login or Create account preserves the publisher-directory
   origin; dismissal changes nothing and success does not replay the mutation.

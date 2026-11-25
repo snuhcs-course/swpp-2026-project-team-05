@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -81,8 +82,8 @@ internal fun PortalNewsScreen(
     onPublisherRetry: () -> Unit,
     onPublisherLoadMore: () -> Unit,
     onSubscription: (PublisherItem, Boolean) -> Unit,
-    isSavingSubscription: Boolean = false,
-    subscriptionError: String? = null,
+    pendingSubscriptionCodes: Set<String> = emptySet(),
+    subscriptionErrors: Map<String, String> = emptyMap(),
     isLoadingPublishers: Boolean = false,
     publisherDirectoryError: String? = null,
     onPublisherDirectoryRetry: () -> Unit = onRetry
@@ -99,8 +100,8 @@ internal fun PortalNewsScreen(
             onRetry = onPublisherRetry,
             onLoadMore = onPublisherLoadMore,
             onSubscription = { onSubscription(publisher, !publisher.isFollowed) },
-            isSavingSubscription = isSavingSubscription,
-            subscriptionError = subscriptionError
+            isSavingSubscription = publisher.code in pendingSubscriptionCodes,
+            subscriptionError = subscriptionErrors[publisher.code]
         )
         return
     }
@@ -115,8 +116,8 @@ internal fun PortalNewsScreen(
                 onPublisher = onPublisher,
                 onArticle = onArticle,
                 onSubscription = onSubscription,
-                isSavingSubscription = isSavingSubscription,
-                subscriptionError = subscriptionError,
+                pendingSubscriptionCodes = pendingSubscriptionCodes,
+                subscriptionErrors = subscriptionErrors,
                 isLoading = isLoadingPublishers,
                 error = publisherDirectoryError,
                 onRetry = onPublisherDirectoryRetry
@@ -312,17 +313,14 @@ private fun PublisherDirectory(
     onPublisher: (PublisherItem) -> Unit,
     onArticle: (String) -> Unit,
     onSubscription: (PublisherItem, Boolean) -> Unit,
-    isSavingSubscription: Boolean,
-    subscriptionError: String?,
+    pendingSubscriptionCodes: Set<String>,
+    subscriptionErrors: Map<String, String>,
     isLoading: Boolean,
     error: String?,
     onRetry: () -> Unit
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 20.dp)) {
         item { Spacer(Modifier.height(10.dp).background(Fl.Inset).fillMaxWidth()) }
-        subscriptionError?.let { message ->
-            item { Text(message, color = Fl.Danger, fontSize = 12.sp, modifier = Modifier.padding(20.dp)) }
-        }
         if (publishers.isEmpty()) {
             when {
                 isLoading -> item { PortalInlineLoading() }
@@ -331,7 +329,8 @@ private fun PublisherDirectory(
             }
         } else {
             items(publishers, key = PublisherItem::code) { publisher ->
-                PublisherBlock(publisher, onPublisher, onArticle, onSubscription, isSavingSubscription)
+                PublisherBlock(publisher, onPublisher, onArticle, onSubscription,
+                    publisher.code in pendingSubscriptionCodes, subscriptionErrors[publisher.code])
             }
         }
     }
@@ -343,7 +342,8 @@ private fun PublisherBlock(
     onPublisher: (PublisherItem) -> Unit,
     onArticle: (String) -> Unit,
     onSubscription: (PublisherItem, Boolean) -> Unit,
-    isSavingSubscription: Boolean
+    isSavingSubscription: Boolean,
+    subscriptionError: String?
 ) {
     Column(
         Modifier.fillMaxWidth().background(Fl.Card)
@@ -381,8 +381,13 @@ private fun PublisherBlock(
             SubscriptionButton(
                 followed = publisher.isFollowed,
                 onClick = { onSubscription(publisher, !publisher.isFollowed) },
-                enabled = !isSavingSubscription
+                pending = isSavingSubscription,
+                publisherCode = publisher.code
             )
+        }
+        subscriptionError?.let { message ->
+            Text(message, color = Fl.Danger, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 8.dp).testTag("subscription-error-${publisher.code}"))
         }
         Spacer(Modifier.height(14.dp))
         val previews = publisher.recentArticles.take(3)
@@ -413,11 +418,11 @@ private fun PublisherBlock(
 }
 
 @Composable
-private fun SubscriptionButton(followed: Boolean, onClick: () -> Unit, enabled: Boolean = true) {
+private fun SubscriptionButton(followed: Boolean, onClick: () -> Unit, pending: Boolean, publisherCode: String) {
     OutlinedButton(
         onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.height(38.dp)
+        enabled = !pending,
+        modifier = Modifier.height(38.dp).widthIn(min = 88.dp).testTag("subscription-button-$publisherCode")
             .semantics { contentDescription = if (followed) "구독 취소" else "구독" },
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(horizontal = 13.dp, vertical = 0.dp),
@@ -427,7 +432,8 @@ private fun SubscriptionButton(followed: Boolean, onClick: () -> Unit, enabled: 
             contentColor = if (followed) Fl.Muted else Fl.Ink
         )
     ) {
-        Icon(painterResource(if (followed) R.drawable.ic_portal_check else R.drawable.ic_portal_plus),
+        if (pending) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp, color = Fl.Muted)
+        else Icon(painterResource(if (followed) R.drawable.ic_portal_check else R.drawable.ic_portal_plus),
             contentDescription = null, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(4.dp))
         Text(if (followed) "구독 중" else "구독", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -471,7 +477,7 @@ private fun PublisherPage(
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
                     Text(publisher.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Fl.Ink)
                 }
-                SubscriptionButton(publisher.isFollowed, onSubscription, enabled = !isSavingSubscription)
+                SubscriptionButton(publisher.isFollowed, onSubscription, isSavingSubscription, publisher.code)
             }
         }
         subscriptionError?.let { message ->

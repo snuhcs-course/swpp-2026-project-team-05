@@ -90,7 +90,7 @@ selectable, at least 48dp high. Curated publisher logos use sharp original brand
 assets sized for their largest 44dp display at high-density phone resolution;
 do not enlarge 16/32px favicons to fill those slots. Keep source URLs and native
 asset dimensions in `android/app/src/main/assets/publishers/sources.json`.
-Publisher artwork uses 44dp inside Home's 54dp subscription ring, 40dp in the
+Publisher artwork uses 44dp inside Home's 54dp rounded-square selection border, 40dp in the
 directory, 38dp in publisher headers, and 36dp in subscription management.
 Keep publisher actions at least 48dp high as artwork becomes more compact.
 
@@ -198,7 +198,7 @@ Root-shell and discovery behavior:
   and nested settings surfaces.
 - Home uses a compact portal rhythm: one search entry, restrained weather and
   market utility blocks, `주요 뉴스` (ALL), then `구독한 언론사`.
-  A horizontal row of circular publisher logos selects the articles below it;
+  A horizontal row of rounded-square publisher logos selects the articles below it;
   names and an outline identify the selected outlet. The first subscription
   is the default, and switching outlets never opens another page or moves the
   reader's scroll position. Fetch only the selected publisher's article page,
@@ -324,7 +324,11 @@ Do not show:
 - Category chips are optional presentation filters over publisher metadata. If
   the metadata does not exist, omit the chips rather than guessing.
 - A signed-in subscription action updates the server-owned account set and
-  shows pending state only on that publisher row.
+  shows pending state only on that publisher row. Its button or switch alone
+  is disabled; other publishers keep their appearance and remain actionable.
+  Progress replaces the existing button icon without changing button width.
+  A failed update shows its error under the affected publisher, including in
+  MY management, and never under another publisher's detail header.
 - A guest subscription action opens the contextual authentication sheet above
   the directory. Login or registration preserves this origin; dismissal
   changes nothing.

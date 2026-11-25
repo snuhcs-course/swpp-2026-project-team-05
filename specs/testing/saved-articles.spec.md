@@ -5,7 +5,7 @@
 | Status | Implemented; formal intent review not recorded |
 | Owner | Saved articles feature owner |
 | Source requirements | [`../features/news-app-features.md`](../features/news-app-features.md) §§9–10 |
-| Last reviewed | 2026-11-14 |
+| Last reviewed | 2026-11-25 |
 
 ## Scope
 
@@ -126,7 +126,14 @@ save state; clients own interaction and cache synchronization.
 - [Unit] Repository and ViewModel keep feed, Reader, and saved-list state in sync
   after success and roll all affected state back after failure.\
   Tested by: `com.swpp.team5.frameless.data.NewsRepositoryTest.preferencesRoundTripAndNetworkCallsUseAuthenticatedService`,
-  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.saveMutationUpdatesAllStateAndRollsBackAfterFailure`
+  `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.saveMutationChangesStateOnlyAfterSuccess`
+- [Unit] Progress, duplicate protection and errors are isolated per article.
+  Another article can be saved independently; a failure does not change its
+  state or error. Back navigation preserves confirmed bookmark state.\
+  Tested by: `NewsViewModelTest.savedMutationsAndErrorsAreIsolatedPerArticle`
+- [Security regression] Account changes cancel pending saves and discard late
+  results from the old viewer.\
+  Tested by: `NewsViewModelTest.viewerChangeCancelsPendingPersonalMutations`
 - [Unit] Opening and closing the saved route preserves category, publisher,
   search, feed rows, and scroll-state inputs.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.NewsViewModelTest.savedRouteLoadsPagesAndReturnsToPreservedFeed`

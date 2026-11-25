@@ -17,6 +17,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
@@ -210,7 +211,7 @@ class PortalNavigationInstrumentedTest {
             var followed by remember { mutableStateOf(false) }
             FrameLESSTheme {
                 PortalFollowedPublishersScreen(listOf(publisher.copy(isFollowed = followed)),
-                    isSaving = false, error = null, onBack = {},
+                    onBack = {},
                     onToggle = { _, next -> followed = next })
             }
         }
@@ -226,15 +227,64 @@ class PortalNavigationInstrumentedTest {
         compose.setContent {
             FrameLESSTheme {
                 PortalFollowedPublishersScreen(listOf(publisher),
-                    isSaving = saving.value, error = if (saving.value) null else "저장하지 못했어요",
-                    onBack = {}, onToggle = { _, _ -> mutations++ }, pendingPublisherCode = "yna")
+                    pendingPublisherCodes = if (saving.value) setOf("yna") else emptySet(),
+                    errors = if (saving.value) emptyMap() else mapOf("yna" to "저장하지 못했어요"),
+                    onBack = {}, onToggle = { _, _ -> mutations++ })
             }
         }
         compose.onNodeWithTag("subscription-toggle-yna").assertIsNotEnabled().assertIsOff()
         compose.runOnIdle { saving.value = false }
-        compose.onNodeWithTag("subscription-save-error").assertIsDisplayed()
+        compose.onNodeWithTag("subscription-error-yna").assertIsDisplayed()
         compose.onNodeWithTag("subscription-toggle-yna").assertIsOff()
         compose.runOnIdle { assertEquals(0, mutations) }
+    }
+
+    @Test
+    fun managementKeepsOtherPublishersActionable() {
+        var selected: String? = null
+        compose.setContent {
+            FrameLESSTheme {
+                PortalFollowedPublishersScreen(listOf(publisher, PublisherItem("mbc", "MBC", null)),
+                    onBack = {}, onToggle = { publisher, _ -> selected = publisher.code },
+                    pendingPublisherCodes = setOf("yna"), errors = mapOf("yna" to "연합뉴스 저장 실패"))
+            }
+        }
+        compose.onNodeWithTag("subscription-toggle-yna").assertIsNotEnabled()
+        compose.onNodeWithTag("subscription-toggle-mbc").assertIsEnabled().performClick()
+        compose.onNodeWithTag("subscription-error-yna").assertIsDisplayed()
+        compose.onNodeWithTag("subscription-error-mbc").assertDoesNotExist()
+        compose.runOnIdle { assertEquals("mbc", selected) }
+    }
+
+    @Test
+    fun subscriptionProgressAndErrorsBelongOnlyToTheirPublisher() {
+        val pending = mutableStateOf(emptySet<String>())
+        val errors = mutableStateOf(emptyMap<String, String>())
+        val active = mutableStateOf<PublisherItem?>(null)
+        val mbc = PublisherItem("mbc", "MBC", null)
+        var selected: String? = null
+        compose.setContent {
+            FrameLESSTheme {
+                Directory(NewsSection.PUBLISHERS, publishers = listOf(publisher, mbc),
+                    pendingCodes = pending.value, errors = errors.value, activePublisher = active.value,
+                    onSubscription = { publisher, _ -> selected = publisher.code })
+            }
+        }
+        val width = compose.onNodeWithTag("subscription-button-yna").fetchSemanticsNode().boundsInRoot.width
+        compose.runOnIdle { pending.value = setOf("yna") }
+        compose.onNodeWithTag("subscription-button-yna").assertIsNotEnabled()
+        assertEquals(width, compose.onNodeWithTag("subscription-button-yna").fetchSemanticsNode().boundsInRoot.width, 0.5f)
+        compose.onNodeWithTag("subscription-button-mbc").assertIsEnabled().performClick()
+        compose.runOnIdle {
+            assertEquals("mbc", selected)
+            pending.value = emptySet()
+            errors.value = mapOf("yna" to "연합뉴스 저장 실패")
+            active.value = mbc
+        }
+        compose.onNodeWithTag("subscription-button-mbc").assertIsEnabled()
+        compose.onNodeWithText("연합뉴스 저장 실패").assertDoesNotExist()
+        compose.runOnIdle { active.value = publisher }
+        compose.onNodeWithText("연합뉴스 저장 실패").assertIsDisplayed()
     }
 
     @Test
@@ -257,7 +307,7 @@ class PortalNavigationInstrumentedTest {
     }
 
     @Test
-    fun homePublisherCirclesChangeTheArticlesBelow() {
+    fun homePublisherLogosChangeTheArticlesBelow() {
         var selectedArticle: String? = null
         val mbc = PublisherItem("mbc", "MBC", null, isFollowed = true)
         compose.setContent {
@@ -277,6 +327,7 @@ class PortalNavigationInstrumentedTest {
         compose.onNodeWithContentDescription("연합뉴스 구독 뉴스").assertIsSelected()
         compose.onNodeWithContentDescription("MBC 구독 뉴스").performClick().assertIsSelected()
         compose.onNodeWithText("MBC의 새 기사").performScrollTo().performClick()
+        captureCard("home-feed", "home-subscriptions-square.png")
         compose.runOnIdle { assertEquals("mbc", selectedArticle) }
     }
 
@@ -285,12 +336,18 @@ class PortalNavigationInstrumentedTest {
         section: NewsSection,
         onSection: (NewsSection) -> Unit = {},
         onPublisher: (PublisherItem) -> Unit = {},
-        onArticle: (String) -> Unit = {}
+        onArticle: (String) -> Unit = {},
+        publishers: List<PublisherItem> = listOf(publisher),
+        pendingCodes: Set<String> = emptySet(),
+        errors: Map<String, String> = emptyMap(),
+        activePublisher: PublisherItem? = null,
+        onSubscription: (PublisherItem, Boolean) -> Unit = { _, _ -> }
     ) = PortalNewsScreen(
-        state = PortalDiscoveryState(newsSection = section), publishers = listOf(publisher), session = null,
+        state = PortalDiscoveryState(newsSection = section, activePublisher = activePublisher), publishers = publishers, session = null,
+        pendingSubscriptionCodes = pendingCodes, subscriptionErrors = errors,
         listState = rememberLazyListState(), onSection = onSection, onSearch = {}, onTutorial = {},
         onRefresh = {}, onRetry = {}, onLoadMore = {}, onArticle = onArticle, onPublisher = onPublisher,
-        onPublisherBack = {}, onPublisherRetry = {}, onPublisherLoadMore = {}, onSubscription = { _, _ -> }
+        onPublisherBack = {}, onPublisherRetry = {}, onPublisherLoadMore = {}, onSubscription = onSubscription
     )
 
     private fun story(id: String, title: String): StorySummary {

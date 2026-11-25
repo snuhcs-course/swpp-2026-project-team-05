@@ -18,15 +18,14 @@ settings screen instead of sending readers to the publisher article directory.
   no stock photos or fabricated article thumbnails are introduced.
 - Account subscription state and authentication requirements are unchanged.
 - The screenshot supplied by the user is the visual reference: a publisher
-  identity/time header, separated headline rows, and clear block spacing.
+  identity header, separated headline rows, and clear block spacing.
 
 ## Postconditions
 
 1. The News section row contains `전체 뉴스`, `언론사`, `정치`, `사회`, and
    `경제`, with a programmatically selected tab. Root navigation still says
    `뉴스`. Tested by: `PortalNavigationInstrumentedTest.newsTabsNameTheirScopeAndExposeSelection`.
-2. Publisher blocks show a real logo where available, identity, the latest
-   article's actual publication-relative time, up to three unnumbered headlines,
+2. Publisher blocks show a real logo where available, identity, up to three unnumbered headlines,
    and a separate subscription action. Identity and headline taps preserve
    their distinct destinations. Tested by:
    `PortalNavigationInstrumentedTest.publisherIdentityAndHeadlinesKeepTheirDestinations`.
@@ -38,10 +37,12 @@ settings screen instead of sending readers to the publisher article directory.
    switches without article previews or a batch-save action. A successful toggle
    stays on the screen. Tested by:
    `PortalNavigationInstrumentedTest.managementTogglesSubscriptionsWithoutLeavingTheList`.
-5. While saving, another mutation cannot start. On failure, the server-confirmed
-   subscriptions remain unchanged and the error is shown without navigating
-   away. Tested by:
-   `PortalNavigationInstrumentedTest.managementPreservesConfirmedStateOnFailure`.
+5. Saving disables only the affected publisher; others remain actionable.
+   Errors appear only on the affected row or that publisher's own detail page.
+   Confirmed state remains unchanged on failure. Tested by:
+   `PortalNavigationInstrumentedTest.managementPreservesConfirmedStateOnFailure`,
+   `PortalNavigationInstrumentedTest.subscriptionProgressAndErrorsBelongOnlyToTheirPublisher`,
+   `PortalNavigationInstrumentedTest.managementKeepsOtherPublishersActionable`.
 6. A guest toggle starts the contextual authentication flow and sends no
    subscription mutation before authentication. Cancelling leaves management
    visible. Tip: verify guest subscription → auth-sheet dismissal on the phone;
@@ -68,13 +69,13 @@ settings screen instead of sending readers to the publisher article directory.
     prevent the ordinary article feed from loading. A successful retry clears
     the directory error. Tested by:
     `NewsViewModelTest.publisherFailureEndsLoadingAndCanBeRetried`.
-12. Home defaults to the first subscription, presents circular logos as a
+12. Home defaults to the first subscription, presents rounded-square logos as a
     single-select row, and updates the articles below when an outlet is selected.
     A visited outlet uses its cached first page. Superseded responses cannot
     overwrite the latest selection. Tested by:
     `NewsViewModelTest.homePublisherSelectionUsesExactQueriesAndCachedPages`,
     `NewsViewModelTest.lateHomePublisherResponseCannotReplaceTheSelectedOutlet`,
-    `PortalNavigationInstrumentedTest.homePublisherCirclesChangeTheArticlesBelow`.
+    `PortalNavigationInstrumentedTest.homePublisherLogosChangeTheArticlesBelow`.
 
 ## Edge cases and undefined behavior
 
