@@ -257,8 +257,8 @@ internal fun PortalHomeScreen(
                             .semantics { role = Role.Button; contentDescription = "트렌드 다시 시도" }
                             .padding(vertical = 10.dp))
                 } else {
-                    trending.forEach { item ->
-                        CompactTrendRow(item) { onArticle(item.story.representativeArticle.id) }
+                    trending.forEachIndexed { index, item ->
+                        CompactTrendRow(item, displayPosition = index + 1) { onArticle(item.story.representativeArticle.id) }
                     }
                 }
             }
@@ -395,19 +395,19 @@ private fun PortalSectionHeader(title: String) {
 @Composable
 private fun CompactTrendRow(
     item: com.swpp.team5.frameless.data.TrendItem,
+    displayPosition: Int,
     onClick: () -> Unit
 ) {
     val article = item.story.representativeArticle
-    val label = if (item.kind == "LATEST") "최신" else "${item.rank}위"
     Row(
         Modifier.fillMaxWidth().height(40.dp)
             .clickable(onClick = onClick)
-            .semantics { role = Role.Button; contentDescription = "실시간 트렌드 $label, ${article.title}" },
+            .semantics { role = Role.Button; contentDescription = "실시간 트렌드 ${displayPosition}번, ${article.title}" },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(if (item.kind == "LATEST") "최신" else item.rank.toString(),
-            fontSize = if (item.kind == "LATEST") 10.sp else 13.sp,
-            fontWeight = FontWeight.Bold, color = if (item.kind == "LATEST") Fl.Muted else Fl.Ink,
+        Text(displayPosition.toString(),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold, color = Fl.Ink,
             modifier = Modifier.width(30.dp))
         Text(
             article.title,
@@ -419,9 +419,9 @@ private fun CompactTrendRow(
             modifier = Modifier.weight(1f)
         )
         val previous = item.previousRank
-        if (item.movement == "NEW") Text("NEW", color = Fl.Muted, fontSize = 9.sp,
+        if (item.kind == "POPULAR" && item.rank != null && item.movement == "NEW") Text("NEW", color = Fl.Muted, fontSize = 9.sp,
             modifier = Modifier.padding(start = 8.dp))
-        else if (item.movement in setOf("UP", "DOWN") && previous != null && item.rank != null) {
+        else if (item.kind == "POPULAR" && item.movement in setOf("UP", "DOWN") && previous != null && item.rank != null) {
             Icon(painterResource(if (item.movement == "UP") R.drawable.ic_portal_chevron_up else R.drawable.ic_portal_chevron_down),
                 contentDescription = if (item.movement == "UP") "순위 상승" else "순위 하락",
                 tint = Fl.Muted, modifier = Modifier.padding(start = 7.dp).size(13.dp))

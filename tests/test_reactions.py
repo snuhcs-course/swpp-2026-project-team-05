@@ -205,10 +205,11 @@ class ReactionTests(TestCase):
             self.article.delete()
             self.assertIsNone(highlights_payload(user=None)["issue"])
 
-    def test_breaking_tags_boundaries_overlap_and_exact_article(self):
-        for title in ["[속보] 제목", " ( 속보 ) 제목", "【속보】제목", "[정치] [속보] 제목"]:
+    def test_breaking_keyword_boundaries_overlap_and_exact_article(self):
+        for title in ["[속보] 제목", " ( 속보 ) 제목", "【속보】제목", "[정치] [속보] 제목",
+                      "속보 - 제목", "오늘 속보 전해드립니다", "속보성 기사", "[속보) 제목"]:
             self.assertTrue(is_breaking_title(title), title)
-        for title in ["속보성 기사", "오늘 [속보]라는 단어", "[속보) 제목", "【속보] 제목", "[속보】 제목", "[속보성] 제목", "본문에만 있음", ""]:
+        for title in ["일반 기사", "본문에만 있음", "속 보", ""]:
             self.assertFalse(is_breaking_title(title), title)
         cluster = StoryCluster.objects.create(internal_label="속보 주제", category="SOCIETY")
         breaking = self.article_for(title="[정치][속보] 새 소식", published_at=self.now, story_cluster=cluster)
@@ -227,8 +228,9 @@ class ReactionTests(TestCase):
         with patch("server.reactions.timezone.now", return_value=self.now + timedelta(hours=2)):
             self.assertIsNone(highlights_payload(user=None)["breaking"])
 
-    def test_breaking_just_inside_window_sql_tags_and_stable_tied_ids(self):
+    def test_breaking_just_inside_window_sql_keywords_and_stable_tied_ids(self):
         inside = self.article_for(id=UUID(int=1), title="[속보] 경계", published_at=self.now - timedelta(hours=2) + timedelta(microseconds=1))
+        self.article_for(title="일반 기사", body_text="본문에만 속보가 있습니다", published_at=self.now)
         self.article_for(title="[속보] 만료", published_at=self.now - timedelta(hours=2))
         self.article_for(title="[속보] 숨김", published_at=self.now, visibility="HIDDEN")
         inactive = Publisher.objects.create(code="stopped", name_ko="중지", domain="stopped.example.com", is_active=False)
@@ -236,13 +238,20 @@ class ReactionTests(TestCase):
         with patch("server.reactions.timezone.now", return_value=self.now):
             self.assertEqual(highlights_payload(user=None)["breaking"]["article"]["id"], str(inside.pk))
             inside.published_at = self.now
-            for title in ["[속보] 제목", " ( 속보 ) 제목", "【속보】제목", "[정치] [속보] 제목"]:
+            for title in ["[속보] 제목", " ( 속보 ) 제목", "【속보】제목", "[정치] [속보] 제목",
+                          "속보 - 제목", "오늘 속보 전해드립니다", "속보성 기사", "[속보) 제목"]:
                 inside.title = title
                 inside.save()
                 with self.subTest(title=title):
                     self.assertEqual(highlights_payload(user=None)["breaking"]["article"]["id"], str(inside.pk))
-            self.article_for(id=UUID(int=2), title="[속보] 같은 시각", published_at=self.now)
+            tied = self.article_for(id=UUID(int=2), title="[속보] 같은 시각", published_at=self.now)
             self.assertEqual(highlights_payload(user=None)["breaking"]["article"]["id"], str(inside.pk))
+            tied.delete()
+            for title in ["일반 기사", "속 보", ""]:
+                inside.title = title
+                inside.save()
+                with self.subTest(title=title):
+                    self.assertIsNone(highlights_payload(user=None)["breaking"])
 
     def test_highlights_empty_errors_and_bounded_queries(self):
         response = self.client.get("/api/v1/home-highlights")

@@ -102,9 +102,14 @@ No live users, production identifiers, publisher pages, or AI calls are needed.
 13. Home loading, valid empty, cached stale, and failure remain distinct. Zero
     items have no rank controls; one/two have no expand control; three/four/five
     expand only to their actual length. Expansion survives refresh. Tapping an
-    entry opens its real representative and Back restores Home.  
+    entry opens its real representative and Back restores Home. All displayed
+    entries, including mixed popular/latest lists, use consecutive position
+    numbers starting at one; latest fillers have no movement indicators. API
+    null ranks remain unchanged.
     Tested by: `PortalNavigationInstrumentedTest.homeTrendExpansionKeepsHeadlineTargets`,
-    `PortalNavigationInstrumentedTest.trendsDistinguishEmptyFailureAndSparseCorpus`.
+    `PortalNavigationInstrumentedTest.trendsDistinguishEmptyFailureAndSparseCorpus`,
+    `PortalNavigationInstrumentedTest.mixedTrendsUseConsecutivePositionsWithoutFillerMovement`,
+    `NewsApiClientTest.trendsDecodeNullableRanksAndViewRecordingCarriesOnlyIdentity`.
     Tip: automate full Reader-to-Home restoration in the app shell; these
     Compose cases verify section behavior and the exact article callback.
 14. Returning to fresh Home reuses its local result; pull-to-refresh may request
@@ -133,13 +138,17 @@ selected the article FK index for this corpus; the time index also exists.
 Dedicated PostgreSQL tests cover real row locks and actual statement timeout;
 the SQLite run deliberately skips those five PostgreSQL-only cases.
 
-The final APK passed 18 physical-device UI cases, including sparse/empty/failure
+The initial trend implementation's APK passed 18 physical-device UI cases, including sparse/empty/failure
 trend states, expansion, article selection, and Home pull refresh. The shared
 production API returned five unranked latest topics before activity; a real
 Reader visit then created one ArticleView row. Migration 0014 and the cleanup
 management command were applied to production. Daily Vercel cleanup and its
 secret are configured; the scheduler's first automatic invocation remains an
 operational check, distinct from the successful manual cleanup command.
+
+The list-position update passed the 205 Android JVM tests, lint, and APK builds,
+including compilation of its instrumentation tests. The updated device cases
+have not been rerun: no physical phone was attached, and no emulator was started.
 
 ## Undefined guarantees and review
 

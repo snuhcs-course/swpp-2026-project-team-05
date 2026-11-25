@@ -11,7 +11,7 @@
 ## 1. Product decision and scope
 
 Add five article reactions to the Android Reader. Home's `이슈` becomes a
-reaction-based topic selection; `속보` becomes a recent, explicitly tagged
+reaction-based topic selection; `속보` becomes a recent, title-keyword-matched
 article selection. The existing readership-based `실시간 트렌드` remains
 independent.
 
@@ -182,10 +182,9 @@ batch or administrator approval is required.
 A candidate must satisfy all these rules:
 
 - Publisher is active; article is `VISIBLE` and feed-visible.
-- A leading title tag explicitly says `속보`: `[속보]`, `(속보)`, or `【속보】`.
-  Leading whitespace and whitespace inside the tag are allowed. A sequence of
-  leading tags such as `[정치][속보] 제목` is accepted. A body-only mention,
-  untagged prose about breaking news, or a tag appearing mid-sentence is not.
+- The title contains the literal substring `속보` anywhere. Brackets, a leading
+  position, and a word boundary are not required: `속보 - 제목`, `[속보] 제목`,
+  mid-title mentions, and `속보성` all qualify. A body-only mention does not.
 - The original stored publication time satisfies
   `T - 2 hours < published_at <= T`. Exactly two hours old is expired.
   Ingestion time and later title/body updates never extend eligibility. Missing
@@ -198,12 +197,11 @@ expired Breaking row without waiting for another pull-to-refresh. Future-dated
 articles are excluded.
 
 If there is no candidate, omit the row. Do not relabel a latest article or alter
-stored dates/visibility to manufacture a Breaking example. The inspected live
-dataset currently has no eligible Breaking candidate; that is a valid empty
-state, not a reason to backfill old tagged stories.
+stored dates/visibility to manufacture a Breaking example. An empty result is
+valid; do not backfill expired articles.
 
 Two hours is this product's initial setting, not a claim about a universal news
-industry standard. This feature uses publisher labeling; it does not claim an
+industry standard. This feature uses the publisher's title wording; it does not claim an
 independent assessment of urgency or truth.
 
 ## 6. Data model and APIs
