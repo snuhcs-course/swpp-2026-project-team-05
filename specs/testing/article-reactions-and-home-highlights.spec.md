@@ -170,7 +170,7 @@ three-hour ranking.
 
 ## Verification record — 2026-11-25
 
-Checks on the implemented branch:
+Checks at reaction-feature rollout, before the later main telemetry integration:
 
 - Django full suite: 468 discovered, 461 passed, seven PostgreSQL-only skips.
   The separate isolated PostgreSQL reaction run passed all 15 cases, including

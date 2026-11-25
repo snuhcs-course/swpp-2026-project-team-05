@@ -2,6 +2,10 @@
 
 Status: Android portal shell and Reader baseline implemented
 
+The current Home weather and market cards use fixed demo data. Their vector
+artwork and market-direction styling are implemented; external data providers
+are not connected in this slice.
+
 Companion document: [`../product/news-app-v1.md`](../product/news-app-v1.md)
 
 ## 0. Implementation references
@@ -247,10 +251,10 @@ Root-shell and discovery behavior:
   보기`.
 
 - Sort by publication time descending with stable cursor pagination.
-- During the evaluation build, Web and Android may quietly move the six reviewed
-  example stories already present in a loaded Latest page to the front. This is
-  client-only, adds no label or separate section, and does not change API or
-  cursor ordering.
+- The earlier article-feed evaluation rule moves six reviewed examples already
+  present in a loaded Latest page to the front. It remains in Web's article feed
+  and Android's legacy feed helper; current Android Home/News story lists use
+  the server's topic ordering. No extra page is fetched to find an example.
 - Group repeated coverage before pagination according to
   [`../features/story-feed.md`](../features/story-feed.md).
 - On Web, search is part of the feed content, Latest/Following is an inline
@@ -549,8 +553,11 @@ adding information.
 Comparison behavior:
 
 - When comparisons exist, the expanded sheet begins directly with `같은 내용을
-  다른 기사에서는`; it does not repeat the marker, categories, or explanation
-  already shown in the annotation dock.
+  다른 기사에서는`. It does not repeat the dock's categories or explanation.
+  Each publisher page includes the paired expression card defined in
+  [`reader-expression-pair.md`](../features/reader-expression-pair.md): the
+  current and compared markers appear together for direct comparison. Paging
+  changes the compared side while retaining the current article's side.
 - Keep an explicit `×` close action in the fixed heading. Do not render gesture
   instructions such as swipe or pull-to-close copy; the pager, handle, and
   controls communicate those interactions directly.

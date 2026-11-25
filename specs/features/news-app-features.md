@@ -24,7 +24,7 @@ baseline specifications into a feature backlog.
 | --- | --- | --- |
 | Article search | Implemented | Search every feed-visible article from Android and Web |
 | Saved articles | Implemented | Save or remove an article and browse a personal saved list |
-| Following sources | Implemented data contract; Android navigation update pending | Personalize Home without a News scope tab |
+| Following sources | Implemented | Personalize Android Home; retain Web's existing Following scope |
 | Reading history | Deferred | Saved articles already cover the primary return-to-reading need |
 | Sharing | Deferred | Native and browser link sharing already cover the immediate need |
 | Article reactions | Implemented in Android and the shared API | Five article reactions and reaction-based Home Issue selection; see [dedicated specification](article-reactions-and-home-highlights.md) |
@@ -57,8 +57,8 @@ The search corpus is not restricted to a recent number of days. Date range may
 become an optional user filter later, but it must not be used as a substitute for
 an indexed search implementation.
 
-The current reviewed dataset therefore exposes 30 searchable source stories.
-Comparison-support articles remain readable inside reviewed comparison
+The searchable corpus grows with eligible imported articles; it is not capped
+at the original evaluation fixture count. Comparison-support articles remain readable inside reviewed comparison
 pages but do not appear in feed search. If an article later becomes an ordinary
 feed story, setting `is_feed_visible=true` makes it searchable without a client
 release.
@@ -212,9 +212,9 @@ signal and may also become an explicit user-selected filter.
 
 ### 5.1 Entry and exit
 
-- Add a search icon beside the account action in the feed header.
-- Tapping it replaces the header controls with a focused search field, clear
-  action, and back action.
+- Home's search field and News's search action open the same search flow.
+- Search has a focused field, clear action, and back action inside the existing
+  root navigation shell.
 - Back exits search and restores the previous News section, loaded items, and
   scroll context. Web also restores its existing feed scope while that control remains.
 - An empty field shows no article list and no filter row, only `검색어를 입력하세요`.

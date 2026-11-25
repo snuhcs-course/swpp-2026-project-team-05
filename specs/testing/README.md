@@ -55,7 +55,7 @@ as `acceptance-v2.spec.md`, preserving the old plan as historical evidence.
 `story-feed.spec.md` covers the topic-grouped discovery contract and explicitly
 keeps search, publisher pages, and Saved article-based.
 
-`realtime-trends.spec.md` records the planned readership-window, deduplication,
+`realtime-trends.spec.md` records the readership-window, deduplication,
 sparse-result, tie/movement, concurrency, retention, and Android lifecycle
 oracles, exact automated test identifiers, and remaining verification gaps.
 

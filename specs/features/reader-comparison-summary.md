@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for review |
+| Status | Implemented; formal intent review not recorded |
 | Owner | Reader feature owner |
 | Clients | Android only |
 | Iteration | 4 |
@@ -94,7 +94,7 @@ itself are unchanged.
   data/review issue outside this change.
 - The section sits above the title. If stored analysis arrives after the article
   is first laid out, content below it shifts by the section's height; no scroll
-  compensation is added in this draft.
+  compensation is added by this section.
 
 ## Non-goals
 

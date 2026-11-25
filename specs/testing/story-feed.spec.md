@@ -1,6 +1,6 @@
 # Topic-grouped story feed test specification
 
-Status: Backend contract coverage implemented; Android interaction coverage remains manual
+Status: Backend and Android component coverage implemented; remaining app-shell integration gaps are explicit
 
 ## Intent
 
@@ -32,10 +32,10 @@ predictably.
    Tested by: `NewsApiClientTest.newsEndpointsParseFeedDetailAndGroundedComparison`
 8. News-section selection maps `전체 뉴스` to an uncategorized story request,
    category tabs to their category, and `언론사` to the publisher directory.  
-   Tip: add `NewsViewModelTest` cases when the section state is implemented.
+   Tip: add a ViewModel case covering all section-to-request mappings; the section UI is implemented.
 9. Tapping a story row opens its representative article and Back restores the
    originating list state.  
-   Tip: add Compose navigation coverage when the story row is implemented.
+   Tip: add an app-shell test that opens a representative and restores its originating list and scroll position.
 10. Android has no Latest/Following control; the visible News sections are
     `전체 뉴스`, `언론사`, `정치`, `사회`, and `경제`, and the tutorial entry appears
     only in `전체 뉴스`.
@@ -65,6 +65,16 @@ predictably.
 16. Appearance defaults to the device setting, explicit Light/Dark selections
     override it, and the selection is stored locally.
     Tested by: `AppearanceViewModelTest`
+17. Home and general/category News must retain the existing offline policy:
+    only complete local Saved copies may replace an unavailable discovery feed,
+    with no continuation cursor; no Saved copies means an explicit offline-empty
+    state. Search and subscribed Home retain their separate connection-required
+    contract rather than pretending to be a complete offline feed.
+    Tip: close the portal-loader integration gap before adding broader list
+    caching. Home can retain old online rows when its Saved fallback is empty,
+    and the new News loader does not yet apply the legacy feed's Saved fallback.
+    `NewsViewModelTest.networkFailureShowsOnlyOfflineSavedArticles` exercises
+    the older feed state and does not establish this portal behavior.
 
 ## Boundaries
 

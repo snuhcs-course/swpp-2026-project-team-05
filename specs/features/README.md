@@ -40,3 +40,9 @@ reactions, topic-level recent-24-hour Issue selection, and explicitly tagged
 two-hour Breaking headlines. It replaces the Home labels' temporary placement,
 keeps readership trends separate, and adds one reaction
 table rather than stored counters or a second ranking subsystem.
+
+`reader-comparison-summary.md` defines the article-level comparison entry;
+`reader-expression-pair.md` defines the paired markers inside comparison pages.
+`economic-lens.md` and `event-issue-view.md` own the reviewed analysis-context
+contracts. `telemetry.md` records Firebase's conditional setup, event vocabulary,
+and current portal coverage limits.

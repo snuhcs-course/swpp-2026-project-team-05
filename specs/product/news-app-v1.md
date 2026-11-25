@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | v1.11 topic-feed intent reviewed; implementation pending |
-| Version | 1.11 |
-| Date | 2026-11-24 |
+| Status | Implemented baseline; feature-specific verification gaps remain explicit |
+| Version | 1.12 |
+| Date | 2026-11-25 |
 | Clients | Android and Web |
 | API | Django JSON API |
 | Database | Supabase PostgreSQL |
@@ -12,14 +12,16 @@
 
 ## 1. Product contract
 
-FrameLESS v1 uses topic-level discovery and article-level reading. A user scans
+Android uses topic-level discovery and article-level reading; Web retains
+article-level category feeds over the same stored news API. An Android user scans
 news topics without repeated same-event rows, opens one real publisher article
 in full, and inspects
 stored FrameLESS annotations. Android lets the user turn article markers on or
 off; Web keeps the reviewed markers and analysis rail visible beside the
 article. The annotations are prepared before the read request and stored in
-PostgreSQL. Other publishers appear only when a reviewed comparison exists for
-the selected expression.
+PostgreSQL. Expression comparisons use only reviewed stored evidence. The
+economic and event-issue views additionally expose other stored coverage under
+their own feature contracts.
 
 The ordinary user does not submit a URL and never waits for an LLM call. The main flow is:
 
@@ -59,7 +61,7 @@ It extends the shared API without adding a Web reaction interface.
 - Guest access to feed, search, article detail, and stored analysis
 - Registration, login, persistent session, and logout for personalized features
 - Ordinary user and developer-account distinction
-- Topic-grouped mixed, politics, society, and economy feeds
+- Topic-grouped mixed and category discovery on Android; category article feeds on Web
 - Publisher directory and publisher-specific article lists
 - Account-synchronized followed sources used by Android Home
 - Server-side article search across the feed-visible corpus
@@ -111,10 +113,10 @@ It must not complicate the v1 read APIs or client UI.
 
 ### 2.1 Publishers
 
-Publisher rows come from the database; neither client hard-codes publisher
-branches. The reviewed dataset currently exposes 30 feed articles and keeps its
-comparison-support articles discoverable only through analysis evidence. Adding an
-outlet must not require a client release.
+Publisher rows and feed membership come from the database; neither client
+hard-codes the number of articles or publishers. Comparison-support articles
+remain readable through analysis evidence without becoming ordinary feed rows.
+Adding an outlet must not require a client release.
 
 `Publisher.code` is the only stable API identifier. Use `yna` consistently; do not introduce a second `yonhap` code.
 
@@ -218,7 +220,7 @@ existing stable cursors.
 Android News navigation is `전체 뉴스 | 언론사 | 정치 | 사회 | 경제`; it has no
 `최신/팔로잉` selector. User-facing copy calls publisher follows `구독`.
 Home shows public `주요 뉴스` first and a separate `구독한 언론사` section
-immediately afterward. Circular publisher logos select one subscribed outlet;
+immediately afterward. Rounded-square publisher logos select one subscribed outlet;
 its articles appear directly below, loaded with the ordinary publisher filter.
 Subscription coverage is never limited to the already-loaded public page.
 Subscription state may select an eligible representative but never changes
@@ -313,19 +315,24 @@ article has no displayable findings. Navigation must not synthesize a finding.
 
 When comparisons do not exist, omit the comparison section entirely. Do not render an empty comparison container or claim that other articles lack the content.
 
-On Android, tapping a marker first opens a non-modal, fixed-size preview over the
-Reader. The preview shows the selected marker, a concise explanation, a feature
-label set, and—only when comparisons exist—an explicit detail action. Every preview
-shows all feature labels and up to four explanation lines; overflow expands and
-collapses in place so no analysis copy is lost. A source-only finding does not
-open a second surface. A comparison-backed preview's action opens a comparison sheet
-directly at maximum height. There is no middle anchor or height transition;
+On Android, enabled analysis with at least one displayable finding reserves one
+118dp annotation dock below the article viewport. It shows the selected marker,
+natural-language feature labels, up to two explanation lines, and a comparison
+action only when grounded comparisons exist. It does not cover article text.
+The dock is populated initially and follows eligible body findings immediately
+during user scrolling; tapping a marker selects it directly until the next
+qualifying user scroll. The selection and haptic rules are defined in
+[`scroll-synced-analysis-peek.md`](../features/scroll-synced-analysis-peek.md).
+A source-only finding never opens an empty second surface. A comparison-backed
+dock opens the comparison sheet directly at maximum height. There is no middle anchor or height transition;
 vertical gestures scroll the selected target article and horizontal gestures
 move between publisher pages. A compact floating previous/page/next pill mirrors
 the pager when multiple publishers exist without reserving article height.
 
 For a comparison-backed finding, the expanded sheet starts at the comparison
-section and does not repeat the source marker or labels from the preview. A
+section and does not repeat the dock's labels or explanation. A paired card on
+each publisher page shows the exact current and compared expressions together,
+as specified in [`reader-expression-pair.md`](../features/reader-expression-pair.md). A
 single proposition-level comparison overview stays above the publisher pager;
 publisher pages contain evidence rather than repeating prose explanations. Its
 fixed heading provides an explicit close action without gesture instruction
@@ -333,9 +340,10 @@ copy. Specific attributed speakers may be labeled on the page they belong to;
 the generic `기자 표현` label is omitted. Fixed header regions accept downward dismissal; the article body does
 so only when already scrolled to its top. The sheet animates closed after release.
 Material's own whole-sheet drag remains disabled to prevent competing gesture owners.
-Closing that sheet also clears the selected preview, returning to the unobstructed
-Reader. While only the preview is open, tapping ordinary article text closes it,
-tapping another marker replaces it, and scrolling the article keeps it visible.
+Closing the sheet preserves the selected dock and source Reader position.
+Ordinary text taps do not dismiss the persistent dock; another marker tap or
+qualifying user scroll may replace its finding. Back with only the dock visible
+leaves Reader normally.
 
 ## 5. Database contract
 
@@ -344,12 +352,23 @@ proposition-level overview in `server.0010_shared_proposition_overview`. Do not
 add speculative job, audit, embedding, release-history, or candidate tables for
 this implementation.
 
+The implemented feature-owned extensions are `ArticleView` and the singleton
+`TrendState` in migration `0014`, and `ArticleReaction` in `0015`. Their retention,
+identity, constraints and aggregation rules live in
+[`realtime-trends.md`](../features/realtime-trends.md) and
+[`article-reactions-and-home-highlights.md`](../features/article-reactions-and-home-highlights.md).
+Article reactions reference an account and article; short-lived view keys are
+opaque identifiers rather than another account relationship.
+
 ### 5.1 Relationship overview
 
 ```text
 UserAccount ── N AuthSession
            ├── N SavedArticle ── 1 Article
-           └── N UserPublisherFollow ── 1 Publisher
+           ├── N UserPublisherFollow ── 1 Publisher
+           └── N ArticleReaction ── 1 Article
+
+ArticleView ── 1 Article        TrendState (one shared ranking row)
 
 Publisher ── N Article ── N ExpressionFinding
                     │              │
@@ -371,6 +390,7 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 - internal UUID and label;
 - politics/society/economy category;
 - materialized analysis state, version, input hash, and analyzed time.
+- optional reviewed `issue_table`, specified in `event-issue-view.md`.
 
 `Article`
 
@@ -378,6 +398,7 @@ StoryCluster ───────┘              ├─ 0..1 SharedProposition
 - unique canonical URL;
 - exact title/body and SHA-256 content hash;
 - category, publication time, visibility, timestamps.
+- optional `economic_context` and `frame_context`, governed by their feature specifications.
 - `is_feed_visible` controls feed/search discovery only; any visible article
   from an active publisher remains addressable by Reader and may be saved.
 
@@ -625,7 +646,20 @@ The server groups comparisons by publisher and returns at most three pages using
 
 ## 7. Reviewed data import
 
-The Git-tracked gold directory contains 30 reviewed source cases with URLs,
+The ordinary import command accepts a normalized reviewed news dataset:
+
+```bash
+python manage.py import_news_dataset /path/to/reviewed-news.json --dry-run
+python manage.py import_news_dataset /path/to/reviewed-news.json
+```
+
+It validates stored article text, hashes, offsets, cluster revisions, and the
+economic/event contexts. Article fetching is optional via `--fetch-articles`;
+raw model output must first be converted to the import schema. The number of
+discoverable articles is determined by imported membership flags, not a fixed
+30-case limit.
+
+The legacy gold adapter uses the original 30 reviewed source cases with URLs,
 related articles, A–G findings, and comparison alignments, but not complete
 article bodies:
 
@@ -633,7 +667,7 @@ article bodies:
 server/fixtures/gold_v5/*.json
 ```
 
-The importer:
+The legacy gold importer:
 
 - fetches article bodies before opening a database transaction;
 - validates every exact sentence and marker;
@@ -650,7 +684,7 @@ cache, and URL-analysis history, but cascading foreign keys clear saved-article
 and followed-publisher relationships. Do not use it as an ordinary incremental
 content refresh.
 
-Commands:
+Legacy gold-adapter examples:
 
 ```bash
 python manage.py import_gold_dataset \
@@ -662,7 +696,7 @@ python manage.py import_gold_dataset \
   --replace-news
 ```
 
-The current reviewed dataset contains 30 clusters and exercises source-only
+The original 30-case evaluation fixture exercises source-only
 findings, one-to-many comparison evidence, multiple categories on one marker,
 and completed analyses with no forced comparisons.
 

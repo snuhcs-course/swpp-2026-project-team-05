@@ -54,8 +54,8 @@ authenticated offline Saved reads.
   Tested by: `tests.test_news_api.NewsApiTests.test_public_news_reads_allow_guests_and_disable_personalization`
 - [Contract] Article detail and analysis return matching content hashes from the
   stored Article row.\
-  Tested by: `tests.test_news_api.NewsApiTests.test_article_detail_is_exact_and_hidden_articles_are_not_found`,
-  `tests.test_news_api.NewsApiTests.test_article_analysis_projects_findings_and_comparisons`
+  Tested by: `tests.test_news_api.NewsApiTests.test_article_detail_returns_exact_body_and_hides_hidden_article`,
+  `tests.test_news_api.NewsApiTests.test_analysis_projects_source_and_grouped_comparison`
 
 ### Android authentication transitions
 

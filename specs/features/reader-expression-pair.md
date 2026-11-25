@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Implemented; remaining verification gaps are recorded in the test specification |
 | Owner | Android UI owner |
 | Related behavior | [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6.3–6.4, [`home-feed-refresh.md`](home-feed-refresh.md) |
-| Last reviewed | 2026-11-19 |
+| Last reviewed | 2026-11-25 |
 
 ## 1. Purpose
 
@@ -20,14 +20,14 @@ pipeline, or mapper change.
 
 ## 2. Sheet frame
 
-- Surface: off-white (`#F7F7F4`), matching Home.
-- The fixed heading keeps the exact text `같은 내용을 다른 기사에서는` (navy
+- Surface: theme-aware `Fl.Card`, matching the Reader in light and dark mode.
+- The fixed heading keeps the exact text `같은 내용을 다른 기사에서는` (theme ink,
   serif) and the `비교 상세 닫기` close action.
 - The stored comparison overview is still shown once, unchanged, between the
-  heading and the pager, now as plain text beside a thin navy rule instead of a
+  heading and the pager, as plain text beside a thin theme-colored rule instead of a
   grey box. It is not repeated inside pages.
 - The floating pager pill keeps `‹  n / N  ›`, its `이전 비교 기사` /
-  `다음 비교 기사` descriptions and disabled boundaries; arrows are navy.
+  `다음 비교 기사` descriptions and disabled boundaries; arrows use theme ink.
 
 ## 3. Paired expression panel (top of every publisher page)
 
@@ -35,14 +35,13 @@ A compact comparison card (revised in phase 4c; the phase 4 two-column layout
 was too cramped at 360dp and the phase 4b lavender band read as a dense text
 block):
 
-- Small navy heading `표현 비교` above the card.
-- An off-white card with a thin, subtle lavender-navy border and rounded
-  corners. The card itself is not lavender.
-- Top side: a filled navy pill `현재 기사`, the current publisher name beside
+- Small theme-ink heading `표현 비교` above the card.
+- A `Fl.Inset` card with a thin `Fl.Line` border and rounded corners.
+- Top side: a filled theme-ink pill `현재 기사`, the current publisher name beside
   it, the finding's stored marker in quotes (serif 22sp, at most two lines with
-  ellipsis, light lavender highlight), then one muted context line.
+  ellipsis, theme analysis tint), then one muted context line.
 - Connector: the centred text `같은 내용을 이렇게 다르게` between two hairlines.
-- Bottom side: an outlined navy pill `다른 보도`, the page publisher name beside
+- Bottom side: an outlined theme-ink pill `다른 보도`, the page publisher name beside
   it, the marker of the page's first BODY evidence (falling back to the first
   evidence of any scope) in quotes, then one muted context line.
 - Both sides share one layout: identical pill size, publisher style, phrase type,
@@ -74,17 +73,16 @@ of the page's header region), the tutorial 3 / 3 callout, and all callbacks.
 No score, bias verdict, political label, ranking, red/blue colouring, invented
 explanation, fake comparison count, or fabricated text.
 
-## 6. Conflict with a reviewed spec (to resolve at review)
+## 6. Relationship to the annotation dock
 
-[`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6.3 says the expanded sheet
-"does not repeat the marker, categories, or explanation already shown in the
-annotation dock". This panel repeats the current article's marker, by explicit product
-request, so that both expressions are compared in one place. Categories and the
-explanation are still not repeated. This draft does not amend §6.3; a reviewer
-should either accept the exception there or reject this panel.
+The paired markers are the explicit comparison-card exception in
+[`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md) §6.3. They let both expressions
+be read in one place; the dock's categories and explanation remain outside the
+expanded sheet. The stored proposition overview is still shown once above pages.
 
 ## 7. Verification status
 
-Not yet checked on a 360dp emulator. Long publisher names, very long markers,
-large font scale, and dark-on-lavender contrast need a manual pass before this
-is called finished.
+The three `ExpressionPairInstrumentedTest` cases passed on the connected 360dp
+physical phone, including publisher paging, accessibility grouping, and
+two-line phrase truncation. Enlarged-font and long-publisher combinations remain
+explicit gaps in the linked behavioral test specification.

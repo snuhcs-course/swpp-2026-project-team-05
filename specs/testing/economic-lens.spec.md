@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for review |
+| Status | Implemented for the mapped cases; formal intent review not recorded |
 | Owner | Analysis |
 | Source requirements | `specs/features/economic-lens.md`; `GET /api/v1/articles`; `GET /api/v1/articles/{id}/analysis`; Web feed and reader; Android reader |
 | Last reviewed | 2026-11-18 |

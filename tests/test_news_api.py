@@ -178,6 +178,16 @@ class NewsApiTests(TestCase):
             {"yna", "mbc"},
         )
 
+    def test_story_feed_does_not_change_article_search(self):
+        response = self.client.get("/api/v1/articles", {"q": "정부"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({row["id"] for row in response.json()["items"]},
+                         {str(self.source.pk), str(self.target.pk)})
+        self.assertEqual(response.json()["total_count"], 2)
+        grouped = self.client.get("/api/v1/stories").json()["items"]
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(grouped[0]["publisher_count"], 2)
+
     def test_story_feed_prefers_a_followed_publisher(self):
         UserPublisherFollow.objects.create(user=self.user, publisher=self.mbc)
         response = self.client.get("/api/v1/stories", **self.auth)

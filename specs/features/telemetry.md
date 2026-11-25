@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft for review |
+| Status | Implemented conditionally on Firebase configuration; formal intent review not recorded |
 | Owner | Android |
 | Clients | Android only |
 | Service | Firebase Analytics (GA4) |
@@ -23,6 +23,13 @@ read or typed.
   package such as `com.swpp.team5.frameless.v7`).
 - Debug view on a test device: `adb shell setprop debug.firebase.analytics.app <package>`, then Firebase Console →
   Analytics → DebugView.
+
+The event vocabulary still follows the original `NewsRoute` model: Home, News
+and MY share the `feed` route code, so this instrumentation does not distinguish
+the new root tabs. `category_select` is emitted by the existing category handler;
+the portal's `selectNewsSection` does not yet emit it. These are coverage limits,
+not evidence of zero use of those destinations. Link-analysis events describe
+compatibility code; that flow has no ordinary-user navigation entry.
 
 ## Events
 
