@@ -27,7 +27,9 @@ from .authentication import (
     normalize_username,
     session_from_request,
     user_from_request,
+    login_credentials,
 )
+from .auth_throttle import auth_errors, complete_login, reserve_ip
 from .analysis.staged import llm as staged_llm
 from .analysis.staged.link import LinkAnalysisError, analyze_link
 from .analysis.v2.article_fetch import validate_article_url
@@ -124,24 +126,31 @@ def _credential_varying(response: JsonResponse) -> JsonResponse:
     return response
 
 
+@auth_errors
 @csrf_exempt
 @require_POST
 def register(request):
     payload, error = _body(request)
     if error:
         return error
-    email = normalize_email(str(payload.get("email") or ""))
-    username = normalize_username(str(payload.get("username") or ""))
-    password = str(payload.get("password") or "")
-    confirmation = str(payload.get("password_confirmation") or "")
+    reserve_ip(request, registration=True)
+    values = {key: payload.get(key, "") for key in ("email", "username", "password", "password_confirmation")}
+    if any(not isinstance(value, str) for value in values.values()):
+        return _error("VALIDATION_ERROR", "입력 내용을 확인해 주세요.", 400)
+    email = normalize_email(values["email"])
+    username = normalize_username(values["username"])
+    password = values["password"]
+    confirmation = values["password_confirmation"]
     fields: dict[str, str] = {}
-    if not email:
-        fields["email"] = "이메일을 입력해 주세요."
+    if not email or len(email) > 254:
+        fields["email"] = "254자 이내의 이메일을 입력해 주세요."
     if not USERNAME_RE.fullmatch(username):
         fields["username"] = "사용자 이름은 한글·영문·숫자·밑줄 3~30자로 입력해 주세요."
     if password != confirmation:
         fields["password_confirmation"] = "비밀번호가 일치하지 않습니다."
-    if not password:
+    if len(password) > 128:
+        fields["password"] = "비밀번호는 128자 이내로 입력해 주세요."
+    elif not password:
         fields["password"] = "비밀번호를 입력해 주세요."
     else:
         try:
@@ -153,6 +162,7 @@ def register(request):
     try:
         with transaction.atomic():
             user = create_account(email=email, username=username, password=password)
+            session_payload = _session_payload(user)
     except ValidationError as exc:
         normalized_fields = {
             key: messages[0] if isinstance(messages, list) else str(messages)
@@ -166,28 +176,34 @@ def register(request):
             fields["email"] = "이미 사용 중인 이메일입니다."
         if UserAccount.objects.filter(username__iexact=username).exists():
             fields["username"] = "이미 사용 중인 사용자 이름입니다."
+        if not fields:
+            raise
         return _error("VALIDATION_ERROR", "이미 사용 중인 계정 정보입니다.", 409,
                       fields=fields or None)
-    return JsonResponse(_session_payload(user), status=201,
+    return JsonResponse(session_payload, status=201,
                         json_dumps_params={"ensure_ascii": False})
 
 
+@auth_errors
 @csrf_exempt
 @require_POST
 def login(request):
     payload, error = _body(request)
     if error:
         return error
-    identifier = str(payload.get("identifier") or payload.get("username") or "").strip()
-    password = str(payload.get("password") or "")
-    if not identifier or not password:
+    credentials = login_credentials(payload)
+    if credentials is None:
         return _error("VALIDATION_ERROR", "이메일 또는 사용자 이름과 비밀번호를 입력해 주세요.", 400)
-    user = authenticate(identifier, password)
+    user = authenticate(*credentials, request=request)
     if user is None:
         return _error("INVALID_CREDENTIALS", "로그인 정보를 확인해 주세요.", 401)
-    return JsonResponse(_session_payload(user), json_dumps_params={"ensure_ascii": False})
+    with transaction.atomic():
+        result = _session_payload(user)
+        complete_login(user)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
 
 
+@auth_errors
 @csrf_exempt
 @require_POST
 def logout(request):
@@ -197,6 +213,7 @@ def logout(request):
     return HttpResponse(status=204)
 
 
+@auth_errors
 @require_GET
 def me(request):
     user, error = _auth(request)

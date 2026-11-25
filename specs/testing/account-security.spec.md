@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft — intent review pending; no new executable coverage claimed |
+| Status | Stage 1 implemented with local executable coverage; Stage 2 draft |
 | Owner | Account/API and client maintainers |
 | Source requirements | [Account security hardening](../features/account-security.md) |
 | Date | 2026-11-25 |
@@ -16,7 +16,8 @@ production database, mail provider, live password guessing or live AI call.
 
 Use two ordinary accounts, one developer, one nonexistent identifier, two trusted
 client IPs, untrusted forwarded headers, expired/valid sessions and separate
-browser cookie jars. No credential appears in saved test artifacts.
+browser cookie jars for Stage 2. Only synthetic credentials appear in test
+source; reports/logs must not contain submitted secrets.
 
 ## Postconditions: retained baseline
 
@@ -34,66 +35,96 @@ browser cookie jars. No credential appears in saved test artifacts.
 3. Admit exactly the configured login/IP, login/account and registration/IP
    budgets. Reject the next request with 429 and Retry-After; at expiry, admit
    a fresh budget without manual unlocking. Rejections do not extend expiry.
-   Tip: test limit−1, limit, limit+1 and expiry−1 second/exact expiry for each
-   scope, with small injected limits; keep deployment defaults covered separately.
+   Tested by: `tests.test_auth_security.AuthSecurityTests.test_success_resets_account_but_not_ip_and_does_not_remove_other_sessions`,
+   `tests.test_auth_security.AuthSecurityTests.test_registration_limit_counts_validation_failures_without_creating_accounts`,
+   `tests.test_auth_security.AuthSecurityTests.test_counter_expiry_is_fixed_and_rows_are_reused`,
+   `tests.test_auth_security.AuthConfigurationTests.test_nonpositive_and_invalid_configuration_is_rejected`.
 4. Legacy, v1 and future browser login share a budget. Username/email aliases of
    one account share its budget; casing/whitespace does not create another.
    Unknown identifiers receive the same limit and public error semantics.
-   Tip: add route/alias/case metamorphic tests and existing/nonexistent partitions.
+   Tested by: `tests.test_auth_security.AuthSecurityTests.test_aliases_and_legacy_route_share_budget_before_hashing`,
+   `tests.test_auth_security.AuthSecurityTests.test_unknown_and_known_accounts_share_public_failure_semantics`.
+   Tip: the future browser route joins this oracle when Stage 2 is implemented.
 5. Concurrent workers cannot exceed admission limits. Correct credentials do not
    reset the IP budget; successful login resets the admitted account's budget.
-   Tip: run all-failed admission races through independent PostgreSQL connections;
-   assert admitted count and that rejected attempts never hash passwords or create
-   sessions. Add separate successful-login reset cases. SQLite is not evidence
-   of PostgreSQL row-lock behavior.
+   Tested by: `tests.test_auth_security_postgres.AuthConcurrencyTests.test_workers_share_exact_admission_and_rejected_requests_never_hash`,
+   `tests.test_auth_security_postgres.AuthConcurrencyTests.test_simultaneous_expiry_reset_reuses_one_counter`,
+   `tests.test_auth_security.AuthSecurityTests.test_success_resets_account_but_not_ip_and_does_not_remove_other_sessions`.
 6. IP spoofing cannot select an arbitrary limiter bucket. Missing/untrusted
    forwarding information has a conservative stable fallback. Stored keys are
    namespaced hashes, not raw identifiers/IPs.
-   Tip: test parser/proxy-trust cases, IPv4/IPv6 canonicalization, header chains
-   and stored rows. Separately verify the platform overwrites the selected header
-   in the deployment path; do not label a mocked parser test as that evidence.
+   Tested by: `tests.test_auth_security.AuthConfigurationTests.test_ip_trust_canonicalization_and_spoofed_headers`,
+   `tests.test_auth_security.AuthSecurityTests.test_counter_expiry_is_fixed_and_rows_are_reused`.
+   Tip: verify the canonical header through the deployed proxy path separately;
+   parser tests and provider documentation alone are not that evidence.
 7. Expired counters are reused/pruned in bounded batches. Counter-store failure
    returns 503 without an account/session mutation; failed housekeeping does not
    disable admission or break an otherwise valid login. Public reads still work.
-   Tip: inject store/cleanup failures and verify transaction outcomes, cleanup
-   batch bounds, expiry-index use and unaffected unauthenticated article reads.
+   Tested by: `tests.test_auth_security.AuthSecurityTests.test_cleanup_is_bounded_and_preserves_active_rows`,
+   `tests.test_auth_security.AuthSecurityTests.test_counter_failure_is_safe_and_housekeeping_failure_does_not_bypass_admission`,
+   `tests.test_auth_security_postgres.AuthConcurrencyTests.test_cleanup_racing_with_reuse_never_deletes_a_refreshed_counter`.
+   Tip: the migration declares the expiry index; no production query-plan or
+   large-table performance claim is made by these small isolated fixtures.
 8. Credentials are typed strings. New passwords honor 10/128-code-point limits,
    the existing common/numeric checks and exact non-truncated content. Existing
    short login passwords remain valid; oversized bodies fail before hashing.
-   Tip: partition null/number/array/object, empty/whitespace, 9/10/128/129-length
-   Unicode passwords, email/identifier limits, existing short credentials and
-   the 8 KiB body boundary. Never echo a password in validation messages.
+   Tested by: `tests.test_auth_security.AuthSecurityTests.test_typed_credentials_unicode_bounds_and_legacy_passwords`,
+   `tests.test_auth_security.AuthSecurityTests.test_oversized_body_never_hashes_or_creates_session`,
+   `tests.test_auth_security.AuthSecurityTests.test_exact_body_byte_limit_is_enforced_before_hashing`,
+   `tests.test_news_api.NewsApiTests.test_invalid_password_is_rejected_and_expired_session_cannot_read`.
 9. Wrong-password and unknown-account responses have the same status/message;
    unknown accounts perform current password-hasher work. Submitted privilege
    fields cannot grant developer access. Registration failure rolls back both
    the new account and initial session.
-   Tip: assert hash-work calls and generic responses rather than flaky wall-clock
-   equality; inject initial-session failure and race duplicate registrations.
-   Simulate a committed-but-lost response separately: the client must not infer
-   rollback or automatically replay registration.
+   Tested by: `tests.test_auth_security.AuthSecurityTests.test_unknown_and_known_accounts_share_public_failure_semantics`,
+   `tests.test_auth_security.AuthSecurityTests.test_typed_credentials_unicode_bounds_and_legacy_passwords`,
+   `tests.test_auth_security.AuthSecurityTests.test_initial_session_failure_rolls_back_registration`,
+   `tests.test_news_api.NewsApiTests.test_register_rejects_case_insensitive_duplicate`,
+   `web/src/pages/LoginPage.test.tsx > account form retry handling > does not replay a registration whose response was lost`.
+   Tip: duplicate registration has uniqueness/rollback coverage but no dedicated
+   concurrent-registration race test yet. Hash-call assertions do not establish
+   equal wall-clock latency.
 10. Every auth response, including 4xx/5xx/429 and legacy responses, is no-store.
     Logs contain safe outcomes/request IDs but no auth bodies, credentials or
     raw limiter identifiers.
-    Tip: exercise success and each failure path, inspect headers and captured
-    application logs, and verify no extra credentials are emitted by error paths.
+    Tested by: `tests.test_auth_security.AuthSecurityTests.test_auth_responses_are_no_store_even_for_errors_and_wrong_methods`,
+    `tests.test_auth_security.AuthSecurityTests.test_auth_application_logs_do_not_contain_submitted_credentials`,
+    `tests.test_auth_security.AuthSecurityTests.test_counter_failure_is_safe_and_housekeeping_failure_does_not_bypass_admission`.
+    Tip: local application-log assertions do not audit the hosting provider's
+    access logs, tracing or reverse-proxy logging configuration.
 11. Both clients preserve form/navigation state through 429/503, avoid automatic
     credential replay, disable submit for a bounded Retry-After and recover when
     the wait/request ends. Existing sessions remain valid.
-    Tip: use fake clocks for absent/invalid/negative/extreme Retry-After values,
-    repeated taps, cancellation and expiry. Check inline text and button state
-    with Web/Compose component tests; no unrequested browser/emulator run.
+    Tested by: `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.rateLimitWaitIsBoundedSeparatePerFormAndNeverReplaysCredentials`,
+    `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.cooldownRefreshHandlesSleepAndErrorsNeverClearAnExistingSession`,
+    `com.swpp.team5.frameless.ui.viewmodel.AuthViewModelTest.registrationCooldownPreservesTheDraftAndDoesNotBlockGuestOrLoginNavigation`,
+    `com.swpp.team5.frameless.data.NewsApiClientTest.authenticationRateLimitsCarryBoundedRetryMetadataWithoutReplaying`,
+    `com.swpp.team5.frameless.data.AuthRepositoryTest.retryAfterBoundsAndPackagedBackupRulesProtectTheAuthStore`,
+    `web/src/lib/api.test.ts > authentication retry metadata > bounds missing, malformed, negative and extreme delays`,
+    `web/src/pages/LoginPage.test.tsx > account form retry handling > preserves fields and origin, separates forms, and unlocks without replaying credentials`,
+    `web/src/pages/LoginPage.test.tsx > account form retry handling > recovers from unavailable services without clearing fields or retrying`.
+    Tip: Android evidence is ViewModel/HTTP-client JVM coverage, not a new Compose
+    device test. Pending-request cancellation/navigation remains a separate UI
+    race test gap; no browser/emulator run is claimed.
 12. Android excludes auth preferences from pre-31 backup and 31+ cloud/device
     transfer. Corrupt/unreadable restored credentials recover to Guest without
     deleting public Room rows or crashing.
-    Tip: inspect both packaged rule formats and inject encrypted-store creation/
-    read failures into AuthRepository; verify safe Guest recovery and unchanged
-    public cache. Do not claim that an XML assertion proves a real cloud restore.
+    Tested by: `com.swpp.team5.frameless.data.AuthRepositoryTest.retryAfterBoundsAndPackagedBackupRulesProtectTheAuthStore`,
+    `com.swpp.team5.frameless.data.AuthRepositoryTest.unavailableEncryptedStoreStartsAsGuestAndNeverSendsCredentials`,
+    `com.swpp.team5.frameless.data.AuthRepositoryTest.unreadableCredentialsRecoverToACleanEncryptedStore`,
+    `com.swpp.team5.frameless.data.AuthRepositoryTest.failedSecureWriteRevokesTheNewSessionAndNeverKeepsAPartialLogin`,
+    `com.swpp.team5.frameless.data.AuthRepositoryTest.encryptedStoreRecoveryPreservesThePublicRoomCache`.
+    Tip: packaged XML and simulated key failures do not prove a real cloud/device
+    restore on physical hardware. Failed revocation over an unavailable network
+    cannot be reported as successful server-side logout.
 
 13. Operator password rotation invalidates that user's existing sessions
     atomically without revoking another account or changing credentials as a
     deployment side effect.
-    Tip: cover existing/new developer provisioning, transaction rollback and
-    old-token rejection; preserve the command's existing password requirements.
+    Tested by: `tests.test_auth_security.AuthSecurityTests.test_operator_rotation_revokes_only_its_sessions_and_old_verified_credentials`.
+    Tip: the password-revision race is covered by replaying a previously verified
+    account object after rotation; no concurrent operator/login stress test is
+    claimed.
 
 ## Postconditions: Stage 2
 
@@ -149,11 +180,22 @@ browser cookie jars. No credential appears in saved test artifacts.
   here establish email delivery, verified ownership, single-use recovery tokens
   or password-reset revocation; those belong to the later feature's oracle.
 - No latency/security-audit score, penetration-test pass or device/browser pass
-  is claimed by writing this draft.
+  is claimed by these local checks. Stage 2 tests remain proposed.
 
 ## Review checkpoint
 
-- [ ] Stage 1 defaults and shared-network behavior accepted.
+- [x] Stage 1 defaults and shared-network behavior accepted before implementation.
 - [ ] Stage 2 browser-only one-time sign-in and fresh-page restore behavior accepted.
-- [ ] Canonical product/UI/guest contracts updated with the implementing stage.
-- [ ] New executable tests derived from these oracles, with remaining gaps explicit.
+- [x] Canonical product/UI/guest contracts updated for Stage 1; Stage 2 remains draft.
+- [x] Stage 1 executable tests derived from these oracles, with remaining gaps explicit.
+
+## Local verification — 2026-11-25
+
+The full SQLite suite passed 495 tests (10 environment-specific skips); the
+isolated PostgreSQL run passed 66 tests, including the three admission/cleanup
+races. Android passed 205 JVM tests, lint, debug APK and device-test APK compilation.
+Web passed 44 tests, lint and production build. Existing backend/Android coverage
+gates passed without threshold changes. PostgreSQL used a temporary local
+cluster; no production credential guessing or browser/emulator/device run was
+part of this verification. Compose device coverage and the deployment checks
+listed above remain separate evidence.

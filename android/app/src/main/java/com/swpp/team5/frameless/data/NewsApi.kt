@@ -366,9 +366,11 @@ internal class NewsApiClient(baseUrl: String) {
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val raw = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 val json = runCatching { JSONObject(raw) }.getOrElse {
+                    if (status == 429) throw NewsApiException("RATE_LIMITED", "요청이 많아요. 잠시 후 다시 시도해 주세요.",
+                        retryAfterSeconds = boundedRetryAfter(connection.getHeaderField("Retry-After")))
                     throw NewsApiException("INVALID_RESPONSE", "서버 응답을 읽지 못했어요. (HTTP $status)")
                 }
-                if (status !in 200..299) throw apiError(json, status)
+                if (status !in 200..299) throw apiError(json, status, connection.getHeaderField("Retry-After"))
                 json
             } catch (error: IOException) {
                 throw NewsApiException("NETWORK_ERROR", AnalysisApi.networkErrorMessage(error))
@@ -377,16 +379,17 @@ internal class NewsApiClient(baseUrl: String) {
             }
         }
 
-    private fun apiError(root: JSONObject, status: Int): NewsApiException {
+    private fun apiError(root: JSONObject, status: Int, retryAfter: String?): NewsApiException {
         val error = root.optJSONObject("error")
         val fields = error?.optJSONObject("fields")?.let { objectValue ->
             objectValue.keys().asSequence().associateWith { key -> objectValue.optString(key) }
         }.orEmpty()
         return NewsApiException(
-            code = error?.optString("code")?.ifBlank { "HTTP_$status" } ?: "HTTP_$status",
+            code = if (status == 429) "RATE_LIMITED" else error?.optString("code")?.ifBlank { "HTTP_$status" } ?: "HTTP_$status",
             message = error?.optString("message")?.ifBlank { "요청을 처리하지 못했어요." }
                 ?: "요청을 처리하지 못했어요.",
-            fields = fields
+            fields = fields,
+            retryAfterSeconds = if (status == 429) boundedRetryAfter(retryAfter) else null
         )
     }
 

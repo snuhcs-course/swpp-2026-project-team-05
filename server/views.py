@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from django.conf import settings
+from django.db import transaction
 from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -22,7 +23,8 @@ from .analysis.v2_adapter import PipelineContractError, adapt_v2_result
 from .analysis_history import (HistoryUnavailableError, MAX_HISTORY_ITEMS,
                                claim_legacy_history, list_analysis_records, load_analysis_record,
                                owner_key_for_request, save_analysis_record)
-from .authentication import authenticate, create_session, user_from_request
+from .authentication import authenticate, create_session, login_credentials, user_from_request
+from .auth_throttle import auth_errors, complete_login
 from .result_cache import cache_key, load_result, save_result
 
 
@@ -145,20 +147,22 @@ def _history_user_or_error(request):
     return None, _error("authentication_required", "로그인 후 분석 기록을 사용할 수 있습니다.", 401)
 
 
+@auth_errors
 @csrf_exempt
 @require_POST
 def login(request):
     body, error = _json_body(request)
     if error:
         return error
-    username = str(body.get("username") or "").strip()
-    password = str(body.get("password") or "")
-    if not username or not password:
+    credentials = login_credentials(body, legacy=True)
+    if credentials is None:
         return _error("invalid_credentials", "아이디와 비밀번호를 입력해 주세요.", 400)
-    user = authenticate(username, password)
+    user = authenticate(*credentials, request=request)
     if user is None:
         return _error("invalid_credentials", "아이디 또는 비밀번호가 올바르지 않습니다.", 401)
-    token, session = create_session(user)
+    with transaction.atomic():
+        token, session = create_session(user)
+        complete_login(user)
     claimed = claim_legacy_history(user, owner_key_for_request(request))
     return JsonResponse({"token": token, "expires_at": session.expires_at,
                          "user": {"id": str(user.id), "username": user.username,
@@ -166,6 +170,7 @@ def login(request):
                          "claimed_records": claimed}, json_dumps_params={"ensure_ascii": False})
 
 
+@auth_errors
 @require_GET
 def me(request):
     user, error = _history_user_or_error(request)

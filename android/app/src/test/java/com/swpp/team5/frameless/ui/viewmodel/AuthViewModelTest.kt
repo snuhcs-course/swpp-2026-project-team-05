@@ -20,6 +20,88 @@ import org.robolectric.annotation.LooperMode
 @Config(sdk = [35])
 @LooperMode(LooperMode.Mode.PAUSED)
 class AuthViewModelTest {
+    @Test
+    fun rateLimitWaitIsBoundedSeparatePerFormAndNeverReplaysCredentials() {
+        var now = 0L
+        val repository = FakeAuthDataSource().apply {
+            loginFailure = NewsApiException("RATE_LIMITED", "limited", retryAfterSeconds = 2)
+        }
+        val vm = AuthViewModel(repository) { now }
+        vm.openLogin()
+        vm.identifier = "reader"
+        vm.password = "private-password"
+        vm.login()
+        mainLooper.idle()
+        assertTrue(vm.loginCoolingDown)
+        assertFalse(vm.isLoading)
+        vm.login()
+        assertEquals(1, repository.loginCalls)
+        assertEquals("private-password", vm.password)
+        vm.closeLogin()
+        vm.openRegistration()
+        assertFalse(vm.registrationCoolingDown)
+        vm.closeRegistration()
+        assertTrue(vm.loginCoolingDown)
+        now = 2000
+        mainLooper.idleFor(2, java.util.concurrent.TimeUnit.SECONDS)
+        assertFalse(vm.loginCoolingDown)
+        assertEquals(1, repository.loginCalls)
+        repository.loginFailure = NewsApiException("AUTH_UNAVAILABLE", "try later")
+        vm.login()
+        mainLooper.idle()
+        assertFalse(vm.loginCoolingDown)
+        assertFalse(vm.isLoading)
+        assertEquals("private-password", vm.password)
+    }
+
+    @Test
+    fun cooldownRefreshHandlesSleepAndErrorsNeverClearAnExistingSession() {
+        var now = 1000L
+        val repository = FakeAuthDataSource().apply {
+            current = session
+            loginFailure = NewsApiException("RATE_LIMITED", "limited", retryAfterSeconds = Long.MAX_VALUE)
+        }
+        val vm = AuthViewModel(repository) { now }
+        mainLooper.idle()
+        vm.identifier = "reader"; vm.password = "password"
+        vm.login(); mainLooper.idle()
+        assertEquals(session, vm.session)
+        assertTrue(vm.loginCoolingDown)
+        now += 3_600_000
+        vm.refreshCooldowns()
+        assertFalse(vm.loginCoolingDown)
+        assertEquals(1, repository.loginCalls)
+        repository.loginFailure = NewsApiException("AUTH_UNAVAILABLE", "try later")
+        vm.login(); mainLooper.idle()
+        assertEquals(session, vm.session)
+        assertFalse(vm.isLoading)
+        assertFalse(vm.loginCoolingDown)
+    }
+
+    @Test
+    fun registrationCooldownPreservesTheDraftAndDoesNotBlockGuestOrLoginNavigation() {
+        var now = 0L
+        val repository = FakeAuthDataSource().apply {
+            registerFailure = NewsApiException("RATE_LIMITED", "limited", retryAfterSeconds = -1)
+        }
+        val vm = AuthViewModel(repository) { now }
+        vm.openRegistration()
+        vm.registrationEmail = "reader@example.com"; vm.registrationUsername = "reader"
+        vm.registrationPassword = "private-password"; vm.registrationConfirmation = "private-password"
+        vm.register(); mainLooper.idle()
+        assertTrue(vm.registrationCoolingDown)
+        assertEquals("reader@example.com", vm.registrationEmail)
+        vm.register()
+        assertEquals(1, repository.registerCalls)
+        vm.closeRegistration()
+        assertFalse(vm.loginCoolingDown)
+        vm.closeLogin()
+        assertFalse(vm.showLogin)
+        now = 1000L
+        vm.refreshCooldowns()
+        assertFalse(vm.registrationCoolingDown)
+        assertEquals(1, repository.registerCalls)
+    }
     private val mainLooper get() = shadowOf(Looper.getMainLooper())
     private val session = AppSession(
         NewsUser("user-1", "reader@example.com", "reader", false),
@@ -150,6 +232,7 @@ class AuthViewModelTest {
         var registerFailure: Exception? = null
         var restoreFailure: Exception? = null
         var loginCalls = 0
+        var registerCalls = 0
         var logoutCalls = 0
         var clearCalls = 0
         var lastIdentifier: String? = null
@@ -164,6 +247,7 @@ class AuthViewModelTest {
         }
         override suspend fun register(email: String, username: String, password: String,
                                       confirmation: String): AppSession {
+            registerCalls++
             registerFailure?.let { throw it }
             current = session
             return session

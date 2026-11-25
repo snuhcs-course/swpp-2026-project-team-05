@@ -75,6 +75,7 @@ internal fun FrameLESSApp(
 ) {
     val systemDark = isSystemInDarkTheme()
     FrameLESSTheme(darkTheme = appearance.mode.usesDarkTheme(systemDark)) {
+        HomePresence(auth::refreshCooldowns)
         Surface(modifier = Modifier.fillMaxSize(), color = Fl.Bg) {
             Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 if (auth.isRestoring) {
@@ -136,6 +137,7 @@ internal fun FrameLESSApp(
                             password = auth.registrationPassword,
                             confirmation = auth.registrationConfirmation,
                             loading = auth.isLoading,
+                            coolingDown = auth.registrationCoolingDown,
                             error = auth.error,
                             fieldErrors = auth.fieldErrors,
                             onEmail = { auth.registrationEmail = it },
@@ -152,6 +154,7 @@ internal fun FrameLESSApp(
                             password = auth.password,
                             loading = auth.isLoading,
                             error = auth.error,
+                            coolingDown = auth.loginCoolingDown,
                             onIdentifier = { auth.identifier = it },
                             onPassword = { auth.password = it },
                             onLogin = auth::login,

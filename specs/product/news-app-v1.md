@@ -200,11 +200,12 @@ state. Followed story reads, followed-source mutation, Saved list, Saved mutatio
 
 Password change, reset, account deletion, and session listing remain outside this vertical slice. They must be added before an external public release.
 
-Planned extension: [`../features/account-security.md`](../features/account-security.md)
-is a **draft**, covering shared attempt limits, response/storage protection and
-browser cookie transport. It does not mark those protections implemented or
-replace the current bearer contract. Apply its reviewed stage-specific product,
-UI and guest-contract updates together with the implementation.
+[`../features/account-security.md`](../features/account-security.md) Stage 1 adds
+shared login/registration attempt limits, typed/bounded credentials, no-store
+authentication responses and Android secure-storage/backup recovery. It keeps
+the current bearer contract and requires its throttle-table migration before
+backend rollout. Browser cookie/CSRF transport is still a Stage 2 draft;
+email verification/recovery remains separate follow-up work.
 
 ## 4. User experience contract
 

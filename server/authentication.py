@@ -14,9 +14,21 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import AuthSession, UserAccount
+from .auth_throttle import CredentialsChanged, reserve_account, reserve_ip
 
 
 SESSION_DAYS = 30
+
+
+class AuthenticationNoStoreMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.path.startswith(("/api/auth/", "/api/v1/auth/", "/api/v1/web/auth/")):
+            response["Cache-Control"] = "no-store"
+        return response
 
 
 def session_from_request(request) -> AuthSession | None:
@@ -40,6 +52,9 @@ def create_session(user: UserAccount) -> tuple[str, AuthSession]:
     token = secrets.token_urlsafe(32)
     now = timezone.now()
     with transaction.atomic():
+        current = UserAccount.objects.select_for_update().filter(pk=user.pk).first()
+        if current is None or current.password_hash != user.password_hash:
+            raise CredentialsChanged
         AuthSession.objects.filter(user=user, expires_at__lte=now).delete()
         session = AuthSession.objects.create(
             user=user,
@@ -57,12 +72,31 @@ def normalize_username(value: str) -> str:
     return value.strip().lower()
 
 
-def authenticate(identifier: str, password: str) -> UserAccount | None:
+def authenticate(identifier: str, password: str, *, request=None) -> UserAccount | None:
+    if request is not None:
+        reserve_ip(request)
     normalized = identifier.strip().lower()
     user = UserAccount.objects.filter(
         Q(username__iexact=normalized) | Q(email__iexact=normalized)
     ).first()
-    return user if user and check_password(password, user.password_hash) else None
+    if request is not None:
+        reserve_account(normalized, user)
+    if user is None:
+        # Match current password-hasher work, without sleeping or storing the result.
+        make_password(password)
+        return None
+    return user if check_password(password, user.password_hash) else None
+
+
+def login_credentials(payload, *, legacy=False):
+    identifier = payload.get("username", "") if legacy else payload.get("identifier", payload.get("username", ""))
+    password = payload.get("password", "")
+    if not isinstance(identifier, str) or not isinstance(password, str):
+        return None
+    identifier = identifier.strip()
+    if not identifier or len(identifier) > 254 or not password:
+        return None
+    return identifier, password
 
 
 def create_account(*, email: str, username: str, password: str) -> UserAccount:
@@ -82,9 +116,11 @@ def create_account(*, email: str, username: str, password: str) -> UserAccount:
     )
 
 
+@transaction.atomic
 def provision_developer(username: str, password: str) -> UserAccount:
     user, _ = UserAccount.objects.update_or_create(
         username=username,
         defaults={"password_hash": make_password(password), "is_developer": True},
     )
+    AuthSession.objects.filter(user=user).delete()
     return user

@@ -15,6 +15,19 @@ import org.junit.Before
 import org.junit.Test
 
 class NewsApiClientTest {
+    @Test
+    fun authenticationRateLimitsCarryBoundedRetryMetadataWithoutReplaying() = runBlocking {
+        responses += Response(429, """{"error":{"code":"RATE_LIMITED","message":"limited"}}""", mapOf("Retry-After" to "12"))
+        val limited = assertThrows(NewsApiException::class.java) { runBlocking { client.login("reader", "password") } }
+        assertEquals("RATE_LIMITED", limited.code)
+        assertEquals(12L, limited.retryAfterSeconds)
+        assertEquals(1, requests.size)
+        responses += Response(429, "<html>limited</html>", mapOf("Retry-After" to "99999"))
+        val gateway = assertThrows(NewsApiException::class.java) { runBlocking { client.login("reader", "password") } }
+        assertEquals("RATE_LIMITED", gateway.code)
+        assertEquals(3600L, gateway.retryAfterSeconds)
+        assertEquals(2, requests.size)
+    }
     private lateinit var server: HttpServer
     private lateinit var client: NewsApiClient
     private val responses = ConcurrentLinkedQueue<Response>()
@@ -294,6 +307,7 @@ class NewsApiClientTest {
     }
 
     private fun respond(exchange: HttpExchange, response: Response) {
+        response.headers.forEach { (key, value) -> exchange.responseHeaders.add(key, value) }
         val bytes = response.body.toByteArray(Charsets.UTF_8)
         if (response.status == 204) {
             exchange.sendResponseHeaders(204, -1)
@@ -333,7 +347,7 @@ class NewsApiClientTest {
             "target_owner":"REPORTER","target_speaker_label":"기자",
             "comparison_summary":""}]}]}]}"""
 
-    private data class Response(val status: Int, val body: String)
+    private data class Response(val status: Int, val body: String, val headers: Map<String, String> = emptyMap())
     private data class CapturedRequest(
         val method: String, val path: String, val authorization: String?, val body: String,
         val guestViewer: String? = null

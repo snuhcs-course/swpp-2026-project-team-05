@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft — specification only; implementation has not started |
+| Status | Stage 1 implemented and locally verified; Stage 2 remains draft |
 | Date | 2026-11-25 |
 | Clients | Android and Web |
 | Baseline | Existing Django accounts, opaque sessions and PostgreSQL |
@@ -15,9 +15,10 @@ for readers or replacing the account system. Extend the account/session rules in
 [`../ui/news-app-v1-ui.md`](../ui/news-app-v1-ui.md), and the public/private boundary
 in [`guest-offline-reading.md`](guest-offline-reading.md).
 
-This is a proposed extension, not a description of deployed protection. Existing
-bearer contracts remain authoritative until the corresponding stage is reviewed,
-implemented and verified. Keep the stages independently reviewable:
+Stage 1 implements the approved protection for the existing bearer APIs. Local
+verification does not claim a production rollout. Stage 2 remains a proposal;
+the current bearer transport remains authoritative. Keep the stages independently
+reviewable:
 
 | Stage | Deliverable | Persistence/API impact |
 | --- | --- | --- |
@@ -49,9 +50,21 @@ IP budget. These are initial project defaults, configurable in deployment:
 | Login, per account / unknown identifier | 10 | 10 minutes |
 | Registration, per trusted client IP | 30 | 1 hour |
 
-Reject invalid/nonpositive limit configuration rather than silently disabling
-protection. Deploy the throttle-table migration before enabling the code; a
-missing table is an unavailable authentication dependency, not a bypass mode.
+Reject limit/window configuration outside the integer range 1–1,000,000 rather
+than silently disabling protection. Deployment settings and defaults are:
+
+| Environment variable | Default |
+| --- | ---: |
+| `FRAMELESS_AUTH_LOGIN_IP_LIMIT` | 100 |
+| `FRAMELESS_AUTH_LOGIN_ACCOUNT_LIMIT` | 10 |
+| `FRAMELESS_AUTH_REGISTER_IP_LIMIT` | 30 |
+| `FRAMELESS_AUTH_LOGIN_WINDOW_SECONDS` | 600 |
+| `FRAMELESS_AUTH_REGISTER_WINDOW_SECONDS` | 3600 |
+
+Apply `server.0016_auth_throttle` before deploying the new backend. It adds only
+`frameless_auth_throttle`; a missing table is an unavailable authentication
+dependency, not a bypass mode. No password or existing session is changed by this
+migration. Production migration/deployment is separate from local verification.
 
 - Normalize an identifier exactly as authentication does: trim and lowercase.
   After IP admission, resolve the existing account before hashing. Its username
@@ -72,7 +85,9 @@ missing table is an unavailable authentication dependency, not a bypass mode.
   a new row for every request. Counts saturate at the configured limit.
 - Remove expired rows in small indexed batches during authentication traffic.
   Housekeeping must not turn an otherwise valid login into a failure. No
-  full request-history table or extra scheduling service is needed.
+  full request-history table or extra scheduling service is needed. Each admitted
+  IP request prunes at most 100 expired rows and rechecks expiry when deleting,
+  so a concurrently renewed bucket is retained.
 - Counter failures return retryable `503 AUTH_UNAVAILABLE`; never disable the
   limit silently. Ordinary news reads remain independent.
 - Trust forwarded client IPs only through the documented deployment proxy
@@ -80,6 +95,10 @@ missing table is an unavailable authentication dependency, not a bypass mode.
   replaced by arbitrary client `X-Forwarded-For` input. Unknown/untrusted input
   uses one conservative fallback bucket, not a caller-selected value. Limiter
   correctness and this deployment trust check are separate evidence.
+  Specifically, `VERCEL=1` selects `X-Vercel-Forwarded-For`; other runtimes use
+  `REMOTE_ADDR` and ignore forwarded headers. Invalid/missing canonical input
+  shares the `unknown` bucket. A different reverse proxy needs an explicit
+  reviewed trust configuration before using this IP policy.
 
 ### 2.2 Validation and credential checks
 
@@ -106,7 +125,9 @@ missing table is an unavailable authentication dependency, not a bypass mode.
   automatically replay registration or claim the server rolled it back.
 - An operator-initiated password rotation revokes that user's existing sessions
   in the same transaction. Reuse AuthSession; do not build a new reset UI here
-  or silently change existing passwords during deployment.
+  or silently change existing passwords during deployment. Session issuance
+  locks the account and rechecks its password revision so credentials verified
+  before a concurrent rotation cannot issue a session afterward.
 
 ### 2.3 Authentication responses and client behavior
 
@@ -120,13 +141,20 @@ missing table is an unavailable authentication dependency, not a bypass mode.
   and its return destination, and disable repeat submission until Retry-After
   elapses. Clamp malformed/extreme delay values to a safe client bound. No
   background retry, automatic password resubmission or countdown overlay.
+  Missing/malformed Retry-After defaults to 60 seconds; integer seconds clamp
+  to 1–3,600. Login and registration keep separate waits. Re-entering the app/tab
+  reconciles expired waits, and guest navigation stays available.
 - 429 and 503 do not clear a valid existing session or sign a person out. Buttons
   recover after a failure; guest browsing remains available.
 - Exclude `frameless_auth_v1.xml` from Android legacy backup and Android 12+
   cloud backup/device transfer. Preserve the current Keystore-backed encryption.
   An unreadable restored auth store recovers to Guest safely without logging its
   contents; it must not crash the app or erase public article/analysis rows.
-  Never fall back to persisting tokens in unencrypted preferences.
+  Never fall back to persisting tokens in unencrypted preferences. If secure
+  storage cannot open, do not send credentials. If persisting a newly issued
+  session fails, discard partial credentials and attempt to revoke that exact
+  session; show a retryable storage error. This cannot undo a committed signup
+  or promise revocation when the network is unavailable.
 
 ## 3. Stage 2: browser session transport
 
@@ -230,10 +258,11 @@ deletion. No mail-provider SDK, mail-token table or recovery UI is created here.
 
 ## 5. Implementation and review order
 
-1. Review this draft and its behavioral oracles before generating test/code.
-2. Implement Stage 1 and run relevant Django/Android/Web checks. Concurrent limiter
-   enforcement needs isolated PostgreSQL evidence in addition to SQLite tests;
-   include those tests in the existing PostgreSQL CI job before merge.
+1. Stage 1 intent/defaults were accepted before implementation. Its behavioral
+   tests cover the existing bearer APIs and both clients.
+2. Keep Django/Android/Web checks and isolated PostgreSQL admission races as
+   release gates. The PostgreSQL concurrency tests run in the existing CI job;
+   SQLite alone is not row-lock evidence.
 3. Implement Stage 2 only after its one-time sign-in and fresh-page network-failure
    behavior are accepted. Update the canonical product/guest/UI contracts in the
    same change; do not silently weaken their existing bearer/offline guarantees.

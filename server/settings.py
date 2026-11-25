@@ -23,6 +23,7 @@ ROOT_URLCONF = "server.urls"
 INSTALLED_APPS = ["server"]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "server.authentication.AuthenticationNoStoreMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -67,6 +68,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+
+def positive_env(name, default):
+    try:
+        value = int(os.getenv(name, str(default)))
+        if not 0 < value <= 1_000_000:
+            raise ValueError
+        return value
+    except ValueError:
+        raise ImproperlyConfigured(f"{name} must be an integer between 1 and 1000000") from None
+
+
+AUTH_LOGIN_IP_LIMIT = positive_env("FRAMELESS_AUTH_LOGIN_IP_LIMIT", 100)
+AUTH_LOGIN_ACCOUNT_LIMIT = positive_env("FRAMELESS_AUTH_LOGIN_ACCOUNT_LIMIT", 10)
+AUTH_REGISTER_IP_LIMIT = positive_env("FRAMELESS_AUTH_REGISTER_IP_LIMIT", 30)
+AUTH_LOGIN_WINDOW_SECONDS = positive_env("FRAMELESS_AUTH_LOGIN_WINDOW_SECONDS", 600)
+AUTH_REGISTER_WINDOW_SECONDS = positive_env("FRAMELESS_AUTH_REGISTER_WINDOW_SECONDS", 3600)
+# Only the Vercel runtime may attest its canonical IP header. Never trust arbitrary XFF.
+AUTH_TRUST_VERCEL_PROXY = os.getenv("VERCEL") == "1"
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = IS_PRODUCTION

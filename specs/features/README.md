@@ -47,8 +47,9 @@ table rather than stored counters or a second ranking subsystem.
 contracts. `telemetry.md` records Firebase's conditional setup, event vocabulary,
 and current portal coverage limits.
 
-`account-security.md` is a draft for staged account protection: shared login/
-registration limits and safe credential handling first, then browser cookie/CSRF
-transport. It preserves existing account/session storage and leaves mail-based
-verification/recovery to a separate reviewed feature. The linked test draft marks
-all new coverage as pending rather than reporting protection already deployed.
+`account-security.md` Stage 1 implements shared login/registration limits,
+no-store authentication responses and Android secure-storage/backup recovery.
+It adds one short-lived throttle table while preserving bearer sessions. Stage 2
+browser cookie/CSRF transport remains draft; mail-based verification/recovery is
+separate follow-up work. The linked test specification distinguishes local
+executable evidence from deployment and device checks still pending.
