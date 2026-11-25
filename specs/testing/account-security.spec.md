@@ -195,7 +195,7 @@ source; reports/logs must not contain submitted secrets.
 - [x] Canonical product/UI/guest contracts updated for Stage 1; Stage 2 remains deferred.
 - [x] Stage 1 executable tests derived from these oracles, with remaining gaps explicit.
 
-## Local verification — 2026-11-25
+## Local verification — 2026-11-25, implementation `2157916`
 
 The full SQLite suite passed 496 tests (11 environment-specific skips); the
 isolated PostgreSQL run passed 67 tests, including three admission/cleanup races

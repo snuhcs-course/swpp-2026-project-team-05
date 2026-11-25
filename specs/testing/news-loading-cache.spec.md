@@ -68,7 +68,7 @@ transport failures. Never contact production or a publisher from CI.
 
 ## Verification record
 
-2026-11-25, local feature branch:
+2026-11-25, cache slice `c9305c8` (later integrated through PR #116):
 
 - Android JVM suite: 196 tests passed; JaCoCo layer gates passed.
 - Android lint, debug APK and instrumentation APK builds passed. Instrumentation
