@@ -1,7 +1,6 @@
 """Current article reactions and bounded, independent Home highlights."""
 
 from datetime import timedelta
-import re
 from uuid import UUID
 
 from django.db import transaction
@@ -12,12 +11,11 @@ from .models import Article, ArticleReaction, ArticleVisibility, ReactionKind, U
 from .news_queries import article_summary_payload, get_article, hydrate_story_keys
 
 
-LEADING_TAG = r"(\[[^\[\]]+\]|\([^()]+\)|【[^【】]+】)"
-BREAKING_TITLE = r"^\s*(" + LEADING_TAG + r"\s*)*(\[\s*속보\s*\]|\(\s*속보\s*\)|【\s*속보\s*】)"
+BREAKING_KEYWORD = "속보"
 
 
 def is_breaking_title(title: str) -> bool:
-    return bool(re.match(BREAKING_TITLE, title))
+    return BREAKING_KEYWORD in title
 
 
 def _readable():
@@ -59,7 +57,7 @@ def highlights_payload(*, user):
     now = timezone.now()
     eligible = _readable().filter(is_feed_visible=True)
     breaking = eligible.filter(published_at__gt=now - timedelta(hours=2), published_at__lte=now,
-                               title__regex=BREAKING_TITLE).order_by("-published_at", "id").first()
+                               title__contains=BREAKING_KEYWORD).order_by("-published_at", "id").first()
     breaking_payload = None
     if breaking is not None:
         # Reuse existing personalization without hydrating any other article bodies.

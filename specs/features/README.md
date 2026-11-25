@@ -32,11 +32,12 @@ flows.
 
 `realtime-trends.md` defines Home's recent-read top-five topics: one
 last-read row per viewer/article, a shared rank snapshot, and daily expiry
-cleanup. Sparse popularity is supplemented with clearly labeled latest topics;
+cleanup. Sparse popularity is supplemented with latest topics; Android uses
+consistent list-position numbers without fabricating popularity or movement;
 ordinary feed ordering is unchanged.
 
 `article-reactions-and-home-highlights.md` defines five account-backed article
-reactions, topic-level recent-24-hour Issue selection, and explicitly tagged
+reactions, topic-level recent-24-hour Issue selection, and title-keyword-matched
 two-hour Breaking headlines. It replaces the Home labels' temporary placement,
 keeps readership trends separate, and adds one reaction
 table rather than stored counters or a second ranking subsystem.

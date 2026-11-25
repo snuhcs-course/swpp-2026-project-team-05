@@ -73,23 +73,23 @@ three-hour ranking.
 9. Breaking's topic is not repeated in the adjacent Issue row; the next
    qualifying topic is used or Issue is null. No reactions means null, without
    latest-news fillers or fabricated scores. Existing trends ranks are unchanged.
-   Tested by: `tests.test_reactions.ReactionTests.test_breaking_tags_boundaries_overlap_and_exact_article`,
+   Tested by: `tests.test_reactions.ReactionTests.test_breaking_keyword_boundaries_overlap_and_exact_article`,
    `tests.test_reactions.ReactionTests.test_highlights_empty_errors_and_bounded_queries`;
    the unchanged readership suite remains `tests.test_trends`.
 
 ### Breaking selection
 
-10. Leading `[속보]`, `(속보)`, and `【속보】` tags, whitespace variants, and
-    a sequence such as `[정치][속보]` qualify. Untagged prose, body-only matches,
-    mid-sentence tags, and other words such as `속보성` do not.
-    Tested by: `tests.test_reactions.ReactionTests.test_breaking_tags_boundaries_overlap_and_exact_article`,
-    `tests.test_reactions.ReactionTests.test_breaking_just_inside_window_sql_tags_and_stable_tied_ids`.
+10. Any title containing the literal substring `속보` qualifies, including
+    unbracketed `속보 - 제목`, mid-title mentions, tagged forms, and `속보성`.
+    Titles without that substring, empty titles, and body-only matches do not.
+    Tested by: `tests.test_reactions.ReactionTests.test_breaking_keyword_boundaries_overlap_and_exact_article`,
+    `tests.test_reactions.ReactionTests.test_breaking_just_inside_window_sql_keywords_and_stable_tied_ids`.
 11. Exactly T is eligible, T−2h is expired, and the cutoff +1 microsecond is
     eligible. Future, hidden, inactive, and non-feed articles are excluded.
-    Collection/modification time cannot revive a stale tagged article. Newest
+    Collection/modification time cannot revive a stale matching article. Newest
     publication wins; equal-time IDs break ties deterministically.
-    Tested by: `tests.test_reactions.ReactionTests.test_breaking_tags_boundaries_overlap_and_exact_article`,
-    `tests.test_reactions.ReactionTests.test_breaking_just_inside_window_sql_tags_and_stable_tied_ids`.
+    Tested by: `tests.test_reactions.ReactionTests.test_breaking_keyword_boundaries_overlap_and_exact_article`,
+    `tests.test_reactions.ReactionTests.test_breaking_just_inside_window_sql_keywords_and_stable_tied_ids`.
 
 ### Android and request lifecycle
 

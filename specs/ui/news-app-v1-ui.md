@@ -242,7 +242,9 @@ Root-shell and discovery behavior:
   first two collapsed, and an expand control only when more than two entries
   exist. Keep stable tie ordering, real rank movement,
   and distinct loading/empty/failure states. Sparse popularity is supplemented
-  with distinct latest topics labeled `최신`, without ranks. Any latest fill,
+  with distinct latest topics whose API rank stays null. Display consecutive
+  list-position numbers `1`–`5` in the same size and alignment on every row,
+  including latest fillers; do not show `최신` in the number column. Any latest fill,
   incomplete previous popularity list, first calculation, or old baseline hides
   all movement indicators. Fewer than five eligible topics show only the actual
   number; an empty corpus shows the empty state. Home pull-to-refresh updates
@@ -251,7 +253,7 @@ Root-shell and discovery behavior:
   metadata, not visible Home captions.
 - `속보` and `이슈` rows follow
   [Article reactions and Home highlights](../features/article-reactions-and-home-highlights.md):
-  one unexpired publisher-tagged Breaking article and one recent-reaction topic,
+  one unexpired article with `속보` anywhere in its title and one recent-reaction topic,
   omitting rows with no qualifying item. These replace temporary labels on
   ordinary Home articles; they do not change trends ranks.
 - News uses one text-tab row in this fixed order: `전체 뉴스 | 언론사 | 정치 |

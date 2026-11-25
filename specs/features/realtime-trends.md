@@ -12,7 +12,10 @@
 Home's `실시간 트렌드` shows five distinct topics when the eligible corpus has
 at least five. Topics with qualifying readership come first, ordered by distinct
 viewers over the preceding three hours; latest topics fill the remaining slots
-with a `최신` label and no rank. Reads are recorded against individual articles;
+without a popularity rank. Android numbers every displayed row `1`–`5` in
+display order, including latest fillers, using the same size and alignment.
+These are list positions; filler numbering does not create a popularity rank
+or movement. Reads are recorded against individual articles;
 `Article.story_cluster` provides the existing topic boundary. A viewer reading
 three comparison articles about one topic contributes one viewer to that topic.
 An unclustered article is its own topic, as in the story feed.
@@ -30,7 +33,7 @@ Initial policy constants:
 | Qualifying read | Article body rendered while Reader is foreground for 3 uninterrupted seconds |
 | Rolling window | 3 hours, based on server-controlled UTC time |
 | Ranked topics | At most 5, each with at least 1 qualifying distinct viewer |
-| Latest-news fill | Fill to 5 distinct eligible topics; no rank or movement on fillers |
+| Latest-news fill | Fill to 5 distinct eligible topics; API rank stays null and fillers have no movement; Android shows sequential list positions |
 | Refresh eligibility | 5 minutes after the last successful calculation |
 | Retry after a handled refresh failure | 1 minute |
 | Maximum display age | 15 minutes from successful calculation |
@@ -198,7 +201,7 @@ already loaded by the current client. Order by:
    present there follow the previously ranked topics with the same count;
 3. `story_key` ascending as the final deterministic tie-breaker.
 
-Ranks are unique display positions 1 through N, not competition-style shared
+Popularity ranks are unique positions 1 through N, not competition-style shared
 positions (`1, 1, 3`). A tie at the fifth-place cutoff does not expand the list.
 If tied topics have no previous rank, their stable keys decide the cutoff.
 No request-time randomness, artificial recency bonus, or hidden minimum count
@@ -216,9 +219,9 @@ fillers never serve as a previous popularity rank. When comparison is enabled:
   claim that the article was just published);
 - unchanged rank: no indicator.
 
-| Distinct qualifying topics | Result |
+| Distinct qualifying topics | Snapshot result (Android numbers every displayed row) |
 | --- | --- |
-| 0 | Up to five latest topics; no ranks or movement |
+| 0 | Up to five latest topics; no popularity ranks or movement |
 | 1–4 | Those ranked topics, then latest topics to fill five; no movement anywhere |
 | 5 or more | Five popular topics; movement only with a complete, recent previous baseline |
 
@@ -301,7 +304,10 @@ the payload retains those fields solely for cache age, expiry, and backoff.
 Expand/collapse is offered only for more than two
 returned entries and preserves current expansion state when data refreshes.
 Use standard vector arrows only for real movement. Do not add an inert info
-badge or expose SQL/internal IDs. Latest fillers show `최신` instead of a rank.
+badge or expose SQL/internal IDs. Number every returned row sequentially from
+`1` with identical typography, including latest fillers; do not show `최신` in
+the number column. Accessibility names the display position (`1번`), not a
+fabricated popularity rank. Movement requires a `POPULAR` entry with a real rank.
 
 Load trends independently on Home entry/resume and pull-to-refresh. Reuse a
 fresh local result for five minutes; do not poll in the background or on each

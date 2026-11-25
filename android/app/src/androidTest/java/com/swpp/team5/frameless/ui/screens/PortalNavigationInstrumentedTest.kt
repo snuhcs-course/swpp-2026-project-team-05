@@ -154,7 +154,9 @@ class PortalNavigationInstrumentedTest {
                         story("s$it", "최신 기사 $it"))
                 }))
             }
-            compose.onNodeWithContentDescription("실시간 트렌드 최신, 최신 기사 1").assertIsDisplayed()
+            compose.onNodeWithContentDescription("실시간 트렌드 1번, 최신 기사 1").assertIsDisplayed()
+            compose.onNodeWithText("1", useUnmergedTree = true).assertIsDisplayed()
+            compose.onAllNodesWithText("최신", substring = false).assertCountEquals(0)
             if (count > 2) compose.onNodeWithContentDescription("실시간 트렌드 펼치기").assertIsDisplayed()
             else compose.onNodeWithContentDescription("실시간 트렌드 펼치기").assertDoesNotExist()
         }
@@ -184,10 +186,44 @@ class PortalNavigationInstrumentedTest {
         compose.onAllNodesWithText("최근 3시간", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("기준", substring = true).assertCountEquals(0)
         compose.onNodeWithContentDescription("실시간 트렌드 펼치기").performClick()
-        compose.onNodeWithContentDescription("실시간 트렌드 최신, 트렌드 기사 5").assertIsDisplayed().performClick()
+        for (position in 1..5) {
+            compose.onNodeWithText(position.toString(), useUnmergedTree = true).assertIsDisplayed()
+        }
+        compose.onNodeWithContentDescription("실시간 트렌드 5번, 트렌드 기사 5").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("t5", opened) }
         compose.onNodeWithContentDescription("실시간 트렌드 접기").performClick()
         compose.onAllNodesWithText("트렌드 기사 5").assertCountEquals(0)
+    }
+
+    @Test
+    fun mixedTrendsUseConsecutivePositionsWithoutFillerMovement() {
+        var opened: String? = null
+        // A removed snapshot entry can leave a gap in the server's popularity ranks.
+        val entries = listOf(
+            com.swpp.team5.frameless.data.TrendItem("POPULAR", 1, null, null, story("m1", "인기 기사")),
+            com.swpp.team5.frameless.data.TrendItem("POPULAR", 3, null, null, story("m2", "다음 인기 기사"))
+        ) + (3..5).map {
+            com.swpp.team5.frameless.data.TrendItem("LATEST", null, null, null, story("m$it", "보충 기사 $it"))
+        }
+        compose.setContent {
+            FrameLESSTheme {
+                PortalHomeScreen(emptyList(), emptyList(), false, null, rememberLazyListState(),
+                    onSearch = {}, onArticle = { opened = it }, onProfile = {}, onSubscriptions = {}, onRetry = {},
+                    trends = com.swpp.team5.frameless.ui.viewmodel.TrendsState(
+                        page = com.swpp.team5.frameless.data.TrendPage("2026-11-25T09:00:00Z", false, entries)))
+            }
+        }
+        compose.onNodeWithContentDescription("실시간 트렌드 펼치기").performClick()
+        entries.forEachIndexed { index, item ->
+            compose.onNodeWithText((index + 1).toString(), useUnmergedTree = true).assertIsDisplayed()
+            compose.onNodeWithContentDescription("실시간 트렌드 ${index + 1}번, ${item.story.representativeArticle.title}")
+                .performClick()
+            compose.runOnIdle { assertEquals(item.story.representativeArticle.id, opened) }
+        }
+        compose.onAllNodesWithText("최신", substring = false).assertCountEquals(0)
+        compose.onAllNodesWithText("NEW", substring = false).assertCountEquals(0)
+        compose.onNodeWithContentDescription("순위 상승").assertDoesNotExist()
+        compose.onNodeWithContentDescription("순위 하락").assertDoesNotExist()
     }
     private val publisher = PublisherItem("yna", "연합뉴스", null, recentArticles = listOf(
         PublisherArticlePreview("a1", "정부, 새 정책 발표", "2026-11-24T09:00:00+09:00"),
