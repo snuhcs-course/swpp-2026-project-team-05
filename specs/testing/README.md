@@ -52,6 +52,10 @@ removed or edited.
 that intentionally replace one of its assumptions belong in a new version such
 as `acceptance-v2.spec.md`, preserving the old plan as historical evidence.
 
+The existing `acceptance-v2.spec.md` is an unfrozen 2026-11-14 supplement, not
+the later five-story Iteration 4 UAT sheet or a passing current-portal run.
+Use current feature oracles when preparing the next reviewed acceptance revision.
+
 `story-feed.spec.md` covers the topic-grouped discovery contract and explicitly
 keeps search, publisher pages, and Saved article-based.
 
@@ -66,3 +70,9 @@ verification evidence are recorded alongside remaining `Tip` coverage gaps.
 
 `demo-activity.spec.md` covers the explicitly requested, repeatable shared-dataset
 demo seed and its ordinary-account isolation, cleanup, and rollback boundaries.
+
+`news-loading-cache.spec.md` covers cache reuse, viewer transitions, invalidation,
+query shape and offline fallbacks. `account-security.spec.md` covers the deployed
+Stage 1 credential/DB boundary; its Stage 2 section is a deferred proposal,
+not implemented coverage. Current results and the unchanged iteration records
+are kept in `docs/testing-documentation.md`.

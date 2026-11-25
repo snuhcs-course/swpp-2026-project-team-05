@@ -82,7 +82,7 @@ authenticated offline Saved reads.
   `com.swpp.team5.frameless.data.NewsCacheTest.savedSnapshotsAreIsolatedAndClearedPerUser`
 - [Component] Selecting Saved as a guest shows its in-place authentication
   state and does not open Login until an explicit button is selected.\
-  Tip: add a root-shell Compose test after the guest Saved state is implemented.
+  Tip: add a root-shell Compose test for the implemented guest Saved state.
 - [Component] A guest subscription or bookmark action keeps its origin visible,
   sends no protected request, and opens the shared contextual auth sheet.\
   Tip: add publisher-directory and Reader-origin Compose tests.
@@ -173,6 +173,9 @@ authenticated offline Saved reads.
 - [Component] Saved and source management use the same sign-in path, and a
   successful login returns to the prior route without replaying a mutation.\
   Tip: add the successful-login return assertion for each protected entry point.
+  Direct guest `/saved` currently redirects without a return destination in
+  `web/src/App.tsx`; that remains an implementation gap. Reader bookmark and
+  navigation sign-in links already pass their public origin.
 - [Security regression] React Query keys distinguish guest and user identities,
   and account changes cannot display stale saved/followed flags.\
   Tip: render guest, user A, guest, and user B against one QueryClient.

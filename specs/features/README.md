@@ -47,9 +47,14 @@ table rather than stored counters or a second ranking subsystem.
 contracts. `telemetry.md` records Firebase's conditional setup, event vocabulary,
 and current portal coverage limits.
 
+`news-loading-cache.md` defines shared, viewer-scoped Android read reuse,
+complete-Saved-only offline fallback, portal section restoration and the existing
+Web query cache's Saved/hash consistency. It adds no server cache service.
+
 `account-security.md` Stage 1 implements shared login/registration limits,
-backend-only database access, no-store authentication responses and Android secure-storage/backup recovery.
-It adds one short-lived throttle table while preserving bearer sessions. Stage 2
-browser cookie/CSRF transport remains draft; mail-based verification/recovery is
+backend-only database access, no-store authentication responses and Android
+secure-storage/backup recovery. It adds one short-lived throttle table while
+preserving bearer sessions. Stage 2 browser cookie/CSRF transport is deferred
+and unimplemented; mail-based verification/recovery is
 separate follow-up work. The linked test specification distinguishes local
 executable evidence from deployment and device checks still pending.

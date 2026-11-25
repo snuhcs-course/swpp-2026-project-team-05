@@ -1,5 +1,8 @@
 # Iteration 3 demo recording plan
 
+Historical Iteration 3 recording plan. The named stories and feed navigation
+belong to that release; this is not a recording checklist for the current portal.
+
 Target length: 75–90 seconds. Record a real Android device in portrait with the
 production backend. Start signed in so no credential appears. Do not edit away a
 failed interaction; restart the recording instead.

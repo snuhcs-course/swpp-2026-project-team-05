@@ -2,19 +2,22 @@
 
 **한 기사를 읽으면서, 같은 사건을 다룬 다른 언론사의 표현을 함께 확인하는 뉴스 앱**
 
-FrameLESS는 정치·사회 기사를 일반 뉴스 앱처럼 탐색하고 읽는 경험 위에
+FrameLESS는 정치·사회·경제 기사를 일반 뉴스 앱처럼 탐색하고 읽는 경험 위에
 문장 단위 표현 분석을 더합니다. 분석된 표현을 선택하면 그 표현의 설명과
 같은 내용을 다룬 다른 언론사의 근거 문장을 확인할 수 있습니다. FrameLESS는
 어느 보도가 옳거나 편향되었다고 판정하지 않습니다.
 
 ## 주요 기능
 
-- 정치·사회 기사 피드와 언론사 팔로우 피드
+- 비로그인 기사 탐색과 Android의 주제별 Home·News 피드
+- 언론사 구독과 선택한 구독 언론사의 기사 목록
 - 전체 기사 본문 검색과 분야별 결과 필터
 - 기사 전문 읽기와 저장 목록
 - 검토된 표현 분석 표시와 설명
 - 같은 쟁점을 다룬 다른 언론사의 대응 문장 및 원문 링크
 - Android와 Web에서 공유하는 계정·기사·분석 데이터
+- Android의 최근 조회 기반 트렌드, 기사 반응과 속보·이슈
+- Android에서 기기에 완전히 저장된 Saved 기사·분석 오프라인 읽기
 
 일반 사용자의 읽기 경로는 미리 검토해 데이터베이스에 저장한 분석 결과를
 사용합니다. 피드나 Reader를 여는 동작은 LLM 분석을 새로 시작하지 않습니다.
@@ -47,9 +50,16 @@ npm install
 npm run dev
 ```
 
-개발 서버는 기본적으로 배포된 팀 API에 요청을 전달합니다. 다른 백엔드를
-사용하려면 `web/.env.example`을 `web/.env.local`로 복사하고
-`VITE_API_BASE_URL`을 설정합니다.
+개발 서버는 기본적으로 배포된 팀 API에 요청을 전달합니다. 로컬 백엔드를
+사용할 때는 `web/`에서 아래와 같이 실행합니다. `VITE_API_BASE_URL`은 빈 값으로
+두어 브라우저가 같은 출처의 `/api` 프록시를 사용하게 합니다.
+
+```sh
+VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npm run dev
+```
+
+현재 두 클라이언트는 bearer session을 사용합니다. 웹의 HttpOnly 쿠키 전환은
+보류되어 있으며 이메일 인증·비밀번호 찾기는 아직 구현하지 않았습니다.
 
 ## Backend 실행
 
@@ -72,8 +82,8 @@ Gemini, NAVER 키는 일반 뉴스 읽기 API에는 필요하지 않으며, 분�
 
 ```sh
 FRAMELESS_USE_SQLITE=1 .venv/bin/python manage.py test
-cd web && npm test && npm run lint && npm run build
-cd android && ./gradlew :app:jacocoDebugUnitTestReport :app:lintDebug :app:assembleDebug
+(cd web && npm test && npm run lint && npm run build)
+(cd android && ./gradlew :app:jacocoDebugUnitTestReport :app:lintDebug :app:assembleDebug)
 ```
 
 GitHub Actions의 `Verify` workflow가 pull request와 `main`의 최종 병합
@@ -83,7 +93,7 @@ GitHub Actions의 `Verify` workflow가 pull request와 `main`의 최종 병합
 
 - [제품·UI·기능 스펙](specs/README.md)
 - [테스트 전략과 결과](docs/testing-documentation.md)
-- [Iteration 3 데모 촬영 흐름](docs/iteration-3-demo-recording-plan.md)
+- [Iteration 3 데모 촬영 흐름 — 과거 기록](docs/iteration-3-demo-recording-plan.md)
 - [백엔드 개발·배포 안내](docs/backend.md)
 - [현재 문서와 보관 자료 안내](docs/README.md)
 - [Requirements and Specifications Wiki](https://github.com/snuhcs-course/swpp-2026-project-team-05/wiki/Requirements-and-Specifications)

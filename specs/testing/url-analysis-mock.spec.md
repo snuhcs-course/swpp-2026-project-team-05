@@ -26,9 +26,12 @@ tests.
 - [Acceptance] A completed zero-result search keeps its editable field and clear
   control, with no separate re-enter button, URL-analysis action, or sheet.\
   Tested by: `com.swpp.team5.frameless.ui.screens.NewsScreensInstrumentedTest.zeroResultSearchOffersOnlyARegularSearchRecovery`
-- [Acceptance] The home menu exposes tutorial replay but no link-analysis
-  entry.\
-  Tested by: `com.swpp.team5.frameless.ui.screens.FeedHomeRefreshInstrumentedTest.headerMenuOffersOnlyTutorialReplay`
+- [Acceptance] Ordinary Home/News navigation exposes no URL input or
+  link-analysis action; tutorial replay follows the current all-topics/MY
+  contract.\
+  Tip: add an app-shell absence check. The retained
+  `FeedHomeRefreshInstrumentedTest.headerMenuOffersOnlyTutorialReplay` covers
+  the legacy feed menu, not the current portal's navigation.
 
 ## Boundaries
 

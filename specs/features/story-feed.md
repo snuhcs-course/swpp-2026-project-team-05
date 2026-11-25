@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Status | Implemented |
-| Version | 1.0 |
-| Date | 2026-11-24 |
+| Version | 1.1 |
+| Date | 2026-11-25 |
 | API | Django JSON API |
 | Initial client | Android |
 
@@ -25,7 +25,7 @@ analysis, or add a topic-detail screen.
 | Surface | Unit | Reason |
 | --- | --- | --- |
 | Home subscribed-publisher section | Article | Read the chosen subscribed outlet's latest articles |
-| News `뉴스` tab | Topic | Scan mixed Politics, Society, and Economy coverage |
+| News `전체 뉴스` tab | Topic | Scan mixed Politics, Society, and Economy coverage |
 | News `정치`, `사회`, `경제` tabs | Topic | Apply the same deduplication inside a category |
 | News `언론사` tab | Publisher, then article | Users deliberately browse one outlet |
 | Search results | Article | A query may target a particular headline, outlet, or passage |

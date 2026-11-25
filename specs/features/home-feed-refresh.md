@@ -134,6 +134,7 @@ backend data and are out of scope for this phase.
 
 ## 7. Related specification note
 
-- [`first-run-tutorial.md`](first-run-tutorial.md) §2 describes a header `?`
-  button left of `+`. After this change the replay is the `튜토리얼 다시 보기`
-  menu item. (The reader's label-guide `?` button in §4 is unaffected.)
+- This archived phase moved tutorial replay into the legacy feed menu. Current
+  replay entries are the all-topics News section and MY, as defined in
+  [`first-run-tutorial.md`](first-run-tutorial.md). The Reader label-guide `?`
+  remains a separate control.

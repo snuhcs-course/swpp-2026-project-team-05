@@ -37,8 +37,8 @@ label guide dialog.
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.replayShowsIntroAgainAndRearmsTheReaderCoach`
 - [Component] The replay/help action appears in the all-topics `전체 뉴스` section
   and MY, but not in `언론사`, `정치`, `사회`, or `경제`.\
-  Tip: add semantics-driven Compose coverage after the News section shell is
-  implemented.
+  Tip: add semantics-driven app-shell coverage for the implemented section and
+  MY entries; retained legacy feed-menu tests do not establish this routing.
 - [Acceptance] Onboarding page 3 lists A–G with the chip label and a one-line
   summary; a signed-in replay hides `로그인하러 가기`.\
   Tip: add a Compose UI test that pages to the third page.
@@ -78,6 +78,12 @@ label guide dialog.
   Reader integration test.
 
 ### State transitions
+
+- [Acceptance] System Back on an intro page goes to its previous page; Back on
+  the first page completes/dismisses the intro and returns to its origin,
+  including MY for a settings replay.\
+  Tip: add an `OnboardingScreen`/`FrameLESSApp` navigation test; this behavior
+  is not established by the Reader coach's separate Back cases.
 
 - [Unit] Skipping at step 1 is persisted and the coach never restarts.\
   Tested by: `com.swpp.team5.frameless.ui.viewmodel.TutorialViewModelTest.skippingAtFirstStepIsRememberedAndCoachDoesNotRestart`

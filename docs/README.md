@@ -9,15 +9,21 @@
 - [`backend.md`](backend.md): 현재 뉴스 API, 로컬 실행, 배포 경계
 - [`testing-documentation.md`](testing-documentation.md): 현재 테스트 전략과
   날짜·리비전이 명시된 결과
-- [`iteration-3-demo-recording-plan.md`](iteration-3-demo-recording-plan.md):
-  Iteration 3 데모 촬영 순서
-- [`cluster-analysis-pipeline-lessons.md`](cluster-analysis-pipeline-lessons.md):
-  아직 제품 읽기 경로에 포함되지 않은 향후 자동 분석의 설계 교훈
+- 현재 기능·UI·API 계약은 [`specs/`](../specs/README.md), 실행 가능한 검증과
+  남은 공백은 [`specs/testing/`](../specs/testing/README.md)에서 확인합니다.
 
 `testing-documentation.md`의 측정 결과는 해당 행에 적힌 커밋과 환경에만
 적용됩니다. 현재 `main`의 결과로 일반화해서 읽지 않습니다.
 
 ## Archived documents
+
+파일 경로를 유지하는 다음 자료도 현재 구현 지시가 아닌 과거 기록입니다.
+
+- [`iteration-3-demo-recording-plan.md`](iteration-3-demo-recording-plan.md):
+  당시 APK·6기사 데이터셋에 맞춘 촬영 흐름; 현재 UI 촬영 지침으로 사용하지 않습니다.
+- [`cluster-analysis-pipeline-lessons.md`](cluster-analysis-pipeline-lessons.md):
+  2026-10-31 수동 파일럿의 설계 교훈; 현행 staged 호환 API와 정규화 import는
+  각 feature 스펙과 backend 안내를 따릅니다.
 
 `archive/`는 당시 상태를 보존하는 역사 자료입니다. 현재 요구사항이나 운영
 상태의 근거로 사용하지 않습니다.

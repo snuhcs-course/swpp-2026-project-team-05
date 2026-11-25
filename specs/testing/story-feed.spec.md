@@ -39,7 +39,10 @@ predictably.
 10. Android has no Latest/Following control; the visible News sections are
     `전체 뉴스`, `언론사`, `정치`, `사회`, and `경제`, and the tutorial entry appears
     only in `전체 뉴스`.
-    Tip: add semantics-driven Compose coverage for the section row.
+    Tested by: `PortalNavigationInstrumentedTest.newsTabsNameTheirScopeAndExposeSelection`
+    for the all-topics label and selected section actions.
+    Tip: extend the case to every section, absence of the old scope control and
+    tutorial placement. Component source is not a new device execution result.
 11. The publisher directory shows publisher identity, subscription state, and
     at most three recent headlines; selecting a publisher opens its exact
     article-level list.  
@@ -64,7 +67,8 @@ predictably.
     Tested by: `NewsApiClientTest.storyFeedFallsBackToArticlesDuringServerRollout`
 16. Appearance defaults to the device setting, explicit Light/Dark selections
     override it, and the selection is stored locally.
-    Tested by: `AppearanceViewModelTest`
+    Tested by: `AppearanceViewModelTest.systemModeTracksDeviceWhileExplicitModesOverrideIt`,
+    `AppearanceViewModelTest.selectionIsPersistedAndReflectedImmediately`.
 17. Home and general/category News must retain the existing offline policy:
     only complete local Saved copies may replace an unavailable discovery feed,
     with no continuation cursor; no Saved copies means an explicit offline-empty
